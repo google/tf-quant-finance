@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for google3.area120.nomisma.tensorflow.math.stateless_random_ops."""
+"""Tests for random.stateless_random_ops."""
 
 from __future__ import absolute_import
 from __future__ import division

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Lint as: python2, python3
-"""Tests for Linear Interpolation methods."""
+"""Tests for interpolation.linear_interpolation."""
 
 from __future__ import absolute_import
 from __future__ import division

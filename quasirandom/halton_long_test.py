@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Lint as: python2, python3
-"""Tests for halton.py that are particularly long."""
+"""Tests for quasirandom.halton that are particularly long."""
 
 from __future__ import absolute_import
 from __future__ import division

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Lint as: python2, python3
-"""Tests for google3.area120.nomisma.tensorflow.qmc.sobol."""
+"""Tests for quasirandom.sobol."""
 
 from __future__ import absolute_import
 from __future__ import division
