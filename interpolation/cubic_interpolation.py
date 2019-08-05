@@ -62,8 +62,7 @@ Alternate Source: [4]
            ...
            ]
 
-  with tf.Session() as sess:
-    y = sess.run(cubic_interpolation.interpolate(x_args, spline))
+  y = cubic_interpolation.interpolate(x_args, spline)
   ```
 
   - using interpolate with x_values outside of [min(spline_x), max(spline_x))
@@ -101,7 +100,7 @@ def build(x_data, y_data, name=None, dtype=None, validate_args=False):
       exception.
     y_data: `Tensor` of `float` containing y coordinates of points to fit the
       splines to. It has the same shape as `x_data`
-    name: name of the operation
+    name: Name of the operation
     dtype: Optional dtype for both `x_data` and `y_data`
     validate_args: Python `bool` indicating whether to validate arguments such
       as that x coordinates must be strictly monotonic increasing
@@ -144,9 +143,9 @@ def build(x_data, y_data, name=None, dtype=None, validate_args=False):
       dtype: Optional dtype for both `x_data` and `y_data`
 
     Returns:
-       the solution to the tridiagonal matrix.
+       The solution to the tridiagonal system of equations.
 
-    Do this by building and solve the tridiagonal matrix of the shape of
+    Do this by building and solving a linear system of equaitons with matrix
 
      w2,  dx2,   0,   0,   0
      dx2,  w3, dx3,   0,   0
@@ -159,7 +158,7 @@ def build(x_data, y_data, name=None, dtype=None, validate_args=False):
      dxn = x[n-1] - x[n-2]
 
 
-     the right hand side of the equation is:
+     and the right hand side of the equation is:
      [[3*( (d2-d1)/X1 - (d1-d0)/x0],
       [3*( (d3-d2)/X2 - (d2-d1)/x1],
       ...
@@ -238,7 +237,7 @@ def interpolate(x_values,
        validate_args: Python `bool` indicating whether to validate that the
          x_values are within spline boundaries
        dtype: Optional dtype for both `x_data` and `y_data`
-       name: optional name of the operation
+       name: Optional name of the operation
 
   Returns:
       A `Tensor` of `float` that represent the y_values interpolated
