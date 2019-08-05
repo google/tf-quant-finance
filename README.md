@@ -1,4 +1,4 @@
-# High-performance library for quantitative finance using TensorFlow
+# High-performance TensorFlow library for quantitative finance
 
 This library provides high-performance methods leveraging the hardware acceleration support and automatic differentation of TensorFlow. The initial library will provide TensorFlow support for foundational mathematical methods, mid-level methods, and specific pricing models. These will be significantly expanded over next months.
 
