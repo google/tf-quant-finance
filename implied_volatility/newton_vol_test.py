@@ -22,7 +22,7 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
-from google3.testing.pybase import parameterized
+from absl.testing import parameterized
 from nomisma_quant_finance.implied_volatility import newton_vol
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 

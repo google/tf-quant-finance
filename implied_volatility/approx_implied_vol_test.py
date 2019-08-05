@@ -24,7 +24,7 @@ import tensorflow as tf
 
 import nomisma_quant_finance.implied_volatility.approx_implied_vol as approx_implied_vol
 import nomisma_quant_finance.vanilla.black_scholes as black_scholes
-from google3.testing.pybase import parameterized
+from absl.testing import parameterized
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
