@@ -31,6 +31,7 @@ def polya(option_prices,
           is_call_options=None,
           validate_args=False,
           polya_factor=(2 / np.pi),
+          dtype=None,
           name=None):
   """Approximates the implied vol using the Stefanica-Radiocic algorithm.
 
@@ -86,6 +87,10 @@ def polya(option_prices,
         value `2 / pi` and this is approximation used in Ref [1]. However, as
         described in Ref [2], a slightly more accurate approximation is achieved
         if we use the value of `k=5/8`).
+    dtype: `tf.Dtype` to use when converting arguments to `Tensor`s. If not
+      supplied, the default Tensorflow conversion will take place. Note that
+      this argument does not do any casting for `Tensor`s or numpy arrays.
+      Default value: None.
     name: (Optional) Python str. The name prefixed to the ops created by this
       function. If not supplied, the default name 'approx_implied_vol_polya' is
       used.
@@ -101,12 +106,14 @@ def polya(option_prices,
       for call options, if the inequality: `max(F-K, 0) <= Price <= F` is
       violated and an analogous constraint for puts.)
   """
-  with tf.name_scope(name, 'approx_implied_vol_polya', [
-      option_prices, forwards, strikes, expiries, discount_factors,
-      is_call_options
-  ]):
-    option_prices = tf.convert_to_tensor(option_prices)
-    dtype = option_prices.dtype
+  with tf.compat.v1.name_scope(
+      name,
+      default_name='approx_implied_vol_polya',
+      values=[
+          option_prices, forwards, strikes, expiries, discount_factors,
+          is_call_options
+      ]):
+    option_prices = tf.convert_to_tensor(option_prices, dtype=dtype)
     forwards = tf.convert_to_tensor(forwards, dtype=dtype)
     strikes = tf.convert_to_tensor(strikes, dtype=dtype)
     expiries = tf.convert_to_tensor(expiries, dtype=dtype)
@@ -123,7 +130,7 @@ def polya(option_prices,
                                                    strikes, expiries,
                                                    discount_factors,
                                                    is_call_options)
-    with tf.control_dependencies(control_inputs):
+    with tf.compat.v1.control_dependencies(control_inputs):
       adjusted_strikes = strikes * discount_factors
       normalized_prices = option_prices / adjusted_strikes
       normalized_forwards = forwards / strikes
@@ -162,8 +169,9 @@ def _approx_implied_vol_polya(normalized_prices, normalized_forwards, expiries,
                               is_call_options, polya_factor):
   """Computes approximate implied vol using the Stefanica-Radoicic algorithm.
 
-  ## Implementation Notes: The mapping between the notation used in the
-  reference paper and the code below is as follows:
+  ## Implementation Notes
+  The mapping between the notation used in the reference paper and the code
+  below is as follows:
     y -> log_normalized_forwards
     alpha_c -> normalized_prices
   This notation is used in the in-line comments.

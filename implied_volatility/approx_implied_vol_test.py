@@ -36,32 +36,42 @@ class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
     """Basic test of the implied vol calculation."""
     np.random.seed(6589)
     n = 100
-    volatilities = np.exp(np.random.randn(n) / 2)
-    forwards = np.exp(np.random.randn(n))
-    strikes = forwards * (1 + (np.random.rand(n) - 0.5) * 0.2)
-    expiries = np.exp(np.random.randn(n))
-    prices = self.evaluate(
-        black_scholes.option_price(forwards, strikes, volatilities, expiries))
+    dtypes = [np.float32, np.float64]
+    for dtype in dtypes:
+      volatilities = np.exp(np.random.randn(n).astype(dtype) / 2)
+      forwards = np.exp(np.random.randn(n).astype(dtype))
+      strikes = forwards * (1 + (np.random.rand(n).astype(dtype) - 0.5) * 0.2)
+      expiries = np.exp(np.random.randn(n).astype(dtype))
+      prices = self.evaluate(
+          black_scholes.option_price(forwards, strikes, volatilities, expiries))
 
-    implied_vols = self.evaluate(
-        approx_implied_vol.polya(prices, forwards, strikes, expiries))
-    self.assertArrayNear(volatilities, implied_vols, 0.6)
+      implied_vols = self.evaluate(
+          approx_implied_vol.polya(
+              prices, forwards, strikes, expiries, dtype=dtype))
+      self.assertArrayNear(volatilities, implied_vols, 0.6)
 
   def test_polya_implied_vol_validate(self):
     """Test the Radiocic-Polya approx doesn't raise where it shouldn't."""
     np.random.seed(6589)
     n = 100
-    volatilities = np.exp(np.random.randn(n) / 2)
-    forwards = np.exp(np.random.randn(n))
-    strikes = forwards * (1 + (np.random.rand(n) - 0.5) * 0.2)
-    expiries = np.exp(np.random.randn(n))
-    prices = self.evaluate(
-        black_scholes.option_price(forwards, strikes, volatilities, expiries))
+    dtypes = [np.float32, np.float64]
+    for dtype in dtypes:
+      volatilities = np.exp(np.random.randn(n).astype(dtype) / 2)
+      forwards = np.exp(np.random.randn(n).astype(dtype))
+      strikes = forwards * (1 + (np.random.rand(n).astype(dtype) - 0.5) * 0.2)
+      expiries = np.exp(np.random.randn(n).astype(dtype))
+      prices = self.evaluate(
+          black_scholes.option_price(forwards, strikes, volatilities, expiries))
 
-    implied_vols = self.evaluate(
-        approx_implied_vol.polya(
-            prices, forwards, strikes, expiries, validate_args=True))
-    self.assertArrayNear(volatilities, implied_vols, 0.6)
+      implied_vols = self.evaluate(
+          approx_implied_vol.polya(
+              prices,
+              forwards,
+              strikes,
+              expiries,
+              validate_args=True,
+              dtype=dtype))
+      self.assertArrayNear(volatilities, implied_vols, 0.6)
 
   @parameterized.named_parameters(
       # This case should hit the call lower bound since C = F - K.
@@ -75,20 +85,23 @@ class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
   def test_polya_implied_vol_validate_raises(self, price, forward, strike,
                                              expiry, is_call_option):
     """Test the Radiocic-Polya approximation raises appropriately."""
-    prices = np.array([price])
-    forwards = np.array([forward])
-    strikes = np.array([strike])
-    expiries = np.array([expiry])
-    is_call_options = np.array([is_call_option])
-    with self.assertRaises(tf.errors.InvalidArgumentError):
-      implied_vols = approx_implied_vol.polya(
-          prices,
-          forwards,
-          strikes,
-          expiries,
-          is_call_options=is_call_options,
-          validate_args=True)
-      self.evaluate(implied_vols)
+    dtypes = [np.float32, np.float64]
+    for dtype in dtypes:
+      prices = np.array([price]).astype(dtype)
+      forwards = np.array([forward]).astype(dtype)
+      strikes = np.array([strike]).astype(dtype)
+      expiries = np.array([expiry]).astype(dtype)
+      is_call_options = np.array([is_call_option])
+      with self.assertRaises(tf.errors.InvalidArgumentError):
+        implied_vols = approx_implied_vol.polya(
+            prices,
+            forwards,
+            strikes,
+            expiries,
+            is_call_options=is_call_options,
+            validate_args=True,
+            dtype=dtype)
+        self.evaluate(implied_vols)
 
 
 if __name__ == '__main__':
