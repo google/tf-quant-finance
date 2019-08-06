@@ -18,13 +18,14 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from absl.testing import parameterized
 
 import numpy as np
 import tensorflow as tf
 
 import nomisma_quant_finance.implied_volatility.approx_implied_vol as approx_implied_vol
 import nomisma_quant_finance.vanilla.black_scholes as black_scholes
-from absl.testing import parameterized
+
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
