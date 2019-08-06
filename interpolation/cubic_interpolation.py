@@ -64,9 +64,8 @@ Alternate Source: [4]
 
   y = cubic_interpolation.interpolate(x_args, spline)
   ```
-
-  - using interpolate with x_values outside of [min(spline_x), max(spline_x))
-    will result in an exception
+Using interpolate with x_values outside of [min(spline_x), max(spline_x))
+will result in an exception
 """
 
 from __future__ import absolute_import
