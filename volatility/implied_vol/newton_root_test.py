@@ -23,7 +23,7 @@ from absl.testing import parameterized
 import numpy as np
 import tensorflow as tf
 
-from nomisma_quant_finance.implied_volatility import newton_vol
+from nomisma_quant_finance.volatility.implied_vol import newton_root
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -44,8 +44,7 @@ class NewtonVolTest(parameterized.TestCase, tf.test.TestCase):
       return objective, gradient
 
     # Obtain and evaluate a tensor containing the roots.
-    roots = newton_vol.newton_root_finder(objective_and_gradient,
-                                          initial_values)
+    roots = newton_root.root_finder(objective_and_gradient, initial_values)
     root_values, converged, failed = self.evaluate(roots)
 
     # Reference values.
@@ -72,8 +71,7 @@ class NewtonVolTest(parameterized.TestCase, tf.test.TestCase):
       return objective, gradient
 
     # Obtain and evaluate a tensor containing the roots.
-    roots = newton_vol.newton_root_finder(objective_and_gradient,
-                                          initial_values)
+    roots = newton_root.root_finder(objective_and_gradient, initial_values)
     _, converged, failed = self.evaluate(roots)
 
     # Reference values - we should not have converged and should have failed.
@@ -97,7 +95,7 @@ class NewtonVolTest(parameterized.TestCase, tf.test.TestCase):
       return objective, gradient
 
     # Obtain and evaluate a tensor containing the roots.
-    roots = newton_vol.newton_root_finder(
+    roots = newton_root.root_finder(
         objective_and_gradient, initial_values, max_iterations=1)
     _, converged, failed = self.evaluate(roots)
 
@@ -121,14 +119,14 @@ class NewtonVolTest(parameterized.TestCase, tf.test.TestCase):
     prices = np.array([
         0.38292492, 0.19061012, 0.38292492, 0.09530506, 0.27632639, 0.52049988
     ])
-    results = newton_vol.newton_implied_vol(
+    results = newton_root.implied_vol(
         forwards,
         strikes,
         expiries,
         discounts,
         prices,
-        init_vols,
         option_signs,
+        initial_volatilities=init_vols,
         max_iterations=100)
     implied_vols, converged, failed = self.evaluate(results)
     num_volatilities = len(volatilities)
@@ -147,8 +145,8 @@ class NewtonVolTest(parameterized.TestCase, tf.test.TestCase):
     prices = np.array([
         0.38292492, 0.19061012, 0.38292492, 0.09530506, 0.27632639, 0.52049988
     ])
-    results = newton_vol.implied_vol(forwards, strikes, expiries, discounts,
-                                     prices, option_signs)
+    results = newton_root.implied_vol(forwards, strikes, expiries, discounts,
+                                      prices, option_signs)
     implied_vols, converged, failed = self.evaluate(results)
     num_volatilities = len(volatilities)
     self.assertAllEqual(np.ones(num_volatilities, dtype=np.bool), converged)
@@ -174,8 +172,8 @@ class NewtonVolTest(parameterized.TestCase, tf.test.TestCase):
     option_signs = np.array([option_sign])
     discounts = np.array([1.0])
     with self.assertRaises(tf.errors.InvalidArgumentError):
-      results = newton_vol.implied_vol(forwards, strikes, expiries, discounts,
-                                       prices, option_signs)
+      results = newton_root.implied_vol(forwards, strikes, expiries, discounts,
+                                        prices, option_signs)
       self.evaluate(results)
 
 

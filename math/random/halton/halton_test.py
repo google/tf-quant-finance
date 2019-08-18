@@ -24,7 +24,7 @@ from six.moves import range
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from nomisma_quant_finance.quasirandom import halton
+from nomisma_quant_finance.math.random import halton
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 # TODO: Remove dependency on contrib, which is being deprecated.

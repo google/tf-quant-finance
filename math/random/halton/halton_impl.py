@@ -22,10 +22,9 @@ from __future__ import print_function
 import collections
 
 import numpy as np
-from six.moves import range
 import tensorflow as tf
 
-from nomisma_quant_finance.random import stateless_random_ops
+from nomisma_quant_finance.math.random import stateless
 
 __all__ = [
     'sample',
@@ -353,8 +352,7 @@ def _get_permutations(num_results, dims, seed):
   def generate_one(d):
 
     def fn(i):
-      return stateless_random_ops.stateless_random_shuffle(
-          tf.range(d), seed=(seed + i, d))
+      return stateless.stateless_random_shuffle(tf.range(d), seed=(seed + i, d))
 
     return tf.map_fn(
         fn, sample_range, parallel_iterations=1 if seed is not None else 10)

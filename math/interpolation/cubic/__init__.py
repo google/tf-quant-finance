@@ -11,17 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""Random number samplers."""
+"""Cubic spline interpolation methods."""
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from nomisma_quant_finance.random.random_ops import multivariate_normal
-from nomisma_quant_finance.random.stateless_random_ops import stateless_random_shuffle
+from nomisma_quant_finance.math.interpolation.cubic.cubic_interpolation import build as build_spline
+from nomisma_quant_finance.math.interpolation.cubic.cubic_interpolation import interpolate
+from nomisma_quant_finance.math.interpolation.cubic.cubic_interpolation import SplineParameters
+from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
-__all__ = [
-    'multivariate_normal',
-    'stateless_random_shuffle'
+_allowed_symbols = [
+    'build_spline',
+    'interpolate',
+    'SplineParameters',
 ]
+
+remove_undocumented(__name__, _allowed_symbols)

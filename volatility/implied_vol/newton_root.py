@@ -22,16 +22,143 @@ from __future__ import print_function
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from nomisma_quant_finance.implied_volatility import approx_implied_vol
+from nomisma_quant_finance.volatility.implied_vol import polya_approx
 
 
-@tf.function
-def newton_root_finder(value_and_grad_func,
-                       initial_values,
-                       max_iterations=100,
-                       tolerance=1e-8,
-                       dtype=None,
-                       name=None):
+def implied_vol(forwards,
+                strikes,
+                expiries,
+                discounts,
+                prices,
+                option_signs,
+                initial_volatilities=None,
+                validate_args=True,
+                tolerance=1e-8,
+                max_iterations=20,
+                name=None,
+                dtype=None):
+  """Finds the implied volatilities of options under the Black Scholes model.
+
+  This method first estimates, using the Radiocic-Polya approximation, the
+  volatility of an option implied by observed market prices under the Black
+  Scholes model. This estimate is then used to initialise Newton's algorithm for
+  locating the root of a differentiable function.
+
+  The implementation assumes that each cell in the supplied tensors corresponds
+  to an independent volatility to find.
+
+  #### Examples
+  ```python
+  forwards = np.array([1.0, 1.0, 1.0, 1.0])
+  strikes = np.array([1.0, 2.0, 1.0, 0.5])
+  expiries = np.array([1.0, 1.0, 1.0, 1.0])
+  discounts = np.array([1.0, 1.0, 1.0, 1.0])
+  option_signs = np.array([1.0, 1.0, -1.0, -1.0])
+  volatilities = np.array([1.0, 1.0, 1.0, 1.0])
+  prices = black_scholes.option_price(
+      forwards,
+      strikes,
+      volatilities,
+      expiries,
+      discount_factors=discounts,
+      is_call_options=is_call_options)
+  implied_vols = newton_vol.implied_vol(forwards,
+                                        strikes,
+                                        expiries,
+                                        discounts,
+                                        prices,
+                                        option_signs)
+  with tf.Session() as session:
+    print(session.run(implied_vols[0]))
+  # Expected output:
+  # [ 1.  1.  1.  1.]
+
+  Args:
+    forwards: A real `Tensor`. The current forward prices to expiry.
+    strikes: A real `Tensor` of the same shape and dtype as `forwards`. The
+      strikes of the options to be priced.
+    expiries: A real `Tensor` of same shape and dtype as `forwards`. The expiry
+      for each option. The units should be such that `expiry * volatility**2` is
+      dimensionless.
+    discounts: A real `Tensor` of the same shape and dtype as `forwards`. The
+      total discount factors to apply.
+    prices: A real `Tensor` of the same shape and dtype as `forwards`. The
+      observed market prices to match.
+    option_signs: A real `Tensor` of same shape and dtype as `forwards`.
+      Positive one where option is a call, negative one where option is a put.
+    initial_volatilities: A real `Tensor` of the same shape and dtype as
+      `forwards`. The starting postions for Newton's method.
+      Default value: None. If not supplied, the starting point is chosen using
+        the Stefanica-Radoicic scheme. See `polya_approx.implied_vol` for
+        details.
+    validate_args: A Python bool. If True, indicates that arguments should be
+      checked for correctness before performing the computation. The checks
+      performed are: (1) Forwards and strikes are positive. (2) The prices
+        satisfy the arbitrage bounds (i.e. for call options, checks the
+        inequality `max(F-K, 0) <= Price <= F` and for put options, checks that
+        `max(K-F, 0) <= Price <= K`.). (3) Checks that the prices are not too
+        close to the bounds. It is numerically unstable to compute the implied
+        vols from options too far in the money or out of the money.
+    tolerance: `float`. The root finder will stop where this tolerance is
+      crossed.
+    max_iterations: `int`. The maximum number of iterations of Newton's method.
+    name: `str`, default "implied_vol", to be prefixed to the name of TensorFlow
+      ops created by this function.
+    dtype: optional `tf.DType`. If supplied the `forwards`, `strikes`,
+      `expiries`, `discounts`, `prices`, `initial_volatilities` and
+      `option_signs` will be coerced to this type.
+
+  Returns:
+    A three tuple of `Tensor`s, each the same shape as `forwards`. It
+    contains the implied volatilities (same dtype as `forwards`), a boolean
+    `Tensor` indicating whether the corresponding implied volatility converged,
+    and a boolean `Tensor` which is true where the corresponding implied
+    volatility is not a finite real number.
+  ```
+  """
+  with tf.compat.v1.name_scope(
+      name, "implied_vol",
+      [prices, forwards, strikes, expiries, discounts, option_signs]):
+    forwards = tf.convert_to_tensor(forwards, dtype=dtype)
+    strikes = tf.convert_to_tensor(strikes, dtype=dtype)
+    expiries = tf.convert_to_tensor(expiries, dtype=dtype)
+    discounts = tf.convert_to_tensor(discounts, dtype=dtype)
+    prices = tf.convert_to_tensor(prices, dtype=dtype)
+    option_signs = tf.convert_to_tensor(option_signs, dtype=dtype)
+    is_call_options = option_signs > 0.0
+    if initial_volatilities is None:
+      initial_volatilities = polya_approx.implied_vol(
+          prices,
+          forwards,
+          strikes,
+          expiries,
+          discount_factors=discounts,
+          is_call_options=is_call_options,
+          validate_args=validate_args)
+    else:
+      initial_volatilities = tf.convert_to_tensor(
+          initial_volatilities, dtype=dtype)
+
+    implied_vols, converged, failed = _newton_implied_vol(
+        forwards,
+        strikes,
+        expiries,
+        discounts,
+        prices,
+        initial_volatilities,
+        option_signs,
+        max_iterations=max_iterations,
+        tolerance=tolerance)
+    return implied_vols, converged, failed
+
+
+# TODO: Extract the Newton root finder to a separate module.
+def root_finder(value_and_grad_func,
+                initial_values,
+                max_iterations=20,
+                tolerance=1e-8,
+                dtype=None,
+                name=None):
   """Uses Newton's method to find roots of scalar functions of scalar variables.
 
   This method uses Newton's algorithm to find values `x` such that `f(x)=0` for
@@ -95,7 +222,7 @@ def newton_root_finder(value_and_grad_func,
     function value less than the tolerance, and a boolean `Tensor` which is true
     where the corresponding 'root' is not finite.
   """
-  with tf.name_scope(
+  with tf.compat.v1.name_scope(
       name,
       default_name="newton_root_finder",
       values=[initial_values, tolerance]):
@@ -206,18 +333,17 @@ def _make_black_objective_and_vega_func(prices, forwards, strikes, expiries,
   return _black_objective_and_vega
 
 
-@tf.function
-def newton_implied_vol(forwards,
-                       strikes,
-                       expiries,
-                       discounts,
-                       prices,
-                       initial_volatilities,
-                       option_signs,
-                       max_iterations=100,
-                       tolerance=1e-8,
-                       name=None,
-                       dtype=None):
+def _newton_implied_vol(forwards,
+                        strikes,
+                        expiries,
+                        discounts,
+                        prices,
+                        initial_volatilities,
+                        option_signs,
+                        max_iterations=100,
+                        tolerance=1e-8,
+                        name=None,
+                        dtype=None):
   """Uses Newton's method to find Black Scholes implied volatilities of options.
 
   Finds the volatility implied under the Black Scholes option pricing scheme for
@@ -291,7 +417,7 @@ def newton_implied_vol(forwards,
     volatility is not a finite real number.
   ```
   """
-  with tf.name_scope(name, "newton_implied_vol", [
+  with tf.compat.v1.name_scope(name, "newton_implied_vol", [
       forwards, strikes, expiries, discounts, prices, initial_volatilities,
       option_signs, max_iterations, tolerance
   ]):
@@ -308,126 +434,9 @@ def newton_implied_vol(forwards,
     pricer = _make_black_objective_and_vega_func(discounted_prices, forwards,
                                                  strikes, expiries,
                                                  option_signs)
-    results = newton_root_finder(
+    results = root_finder(
         pricer,
         initial_volatilities,
         max_iterations=max_iterations,
         tolerance=tolerance)
     return results
-
-
-@tf.function
-def implied_vol(forwards,
-                strikes,
-                expiries,
-                discounts,
-                prices,
-                option_signs,
-                validate_args=True,
-                tolerance=1e-8,
-                max_iterations=20,
-                name=None,
-                dtype=None):
-  """Finds the implied volatilities of options under the Black Scholes model.
-
-  This method first estimates, using the Radiocic-Polya approximation, the
-  volatility of an option implied by observed market prices under the Black
-  Scholes model. This estimate is then used to initialise Newton's algorithm for
-  locating the root of a differentiable function.
-
-  The implementation assumes that each cell in the supplied tensors corresponds
-  to an independent volatility to find.
-
-  #### Examples
-  ```python
-  forwards = np.array([1.0, 1.0, 1.0, 1.0])
-  strikes = np.array([1.0, 2.0, 1.0, 0.5])
-  expiries = np.array([1.0, 1.0, 1.0, 1.0])
-  discounts = np.array([1.0, 1.0, 1.0, 1.0])
-  option_signs = np.array([1.0, 1.0, -1.0, -1.0])
-  volatilities = np.array([1.0, 1.0, 1.0, 1.0])
-  prices = black_scholes.option_price(
-      forwards,
-      strikes,
-      volatilities,
-      expiries,
-      discount_factors=discounts,
-      is_call_options=is_call_options)
-  implied_vols = newton_vol.implied_vol(forwards,
-                                        strikes,
-                                        expiries,
-                                        discounts,
-                                        prices,
-                                        option_signs)
-  with tf.Session() as session:
-    print(session.run(implied_vols[0]))
-  # Expected output:
-  # [ 1.  1.  1.  1.]
-
-  Args:
-    forwards: A real `Tensor`. The current forward prices to expiry.
-    strikes: A real `Tensor` of the same shape and dtype as `forwards`. The
-      strikes of the options to be priced.
-    expiries: A real `Tensor` of same shape and dtype as `forwards`. The expiry
-      for each option. The units should be such that `expiry * volatility**2` is
-      dimensionless.
-    discounts: A real `Tensor` of the same shape and dtype as `forwards`. The
-      total discount factors to apply.
-    prices: A real `Tensor` of the same shape and dtype as `forwards`. The
-      observed market prices to match.
-    option_signs: A real `Tensor` of same shape and dtype as `forwards`.
-      Positive one where option is a call, negative one where option is a put.
-    validate_args: A Python bool. If True, indicates that arguments should be
-      checked for correctness before performing the computation. The checks
-      performed are: (1) Forwards and strikes are positive. (2) The prices
-        satisfy the arbitrage bounds (i.e. for call options, checks the
-        inequality `max(F-K, 0) <= Price <= F` and for put options, checks that
-        `max(K-F, 0) <= Price <= K`.). (3) Checks that the prices are not too
-        close to the bounds. It is numerically unstable to compute the implied
-        vols from options too far in the money or out of the money.
-    tolerance: `float`. The root finder will stop where this tolerance is
-      crossed.
-    max_iterations: `int`. The maximum number of iterations of Newton's method.
-    name: `str`, default "implied_vol", to be prefixed to the name of TensorFlow
-      ops created by this function.
-    dtype: optional `tf.DType`. If supplied the `forwards`, `strikes`,
-      `expiries`, `discounts`, `prices`, `initial_volatilities` and
-      `option_signs` will be coerced to this type.
-
-  Returns:
-    A three tuple of `Tensor`s, each the same shape as `forwards`. It
-    contains the implied volatilities (same dtype as `forwards`), a boolean
-    `Tensor` indicating whether the corresponding implied volatility converged,
-    and a boolean `Tensor` which is true where the corresponding implied
-    volatility is not a finite real number.
-  ```
-  """
-  with tf.name_scope(
-      name, "implied_vol",
-      [prices, forwards, strikes, expiries, discounts, option_signs]):
-    forwards = tf.convert_to_tensor(forwards, dtype=dtype)
-    strikes = tf.convert_to_tensor(strikes, dtype=dtype)
-    expiries = tf.convert_to_tensor(expiries, dtype=dtype)
-    discounts = tf.convert_to_tensor(discounts, dtype=dtype)
-    prices = tf.convert_to_tensor(prices, dtype=dtype)
-    option_signs = tf.convert_to_tensor(option_signs, dtype=dtype)
-    is_call_options = option_signs > 0.0
-    initial_polya = approx_implied_vol.polya(
-        prices,
-        forwards,
-        strikes,
-        expiries,
-        discount_factors=discounts,
-        is_call_options=is_call_options,
-        validate_args=validate_args)
-    implied_polya, converged, failed = newton_implied_vol(
-        forwards,
-        strikes,
-        expiries,
-        discounts,
-        prices,
-        initial_polya,
-        option_signs,
-        max_iterations=max_iterations,
-        tolerance=tolerance)
-    return implied_polya, converged, failed

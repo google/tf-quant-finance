@@ -12,3 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Ops related to interpolation."""
+
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from nomisma_quant_finance.math.interpolation import cubic
+from nomisma_quant_finance.math.interpolation import linear
+
+from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
+
+_allowed_symbols = [
+    'cubic',
+    'linear',
+]
+
+remove_undocumented(__name__, _allowed_symbols)

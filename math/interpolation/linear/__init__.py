@@ -11,19 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""Nomisma Quantitative Finance Implied Volatility methods."""
+"""Linear interpolation."""
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from nomisma_quant_finance.implied_volatility.approx_implied_vol import polya as polya_approximation
-from nomisma_quant_finance.implied_volatility.newton_vol import implied_vol
-from nomisma_quant_finance.implied_volatility.newton_vol import newton_implied_vol
+from nomisma_quant_finance.math.interpolation.linear.linear_interpolation import interpolate
+from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
-__all__ = [
-    'polya_approximation',
-    'implied_vol',
-    'newton_implied_vol',
+_allowed_symbols = [
+    'interpolate',
 ]
+
+remove_undocumented(__name__, _allowed_symbols)

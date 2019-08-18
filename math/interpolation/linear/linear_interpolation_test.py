@@ -22,7 +22,7 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
-from nomisma_quant_finance.interpolation import linear_interpolation
+from nomisma_quant_finance.math.interpolation import linear
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -35,8 +35,7 @@ class LinearInterpolation(tf.test.TestCase):
     x = [-10.0, -1.0, 1.0, 3.0, 6.0, 7.0, 8.0, 15.0, 18.0, 25.0, 30.0, 35.0]
     x_data = [-1.0, 2.0, 6.0, 8.0, 18.0, 30.0]
     y_data = [10.0, -1.0, -5.0, 7.0, 9.0, 20.0]
-    result = self.evaluate(
-        linear_interpolation.linear_interpolation(x, x_data, y_data))
+    result = self.evaluate(linear.interpolate(x, x_data, y_data))
     self.assertAllClose(result,
                         [np.interp(x_coord, x_data, y_data) for x_coord in x],
                         1e-8)
@@ -49,8 +48,7 @@ class LinearInterpolation(tf.test.TestCase):
     x_data = [-1, 2, 6, 8, 18, 30.0]
     y_data = [10, -1, -5, 7, 9, 20]
     result = self.evaluate(
-        linear_interpolation.linear_interpolation(
-            x, x_data, y_data, dtype=tf.float32))
+        linear.interpolate(x, x_data, y_data, dtype=tf.float32))
     self.assertAllClose(result,
                         [np.interp(x_coord, x_data, y_data) for x_coord in x],
                         1e-8)
@@ -65,7 +63,7 @@ class LinearInterpolation(tf.test.TestCase):
     left_slope = 2.0
     right_slope = -3.0
     result = self.evaluate(
-        linear_interpolation.linear_interpolation(
+        linear.interpolate(
             x,
             x_data,
             y_data,
@@ -87,8 +85,7 @@ class LinearInterpolation(tf.test.TestCase):
     x_data = [-1, 2, 6, 8, 18]
     y_data = 10
     result = self.evaluate(
-        linear_interpolation.linear_interpolation(
-            x, x_data, y_data, dtype=tf.float64))
+        linear.interpolate(x, x_data, y_data, dtype=tf.float64))
     self.assertAllClose(result, np.repeat(10, len(x)), 1e-8)
 
   def test_linear_interpolation_unequal_lengths_xys(self):
@@ -97,9 +94,7 @@ class LinearInterpolation(tf.test.TestCase):
     x_data = [-1, 2, 6, 8, 18]
     y_data = [10, -1, -5, 7, 9, 20]
     with self.assertRaises((tf.errors.InvalidArgumentError, ValueError)):
-      self.evaluate(
-          linear_interpolation.linear_interpolation(
-              x, x_data, y_data, dtype=tf.float64))
+      self.evaluate(linear.interpolate(x, x_data, y_data, dtype=tf.float64))
 
   def test_linear_interpolation_empty_xys(self):
     """Tests an error would be thrown if knots are empty."""
@@ -107,9 +102,7 @@ class LinearInterpolation(tf.test.TestCase):
     x_data = []
     y_data = []
     with self.assertRaises((tf.errors.InvalidArgumentError, ValueError)):
-      self.evaluate(
-          linear_interpolation.linear_interpolation(
-              x, x_data, y_data, dtype=tf.float64))
+      self.evaluate(linear.interpolate(x, x_data, y_data, dtype=tf.float64))
 
   def test_valid_gradients(self):
     """Tests none of the gradients is nan."""
@@ -125,7 +118,7 @@ class LinearInterpolation(tf.test.TestCase):
     def _value_helper_fn(y_data):
       """A helper function that returns sum of squared interplated values."""
 
-      interpolated_values = linear_interpolation.linear_interpolation(
+      interpolated_values = linear.interpolate(
           x, x_data, y_data, dtype=tf.float64)
       return tf.reduce_sum(tf.math.square(interpolated_values))
 

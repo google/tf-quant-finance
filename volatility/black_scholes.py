@@ -11,8 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""A tool to compute the Black Scholes prices of a batch of European options."""
+"""Black Scholes prices of a batch of European options."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -22,6 +21,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 
 
+# TODO: Add dtype argument.
 def option_price(forwards,
                  strikes,
                  volatilities,
@@ -54,8 +54,8 @@ def option_price(forwards,
     name: The name for the ops created by this function.
 
   Returns:
-    option_prices: A `Tensor` of the same shape as `forwards`. The Black Scholes
-      price of the options.
+    option_prices: A `Tensor` of the same shape as `forwards`. The Black
+    Scholes price of the options.
 
 
   #### Examples
@@ -64,7 +64,7 @@ def option_price(forwards,
   strikes = np.array([3.0, 3.0, 3.0, 3.0, 3.0])
   volatilities = np.array([0.0001, 102.0, 2.0, 0.1, 0.4])
   expiries = 1.0
-  computed_prices = black_scholes.black_scholes_price(
+  computed_prices = option_price(
       forwards,
       strikes,
       volatilities,
@@ -75,9 +75,9 @@ def option_price(forwards,
   # [ 0.          2.          2.04806848  1.00020297  2.07303131]
   ```
   """
-  with tf.name_scope(
+  with tf.compat.v1.name_scope(
       name,
-      default_name='black_scholes_price',
+      default_name='option_price',
       values=[
           forwards, strikes, volatilities, expiries, discount_factors,
           is_call_options

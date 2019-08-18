@@ -12,16 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Nomisma Quantitative Finance low-discrepancy sequences."""
+"""Ops related to random or quasi random sampling."""
+
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from nomisma_quant_finance.quasirandom import halton
-from nomisma_quant_finance.quasirandom import sobol
+from nomisma_quant_finance.math.random import halton
+from nomisma_quant_finance.math.random import sobol
+from nomisma_quant_finance.math.random.multivariate_normal import multivariate_normal as mv_normal_sample
+from nomisma_quant_finance.math.random.multivariate_normal import RandomType
+from nomisma_quant_finance.math.random.stateless import stateless_random_shuffle
+from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
-__all__ = [
+_allowed_symbols = [
     'halton',
-    'sobol'
+    'sobol',
+    'mv_normal_sample',
+    'RandomType',
+    'stateless_random_shuffle',
 ]
+
+remove_undocumented(__name__, _allowed_symbols)

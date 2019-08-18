@@ -22,14 +22,13 @@ from __future__ import print_function
 import tensorflow as tf
 
 
-@tf.function
-def linear_interpolation(x,
-                         x_data,
-                         y_data,
-                         left_slope=0.0,
-                         right_slope=0.0,
-                         dtype=None,
-                         name=None):
+def interpolate(x,
+                x_data,
+                y_data,
+                left_slope=0.0,
+                right_slope=0.0,
+                dtype=None,
+                name=None):
   """Performs linear interpolation for supplied points.
 
   Given a set of knots whose x- and y- coordinates are in `x_data` and `y_data`,
@@ -46,7 +45,7 @@ def linear_interpolation(x,
   # `x_data` must be increasing, but `y_data` don't need to be.
   x_data = [-1, 2, 6, 8, 18, 30.0]
   y_data = [10, -1, -5, 7, 9, 20]
-  result = linear_interpolation(x, x_data, y_data)
+  result = interpolate(x, x_data, y_data)
 
   with tf.Session() as sess:
     print(sess.run(result))

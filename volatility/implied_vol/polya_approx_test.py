@@ -14,18 +14,16 @@
 
 # Lint as: python2, python3
 """Tests for implied_volatility.approx_implied_vol."""
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from absl.testing import parameterized
 
+from absl.testing import parameterized
 import numpy as np
 import tensorflow as tf
 
-import nomisma_quant_finance.implied_volatility.approx_implied_vol as approx_implied_vol
-import nomisma_quant_finance.vanilla.black_scholes as black_scholes
-
+from nomisma_quant_finance.volatility import black_scholes
+from nomisma_quant_finance.volatility.implied_vol import polya_approx
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -47,7 +45,7 @@ class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
           black_scholes.option_price(forwards, strikes, volatilities, expiries))
 
       implied_vols = self.evaluate(
-          approx_implied_vol.polya(
+          polya_approx.implied_vol(
               prices, forwards, strikes, expiries, dtype=dtype))
       self.assertArrayNear(volatilities, implied_vols, 0.6)
 
@@ -65,7 +63,7 @@ class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
           black_scholes.option_price(forwards, strikes, volatilities, expiries))
 
       implied_vols = self.evaluate(
-          approx_implied_vol.polya(
+          polya_approx.implied_vol(
               prices,
               forwards,
               strikes,
@@ -94,7 +92,7 @@ class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
       expiries = np.array([expiry]).astype(dtype)
       is_call_options = np.array([is_call_option])
       with self.assertRaises(tf.errors.InvalidArgumentError):
-        implied_vols = approx_implied_vol.polya(
+        implied_vols = polya_approx.implied_vol(
             prices,
             forwards,
             strikes,

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Lint as: python2, python3
-"""Tests for random.random_ops."""
+"""Tests for random.multivariate_normal."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -22,7 +22,7 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
-from nomisma_quant_finance.random import random_ops
+from nomisma_quant_finance.math.random import multivariate_normal as mvn
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -31,22 +31,19 @@ class RandomTest(tf.test.TestCase):
 
   def test_shapes(self):
     """Tests the sample shapes."""
-    sample_no_batch = self.evaluate(random_ops.multivariate_normal(
-        [2, 4],
-        mean=[0.2, 0.1]))
+    sample_no_batch = self.evaluate(
+        mvn.multivariate_normal([2, 4], mean=[0.2, 0.1]))
     self.assertEqual(sample_no_batch.shape, (2, 4, 2))
-    sample_batch = self.evaluate(random_ops.multivariate_normal(
-        [2, 4],
-        mean=[[0.2, 0.1], [0., -0.1], [0., 0.1]]))
+    sample_batch = self.evaluate(
+        mvn.multivariate_normal([2, 4],
+                                mean=[[0.2, 0.1], [0., -0.1], [0., 0.1]]))
     self.assertEqual(sample_batch.shape, (2, 4, 3, 2))
 
   def test_mean_default(self):
     """Tests that the default value of mean is 0."""
     covar = np.array([[1.0, 0.1], [0.1, 1.0]])
-    sample = self.evaluate(random_ops.multivariate_normal(
-        [40000],
-        covariance_matrix=covar,
-        seed=1234))
+    sample = self.evaluate(
+        mvn.multivariate_normal([40000], covariance_matrix=covar, seed=1234))
     np.testing.assert_array_equal(sample.shape, [40000, 2])
     self.assertArrayNear(np.mean(sample, axis=0), [0.0, 0.0], 1e-2)
     self.assertArrayNear(np.cov(sample, rowvar=False).reshape([-1]),
@@ -56,9 +53,7 @@ class RandomTest(tf.test.TestCase):
   def test_covariance_default(self):
     """Tests that the default value of the covariance matrix is identity."""
     mean = np.array([[1.0, 0.1], [0.1, 1.0]])
-    sample = self.evaluate(random_ops.multivariate_normal(
-        [10000],
-        mean=mean))
+    sample = self.evaluate(mvn.multivariate_normal([10000], mean=mean))
 
     np.testing.assert_array_equal(sample.shape, [10000, 2, 2])
     np.testing.assert_array_almost_equal(
@@ -82,11 +77,11 @@ class RandomTest(tf.test.TestCase):
         [[1.1, -0.3], [-0.3, 0.6]],
     ])
     size = 30000
-    sample = self.evaluate(random_ops.multivariate_normal(
-        [size],
-        mean=mean,
-        covariance_matrix=covar,
-        seed=4567))
+    sample = self.evaluate(
+        mvn.multivariate_normal([size],
+                                mean=mean,
+                                covariance_matrix=covar,
+                                seed=4567))
 
     np.testing.assert_array_equal(sample.shape, [size, 2, 2])
     np.testing.assert_array_almost_equal(np.mean(sample, axis=0),
@@ -110,11 +105,11 @@ class RandomTest(tf.test.TestCase):
 
     covariance = np.matmul(scale, scale.transpose())
     size = 30000
-    sample = self.evaluate(random_ops.multivariate_normal(
-        [size],
-        mean=mean,
-        scale_matrix=scale,
-        seed=7534))
+    sample = self.evaluate(
+        mvn.multivariate_normal([size],
+                                mean=mean,
+                                scale_matrix=scale,
+                                seed=7534))
 
     np.testing.assert_array_equal(sample.shape, [size, 2, 2])
     np.testing.assert_array_almost_equal(np.mean(sample, axis=0),

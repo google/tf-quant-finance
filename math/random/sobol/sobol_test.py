@@ -23,7 +23,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from nomisma_quant_finance.quasirandom import sobol
+from nomisma_quant_finance.math.random import sobol
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 

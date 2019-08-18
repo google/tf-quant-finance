@@ -22,7 +22,7 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
-import nomisma_quant_finance.vanilla.black_scholes as black_scholes
+from nomisma_quant_finance.volatility import black_scholes
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
