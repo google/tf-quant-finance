@@ -1,0 +1,16 @@
+# Interpolation methods for one and two dimensions.
+
+licenses(["notice"])
+
+package(default_visibility = ["//tf_quant_finance:__subpackages__"])
+
+py_library(
+    name = "interpolation",
+    srcs = ["__init__.py"],
+    srcs_version = "PY2AND3",
+    deps = [
+        "//tf_quant_finance/math/interpolation/cubic",
+        "//tf_quant_finance/math/interpolation/linear",
+        # tensorflow dep,
+    ],
+)

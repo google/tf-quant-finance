@@ -1,0 +1,6 @@
+tf_quant_finance/BUILD
+tf_quant_finance/math/interpolation/linear/BUILD
+tf_quant_finance/opensource/BUILD
+tf_quant_finance/opensource/gpu/cuda_configure.bzl
+tf_quant_finance/opensource/third_party/toolchains/preconfig/ubuntu16.04/gcc7_manylinux2010-nvcc-cuda10.0/BUILD
+tf_quant_finance/opensource/third_party/toolchains/preconfig/ubuntu16.04/gcc7_manylinux2010-nvcc-cuda10.0/cc_toolchain_config.bzl
