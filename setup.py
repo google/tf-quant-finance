@@ -68,4 +68,10 @@ setup(
     ],
     license='Apache 2.0',
     keywords='tensorflow quantitative finance hpc gpu option pricing',
+    package_data={
+        'tf_quant_finance': [
+            'third_party/sobol_data/new-joe-kuo.6.21201',
+            'third_party/sobol_data/LICENSE'
+        ]
+    },
 )

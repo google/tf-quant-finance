@@ -2,3 +2,4 @@ recursive-include tf_quant_finance/ *.so
 recursive-include tf_quant_finance/ *.so.[0-9]
 recursive-include tf_quant_finance/ *.dll
 recursive-include tf_quant_finance/ *.lib
+recursive-include tf_quant_finance/third_party/ *

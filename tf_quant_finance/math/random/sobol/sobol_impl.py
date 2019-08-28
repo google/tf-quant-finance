@@ -23,6 +23,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
+
 import numpy as np
 from six.moves import range
 import tensorflow as tf
@@ -147,16 +149,42 @@ def _compute_direction_numbers(dim):
   return m
 
 
+def _get_sobol_data_path():
+  """Returns path of file 'new-joe-kuo-6.21201'.
+
+     Location of file 'new-joe-kuo-6.21201' depends on the environment in
+     which this code is executed. In Google internal environment file
+     'new-joe-kuo-6.21201' is accessible using the
+     'third_party/sobol_data/new-joe-kuo-6.21201' file path.
+
+     However, this doesn't work in the pip package. In pip package the directory
+     'third_party' is a subdirectory of directory 'tf_quant_finance' and in
+     this case we construct a file path relative to the __file__ file path.
+  """
+
+  path1 = 'third_party/sobol_data/new-joe-kuo-6.21201'
+  path2 = os.path.abspath(
+      os.path.join(
+          os.path.dirname(__file__), '..', '..', '..', 'third_party',
+          'sobol_data', 'new-joe-kuo-6.21201'))
+
+  paths = [path1, path2]
+
+  for path in paths:
+    if os.path.exists(path):
+      return path
+
+
 def _load_sobol_data():
   """Parses file 'new-joe-kuo-6.21201'."""
-  filename = 'third_party/sobol_data/new-joe-kuo-6.21201'
+  path = _get_sobol_data_path()
   header_line = True
   # Primitive polynomial coefficients.
   polynomial_coefficients = np.zeros(shape=(21200,), dtype=np.int64)
   # Initial direction numbers.
   direction_numbers = np.zeros(shape=(18, 21200), dtype=np.int64)
   index = 0
-  with open(filename) as f:
+  with open(path) as f:
     for line in f:
       # Skip first line (header).
       if header_line:

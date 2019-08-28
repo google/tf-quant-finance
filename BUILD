@@ -20,5 +20,7 @@ sh_binary(
         "MANIFEST.in",
         "setup.py",
         "//tf_quant_finance",
+        "//third_party/sobol_data:LICENSE",
+        "//third_party/sobol_data:new-joe-kuo-6.21201",
     ],
 )
