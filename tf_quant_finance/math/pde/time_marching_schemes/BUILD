@@ -22,7 +22,7 @@ py_library(
     ],
     deps = [
         ":pde_time_marching_scheme",
-        "//tf_quant_finance/math/pde/internal:pde_time_marching_schemes_internal",
+        "//tf_quant_finance/math/pde/internal",
         # numpy dep,
         # tensorflow dep,
     ],

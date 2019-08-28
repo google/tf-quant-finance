@@ -54,6 +54,7 @@ function main() {
   cp ${PIP_FILE_PREFIX}LICENSE "${TMPDIR}"
   touch "${TMPDIR}"/stub.cc
   rsync -avm -L --exclude='*_test.py' ${PIP_FILE_PREFIX}tf_quant_finance "${TMPDIR}"
+  rsync -avm -L --exclude='*_test.py' ${PIP_FILE_PREFIX}third_party "${TMPDIR}"
 
   pushd ${TMPDIR}
   echo $(date) : "=== Building wheel"
