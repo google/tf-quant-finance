@@ -29,32 +29,32 @@ import tensorflow as tf
 GridSpec = collections.namedtuple(
     'GridSpec',
     [
-      'dim',  # The dimension of the grid. Positive integer `Tensor`.
-      'minimums',  # The lower end points of the grid as an iterable.
-      # A real-valued `Tensor` of a shape `batch_shape` for each
-      # axis.
-      'maximums',  # The upper end points of the grid as an iterable.
-      # A real-valued `Tensor` of a shape `batch_shape` for each
-      # axis.
-      'sizes',  # The number of points along each grid axis. One integer value
-      # greater than 2 for each axis as an iterable.
-      'locations',  # The grid locations as projected along each axis. One
-      # `Tensor` of shape `[..., n]`, where `n` is the number of
-      # points along that axis . The first dimensions are
-      # the batch shape. The grid itself can be
-      # seen as a cartesian product of the locations array.
-      'deltas',  # The difference between consecutive elements of the locations
-      # along each axis. Represented as an array of `Tensor`s. Each
-      # `Tensor` is of a shape that will broadcast with a `Tensor` of
-      # shape [..., n-1] where n is the number of points along that
-      # axis and first dimensions are the batch shape, same as for
-      # locations. Note that it should not be assumed that the shape
-      # itself will be `[..., n-1]`. For example, it may be a scalar.
-      'grid'  # The full grid of coordinates. The grid is a single real `Tensor`
-      # of shape `batch_shape + sizes` + [dim].  For example, if
-      # sizes = [3, 4], the grid is a `Tensor` of shape [3, 4, 2] and
-      # grid[0, 0, :] is the (x, y) coordinate of the bottom left corner
-      # of the grid.
+        'dim',  # The dimension of the grid. Positive integer `Tensor`.
+        'minimums',  # The lower end points of the grid as an iterable.
+        # A real-valued `Tensor` of a shape `batch_shape` for each
+        # axis.
+        'maximums',  # The upper end points of the grid as an iterable.
+        # A real-valued `Tensor` of a shape `batch_shape` for each
+        # axis.
+        'sizes',  # The number of points along each grid axis. One integer value
+        # greater than 2 for each axis as an iterable.
+        'locations',  # The grid locations as projected along each axis. One
+        # `Tensor` of shape `[..., n]`, where `n` is the number of
+        # points along that axis . The first dimensions are
+        # the batch shape. The grid itself can be
+        # seen as a cartesian product of the locations array.
+        'deltas',  # The difference between consecutive elements of the
+        # locations along each axis. Represented as an array of `Tensor`s. Each
+        # `Tensor` is of a shape that will broadcast with a `Tensor` of
+        # shape [..., n-1] where n is the number of points along that
+        # axis and first dimensions are the batch shape, same as for
+        # locations. Note that it should not be assumed that the shape
+        # itself will be `[..., n-1]`. For example, it may be a scalar.
+        'grid'  # The full grid of coordinates. The grid is a single real
+        # `Tensor` of shape `batch_shape + sizes` + [dim].  For example, if
+        # sizes = [3, 4], the grid is a `Tensor` of shape [3, 4, 2] and
+        # grid[0, 0, :] is the (x, y) coordinate of the bottom left corner
+        # of the grid.
     ])
 
 

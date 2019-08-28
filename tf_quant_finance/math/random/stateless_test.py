@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Tests for random.stateless."""
 
 from __future__ import absolute_import
@@ -43,8 +42,8 @@ class StatelessRandomOpsTest(tf.test.TestCase):
       random_shuffle_seed_2 = self.evaluate(random_shuffle_seed_2)
       identity_permutation = self.evaluate(identity_permutation)
       # Check that the shuffles are different
-      self.assertTrue(np.abs(random_shuffle_seed_1
-                             - random_shuffle_seed_2).max())
+      self.assertTrue(
+          np.abs(random_shuffle_seed_1 - random_shuffle_seed_2).max())
       # Check that the shuffles are indeed permutations
       for shuffle in (random_shuffle_seed_1, random_shuffle_seed_2):
         self.assertAllEqual(set(shuffle), set(identity_permutation))
@@ -84,8 +83,8 @@ class StatelessRandomOpsTest(tf.test.TestCase):
       random_shuffle_control = self.evaluate(random_shuffle_control)
       # Checks that the generated permutation does not depend on the underlying
       # values
-      np.testing.assert_array_equal(np.argsort(random_permutation),
-                                    np.argsort(random_shuffle_control))
+      np.testing.assert_array_equal(
+          np.argsort(random_permutation), np.argsort(random_shuffle_control))
 
   @test_util.run_v1_only("Sessions are not available in TF2.0")
   def testOutputIsStatelessSession(self):
@@ -125,6 +124,7 @@ class StatelessRandomOpsTest(tf.test.TestCase):
       # Check that the output shape is correct
       np.testing.assert_equal(random_permutation_first_call.shape,
                               input_permutation.shape)
+
 
 if __name__ == "__main__":
   tf.test.main()

@@ -55,9 +55,7 @@ class WeightedImplicitExplicitScheme(TimeMarchingScheme):
       theta: A float in range `[0, 1]`. A parameter used to mix implicit and
         explicit schemes together. Value of `0.0` corresponds to the fully
         implicit scheme, `1.0` to the fully explicit, and `0.5` to the
-        Crank-Nicolson scheme. See, e.g., [1].
-
-    #### References
+        Crank-Nicolson scheme. See, e.g., [1].  #### References
     [1]: P.A. Forsyth, K.R. Vetzal. Quadratic Convergence for Valuing American
       Options Using A Penalty Method. Journal on Scientific Computing, 2002.
       http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.28.9066&rep=rep1&type=pdf
@@ -205,8 +203,7 @@ def crank_nicolson_with_oscillation_damping(extrapolation_steps=1):
   """
 
   return internal_schemes.CompositeTimeMarchingScheme(
-      extrapolation_steps,
-      ExtrapolationMarchingScheme(),
+      extrapolation_steps, ExtrapolationMarchingScheme(),
       crank_nicolson_scheme())
 
 

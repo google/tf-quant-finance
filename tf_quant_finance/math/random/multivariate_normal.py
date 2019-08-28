@@ -33,15 +33,14 @@ class RandomType(enum.Enum):
   SOBOL = 4  # The standard Sobol sequence.
 
 
-def multivariate_normal(
-    sample_shape,
-    mean=None,
-    covariance_matrix=None,
-    scale_matrix=None,
-    random_type=None,
-    validate_args=False,
-    seed=None,
-    name=None):
+def multivariate_normal(sample_shape,
+                        mean=None,
+                        covariance_matrix=None,
+                        scale_matrix=None,
+                        random_type=None,
+                        validate_args=False,
+                        seed=None,
+                        name=None):
   """Generates draws from a multivariate Normal distribution.
 
   Draws samples from the multivariate Normal distribution on `R^k` with the
@@ -91,33 +90,32 @@ def multivariate_normal(
   Args:
     sample_shape: Rank 1 `Tensor` of positive `int32`s. Should specify a valid
       shape for a `Tensor`. The shape of the samples to be drawn.
-    mean: Real `Tensor` of rank at least 1 or None. The shape of the `Tensor`
-      is interpreted as `batch_shape + [k]` where `k` is the dimension of
-      domain. The mean value(s) of the distribution(s) to draw from.
+    mean: Real `Tensor` of rank at least 1 or None. The shape of the `Tensor` is
+      interpreted as `batch_shape + [k]` where `k` is the dimension of domain.
+      The mean value(s) of the distribution(s) to draw from.
       Default value: None which is mapped to a zero mean vector.
-    covariance_matrix: Real `Tensor` of rank at least 2 or None.
-      Symmetric positive definite `Tensor` of  same `dtype` as `mean`.
-      The strict upper triangle of `covariance_matrix` is ignored, so if
-      `covariance_matrix` is not symmetric no error will be
-      raised (unless `validate_args is True`).  `covariance_matrix` has shape
-      `batch_shape + [k, k]` where `b >= 0` and `k` is the event size.
+    covariance_matrix: Real `Tensor` of rank at least 2 or None. Symmetric
+      positive definite `Tensor` of  same `dtype` as `mean`. The strict upper
+      triangle of `covariance_matrix` is ignored, so if `covariance_matrix` is
+      not symmetric no error will be raised (unless `validate_args is True`).
+      `covariance_matrix` has shape `batch_shape + [k, k]` where `b >= 0` and
+      `k` is the event size.
       Default value: None which is mapped to the identity covariance.
     scale_matrix: Real `Tensor` of rank at least 2 or None. If supplied, it
       should be positive definite `Tensor` of same `dtype` as `mean`. The
-      covariance matrix is related to the scale matrix by
-      `covariance = scale_matrix * Transpose(scale_matrix)`.
+      covariance matrix is related to the scale matrix by `covariance =
+      scale_matrix * Transpose(scale_matrix)`.
       Default value: None which corresponds to an identity covariance matrix.
     random_type: Enum value of `RandomType`. The type of draw to generate.
       Default value: None which is mapped to `RandomType.PSEUDO`.
     validate_args: Python `bool`. When `True`, distribution parameters are
-      checked for validity despite possibly degrading runtime performance.
-      When `False` invalid inputs may silently render incorrect outputs.
+      checked for validity despite possibly degrading runtime performance. When
+      `False` invalid inputs may silently render incorrect outputs.
       Default value: False.
-    seed: Seed for the random number generator. The seed is
-      only relevant if `random_type` is one of
-      `[PSEUDO, STATELESS, HALTON_RANDOMIZED]`. For `PSEUDO`, the seed should
-      be a Python integer. For the other two options, the seed may either be
-      a Python integer or a tuple of Python integers.
+    seed: Seed for the random number generator. The seed is only relevant if
+      `random_type` is one of `[PSEUDO, STATELESS, HALTON_RANDOMIZED]`. For
+      `PSEUDO`, the seed should be a Python integer. For the other two options,
+      the seed may either be a Python integer or a tuple of Python integers.
     name: Python `str` name prefixed to Ops created by this class.
       Default value: None which is mapped to the default name
         'multivariate_normal'.
@@ -144,21 +142,18 @@ def multivariate_normal(
     raise ValueError('Only one of covariance matrix or scale matrix'
                      ' must be specified')
 
-  with tf.name_scope(name,
-                     default_name='multivariate_normal',
-                     values=[
-                         sample_shape,
-                         mean,
-                         covariance_matrix,
-                         scale_matrix
-                     ]):
+  with tf.name_scope(
+      name,
+      default_name='multivariate_normal',
+      values=[sample_shape, mean, covariance_matrix, scale_matrix]):
 
-    return _mvnormal_pseudo(sample_shape,
-                            mean,
-                            covariance_matrix=covariance_matrix,
-                            scale_matrix=scale_matrix,
-                            validate_args=validate_args,
-                            seed=seed)
+    return _mvnormal_pseudo(
+        sample_shape,
+        mean,
+        covariance_matrix=covariance_matrix,
+        scale_matrix=scale_matrix,
+        validate_args=validate_args,
+        seed=seed)
 
 
 def _mvnormal_pseudo(sample_shape,

@@ -46,10 +46,9 @@ def stateless_random_shuffle(input_tensor, seed, name=None):
   Returns:
     A Tensor of the same shape and dtype as `input_tensor`.
   """
-  with tf.name_scope(name, 'stateless_random_shuffle',
-                     [input_tensor, seed]):
+  with tf.name_scope(name, 'stateless_random_shuffle', [input_tensor, seed]):
     input_tensor = tf.convert_to_tensor(input_tensor, name='input_tensor')
     seed = tf.convert_to_tensor(seed, name='random_seed')
-    uniforms = tf.random.stateless_uniform(shape=[tf.shape(input_tensor)[0]],
-                                           seed=seed, dtype=tf.float64)
+    uniforms = tf.random.stateless_uniform(
+        shape=[tf.shape(input_tensor)[0]], seed=seed, dtype=tf.float64)
   return tf.gather(input_tensor, tf.argsort(uniforms, stable=True, axis=0))

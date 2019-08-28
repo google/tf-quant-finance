@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """PDE solver methods."""
 
 from __future__ import absolute_import
@@ -25,7 +24,6 @@ from tf_quant_finance.math.pde.grid_stepper import GridStepperState
 from tf_quant_finance.math.pde.pde_kernels import ParabolicDifferentialEquationSolver
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
-
 
 _allowed_symbols = [
     'BackwardGridStepper',

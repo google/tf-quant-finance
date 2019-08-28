@@ -46,9 +46,8 @@ class RandomTest(tf.test.TestCase):
         mvn.multivariate_normal([40000], covariance_matrix=covar, seed=1234))
     np.testing.assert_array_equal(sample.shape, [40000, 2])
     self.assertArrayNear(np.mean(sample, axis=0), [0.0, 0.0], 1e-2)
-    self.assertArrayNear(np.cov(sample, rowvar=False).reshape([-1]),
-                         covar.reshape([-1]),
-                         2e-2)
+    self.assertArrayNear(
+        np.cov(sample, rowvar=False).reshape([-1]), covar.reshape([-1]), 2e-2)
 
   def test_covariance_default(self):
     """Tests that the default value of the covariance matrix is identity."""
@@ -57,17 +56,11 @@ class RandomTest(tf.test.TestCase):
 
     np.testing.assert_array_equal(sample.shape, [10000, 2, 2])
     np.testing.assert_array_almost_equal(
-        np.mean(sample, axis=0),
-        mean,
-        decimal=1)
+        np.mean(sample, axis=0), mean, decimal=1)
     np.testing.assert_array_almost_equal(
-        np.cov(sample[:, 0, :], rowvar=False),
-        np.eye(2),
-        decimal=1)
+        np.cov(sample[:, 0, :], rowvar=False), np.eye(2), decimal=1)
     np.testing.assert_array_almost_equal(
-        np.cov(sample[:, 1, :], rowvar=False),
-        np.eye(2),
-        decimal=1)
+        np.cov(sample[:, 1, :], rowvar=False), np.eye(2), decimal=1)
 
   def test_general_mean_covariance(self):
     """Tests that the sample is correctly generated for general params."""
@@ -84,24 +77,17 @@ class RandomTest(tf.test.TestCase):
                                 seed=4567))
 
     np.testing.assert_array_equal(sample.shape, [size, 2, 2])
-    np.testing.assert_array_almost_equal(np.mean(sample, axis=0),
-                                         mean,
-                                         decimal=1)
     np.testing.assert_array_almost_equal(
-        np.cov(sample[:, 0, :], rowvar=False),
-        covar[0],
-        decimal=1)
+        np.mean(sample, axis=0), mean, decimal=1)
     np.testing.assert_array_almost_equal(
-        np.cov(sample[:, 1, :], rowvar=False),
-        covar[1],
-        decimal=1)
+        np.cov(sample[:, 0, :], rowvar=False), covar[0], decimal=1)
+    np.testing.assert_array_almost_equal(
+        np.cov(sample[:, 1, :], rowvar=False), covar[1], decimal=1)
 
   def test_mean_and_scale(self):
     """Tests sample for scale specification."""
     mean = np.array([[1.0, 0.1], [0.1, 1.0]])
-    scale = np.array([
-        [0.4, -0.1],
-        [0.22, 1.38]])
+    scale = np.array([[0.4, -0.1], [0.22, 1.38]])
 
     covariance = np.matmul(scale, scale.transpose())
     size = 30000
@@ -112,17 +98,12 @@ class RandomTest(tf.test.TestCase):
                                 seed=7534))
 
     np.testing.assert_array_equal(sample.shape, [size, 2, 2])
-    np.testing.assert_array_almost_equal(np.mean(sample, axis=0),
-                                         mean,
-                                         decimal=1)
     np.testing.assert_array_almost_equal(
-        np.cov(sample[:, 0, :], rowvar=False),
-        covariance,
-        decimal=1)
+        np.mean(sample, axis=0), mean, decimal=1)
     np.testing.assert_array_almost_equal(
-        np.cov(sample[:, 1, :], rowvar=False),
-        covariance,
-        decimal=1)
+        np.cov(sample[:, 0, :], rowvar=False), covariance, decimal=1)
+    np.testing.assert_array_almost_equal(
+        np.cov(sample[:, 1, :], rowvar=False), covariance, decimal=1)
 
 
 if __name__ == '__main__':

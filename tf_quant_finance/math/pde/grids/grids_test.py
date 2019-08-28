@@ -151,10 +151,9 @@ class GridsExtraLocationTest(tf.test.TestCase):
     np_grid = np.array([[[0.0], [1.0], [5.0], [10.0]],
                         [[0.0], [5.0], [7.0], [10.0]]])
     grid_spec = self.evaluate(
-        grids.uniform_grid_with_extra_point(
-            [min_x], [max_x], [size],
-            extra_grid_point=extra_locations,
-            dtype=dtype))
+        grids.uniform_grid_with_extra_point([min_x], [max_x], [size],
+                                            extra_grid_point=extra_locations,
+                                            dtype=dtype))
     self.assertEqual(grid_spec.dim, 1)
     grid = grid_spec.grid
     self.assertEqual(grid.shape, tuple([2, 4, 1]))
