@@ -28,7 +28,6 @@ namespace tensorflow {
 namespace qf {
 
 using CPUDevice = Eigen::ThreadPoolDevice;
-using GPUDevice = Eigen::GpuDevice;
 
 namespace functor {
 
@@ -203,20 +202,6 @@ REGISTER_KERNEL_BUILDER(
 REGISTER_KERNEL_BUILDER(
     Name("LinearInterpolation").Device(DEVICE_CPU).TypeConstraint<float>("T"),
     LinearInterpolationOp<CPUDevice, float>);
-
-#if GOOGLE_CUDA
-
-extern template struct functor::LinearInterpolationFunctor<GPUDevice, double>;
-extern template struct functor::LinearInterpolationFunctor<GPUDevice, float>;
-
-REGISTER_KERNEL_BUILDER(
-    Name("LinearInterpolation").Device(DEVICE_GPU).TypeConstraint<double>("T"),
-    LinearInterpolationOp<GPUDevice, double>);
-REGISTER_KERNEL_BUILDER(
-    Name("LinearInterpolation").Device(DEVICE_GPU).TypeConstraint<float>("T"),
-    LinearInterpolationOp<GPUDevice, float>);
-
-#endif  // GOOGLE_CUDA
 
 }  // namespace qf
 }  // namespace tensorflow
