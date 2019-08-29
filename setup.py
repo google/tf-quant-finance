@@ -24,6 +24,8 @@ from setuptools.dist import Distribution
 __version__ = '0.0.1dev'
 REQUIRED_PACKAGES = [
     'tensorflow >= 1.12.0',
+    'tensorflow-probability >= 0.5.0',
+    'numpy >= 1.13.3'
 ]
 
 project_name = 'tf-quant-finance'
@@ -34,7 +36,7 @@ class BinaryDistribution(Distribution):
   """This class is needed in order to create OS specific wheels."""
 
   def has_ext_modules(self):
-    return True
+    return False
 
 
 setup(
@@ -65,6 +67,7 @@ setup(
         'Topic :: Scientific/Engineering :: Mathematics',
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Software Development :: Libraries',
+        'Operating System :: OS Independent',
     ],
     license='Apache 2.0',
     keywords='tensorflow quantitative finance hpc gpu option pricing',
