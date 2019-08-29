@@ -18,7 +18,7 @@ set -x
 
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 
-PIP_FILE_PREFIX="bazel-bin/build_pip_pkg.runfiles/__main__/"
+PIP_FILE_PREFIX="bazel-bin/build_pip_pkg.runfiles/tf_quant_finance/"
 
 function main() {
   while [[ ! -z "${1}" ]]; do
@@ -52,9 +52,9 @@ function main() {
   cp ${PIP_FILE_PREFIX}setup.py "${TMPDIR}"
   cp ${PIP_FILE_PREFIX}MANIFEST.in "${TMPDIR}"
   cp ${PIP_FILE_PREFIX}LICENSE "${TMPDIR}"
-  touch "${TMPDIR}"/stub.cc
+
   rsync -avm -L --exclude='*_test.py' ${PIP_FILE_PREFIX}tf_quant_finance "${TMPDIR}"
-  # This will copy third_party as a subdirectory of tf_quant_finance.
+  # This will copy third_party to a subdirectory of tf_quant_finance.
   rsync -avm -L --exclude='*_test.py' ${PIP_FILE_PREFIX}third_party "${TMPDIR}/tf_quant_finance"
 
   pushd ${TMPDIR}

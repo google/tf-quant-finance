@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from tf_quant_finance.math.interpolation.linear.linear_interpolation_wrapper import interpolate
+from tf_quant_finance.math.interpolation.linear.linear_interpolation import interpolate
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
