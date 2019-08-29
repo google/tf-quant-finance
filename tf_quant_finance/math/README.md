@@ -9,11 +9,11 @@ build on those.
 
 The modules provided are:
 
-  * [math.interpolation](interpolation/README.md): Ops to perform linear and
+  * [math.interpolation](interpolation): Ops to perform linear and
   cubic interpolation.
-  * [math.pde](pde/README.md): Ops to numerically solve partial differential
+  * [math.pde](pde): Ops to numerically solve partial differential
   equations using finite difference methods. Currently, only linear second
   order PDEs are supported as this is the most commonly needed case.
-  * [math.random](random/README.md): Ops to compute low discrepancy sequences.
+  * [math.random](random): Ops to compute low discrepancy sequences.
 
 

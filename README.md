@@ -25,6 +25,33 @@ The easiest way to get started with the library is via the pip package.
 pip install tf_quant_finance
 ```
 
+## Development Roadmap
+
+We are working on expanding the coverage of the library. Areas under active
+development are:
+
+  * Ito Processes: Framework for defining [Ito processes](https://en.wikipedia.org/wiki/It%C3%B4_calculus#It%C3%B4_processes).
+  Includes methods for sampling paths from a process and for solving the
+  associated backward Kolmogorov equation.
+  * Implementation of the following specific processes/models:
+      * Brownian Motion
+      * Geometric Brownian Motion
+      * Ornstein-Uhlenbeck
+      * Single factor Hull White model
+      * Heston model
+      * Local volatility model.
+      * SABR model
+  * ADI method for solving multi dimensional PDEs.
+  * Copulas: Support for defining and sampling from copulas.
+  * Model Calibration:
+      * Dupire local vol calibration.
+      * SABR model calibration.
+  * Rate curve fitting: Hagan-West algorithm for yield curve bootstrapping and
+  the Monotone Convex interpolation scheme.
+  * Optimization:
+      * Conjugate gradient optimizer.
+
+
 ## Examples
 Our existing examples will be made available here soon.
 
