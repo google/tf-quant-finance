@@ -29,102 +29,89 @@ namespace qf {
 
 using CPUDevice = Eigen::ThreadPoolDevice;
 
-namespace functor {
-
-template <typename Device, typename T>
-struct LinearInterpolationFunctor {
-  void operator()(OpKernelContext* context, typename TTypes<T>::ConstMatrix x,
-                  typename TTypes<T>::ConstMatrix x_data,
-                  typename TTypes<T>::ConstMatrix y_data,
-                  typename TTypes<T>::ConstFlat left_slope,
-                  typename TTypes<T>::ConstFlat right_slope,
-                  typename TTypes<T>::Matrix output);
-};
+namespace {
 
 template <typename T>
-struct LinearInterpolationFunctor<CPUDevice, T> {
-  void operator()(OpKernelContext* context, typename TTypes<T>::ConstMatrix x,
-                  typename TTypes<T>::ConstMatrix x_data,
-                  typename TTypes<T>::ConstMatrix y_data,
-                  typename TTypes<T>::ConstFlat left_slope,
-                  typename TTypes<T>::ConstFlat right_slope,
-                  typename TTypes<T>::Matrix output) {
-    const size_t batch_size = x.dimension(0);
-    const size_t x_size = x.dimension(1);
-    const size_t x_data_size = x_data.dimension(1);
+void CalculateLinearInterpolation(OpKernelContext* context,
+                                  typename TTypes<T>::ConstMatrix x,
+                                  typename TTypes<T>::ConstMatrix x_data,
+                                  typename TTypes<T>::ConstMatrix y_data,
+                                  typename TTypes<T>::ConstFlat left_slope,
+                                  typename TTypes<T>::ConstFlat right_slope,
+                                  typename TTypes<T>::Matrix output) {
+  const size_t batch_size = x.dimension(0);
+  const size_t x_size = x.dimension(1);
+  const size_t x_data_size = x_data.dimension(1);
 
-    // This lambda expression does not live beyond the scope of this function as
-    // it is only passed to blocking calls.
-    const auto compute = [&](int start, int end) {
-      size_t index = start % x_size;
-      size_t batch = start / x_size;
+  // This lambda expression does not live beyond the scope of this function as
+  // it is only passed to blocking calls.
+  const auto compute = [&](int start, int end) {
+    size_t index = start % x_size;
+    size_t batch = start / x_size;
 
-      for (size_t i = start; i < end; ++i) {
-        const T* x_data_begin_ptr = x_data.data() + batch * x_data_size;
-        const T* x_data_end_ptr = x_data.data() + (batch + 1) * x_data_size;
+    for (size_t i = start; i < end; ++i) {
+      const T* x_data_begin_ptr = x_data.data() + batch * x_data_size;
+      const T* x_data_end_ptr = x_data.data() + (batch + 1) * x_data_size;
 
-        const T curr_x = x(batch, index);
+      const T curr_x = x(batch, index);
 
-        // Represent lower and upper bound of x(index) in the sorted x_data.
-        // These bounds can be used to distinguish between edge cases (e.g.
-        // extrapolation).
-        auto bounds =
-            std::equal_range(x_data_begin_ptr, x_data_end_ptr, curr_x);
+      // Represent lower and upper bound of x(index) in the sorted x_data.
+      // These bounds can be used to distinguish between edge cases (e.g.
+      // extrapolation).
+      auto bounds = std::equal_range(x_data_begin_ptr, x_data_end_ptr, curr_x);
 
-        if (bounds.first == x_data_begin_ptr) {
-          // Left extrapolation case (including the edge case where the x[index]
-          // is equal to the leftmost point in x_data).
-          output(batch, index) =
-              left_slope(batch) * (curr_x - x_data(batch, 0)) +
-              y_data(batch, 0);
-        } else if (bounds.second == x_data_end_ptr) {
-          // Right extrapolation case.
-          output(batch, index) =
-              right_slope(batch) * (curr_x - x_data(batch, x_data_size - 1)) +
-              y_data(batch, x_data_size - 1);
+      if (bounds.first == x_data_begin_ptr) {
+        // Left extrapolation case (including the edge case where the x[index]
+        // is equal to the leftmost point in x_data).
+        output(batch, index) =
+            left_slope(batch) * (curr_x - x_data(batch, 0)) + y_data(batch, 0);
+      } else if (bounds.second == x_data_end_ptr) {
+        // Right extrapolation case.
+        output(batch, index) =
+            right_slope(batch) * (curr_x - x_data(batch, x_data_size - 1)) +
+            y_data(batch, x_data_size - 1);
+      } else {
+        const size_t left_index = bounds.first - x_data_begin_ptr;
+        const size_t right_index = bounds.second - x_data_begin_ptr;
+
+        if (left_index == right_index) {
+          // Interpolation step.
+          const T x1 = x_data(batch, left_index - 1);
+          const T x2 = x_data(batch, left_index);
+          const T y1 = y_data(batch, left_index - 1);
+          const T y2 = y_data(batch, left_index);
+          output(batch, index) = (y2 - y1) / (x2 - x1) * (curr_x - x1) + y1;
         } else {
-          const size_t left_index = bounds.first - x_data_begin_ptr;
-          const size_t right_index = bounds.second - x_data_begin_ptr;
-
-          if (left_index == right_index) {
-            // Interpolation step.
-            const T x1 = x_data(batch, left_index - 1);
-            const T x2 = x_data(batch, left_index);
-            const T y1 = y_data(batch, left_index - 1);
-            const T y2 = y_data(batch, left_index);
-            output(batch, index) = (y2 - y1) / (x2 - x1) * (curr_x - x1) + y1;
-          } else {
-            // Element x(index) is present in the x_data.
-            output(batch, index) = y_data(batch, left_index);
-          }
-        }
-
-        index++;
-        if (index == x_size) {
-          index = 0;
-          ++batch;
+          // Element x(index) is present in the x_data.
+          output(batch, index) = y_data(batch, left_index);
         }
       }
-    };
 
-    auto worker_threads = *(context->device()->tensorflow_cpu_worker_threads());
+      index++;
+      if (index == x_size) {
+        index = 0;
+        ++batch;
+      }
+    }
+  };
 
-    const size_t num_elements = batch_size * x_size;
-    const size_t num_threads = worker_threads.num_threads;
+  auto worker_threads = *(context->device()->tensorflow_cpu_worker_threads());
 
-    // Each thread should process at least min_block_size elements.
-    const size_t min_block_size = 32;
-    const size_t block_size =
-        std::max(num_elements / num_threads, min_block_size);
+  const size_t num_elements = batch_size * x_size;
+  const size_t num_threads = worker_threads.num_threads;
 
-    worker_threads.workers->TransformRangeConcurrently(block_size, num_elements,
-                                                       compute);
-  }
-};
+  // Each thread should process at least min_block_size elements.
+  const size_t min_block_size = 32;
+  const size_t block_size =
+      std::max(num_elements / num_threads, min_block_size);
 
-}  // namespace functor
+  worker_threads.workers->TransformRangeConcurrently(block_size, num_elements,
+                                                     compute);
+}
 
-template <typename Device, typename T>
+};  // namespace
+
+template <typename T>
 class LinearInterpolationOp : public OpKernel {
  public:
   explicit LinearInterpolationOp(OpKernelConstruction* context)
@@ -178,8 +165,8 @@ class LinearInterpolationOp : public OpKernel {
 
     auto output = output_ptr->matrix<T>();
 
-    functor::LinearInterpolationFunctor<Device, T>()(
-        context, x, x_data, y_data, left_slope, right_slope, output);
+    CalculateLinearInterpolation<T>(context, x, x_data, y_data, left_slope,
+                                    right_slope, output);
   }
 };
 
@@ -198,10 +185,10 @@ REGISTER_OP("LinearInterpolation")
 
 REGISTER_KERNEL_BUILDER(
     Name("LinearInterpolation").Device(DEVICE_CPU).TypeConstraint<double>("T"),
-    LinearInterpolationOp<CPUDevice, double>);
+    LinearInterpolationOp<double>);
 REGISTER_KERNEL_BUILDER(
     Name("LinearInterpolation").Device(DEVICE_CPU).TypeConstraint<float>("T"),
-    LinearInterpolationOp<CPUDevice, float>);
+    LinearInterpolationOp<float>);
 
 }  // namespace qf
 }  // namespace tensorflow
