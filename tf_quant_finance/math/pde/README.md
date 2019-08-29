@@ -1,7 +1,6 @@
-# Partial differential equation (PDE) solving ops
+# Partial Differential Equation Solvers
 
-This directory contains ops to solve parabolic PDEs using grid method.
+This module provides ops to compute numerical solutions of linear parabolic
+second order partial differential equations.
 
-TODO: Complete PDE section description once examples are in place.
-Routine consists of setting up a GridStepper along with a PDEKernel and
-a TimeMarchingScheme.
+# TODO: Complete description

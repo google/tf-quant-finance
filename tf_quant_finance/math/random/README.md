@@ -1,9 +1,11 @@
-# Ops related to pseudo-random and quasi-random number generation.
+# Random and Low Discrepancy Sequences.
 
 This directory contains ops to efficiently generate random numbers and
-quasi-random sequences.
+quasi-random low discrepancy sequences.
 
 For the random numbers, [TensorFlow](tensorflow.org) and
 [TensorFlow Probability](https://www.tensorflow.org/probability)
-already contain significant support. The ops in this module are meant to
-complement and extend those ops where deemed necessary.
+already contain significant support. This module provides Sobol and Halton
+low discrepancy sequences as well as a multivariate normal sampler which
+supports using these sequences (i.e. draws from a gaussian copula with low
+discrepancy sequences).

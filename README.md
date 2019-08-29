@@ -1,6 +1,10 @@
 # High-performance TensorFlow library for quantitative finance
 
-This library provides high-performance methods leveraging the hardware acceleration support and automatic differentation of TensorFlow. The initial library will provide TensorFlow support for foundational mathematical methods, mid-level methods, and specific pricing models. These will be significantly expanded over next months.
+This library provides high-performance methods leveraging the hardware
+acceleration support and automatic differentation of TensorFlow. The initial
+library will provide TensorFlow support for foundational mathematical methods,
+mid-level methods, and specific pricing models. These will be significantly
+expanded over next months.
 
 Our TensorFlow-based methods will be structured along three tiers:
 
@@ -12,6 +16,14 @@ ODE & PDE solvers, Diffusion Path Generators, Copula samplers etc.
 
 3. **Pricing methods**.
 Specific Pricing models (e.g Local Vol (LV), Stochastic Vol (SV), Stochastic Local Vol (SLV), Hull-White (HW))
+
+## Installation
+
+The easiest way to get started with the library is via the pip package.
+
+```sh
+pip install tf_quant_finance
+```
 
 ## Examples
 Our existing examples will be made available here soon.
