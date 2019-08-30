@@ -58,6 +58,75 @@ Our existing examples will be made available here soon.
 ## Contributing
 We're eager to collaborate with you! See [CONTRIBUTING.md](CONTRIBUTING.md) for a guide on how to contribute. This project adheres to TensorFlow's code of conduct. By participating, you are expected to uphold this code.
 
+## For developers
+
+This section is meant for developers who want to contribute code to the
+library. If you are only interested in using the library, please follow the
+instructions in the [Installation](#installation) section.
+
+### Dependencies
+
+This library has the following dependencies:
+
+1.  Bazel
+2.  Python 3 (Bazel uses Python 3 by default)
+3.  TensorFlow
+4.  TensorFlow Probability
+5.  Numpy
+
+This library requires the
+[Bazel](https://bazel.build/) build system. Please follow the
+[Bazel installation instructions](https://docs.bazel.build/versions/master/install.html)
+for your platform.
+
+
+You can install TensorFlow and related dependencies using the ```pip3 install```
+command:
+
+```sh
+pip3 install --upgrade tensorflow tensorflow_probability numpy
+```
+
+### Commonly used commands
+
+Clone the GitHub repository:
+
+```sh
+git clone https://github.com/google/tf-quant-finance.git
+```
+
+After you run
+
+```sh
+cd tf_quant_finance
+```
+
+you can execute tests using the ```bazel test``` command. For example,
+
+```sh
+bazel test tf_quant_finance/math/random/sobol:sobol_test
+```
+
+will run tests in
+[sobol_test.py](https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/random/sobol/sobol_test.py)
+.
+
+Tests will be run using the Python version 3. Please make sure that you can
+run ```import tensorflow``` in the Python 3 shell, otherwise tests might fail.
+
+### Building a custom pip package
+
+The following commands will build custom pip package from source and install it:
+
+```sh
+# sudo apt-get install bazel git python python-pip rsync # For Ubuntu.
+git clone https://github.com/google/tf-quant-finance.git
+cd tf-quant-finance
+bazel build :build_pip_pkg
+./bazel-bin/build_pip_pkg artifacts
+pip install --user --upgrade artifacts/*.whl
+```
+
 ## Community
 1. [GitHub repository](https://github.com/google/tf-quant-finance): Report bugs or make feature requests.
 
