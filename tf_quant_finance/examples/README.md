@@ -7,3 +7,7 @@ In order to start the examples on [Google Colab](https://colab.research.google.c
 issues, connect to a GPU runtime (Runtime -> Change runtime type -> Choose
 GPU in Hardware accelerator section).
 
+List of Examples:
+
+  *   [American Option pricing under the Black-Scholes model](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/American_Option_Black_Scholes.ipynb).
+
