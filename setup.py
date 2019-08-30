@@ -29,7 +29,7 @@ REQUIRED_PACKAGES = [
 ]
 
 project_name = 'tf-quant-finance'
-description = 'High performance Tensorflow library for quantitative finance.'
+description = 'High-performance TensorFlow library for quantitative finance.'
 
 
 class BinaryDistribution(Distribution):
