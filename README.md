@@ -58,7 +58,7 @@ Our existing examples will be made available here soon.
 ## Contributing
 We're eager to collaborate with you! See [CONTRIBUTING.md](CONTRIBUTING.md) for a guide on how to contribute. This project adheres to TensorFlow's code of conduct. By participating, you are expected to uphold this code.
 
-## For developers
+## Development
 
 This section is meant for developers who want to contribute code to the
 library. If you are only interested in using the library, please follow the
