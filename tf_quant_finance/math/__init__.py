@@ -20,12 +20,15 @@ from __future__ import print_function
 from tf_quant_finance.math import interpolation
 from tf_quant_finance.math import pde
 from tf_quant_finance.math import random
+from tf_quant_finance.math import root_search
+
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     'interpolation',
     'pde',
     'random',
+    'root_search',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
