@@ -21,7 +21,7 @@ from setuptools import find_packages
 from setuptools import setup
 from setuptools.dist import Distribution
 
-__version__ = '0.0.1dev'
+__version__ = '0.0.1dev2'
 REQUIRED_PACKAGES = [
     'tensorflow >= 1.12.0',
     'tensorflow-probability >= 0.5.0',
