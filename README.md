@@ -22,7 +22,7 @@ Specific Pricing models (e.g Local Vol (LV), Stochastic Vol (SV), Stochastic Loc
 The easiest way to get started with the library is via the pip package.
 
 ```sh
-pip install tf_quant_finance
+pip install tf-quant-finance
 ```
 
 ## Development Roadmap
@@ -84,7 +84,7 @@ You can install TensorFlow and related dependencies using the ```pip3 install```
 command:
 
 ```sh
-pip3 install --upgrade tensorflow tensorflow_probability numpy
+pip3 install --upgrade tensorflow tensorflow-probability numpy
 ```
 
 ### Commonly used commands
