@@ -11,21 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""TensorFlow Quantitative Finance."""
+"""TensorFlow Quantitative Finance tools to build Diffusion Models."""
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from tf_quant_finance import math
-from tf_quant_finance import models
-from tf_quant_finance import volatility
+
+from tf_quant_finance.models.ito_process import ItoProcess
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
-    'math',
-    'models',
-    'volatility',
+    'ItoProcess',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
