@@ -22,8 +22,11 @@ Specific Pricing models (e.g Local Vol (LV), Stochastic Vol (SV), Stochastic Loc
 The easiest way to get started with the library is via the pip package.
 
 ```sh
-pip install tf-quant-finance
+pip install --upgrade tf-quant-finance
 ```
+
+If you use Python 3, you might need to use ```pip3 install```. You'll
+maybe also have to use option ```--user```.
 
 ## Development Roadmap
 
