@@ -1,5 +1,17 @@
 # High-performance TensorFlow library for quantitative finance
 
+# Table of contents
+1. [Introduction](#introduction)
+2. [Installation](#installation)
+3. [Development roadmap](#development-roadmap)
+4. [Examples](#examples)
+5. [Contributing](#contributing)
+6. [Development](#development)
+7. [Community](#community)
+8. [Discaimers](#disclaimers)
+9. [License](#license)
+
+# Introduction
 This library provides high-performance methods leveraging the hardware
 acceleration support and automatic differentation of TensorFlow. The initial
 library will provide TensorFlow support for foundational mathematical methods,
@@ -28,7 +40,7 @@ pip install --upgrade tf-quant-finance
 If you use Python 3, you might need to use ```pip3 install```. You'll
 maybe also have to use option ```--user```.
 
-## Development Roadmap
+## Development roadmap
 
 We are working on expanding the coverage of the library. Areas under active
 development are:
