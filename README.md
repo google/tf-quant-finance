@@ -68,7 +68,12 @@ development are:
 
 
 ## Examples
-Our existing examples will be made available here soon.
+See [`tf_quant_finance/examples/`](https://github.com/google/tf-quant-finance/tree/master/tf_quant_finance/examples)
+for end-to-end examples. It includes tutorial notebooks such as:
+
+ *   [American Option pricing under the Black-Scholes model](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/American_Option_Black_Scholes.ipynb)
+
+The above links will open Jupyter Notebooks in Colab.
 
 ## Contributing
 We're eager to collaborate with you! See [CONTRIBUTING.md](CONTRIBUTING.md) for a guide on how to contribute. This project adheres to TensorFlow's code of conduct. By participating, you are expected to uphold this code.
