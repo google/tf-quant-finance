@@ -31,12 +31,20 @@ A full description of the model class should contain the following methods:
   *   ```sample_paths``` - return sample paths of the process at specified time
   points. The base class provides Euler scheme sampling if the drift and
   volatility functions are defined;
-  * ```backward_grid_stepper``` - returns a backward grid stepper for solving
-  the final value problem of a Partial Differential Equation (PDE) corresponding
-  to the SDE, i.e.,:
+  * ```fd_method``` - returns a finite difference method for solving
+  the [Kolmogorov equations](https://en.wikipedia.org/wiki/Kolmogorov_backward_equations_(diffusion))
+  associated with the SDE. The corresponding
+  Kolmogorov backward equation is:
 
-  $$\frac{\partial}{\partial t} V(t, x) +  \sum_{i=1}^n a_i(t, X) \frac{\partial}{\partial t} V(t, x) + \sum_{i, j, k = 1}^n S_{ik} S_{jk} \frac{\partial^2}{\partial x_i \partial x_j} V(t, x) = 0.$$
+  $$\frac{\partial}{\partial t} V(t, x) +  \sum_{i=1}^n a_i(t, X) \frac{\partial}{\partial x_i} V(t, x) + \sum_{i, j, k = 1}^n S_{ik} S_{jk} \frac{\partial^2}{\partial x_i \partial x_j} V(t, x) = 0.$$
 
+  with the final value condition $$V(T, x) = u(x)$$.
+
+  The corresponding Kolmogorov forward/Fokker Plank equation  is
+
+  $$\frac{\partial}{\partial t} V(t, x) +  \sum_{i=1}^n \frac{\partial}{\partial x_i}  a_i(t, X) V(t, x) + \sum_{i, j, k = 1}^n \frac{\partial^2}{\partial x_i \partial x_j} S_{ik} S_{jk} V(t, x) = 0.$$
+
+  with the initial value condition $$V(0, x) = u(x)$$.
 
   A minimum description of the model should only include ```dim```, ```dtype```,
   and ```name```. In order to use the provided ```sample_paths``` method,
