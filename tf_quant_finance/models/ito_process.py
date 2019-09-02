@@ -361,9 +361,8 @@ class ItoProcess(object):
     """Returns a sample of paths from the process."""
     dt = times[1:] - times[:-1]
     sqrt_dt = tf.sqrt(dt)
-    current_state = tf.reshape(
-        tf.tile(initial_state, tf.constant([num_samples])),
-        [num_samples, self.dim()])
+    current_state = initial_state + tf.zeros([num_samples, self.dim()],
+                                             dtype=initial_state.dtype)
     steps_num = tf.shape(dt)[-1]
     wiener_mean = tf.zeros((self.dim(), 1), dtype=self._dtype)
 
