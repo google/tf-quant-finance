@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from tf_quant_finance.math import interpolation
 from tf_quant_finance.math import pde
+from tf_quant_finance.math import piecewise
 from tf_quant_finance.math import random
 from tf_quant_finance.math import root_search
 from tf_quant_finance.math import segment_ops
@@ -29,6 +30,7 @@ from tensorflow.python.util.all_util import remove_undocumented  # pylint: disab
 _allowed_symbols = [
     'interpolation',
     'pde',
+    'piecewise',
     'random',
     'root_search',
     'diff',

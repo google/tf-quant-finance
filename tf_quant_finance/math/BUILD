@@ -12,6 +12,7 @@ py_library(
     srcs_version = "PY2AND3",
     deps = [
         ":diff",
+        ":piecewise",
         ":root_search",
         ":segment_ops",
         "//tf_quant_finance/math/interpolation",
@@ -79,6 +80,26 @@ py_test(
     srcs = ["segment_ops_test.py"],
     deps = [
         ":segment_ops",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "piecewise",
+    srcs = ["piecewise.py"],
+    srcs_version = "PY2AND3",
+    deps = [
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "piecewise_test",
+    size = "small",
+    srcs = ["piecewise_test.py"],
+    deps = [
+        ":piecewise",
         # numpy dep,
         # tensorflow dep,
     ],
