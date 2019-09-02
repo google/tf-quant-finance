@@ -9,6 +9,7 @@ py_library(
     visibility = ["//visibility:public"],
     deps = [
         "//tf_quant_finance/math",
+        "//tf_quant_finance/models",
         "//tf_quant_finance/volatility",
     ],
 )
