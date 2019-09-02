@@ -1,6 +1,6 @@
 # High-performance TensorFlow library for quantitative finance
 
-# Table of contents
+## Table of contents
 1. [Introduction](#introduction)
 2. [Installation](#installation)
 3. [Development roadmap](#development-roadmap)
@@ -11,7 +11,7 @@
 8. [Discaimers](#disclaimers)
 9. [License](#license)
 
-# Introduction
+## Introduction
 This library provides high-performance methods leveraging the hardware
 acceleration support and automatic differentation of TensorFlow. The initial
 library will provide TensorFlow support for foundational mathematical methods,
