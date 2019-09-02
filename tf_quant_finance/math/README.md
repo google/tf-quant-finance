@@ -7,7 +7,7 @@ and [Tensorflow Probability](https://github.com/tensorflow/probability) provide
 a significant suite of methods already and the methods here are meant to
 build on those.
 
-The modules provided are:
+Some of the modules/functions provided are:
 
   * [math.interpolation](interpolation): Ops to perform linear and
   cubic interpolation.
@@ -17,3 +17,8 @@ The modules provided are:
   * [math.random](random): Ops to compute low discrepancy sequences.
   * math.root_search: Brent method for computing roots of functions in one
     dimension.
+  * [math.root_search](root_search.py): Provides the Brent method for computing
+    roots of functions in one dimension.
+  * [math.segment_ops](segment_ops.py): Utility methods to apply some element
+    wise ops in a segment.
+

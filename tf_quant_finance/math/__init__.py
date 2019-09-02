@@ -21,6 +21,8 @@ from tf_quant_finance.math import interpolation
 from tf_quant_finance.math import pde
 from tf_quant_finance.math import random
 from tf_quant_finance.math import root_search
+from tf_quant_finance.math import segment_ops
+from tf_quant_finance.math.diff import diff
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
@@ -29,6 +31,8 @@ _allowed_symbols = [
     'pde',
     'random',
     'root_search',
+    'diff',
+    'segment_ops',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
