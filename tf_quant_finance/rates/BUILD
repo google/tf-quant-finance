@@ -1,0 +1,38 @@
+# Tools for handling rate curves.
+
+licenses(["notice"])
+
+# [internal] load python3.bzl
+
+package(default_visibility = ["//tf_quant_finance:__subpackages__"])
+
+py_library(
+    name = "rates",
+    srcs = ["__init__.py"],
+    srcs_version = "PY2AND3",
+    deps = [
+        ":forwards",
+    ],
+)
+
+py_library(
+    name = "forwards",
+    srcs = ["forwards.py"],
+    srcs_version = "PY2AND3",
+    deps = [
+        "//tf_quant_finance/math:segment_ops",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "forwards_test",
+    size = "small",
+    srcs = ["forwards_test.py"],
+    deps = [
+        ":forwards",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)

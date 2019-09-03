@@ -1,4 +1,4 @@
-# High-performance TensorFlow library for quantitative finance
+# TF Quant Finance: TensorFlow based Quant Finance Library
 
 ## Table of contents
 1. [Introduction](#introduction)
@@ -12,22 +12,31 @@
 9. [License](#license)
 
 ## Introduction
-This library provides high-performance methods leveraging the hardware
-acceleration support and automatic differentation of TensorFlow. The initial
-library will provide TensorFlow support for foundational mathematical methods,
-mid-level methods, and specific pricing models. These will be significantly
-expanded over next months.
 
-Our TensorFlow-based methods will be structured along three tiers:
+This library provides high-performance components leveraging the hardware
+acceleration support and automatic differentation of TensorFlow. The
+library will provide TensorFlow support for foundational mathematical methods,
+mid-level methods, and specific pricing models. The coverage is being rapidly
+expanded over the next few months.
+
+The library is structured along three tiers:
 
 1. **Foundational methods**.
-Core mathematics methods - optimisation, root finders, linear algebra, random number generation, etc.
+Core mathematical methods - optimisation, interpolation, root finders,
+linear algebra, random and quasi-random number generation, etc.
 
 2. **Mid-level methods**.
-ODE & PDE solvers, Diffusion Path Generators, Copula samplers etc.
+ODE & PDE solvers, Ito process framework, Diffusion Path Generators,
+Copula samplers etc.
 
-3. **Pricing methods**.
-Specific Pricing models (e.g Local Vol (LV), Stochastic Vol (SV), Stochastic Local Vol (SLV), Hull-White (HW))
+3. **Pricing methods and other quant finance specific utilities**.
+Specific Pricing models (e.g Local Vol (LV), Stochastic Vol (SV),
+Stochastic Local Vol (SLV), Hull-White (HW)) and their calibration.
+Rate curve building and payoff descriptions.
+
+We aim for the library components to be easily accessible at each level. Each
+layer will be accompanied by many examples which can be run independently of
+higher level components.
 
 ## Installation
 
@@ -55,6 +64,7 @@ development are:
       * Single factor Hull White model
       * Heston model
       * Local volatility model.
+      * Quadratic Local Vol model.
       * SABR model
   * ADI method for solving multi dimensional PDEs.
   * Copulas: Support for defining and sampling from copulas.
@@ -71,11 +81,12 @@ development are:
 See [`tf_quant_finance/examples/`](https://github.com/google/tf-quant-finance/tree/master/tf_quant_finance/examples)
 for end-to-end examples. It includes tutorial notebooks such as:
 
- *   [American Option pricing under the Black-Scholes model](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/American_Option_Black_Scholes.ipynb)
+  * [American Option pricing under the Black-Scholes model](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/American_Option_Black_Scholes.ipynb)
 
 The above links will open Jupyter Notebooks in Colab.
 
 ## Contributing
+
 We're eager to collaborate with you! See [CONTRIBUTING.md](CONTRIBUTING.md) for a guide on how to contribute. This project adheres to TensorFlow's code of conduct. By participating, you are expected to uphold this code.
 
 ## Development
