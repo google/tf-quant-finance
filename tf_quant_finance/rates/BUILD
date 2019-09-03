@@ -36,3 +36,24 @@ py_test(
         # tensorflow dep,
     ],
 )
+
+py_library(
+    name = "cashflows",
+    srcs = ["cashflows.py"],
+    srcs_version = "PY2AND3",
+    deps = [
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "cashflows_test",
+    size = "small",
+    srcs = ["cashflows_test.py"],
+    deps = [
+        ":cashflows",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
