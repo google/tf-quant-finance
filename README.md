@@ -82,6 +82,8 @@ See [`tf_quant_finance/examples/`](https://github.com/google/tf-quant-finance/tr
 for end-to-end examples. It includes tutorial notebooks such as:
 
   * [American Option pricing under the Black-Scholes model](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/American_Option_Black_Scholes.ipynb)
+  * [Monte Carlo via Euler Scheme](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Monte_Carlo_Euler_Scheme.ipynb)
+
 
 The above links will open Jupyter Notebooks in Colab.
 
