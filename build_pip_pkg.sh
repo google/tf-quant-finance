@@ -52,6 +52,8 @@ function main() {
   cp ${PIP_FILE_PREFIX}setup.py "${TMPDIR}"
   cp ${PIP_FILE_PREFIX}MANIFEST.in "${TMPDIR}"
   cp ${PIP_FILE_PREFIX}LICENSE "${TMPDIR}"
+  cp ${PIP_FILE_PREFIX}README.md "${TMPDIR}"
+
 
   rsync -avm -L --exclude='*_test.py' ${PIP_FILE_PREFIX}tf_quant_finance "${TMPDIR}"
   # This will copy third_party to a subdirectory of tf_quant_finance.

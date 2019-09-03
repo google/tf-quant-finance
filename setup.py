@@ -18,11 +18,15 @@ from __future__ import division
 from __future__ import print_function
 
 from os import path
+import sys
 
 from setuptools import find_packages
 from setuptools import setup
 from setuptools.dist import Distribution
 
+if sys.version_info[0] < 3:
+  # Need to load open from io to support encoding arg when using Python 2.
+  from io import open  # pylint: disable=redefined-builtin, g-importing-member, g-import-not-at-top
 
 # Read the contents of the README file and set that as the long package
 # description.

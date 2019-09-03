@@ -18,6 +18,7 @@ sh_binary(
     data = [
         "LICENSE",
         "MANIFEST.in",
+        "README.md",
         "setup.py",
         "//tf_quant_finance",
         "//third_party/sobol_data:LICENSE",
