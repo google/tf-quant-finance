@@ -15,8 +15,6 @@ Some of the modules/functions provided are:
   equations using finite difference methods. Currently, only linear second
   order PDEs are supported as this is the most commonly needed case.
   * [math.random](random): Ops to compute low discrepancy sequences.
-  * math.root_search: Brent method for computing roots of functions in one
-    dimension.
   * [math.root_search](root_search.py): Provides the Brent method for computing
     roots of functions in one dimension.
   * [math.segment_ops](segment_ops.py): Utility methods to apply some element
