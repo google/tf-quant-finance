@@ -13,6 +13,7 @@ py_library(
     deps = [
         ":cashflows",
         ":forwards",
+        "//tf_quant_finance/rates/hagan_west",
     ],
 )
 
