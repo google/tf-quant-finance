@@ -69,7 +69,7 @@ class ItoProcess(object):
       inst_covariance_{ij}(t, X) = (S.S^T)_{ij}
     ```
 
-  ### Example. 2-dimentional Ito process of the form
+  ### Example. 2-dimensional Ito process of the form
 
   ```none
   dX_1 = mu_1 * sqrt(t) dt + s11 * dW_1 + s12 * dW_2
