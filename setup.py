@@ -17,9 +17,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from os import path
+
 from setuptools import find_packages
 from setuptools import setup
 from setuptools.dist import Distribution
+
+
+# Read the contents of the README file and set that as the long package
+# description.
+cwd = path.abspath(path.dirname(__file__))
+with open(path.join(cwd, 'README.md'), encoding='utf-8') as f:
+  long_description = f.read()
 
 __version__ = '0.0.1dev5'
 REQUIRED_PACKAGES = [
@@ -78,4 +87,6 @@ setup(
             'third_party/sobol_data/LICENSE'
         ]
     },
+    long_description=long_description,
+    long_description_content_type='text/markdown'
 )
