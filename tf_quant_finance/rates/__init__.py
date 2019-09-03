@@ -25,7 +25,7 @@ from tf_quant_finance.rates import forwards
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
-    'cashflows'
+    'cashflows',
     'forwards',
 ]
 
