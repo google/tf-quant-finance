@@ -37,12 +37,13 @@ class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
     n = 100
     dtypes = [np.float32, np.float64]
     for dtype in dtypes:
-      volatilities = np.exp(np.random.randn(n).astype(dtype) / 2)
-      forwards = np.exp(np.random.randn(n).astype(dtype))
-      strikes = forwards * (1 + (np.random.rand(n).astype(dtype) - 0.5) * 0.2)
-      expiries = np.exp(np.random.randn(n).astype(dtype))
+      volatilities = np.exp(np.random.randn(n) / 2)
+      forwards = np.exp(np.random.randn(n))
+      strikes = forwards * (1 + (np.random.rand(n) - 0.5) * 0.2)
+      expiries = np.exp(np.random.randn(n))
       prices = self.evaluate(
-          black_scholes.option_price(forwards, strikes, volatilities, expiries))
+          black_scholes.option_price(
+              forwards, strikes, volatilities, expiries, dtype=dtype))
 
       implied_vols = self.evaluate(
           polya_approx.implied_vol(
@@ -55,12 +56,13 @@ class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
     n = 100
     dtypes = [np.float32, np.float64]
     for dtype in dtypes:
-      volatilities = np.exp(np.random.randn(n).astype(dtype) / 2)
-      forwards = np.exp(np.random.randn(n).astype(dtype))
-      strikes = forwards * (1 + (np.random.rand(n).astype(dtype) - 0.5) * 0.2)
-      expiries = np.exp(np.random.randn(n).astype(dtype))
+      volatilities = np.exp(np.random.randn(n) / 2)
+      forwards = np.exp(np.random.randn(n))
+      strikes = forwards * (1 + (np.random.rand(n) - 0.5) * 0.2)
+      expiries = np.exp(np.random.randn(n))
       prices = self.evaluate(
-          black_scholes.option_price(forwards, strikes, volatilities, expiries))
+          black_scholes.option_price(
+              forwards, strikes, volatilities, expiries, dtype=dtype))
 
       implied_vols = self.evaluate(
           polya_approx.implied_vol(

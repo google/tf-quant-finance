@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Lint as: python2, python3
-"""Tests for vanilla.black_scholes."""
+"""Tests for volatility.black_scholes."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -21,6 +21,7 @@ from __future__ import print_function
 
 import numpy as np
 import tensorflow as tf
+import tensorflow_probability as tfp
 
 from tf_quant_finance.volatility import black_scholes
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
@@ -37,7 +38,8 @@ class BlackScholesTest(tf.test.TestCase):
     volatilities = np.array([0.0001, 102.0, 2.0, 0.1, 0.4])
     expiries = 1.0
     computed_prices = self.evaluate(
-        black_scholes.option_price(forwards, strikes, volatilities, expiries))
+        black_scholes.option_price(
+            forwards, strikes, volatilities, expiries, dtype=tf.float64))
     expected_prices = np.array(
         [0.0, 2.0, 2.0480684764112578, 1.0002029716043364, 2.0730313058959933])
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
@@ -57,7 +59,8 @@ class BlackScholesTest(tf.test.TestCase):
             strikes,
             volatilities,
             expiries,
-            is_call_options=is_call_options))
+            is_call_options=is_call_options,
+            dtype=tf.float64))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
 
   def test_price_zero_expiry(self):
@@ -75,7 +78,8 @@ class BlackScholesTest(tf.test.TestCase):
             strikes,
             volatilities,
             expiries,
-            is_call_options=is_call_options))
+            is_call_options=is_call_options,
+            dtype=tf.float64))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
 
   def test_price_long_expiry_calls(self):
@@ -86,7 +90,8 @@ class BlackScholesTest(tf.test.TestCase):
     expiries = 1e10
     expected_prices = forwards
     computed_prices = self.evaluate(
-        black_scholes.option_price(forwards, strikes, volatilities, expiries))
+        black_scholes.option_price(
+            forwards, strikes, volatilities, expiries, dtype=tf.float64))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
 
   def test_price_long_expiry_puts(self):
@@ -98,7 +103,12 @@ class BlackScholesTest(tf.test.TestCase):
     expected_prices = strikes
     computed_prices = self.evaluate(
         black_scholes.option_price(
-            forwards, strikes, volatilities, expiries, is_call_options=False))
+            forwards,
+            strikes,
+            volatilities,
+            expiries,
+            is_call_options=False,
+            dtype=tf.float64))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
 
   def test_price_vol_and_expiry_scaling(self):
@@ -111,12 +121,142 @@ class BlackScholesTest(tf.test.TestCase):
     expiries = np.exp(np.random.randn(n))
     scaling = 5.0
     base_prices = self.evaluate(
-        black_scholes.option_price(forwards, strikes, volatilities, expiries))
+        black_scholes.option_price(
+            forwards, strikes, volatilities, expiries, dtype=tf.float64))
     scaled_prices = self.evaluate(
-        black_scholes.option_price(forwards, strikes, volatilities * scaling,
-                                   expiries / scaling / scaling))
-
+        black_scholes.option_price(
+            forwards,
+            strikes,
+            volatilities * scaling,
+            expiries / scaling / scaling,
+            dtype=tf.float64))
     self.assertArrayNear(base_prices, scaled_prices, 1e-10)
+
+  def test_binary_prices(self):
+    """Tests that the BS binary option prices are correct."""
+    forwards = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    strikes = np.array([3.0, 3.0, 3.0, 3.0, 3.0])
+    volatilities = np.array([0.0001, 102.0, 2.0, 0.1, 0.4])
+    expiries = 1.0
+    computed_prices = self.evaluate(
+        black_scholes.binary_price(
+            forwards, strikes, volatilities, expiries, dtype=tf.float64))
+    expected_prices = np.array([0.0, 0.0, 0.15865525, 0.99764937, 0.85927418])
+    self.assertArrayNear(expected_prices, computed_prices, 1e-8)
+
+  def test_binary_prices_bulk(self):
+    """Tests unit of cash binary option pricing over a wide range of settings.
+
+    Uses the fact that if the underlying follows a geometric brownian motion
+    then, given the mean on the exponential scale and the variance on the log
+    scale, the mean on the log scale is known. In particular for underlying S
+    with forward price F, strike K, volatility sig, and expiry T:
+
+    log(S) ~ N(log(F) - sig^2 T, sig^2 T)
+
+    The price of the binary call option is the discounted probability that S
+    will be greater than K at expiry (and for a put option, less than K). Since
+    quantiles are preserved under monotonic transformations we can find this
+    probability on the log scale. This provides an alternate calculation for the
+    same price which we can use to corroborate the standard method.
+    """
+    np.random.seed(321)
+    num_examples = 1000
+    forwards = np.exp(np.random.normal(size=num_examples))
+    strikes = np.exp(np.random.normal(size=num_examples))
+    volatilities = np.exp(np.random.normal(size=num_examples))
+    expiries = np.random.gamma(shape=1.0, scale=1.0, size=num_examples)
+    log_scale = np.sqrt(expiries) * volatilities
+    log_loc = np.log(forwards) - 0.5 * log_scale**2
+    call_options = np.random.binomial(n=1, p=0.5, size=num_examples)
+    discount_factors = np.random.beta(a=1.0, b=1.0, size=num_examples)
+
+    cdf_values = self.evaluate(
+        tfp.distributions.Normal(loc=log_loc,
+                                 scale=log_scale).cdf(np.log(strikes)))
+
+    expected_prices = discount_factors * (
+        call_options + ((-1.0)**call_options) * cdf_values)
+
+    is_call_options = np.array(call_options, dtype=np.bool)
+    computed_prices = self.evaluate(
+        black_scholes.binary_price(
+            forwards,
+            strikes,
+            volatilities,
+            expiries,
+            is_call_options=is_call_options,
+            discount_factors=discount_factors))
+    self.assertArrayNear(expected_prices, computed_prices, 1e-10)
+
+  def test_binary_vanilla_call_consistency(self):
+    r"""Tests code consistency through relationship of binary and vanilla prices.
+
+    With forward F, strike K, discount rate r, and expiry T, a vanilla call
+    option should have price CV:
+
+    $$ VC(K) = e^{-rT}( N(d_1)F - N(d_2)K ) $$
+
+    A unit of cash paying binary call option should have price BC:
+
+    $$ BC(K) = e^{-rT} N(d_2) $$
+
+    Where d_1 and d_2 are standard Black-Scholes quanitities and depend on K
+    through the ratio F/K. Hence for a small increment e:
+
+    $$ (VC(K + e) - Vc(K))/e \approx -N(d_2)e^{-rT} = -BC(K + e) $$
+
+    Similarly, for a vanilla put:
+
+    $$ (VP(K + e) - VP(K))/e \approx N(-d_2)e^{-rT} = BP(K + e) $$
+
+    This enables a test for consistency of pricing between vanilla and binary
+    options prices.
+    """
+
+    np.random.seed(135)
+    num_examples = 1000
+    forwards = np.exp(np.random.normal(size=num_examples))
+    strikes_0 = np.exp(np.random.normal(size=num_examples))
+    epsilon = 1e-8
+    strikes_1 = strikes_0 + epsilon
+    volatilities = np.exp(np.random.normal(size=num_examples))
+    expiries = np.random.gamma(shape=1.0, scale=1.0, size=num_examples)
+    call_options = np.random.binomial(n=1, p=0.5, size=num_examples)
+    is_call_options = np.array(call_options, dtype=np.bool)
+    discount_factors = np.ones_like(forwards)
+
+    option_prices_0 = self.evaluate(
+        black_scholes.option_price(
+            forwards,
+            strikes_0,
+            volatilities,
+            expiries,
+            is_call_options=is_call_options,
+            dtype=tf.float64))
+
+    option_prices_1 = self.evaluate(
+        black_scholes.option_price(
+            forwards,
+            strikes_1,
+            volatilities,
+            expiries,
+            is_call_options=is_call_options,
+            dtype=tf.float64))
+
+    binary_approximation = (-1.0)**call_options * (option_prices_1 -
+                                                   option_prices_0) / epsilon
+
+    binary_prices = self.evaluate(
+        black_scholes.binary_price(
+            forwards,
+            strikes_1,
+            volatilities,
+            expiries,
+            is_call_options=is_call_options,
+            discount_factors=discount_factors))
+
+    self.assertArrayNear(binary_approximation, binary_prices, 1e-6)
 
 
 if __name__ == '__main__':
