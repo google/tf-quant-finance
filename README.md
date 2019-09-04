@@ -8,7 +8,7 @@
 5. [Contributing](#contributing)
 6. [Development](#development)
 7. [Community](#community)
-8. [Discaimers](#disclaimers)
+8. [Disclaimers](#disclaimers)
 9. [License](#license)
 
 ## Introduction
