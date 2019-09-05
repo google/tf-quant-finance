@@ -17,6 +17,53 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+
+# We need to put some imports inside a function call below, and the function
+# call needs to come before the *actual* imports that populate the
+# tf_quant_finance namespace. Hence, we disable this lint check throughout
+# the file.
+#
+# pylint: disable=g-import-not-at-top
+
+# Update this whenever we need to depend on a newer TensorFlow release.
+_REQUIRED_TENSORFLOW_VERSION = "1.12"  # pylint: disable=g-statement-before-imports
+
+
+# Ensure TensorFlow is importable and its version is sufficiently recent. This
+# needs to happen before anything else, since the imports below will try to
+# import tensorflow, too.
+def _ensure_tf_install():  # pylint: disable=g-statement-before-imports
+  """Attempt to import tensorflow, and ensure its version is sufficient.
+
+  Raises:
+    ImportError: if either tensorflow is not importable or its version is
+    inadequate.
+  """
+  try:
+    import tensorflow as tf
+  except ImportError:
+    # Print more informative error message, then reraise.
+    print("\n\nFailed to import TensorFlow. Please note that TensorFlow is not "
+          "installed by default when you install TF Quant Finance library. "
+          "This is so that users can decide whether to install the GPU-enabled "
+          "TensorFlow package. To use TF Quant Finance library, please install "
+          "the most recent version of TensorFlow, by following instructions at "
+          "https://tensorflow.org/install.\n\n")
+    raise
+
+  import distutils.version
+
+  if (distutils.version.LooseVersion(tf.__version__) <
+      distutils.version.LooseVersion(_REQUIRED_TENSORFLOW_VERSION)):
+    raise ImportError(
+        "This version of TF Quant Finance library requires TensorFlow "
+        "version >= {required}; Detected an installation of version {present}. "
+        "Please upgrade TensorFlow to proceed.".format(
+            required=required_tensorflow_version, present=tf.__version__))
+
+
+_ensure_tf_install()
+
 from tf_quant_finance import math
 from tf_quant_finance import models
 from tf_quant_finance import rates
@@ -24,10 +71,10 @@ from tf_quant_finance import volatility
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
-    'math',
-    'models',
-    'rates',
-    'volatility',
+    "math",
+    "models",
+    "rates",
+    "volatility",
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

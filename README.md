@@ -42,6 +42,24 @@ higher level components.
 
 The easiest way to get started with the library is via the pip package.
 
+First please install the most recent version of TensorFlow by following
+the [TensorFlow installation instructions](https://tensorflow.org/install).
+For example, you could install TensorFlow using
+
+```sh
+pip install --upgrade tensorflow
+```
+
+or
+
+```sh
+pip install --upgrade tensorflow-gpu
+```
+
+if you want to use GPUs.
+
+Then run
+
 ```sh
 pip install --upgrade tf-quant-finance
 ```

@@ -36,7 +36,6 @@ with open(path.join(cwd, 'README.md'), encoding='utf-8') as f:
 
 __version__ = '0.0.1dev5'
 REQUIRED_PACKAGES = [
-    'tensorflow >= 1.12.0',
     'tensorflow-probability >= 0.5.0',
     'numpy >= 1.13.3'
 ]
