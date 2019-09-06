@@ -59,7 +59,7 @@ def _ensure_tf_install():  # pylint: disable=g-statement-before-imports
         "This version of TF Quant Finance library requires TensorFlow "
         "version >= {required}; Detected an installation of version {present}. "
         "Please upgrade TensorFlow to proceed.".format(
-            required=required_tensorflow_version, present=tf.__version__))
+            required=_REQUIRED_TENSORFLOW_VERSION, present=tf.__version__))
 
 
 _ensure_tf_install()
