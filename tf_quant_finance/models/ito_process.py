@@ -212,12 +212,13 @@ class ItoProcess(object):
         1. `start time` and `end time` are of shape `time_batch_shape`.
           Here `time_batch_shape` is the shape of the times `Tensor` at which
           to evaluate the integrated drift.
-        2. The state is of shape `time_batch_shape + [dim]` where `dim` is the
-          dimension of the process.
+        2. The state is of shape `batch_shape + time_batch_shape + [dim]` where
+          `dim` and `batch_shape` are the dimension and batch shape of the
+          process.
 
       The output of this callable is a `Tensor` of shape
-      `time_batch_shape + [dim]` containing the integrated drift between the
-      start times and end times.
+      `batch_shape + time_batch_shape + [dim]` containing the integrated drift
+      between the start times and end times.
     """
     return None
 
@@ -270,12 +271,13 @@ class ItoProcess(object):
         1. `start time` and `end time` are of shape `time_batch_shape`.
           Here `time_batch_shape` is the shape of the times `Tensor` at which
           to evaluate the integrated covariances.
-        2. The state is of shape `time_batch_shape + [dim]` where `dim` is the
-          dimension of the process.
+        2. The state is of shape `batch_shape + time_batch_shape + [dim]` where
+          `dim` and `batch_shape` are the dimension and batch shape of the
+          process.
 
       The output of this callable is a `Tensor` of shape
-      `time_batch_shape + [dim, dim]` containing the integrated covariances
-      between the start times and end times.
+      `batch_shape + time_batch_shape + [dim]` containing the integrated
+      covariances between the start times and end times.
     """
     return None
 
