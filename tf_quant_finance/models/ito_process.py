@@ -341,7 +341,7 @@ class ItoProcess(object):
   def fd_method(self, *args, **kwargs):
     """Returns a finite difference solver for solving Kolmogorov equations.
 
-    TODO: Complete the interface specification for this.
+    TODO(b/140312392): Complete the interface specification for this.
 
     Args:
       *args: Place value arguments.
@@ -350,7 +350,7 @@ class ItoProcess(object):
     Returns:
       An instance of `BackwardGridStepper` to solve the backward Kolmogorov
       equation.
-      TODO: decide on the interface for solving the forward
+      TODO(b/140370654): decide on the interface for solving the forward
       Kolmogorov equation.
     """
     raise NotImplementedError('Finite difference solvers are not yet '

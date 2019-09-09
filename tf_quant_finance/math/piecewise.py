@@ -69,8 +69,8 @@ def find_interval_index(query_xs,
       name,
       default_name='find_interval_index',
       values=[query_xs, interval_lower_xs, last_interval_is_closed]):
-    # TODO: add ability to validate that intervals are increasing.
-    # TODO: validate that if last_interval_is_closed, input size
+    # TODO(b/138988951): add ability to validate that intervals are increasing.
+    # TODO(b/138988951): validate that if last_interval_is_closed, input size
     # must be > 1.
     query_xs = tf.convert_to_tensor(query_xs, dtype=dtype)
     interval_lower_xs = tf.convert_to_tensor(interval_lower_xs, dtype=dtype)

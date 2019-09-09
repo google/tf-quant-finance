@@ -51,5 +51,5 @@ A full description of the model class should contain the following methods:
   both ```drift_fn``` and ```volatility_fn``` should be defined.
 
 
-TODO: provide description of model calibration procedure.
-TODO: provide description of Ito process algebra API.
+TODO(b/140290854): provide description of model calibration procedure.
+TODO(b/140313472): provide description of Ito process algebra API.

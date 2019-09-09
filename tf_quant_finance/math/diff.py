@@ -21,7 +21,7 @@ from __future__ import print_function
 import tensorflow as tf
 
 
-# TODO: Move this function to a math library and provide a more
+# TODO(b/136354274): Move this function to a math library and provide a more
 # efficient C++ kernel.
 def diff(x, order=1, exclusive=False, dtype=None, name=None):
   """Computes the difference between elements of an array at a regular interval.

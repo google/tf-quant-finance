@@ -86,7 +86,7 @@ def interpolate(x,
     left_slope = tf.convert_to_tensor(left_slope, dtype=dtype)
     right_slope = tf.convert_to_tensor(right_slope, dtype=dtype)
 
-    # TODO: add batching support.
+    # TODO(b/130141692): add batching support.
     x_data_is_rank_1 = tf.assert_rank(x_data, 1)
     with tf.control_dependencies([x_data_is_rank_1]):
       # Get upper bound indices for `x`.

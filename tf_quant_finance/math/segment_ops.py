@@ -181,7 +181,7 @@ def segment_cumsum(x, segment_ids, exclusive=False, dtype=None, name=None):
       return raw_cumsum
     # It is quite tedious to do a vectorized version without a while loop so
     # we skip that for now.
-    # TODO: Replace these ops with more efficient C++ kernels.
+    # TODO(b/137940928): Replace these ops with more efficient C++ kernels.
     def scanner(accumulators, args):
       cumsum, prev_segment, prev_value = accumulators
       value, segment = args

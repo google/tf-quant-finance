@@ -131,7 +131,7 @@ def multivariate_normal(sample_shape,
     NotImplementedError: If `random_type` is not RandomType.PSEUDO.
   """
   random_type = RandomType.PSEUDO if random_type is None else random_type
-  # TODO: Implement the other random types.
+  # TODO(b/140215145): Implement the other random types.
   if random_type != RandomType.PSEUDO:
     raise NotImplementedError('Only RandomType.PSEUDO is supported currently.')
 
