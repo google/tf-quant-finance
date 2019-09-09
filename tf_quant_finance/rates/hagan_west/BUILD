@@ -39,3 +39,28 @@ py_test(
         # tensorflow dep,
     ],
 )
+
+py_library(
+    name = "bond_curve",
+    srcs = ["bond_curve.py"],
+    srcs_version = "PY2AND3",
+    deps = [
+        ":monotone_convex",
+        "//tf_quant_finance/rates:cashflows",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "bond_curve_test",
+    size = "small",
+    srcs = ["bond_curve_test.py"],
+    shard_count = 3,
+    deps = [
+        ":bond_curve",
+        ":monotone_convex",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)

@@ -18,10 +18,12 @@ from __future__ import division
 from __future__ import print_function
 
 from tf_quant_finance.rates.hagan_west import monotone_convex
+from tf_quant_finance.rates.hagan_west.bond_curve import bond_curve
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
+    'bond_curve',
     'monotone_convex',
 ]
 
