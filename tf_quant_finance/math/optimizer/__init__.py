@@ -25,17 +25,20 @@ from tensorflow_probability.python.optimizer import linesearch
 from tensorflow_probability.python.optimizer import nelder_mead_minimize
 from tensorflow_probability.python.optimizer import nelder_mead_one_step
 
-
+from tf_quant_finance.math.optimizer.conjugate_gradient import ConjugateGradientParams
+from tf_quant_finance.math.optimizer.conjugate_gradient import minimize as conjugate_gradient_minimize
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     'bfgs_minimize',
+    'conjugate_gradient_minimize',
     'converged_all',
     'converged_any',
     'lbfgs_minimize',
     'linesearch',
     'nelder_mead_minimize',
     'nelder_mead_one_step',
+    'ConjugateGradientParams',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

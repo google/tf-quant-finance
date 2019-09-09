@@ -36,8 +36,7 @@ with open(path.join(cwd, 'README.md'), encoding='utf-8') as f:
 
 __version__ = '0.0.1dev6'
 REQUIRED_PACKAGES = [
-    'tensorflow-probability >= 0.5.0',
-    'numpy >= 1.13.3'
+    'attr >= 18.2.0', 'tensorflow-probability >= 0.5.0', 'numpy >= 1.13.3'
 ]
 
 project_name = 'tf-quant-finance'

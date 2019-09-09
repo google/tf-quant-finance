@@ -11,7 +11,7 @@ py_library(
     srcs = ["__init__.py"],
     srcs_version = "PY2AND3",
     deps = [
-        # tensorflow_probability dep,
+        ":conjugate_gradient",
     ],
 )
 
@@ -21,5 +21,28 @@ py_test(
     srcs = ["optimizer_test.py"],
     deps = [
         "//tf_quant_finance/math",
+    ],
+)
+
+py_library(
+    name = "conjugate_gradient",
+    srcs = ["conjugate_gradient.py"],
+    deps = [
+        # attr dep,
+        # tensorflow dep,
+        # tensorflow_probability dep,
+    ],
+)
+
+py_test(
+    name = "conjugate_gradient_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["conjugate_gradient_test.py"],
+    deps = [
+        ":optimizer",
+        # numpy dep,
+        # tensorflow dep,
+        # tensorflow_probability dep,
     ],
 )
