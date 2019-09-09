@@ -31,6 +31,7 @@ class RandomType(enum.Enum):
   HALTON = 2  # The standard Halton sequence.
   HALTON_RANDOMIZED = 3  # The randomized Halton sequence.
   SOBOL = 4  # The standard Sobol sequence.
+  PSEUDO_ANTITHETIC = 5  # PSEUDO random numbers along with antithetic variates
 
 
 def multivariate_normal(sample_shape,
@@ -40,6 +41,7 @@ def multivariate_normal(sample_shape,
                         random_type=None,
                         validate_args=False,
                         seed=None,
+                        dtype=None,
                         name=None):
   """Generates draws from a multivariate Normal distribution.
 
@@ -107,22 +109,32 @@ def multivariate_normal(sample_shape,
       scale_matrix * Transpose(scale_matrix)`.
       Default value: None which corresponds to an identity covariance matrix.
     random_type: Enum value of `RandomType`. The type of draw to generate.
+      For `PSEUDO_ANTITHETIC` the first dimension of `sample_shape` is
+      expected to be an even positive integer. The antithetic pairs are then
+      contained in the slices of the `output` tensor as
+      `output[:(sample_shape[0] / 2), ...]` and
+      `output[(sample_shape[0] / 2):, ...]`.
       Default value: None which is mapped to `RandomType.PSEUDO`.
     validate_args: Python `bool`. When `True`, distribution parameters are
       checked for validity despite possibly degrading runtime performance. When
       `False` invalid inputs may silently render incorrect outputs.
       Default value: False.
     seed: Seed for the random number generator. The seed is only relevant if
-      `random_type` is one of `[PSEUDO, STATELESS, HALTON_RANDOMIZED]`. For
-      `PSEUDO`, the seed should be a Python integer. For the other two options,
-      the seed may either be a Python integer or a tuple of Python integers.
+      `random_type` is one of `[PSEUDO, PSEUDO_ANTITHETIC, STATELESS,
+      HALTON_RANDOMIZED]`. For `PSEUDO` and `PSEUDO_ANTITHETIC`, the seed should
+      be a Python integer. For the other two options, the seed may either be a
+      Python integer or a tuple of Python integers.
+      Default value: None which means no seed is set.
+    dtype: Optional `dtype`. The dtype of the input and output tensors.
+      Default value: None which maps to the default dtype inferred by
+      TensorFlow.
     name: Python `str` name prefixed to Ops created by this class.
       Default value: None which is mapped to the default name
         'multivariate_normal'.
 
   Returns:
-    samples: A `Tensor` of shape `sample_shape + batch_shape + [k]`. The draws
-      from the multivariate normal distribution.
+    A `Tensor` of shape `sample_shape + batch_shape + [k]`. The draws from the
+    multivariate normal distribution.
 
   Raises:
     ValueError:
@@ -132,8 +144,10 @@ def multivariate_normal(sample_shape,
   """
   random_type = RandomType.PSEUDO if random_type is None else random_type
   # TODO(b/140215145): Implement the other random types.
-  if random_type != RandomType.PSEUDO:
-    raise NotImplementedError('Only RandomType.PSEUDO is supported currently.')
+  if random_type not in [RandomType.PSEUDO, RandomType.PSEUDO_ANTITHETIC]:
+    raise NotImplementedError(
+        'Only RandomType.PSEUDO and RandomType.PSEUDO_ANTITHETIC '
+        'are currently supported.')
 
   if mean is None and covariance_matrix is None and scale_matrix is None:
     raise ValueError('At least one of mean, covariance_matrix or scale_matrix'
@@ -147,14 +161,45 @@ def multivariate_normal(sample_shape,
       name,
       default_name='multivariate_normal',
       values=[sample_shape, mean, covariance_matrix, scale_matrix]):
-
-    return _mvnormal_pseudo(
-        sample_shape,
-        mean,
-        covariance_matrix=covariance_matrix,
-        scale_matrix=scale_matrix,
-        validate_args=validate_args,
-        seed=seed)
+    if mean is not None:
+      mean = tf.convert_to_tensor(mean, dtype=dtype, name='mean')
+    if random_type == RandomType.PSEUDO:
+      return _mvnormal_pseudo(
+          sample_shape,
+          mean,
+          covariance_matrix=covariance_matrix,
+          scale_matrix=scale_matrix,
+          validate_args=validate_args,
+          seed=seed,
+          dtype=dtype)
+    else:
+      # The case of PSEUDO_ANTITHETIC random type
+      sample_zero_dim = sample_shape[0]
+      # For the antithetic sampler `sample_shape` is split evenly between
+      # samples and their antithetic counterparts. In order to do the splitting
+      # we expect the first dimension of `sample_shape` to be even.
+      is_even_dim = tf.debugging.assert_equal(
+          sample_zero_dim % 2, 0,
+          message='First dimension of `sample_shape` should be even for '
+                  'PSEUDO_ANTITHETIC random type')
+      # TODO(b/140722819): Make sure control_dependencies are trigerred with XLA
+      # compilation.
+      with tf.control_dependencies([is_even_dim]):
+        antithetic_shape = tf.concat(
+            [[tf.cast(sample_zero_dim // 2, tf.int32)],
+             tf.cast(sample_shape[1:], tf.int32)], -1)
+      result = _mvnormal_pseudo(
+          antithetic_shape,
+          mean,
+          covariance_matrix=covariance_matrix,
+          scale_matrix=scale_matrix,
+          validate_args=validate_args,
+          seed=seed,
+          dtype=dtype)
+      if mean is None:
+        return tf.concat([result, -result], 0)
+      else:
+        return tf.concat([result, 2 * mean - result], 0)
 
 
 def _mvnormal_pseudo(sample_shape,
@@ -162,14 +207,20 @@ def _mvnormal_pseudo(sample_shape,
                      covariance_matrix=None,
                      scale_matrix=None,
                      validate_args=False,
-                     seed=None):
+                     seed=None,
+                     dtype=None):
   """Returns normal draws using the tfp multivariate normal distribution."""
   if scale_matrix is not None:
+    scale_matrix = tf.convert_to_tensor(scale_matrix, dtype=dtype,
+                                        name='scale_matrix')
     distribution = tfp.distributions.MultivariateNormalLinearOperator(
         loc=mean,
         scale=tf.linalg.LinearOperatorFullMatrix(scale_matrix),
         validate_args=validate_args)
   else:
+    if covariance_matrix is not None:
+      covariance_matrix = tf.convert_to_tensor(covariance_matrix, dtype=dtype,
+                                               name='covariance_matrix')
     distribution = tfp.distributions.MultivariateNormalFullCovariance(
         loc=mean,
         covariance_matrix=covariance_matrix,

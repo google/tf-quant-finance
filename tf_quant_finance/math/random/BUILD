@@ -46,7 +46,7 @@ py_test(
     size = "small",
     srcs = ["multivariate_normal_test.py"],
     deps = [
-        ":multivariate_normal",
+        "//tf_quant_finance",
         # numpy dep,
         # tensorflow dep,
     ],

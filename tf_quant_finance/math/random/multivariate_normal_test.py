@@ -22,7 +22,7 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
-from tf_quant_finance.math.random import multivariate_normal as mvn
+import tf_quant_finance.math.random as tff_rnd
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -32,18 +32,19 @@ class RandomTest(tf.test.TestCase):
   def test_shapes(self):
     """Tests the sample shapes."""
     sample_no_batch = self.evaluate(
-        mvn.multivariate_normal([2, 4], mean=[0.2, 0.1]))
+        tff_rnd.mv_normal_sample([2, 4], mean=[0.2, 0.1]))
     self.assertEqual(sample_no_batch.shape, (2, 4, 2))
     sample_batch = self.evaluate(
-        mvn.multivariate_normal([2, 4],
-                                mean=[[0.2, 0.1], [0., -0.1], [0., 0.1]]))
+        tff_rnd.mv_normal_sample(
+            [2, 4], mean=[[0.2, 0.1], [0., -0.1], [0., 0.1]]))
     self.assertEqual(sample_batch.shape, (2, 4, 3, 2))
 
   def test_mean_default(self):
     """Tests that the default value of mean is 0."""
     covar = np.array([[1.0, 0.1], [0.1, 1.0]])
     sample = self.evaluate(
-        mvn.multivariate_normal([40000], covariance_matrix=covar, seed=1234))
+        tff_rnd.mv_normal_sample(
+            [40000], covariance_matrix=covar, seed=1234))
     np.testing.assert_array_equal(sample.shape, [40000, 2])
     self.assertArrayNear(np.mean(sample, axis=0), [0.0, 0.0], 1e-2)
     self.assertArrayNear(
@@ -52,7 +53,8 @@ class RandomTest(tf.test.TestCase):
   def test_covariance_default(self):
     """Tests that the default value of the covariance matrix is identity."""
     mean = np.array([[1.0, 0.1], [0.1, 1.0]])
-    sample = self.evaluate(mvn.multivariate_normal([10000], mean=mean))
+    sample = self.evaluate(
+        tff_rnd.mv_normal_sample([10000], mean=mean))
 
     np.testing.assert_array_equal(sample.shape, [10000, 2, 2])
     np.testing.assert_array_almost_equal(
@@ -71,10 +73,8 @@ class RandomTest(tf.test.TestCase):
     ])
     size = 30000
     sample = self.evaluate(
-        mvn.multivariate_normal([size],
-                                mean=mean,
-                                covariance_matrix=covar,
-                                seed=4567))
+        tff_rnd.mv_normal_sample(
+            [size], mean=mean, covariance_matrix=covar, seed=4567))
 
     np.testing.assert_array_equal(sample.shape, [size, 2, 2])
     np.testing.assert_array_almost_equal(
@@ -92,10 +92,8 @@ class RandomTest(tf.test.TestCase):
     covariance = np.matmul(scale, scale.transpose())
     size = 30000
     sample = self.evaluate(
-        mvn.multivariate_normal([size],
-                                mean=mean,
-                                scale_matrix=scale,
-                                seed=7534))
+        tff_rnd.mv_normal_sample(
+            [size], mean=mean, scale_matrix=scale, seed=7534))
 
     np.testing.assert_array_equal(sample.shape, [size, 2, 2])
     np.testing.assert_array_almost_equal(
@@ -105,6 +103,46 @@ class RandomTest(tf.test.TestCase):
     np.testing.assert_array_almost_equal(
         np.cov(sample[:, 1, :], rowvar=False), covariance, decimal=1)
 
+  def test_mean_and_scale_antithetic(self):
+    """Tests antithetic sampler for scale specification."""
+    mean = np.array([[1.0, 0.1], [0.1, 1.0]])
+    scale = np.array([[0.4, -0.1], [0.22, 1.38]])
+
+    covariance = np.matmul(scale, scale.transpose())
+    size = 30000
+    sample = self.evaluate(
+        tff_rnd.mv_normal_sample(
+            [size], mean=mean, scale_matrix=scale,
+            random_type=tff_rnd.RandomType.PSEUDO_ANTITHETIC, seed=42))
+    np.testing.assert_array_equal(sample.shape, [size, 2, 2])
+    # Antithetic combination of samples should be equal to the `mean`
+    antithetic_size = size // 2
+    antithetic_combination = (sample[:antithetic_size, ...]
+                              + sample[antithetic_size:, ...]) / 2
+    np.testing.assert_allclose(
+        antithetic_combination,
+        mean + np.zeros([antithetic_size, 2, 2]), 1e-10, 1e-10)
+    # Get the antithetic pairs and verify normality
+    np.testing.assert_array_almost_equal(
+        np.mean(sample[:antithetic_size, ...], axis=0), mean, decimal=1)
+    np.testing.assert_array_almost_equal(
+        np.cov(sample[:antithetic_size, 0, :], rowvar=False),
+        covariance, decimal=1)
+    np.testing.assert_array_almost_equal(
+        np.cov(sample[:antithetic_size, 1, :], rowvar=False),
+        covariance, decimal=1)
+
+  def test_antithetic_sample_requires_even_dim(self):
+    """Error is trigerred if the first dim of sample_shape is odd."""
+    mean = np.array([[1.0, 0.1], [0.1, 1.0]])
+    scale = np.array([[0.4, -0.1], [0.22, 1.38]])
+    sample_shape = [11, 100]
+    # Should fail: The first dimension of `sample_shape` should be even.
+    with self.assertRaises(tf.errors.InvalidArgumentError):
+      self.evaluate(
+          tff_rnd.mv_normal_sample(
+              sample_shape, mean=mean, scale_matrix=scale,
+              random_type=tff_rnd.RandomType.PSEUDO_ANTITHETIC))
 
 if __name__ == '__main__':
   tf.test.main()

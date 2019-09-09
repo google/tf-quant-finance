@@ -32,7 +32,7 @@ py_test(
     timeout = "moderate",
     srcs = ["ito_process_test.py"],
     deps = [
-        "//tf_quant_finance/models",
+        "//tf_quant_finance",
         # numpy dep,
         # tensorflow dep,
     ],
