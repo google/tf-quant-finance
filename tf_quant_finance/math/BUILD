@@ -12,10 +12,12 @@ py_library(
     srcs_version = "PY2AND3",
     deps = [
         ":diff",
+        ":gradient",
         ":piecewise",
         ":root_search",
         ":segment_ops",
         "//tf_quant_finance/math/interpolation",
+        "//tf_quant_finance/math/optimizer",
         "//tf_quant_finance/math/pde",
         "//tf_quant_finance/math/random",
     ],
@@ -58,6 +60,26 @@ py_test(
     srcs = ["diff_test.py"],
     deps = [
         ":diff",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "gradient",
+    srcs = ["gradient.py"],
+    srcs_version = "PY2AND3",
+    deps = [
+        # tensorflow_probability dep,
+    ],
+)
+
+py_test(
+    name = "gradient_test",
+    size = "small",
+    srcs = ["gradient_test.py"],
+    deps = [
+        ":gradient",
         # numpy dep,
         # tensorflow dep,
     ],

@@ -11,37 +11,31 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""TensorFlow Quantitative Finance general math functions."""
+"""Optimization methods."""
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from tf_quant_finance.math import interpolation
-from tf_quant_finance.math import optimizer
-from tf_quant_finance.math import pde
-from tf_quant_finance.math import piecewise
-from tf_quant_finance.math import random
-from tf_quant_finance.math import root_search
-from tf_quant_finance.math import segment_ops
-from tf_quant_finance.math.diff import diff
-from tf_quant_finance.math.gradient import gradients
-from tf_quant_finance.math.gradient import make_val_and_grad_fn
-from tf_quant_finance.math.gradient import value_and_gradient
+from tensorflow_probability.python.optimizer import bfgs_minimize
+from tensorflow_probability.python.optimizer import converged_all
+from tensorflow_probability.python.optimizer import converged_any
+from tensorflow_probability.python.optimizer import lbfgs_minimize
+from tensorflow_probability.python.optimizer import linesearch
+from tensorflow_probability.python.optimizer import nelder_mead_minimize
+from tensorflow_probability.python.optimizer import nelder_mead_one_step
+
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
-    'interpolation',
-    'optimizer',
-    'pde',
-    'piecewise',
-    'random',
-    'root_search',
-    'diff',
-    'segment_ops',
-    'value_and_gradient',
-    'make_val_and_grad_fn',
+    'bfgs_minimize',
+    'converged_all',
+    'converged_any',
+    'lbfgs_minimize',
+    'linesearch',
+    'nelder_mead_minimize',
+    'nelder_mead_one_step',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
