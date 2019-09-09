@@ -1,7 +1,5 @@
 # Experimental modules.
 
-load("//research/colab:build_defs.bzl", "colab_binary")
-
 licenses(["notice"])
 
 package(default_visibility = ["//tf_quant_finance:__subpackages__"])
