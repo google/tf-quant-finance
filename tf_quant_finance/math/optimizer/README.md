@@ -2,6 +2,10 @@
 
 This module provides ops for numerical optimization.
 
-It includes following optimization algorithms:
+It includes the following optimization algorithms:
 
-* Conjugate Gradient optimization method.
+* BFGS optimizer
+* L-BFGS optimizer
+* Nelder-Mead optimizer
+* Conjugate Gradient optimizer
+
