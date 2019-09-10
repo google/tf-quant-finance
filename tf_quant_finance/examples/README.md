@@ -17,3 +17,9 @@ List of examples:
   *   [Black Scholes: Price and Implied Vol](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Black_Scholes_Price_and_Implied_Vol.ipynb).
 
 
+# TensorFlow training
+
+If you are not familiar with TensorFlow, a good place to get started is with the
+following self-study introduction to TensorFlow notebooks:
+
+   * [Introduction to TensorFlow](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Introduction_to_TensorFlow.ipynb).
