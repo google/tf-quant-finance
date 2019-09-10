@@ -19,23 +19,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import functools
 import numpy as np
 from scipy import special
 from scipy import stats
 import tensorflow as tf
-import tensorflow_probability as tfp
 
-import tf_quant_finance.math.optimizer as optimizer
-
-
-def _make_val_and_grad_fn(value_fn):
-
-  @functools.wraps(value_fn)
-  def val_and_grad(x):
-    return tfp.math.value_and_gradient(value_fn, x)
-
-  return val_and_grad
+import tf_quant_finance as tff
 
 
 def _norm(x):
@@ -83,7 +72,7 @@ class ConjugateGradientTest(tf.test.TestCase):
                        expected_iterations=None,
                        expected_func_calls=None):
     """Runs algorithm on given test case and verifies result."""
-    val_grad_func = lambda x: tfp.math.value_and_gradient(func, x)
+    val_grad_func = lambda x: tff.math.value_and_gradient(func, x)
     start_point = tf.constant(start_point, dtype=tf.float64)
     expected_argmin = np.array(expected_argmin, dtype=np.float64)
 
@@ -93,7 +82,7 @@ class ConjugateGradientTest(tf.test.TestCase):
       with tf.control_dependencies([tf.assign_add(f_call_ctr, 1)]):
         return val_grad_func(x)
 
-    result = optimizer.conjugate_gradient_minimize(
+    result = tff.math.optimizer.conjugate_gradient_minimize(
         val_grad_func_with_counter,
         start_point,
         tolerance=gtol,
@@ -332,7 +321,7 @@ class ConjugateGradientTest(tf.test.TestCase):
         expected_func_calls=35)
 
   def test_himmelblau_batch_any(self):
-    val_grad_func = _make_val_and_grad_fn(_himmelblau)
+    val_grad_func = tff.math.make_val_and_grad_fn(_himmelblau)
     starts = tf.constant([[1, 1], [-2, 2], [-1, -1], [1, -2]], dtype=tf.float64)
     expected_minima = np.array([[3, 2], [-2.805118, 3.131312],
                                 [-3.779310, -3.283186], [3.584428, -1.848126]],
@@ -340,10 +329,10 @@ class ConjugateGradientTest(tf.test.TestCase):
 
     # Run with `converged_any` stopping condition, to stop as soon as any of
     # the batch members have converged.
-    batch_results = optimizer.conjugate_gradient_minimize(
+    batch_results = tff.math.optimizer.conjugate_gradient_minimize(
         val_grad_func,
         initial_position=starts,
-        stopping_condition=tfp.optimizer.converged_any,
+        stopping_condition=tff.math.optimizer.converged_any,
         tolerance=1e-8)
     batch_results = self.evaluate(batch_results)
 
@@ -372,14 +361,14 @@ class ConjugateGradientTest(tf.test.TestCase):
     minimum = np.array([1.0, 1.0])
     scales = np.array([2.0, 3.0])
 
-    @_make_val_and_grad_fn
+    @tff.math.make_val_and_grad_fn
     def quadratic(x):
       return tf.reduce_sum(input_tensor=scales * (x - minimum)**2)
 
     # Test with a vector of unknown dimension, and a fully unknown shape.
     for shape in ([None], None):
       start = tf.compat.v1.placeholder(tf.float32, shape=shape)
-      op = optimizer.conjugate_gradient_minimize(
+      op = tff.math.optimizer.conjugate_gradient_minimize(
           quadratic, initial_position=start, tolerance=1e-8)
       self.assertFalse(op.position.shape.is_fully_defined())
 
@@ -394,11 +383,11 @@ class ConjugateGradientTest(tf.test.TestCase):
     scales = np.array([2.0, 3.0], dtype=np.float32)
     start = np.zeros_like(minimum)
 
-    @_make_val_and_grad_fn
+    @tff.math.make_val_and_grad_fn
     def quadratic(x):
       return tf.reduce_sum(input_tensor=scales * (x - minimum)**2)
 
-    result = optimizer.conjugate_gradient_minimize(
+    result = tff.math.optimizer.conjugate_gradient_minimize(
         quadratic, initial_position=start)
     self.assertEqual(result.position.dtype, tf.float32)
     self.assertArrayNear(self.evaluate(result.position), minimum, 1e-5)

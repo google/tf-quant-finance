@@ -21,7 +21,7 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
-import tf_quant_finance.math as tff_math
+from tf_quant_finance import math as tff_math
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 

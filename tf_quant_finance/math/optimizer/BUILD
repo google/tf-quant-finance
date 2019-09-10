@@ -20,7 +20,7 @@ py_test(
     size = "medium",
     srcs = ["optimizer_test.py"],
     deps = [
-        "//tf_quant_finance/math",
+        "//tf_quant_finance",
     ],
 )
 
@@ -40,9 +40,8 @@ py_test(
     timeout = "long",
     srcs = ["conjugate_gradient_test.py"],
     deps = [
-        ":optimizer",
+        "//tf_quant_finance",
         # numpy dep,
         # tensorflow dep,
-        # tensorflow_probability dep,
     ],
 )
