@@ -11,6 +11,7 @@ Some of the modules/functions provided are:
 
   * [math.interpolation](interpolation): Ops to perform linear and
   cubic interpolation.
+  * [math.optimizer](optimizer): Ops for numerical optimization.
   * [math.pde](pde): Ops to numerically solve partial differential
   equations using finite difference methods. Currently, only linear second
   order PDEs are supported as this is the most commonly needed case.
