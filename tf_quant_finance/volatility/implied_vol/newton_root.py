@@ -28,7 +28,7 @@ from tf_quant_finance.volatility.implied_vol import polya_approx
 def implied_vol(forwards,
                 strikes,
                 expiries,
-                discounts,
+                discount_factors,
                 prices,
                 option_signs,
                 initial_volatilities=None,
@@ -52,7 +52,7 @@ def implied_vol(forwards,
   forwards = np.array([1.0, 1.0, 1.0, 1.0])
   strikes = np.array([1.0, 2.0, 1.0, 0.5])
   expiries = np.array([1.0, 1.0, 1.0, 1.0])
-  discounts = np.array([1.0, 1.0, 1.0, 1.0])
+  discount_factors = np.array([1.0, 1.0, 1.0, 1.0])
   option_signs = np.array([1.0, 1.0, -1.0, -1.0])
   volatilities = np.array([1.0, 1.0, 1.0, 1.0])
   prices = black_scholes.option_price(
@@ -60,12 +60,12 @@ def implied_vol(forwards,
       strikes,
       volatilities,
       expiries,
-      discount_factors=discounts,
+      discount_factors=discount_factors,
       is_call_options=is_call_options)
   implied_vols = newton_vol.implied_vol(forwards,
                                         strikes,
                                         expiries,
-                                        discounts,
+                                        discount_factors,
                                         prices,
                                         option_signs)
   with tf.Session() as session:
@@ -80,8 +80,8 @@ def implied_vol(forwards,
     expiries: A real `Tensor` of same shape and dtype as `forwards`. The expiry
       for each option. The units should be such that `expiry * volatility**2` is
       dimensionless.
-    discounts: A real `Tensor` of the same shape and dtype as `forwards`. The
-      total discount factors to apply.
+    discount_factors: A real `Tensor` of the same shape and dtype as `forwards`.
+      The total discount factors to apply.
     prices: A real `Tensor` of the same shape and dtype as `forwards`. The
       observed market prices to match.
     option_signs: A real `Tensor` of same shape and dtype as `forwards`.
@@ -118,32 +118,35 @@ def implied_vol(forwards,
   """
   with tf.compat.v1.name_scope(
       name, "implied_vol",
-      [prices, forwards, strikes, expiries, discounts, option_signs]):
-    forwards = tf.convert_to_tensor(forwards, dtype=dtype)
-    strikes = tf.convert_to_tensor(strikes, dtype=dtype)
-    expiries = tf.convert_to_tensor(expiries, dtype=dtype)
-    discounts = tf.convert_to_tensor(discounts, dtype=dtype)
-    prices = tf.convert_to_tensor(prices, dtype=dtype)
-    option_signs = tf.convert_to_tensor(option_signs, dtype=dtype)
-    is_call_options = option_signs > 0.0
+      [prices, forwards, strikes, expiries, discount_factors, option_signs]):
+    forwards = tf.convert_to_tensor(forwards, dtype=dtype, name="forwards")
+    strikes = tf.convert_to_tensor(strikes, dtype=dtype, name="strikes")
+    expiries = tf.convert_to_tensor(expiries, dtype=dtype, name="expiries")
+    discount_factors = tf.convert_to_tensor(
+        discount_factors, dtype=dtype, name="discount_factors")
+    prices = tf.convert_to_tensor(prices, dtype=dtype, name="prices")
+    option_signs = tf.convert_to_tensor(
+        option_signs, dtype=dtype, name="option_signs")
+    is_call_options = tf.convert_to_tensor(
+        option_signs > 0.0, name="is_call_options")
     if initial_volatilities is None:
-      initial_volatilities = polya_approx.implied_vol(
+      initial_volatilities = polya_approx.polya_implied_vol(
           prices,
           forwards,
           strikes,
           expiries,
-          discount_factors=discounts,
+          discount_factors=discount_factors,
           is_call_options=is_call_options,
           validate_args=validate_args)
     else:
       initial_volatilities = tf.convert_to_tensor(
-          initial_volatilities, dtype=dtype)
+          initial_volatilities, dtype=dtype, name="initial_volatilities")
 
     implied_vols, converged, failed = _newton_implied_vol(
         forwards,
         strikes,
         expiries,
-        discounts,
+        discount_factors,
         prices,
         initial_volatilities,
         option_signs,
@@ -153,12 +156,12 @@ def implied_vol(forwards,
 
 
 # TODO(b/139566435): Extract the Newton root finder to a separate module.
-def root_finder(value_and_grad_func,
-                initial_values,
-                max_iterations=20,
-                tolerance=1e-8,
-                dtype=None,
-                name=None):
+def newton_root_finder(value_and_grad_func,
+                       initial_values,
+                       max_iterations=20,
+                       tolerance=1e-8,
+                       dtype=None,
+                       name=None):
   """Uses Newton's method to find roots of scalar functions of scalar variables.
 
   This method uses Newton's algorithm to find values `x` such that `f(x)=0` for
@@ -182,7 +185,7 @@ def root_finder(value_and_grad_func,
     return objective, gradient
 
   # Obtain and evaluate a tensor containing the roots.
-  roots = newton_vol.newton_root_finder(objective_and_gradient,
+  roots = newton_vol.newton_newton_newton_root_finder(objective_and_gradient,
                                         initial_values)
   with tf.Session() as sess:
     root_values, converged, failed = sess.run(roots)
@@ -227,7 +230,8 @@ def root_finder(value_and_grad_func,
       default_name="newton_root_finder",
       values=[initial_values, tolerance]):
 
-    initial_values = tf.convert_to_tensor(initial_values, dtype=dtype)
+    initial_values = tf.convert_to_tensor(
+        initial_values, dtype=dtype, name="initial_values")
 
     starting_position = (tf.constant(0, dtype=tf.int32), initial_values,
                          tf.zeros_like(initial_values, dtype=tf.bool),
@@ -254,7 +258,7 @@ def root_finder(value_and_grad_func,
 
 
 def _make_black_objective_and_vega_func(prices, forwards, strikes, expiries,
-                                        option_signs):
+                                        option_signs, discount_factors):
   """Produces an objective and vega function for the Black Scholes model.
 
   The returned function maps volatilities to a tuple of objective function
@@ -288,6 +292,8 @@ def _make_black_objective_and_vega_func(prices, forwards, strikes, expiries,
       dimensionless.
     option_signs: A real `Tensor` of same shape and dtype as `forwards`.
       Positive one where option is a call, negative one where option is a put.
+    discount_factors: A real `Tensor` of the same shape and dtype as `forwards`.
+      The total discount factors to apply.
 
   Returns:
     A function from volatilities to a Black Scholes objective and its
@@ -325,8 +331,9 @@ def _make_black_objective_and_vega_func(prices, forwards, strikes, expiries,
     v = volatilities * sqrt_t
     d1 = option_signs * (lnz / v + v / 2)
     d2 = option_signs * (option_signs * d1 - v)
-    val = option_signs * (x * phi.cdf(d1) - y * phi.cdf(d2)) - normalized_prices
-    grad = option_signs * (
+    val = option_signs * discount_factors * (
+        (x * phi.cdf(d1) - y * phi.cdf(d2))) - normalized_prices
+    grad = option_signs * discount_factors * (
         y * phi.prob(d2) * (d1 / v) - x * phi.prob(d1) * (d2 / v))
     return val, grad
 
@@ -336,7 +343,7 @@ def _make_black_objective_and_vega_func(prices, forwards, strikes, expiries,
 def _newton_implied_vol(forwards,
                         strikes,
                         expiries,
-                        discounts,
+                        discount_factors,
                         prices,
                         initial_volatilities,
                         option_signs,
@@ -392,8 +399,8 @@ def _newton_implied_vol(forwards,
     expiries: A real `Tensor` of same shape and dtype as `forwards`. The expiry
       for each option. The units should be such that `expiry * volatility**2` is
       dimensionless.
-    discounts: A real `Tensor` of the same shape and dtype as `forwards`. The
-      total discount factors to apply.
+    discount_factors: A real `Tensor` of the same shape and dtype as `forwards`.
+      The total discount factors to apply.
     prices: A real `Tensor` of the same shape and dtype as `forwards`. The
       observed market prices to match.
     initial_volatilities: A real `Tensor` of the same shape and dtype as
@@ -418,23 +425,25 @@ def _newton_implied_vol(forwards,
   ```
   """
   with tf.compat.v1.name_scope(name, "newton_implied_vol", [
-      forwards, strikes, expiries, discounts, prices, initial_volatilities,
-      option_signs, max_iterations, tolerance
+      forwards, strikes, expiries, discount_factors, prices,
+      initial_volatilities, option_signs, max_iterations, tolerance
   ]):
 
-    forwards = tf.convert_to_tensor(forwards, dtype=dtype)
-    strikes = tf.convert_to_tensor(strikes, dtype=dtype)
-    expiries = tf.convert_to_tensor(expiries, dtype=dtype)
-    discounts = tf.convert_to_tensor(discounts, dtype=dtype)
-    prices = tf.convert_to_tensor(prices, dtype=dtype)
-    discounted_prices = discounts * prices
+    forwards = tf.convert_to_tensor(forwards, dtype=dtype, name="forwards")
+    strikes = tf.convert_to_tensor(strikes, dtype=dtype, name="strikes")
+    expiries = tf.convert_to_tensor(expiries, dtype=dtype, name="expiries")
+    discount_factors = tf.convert_to_tensor(
+        discount_factors, dtype=dtype, name="discount_factors")
+    prices = tf.convert_to_tensor(prices, dtype=dtype, name="prices")
+    # discounted_prices = discounts * prices
     initial_volatilities = tf.convert_to_tensor(
-        initial_volatilities, dtype=dtype)
-    option_signs = tf.convert_to_tensor(option_signs, dtype=dtype)
-    pricer = _make_black_objective_and_vega_func(discounted_prices, forwards,
-                                                 strikes, expiries,
-                                                 option_signs)
-    results = root_finder(
+        initial_volatilities, dtype=dtype, name="initial_volatilities")
+    option_signs = tf.convert_to_tensor(
+        option_signs, dtype=dtype, name="option_signs")
+    pricer = _make_black_objective_and_vega_func(prices, forwards, strikes,
+                                                 expiries, option_signs,
+                                                 discount_factors)
+    results = newton_root_finder(
         pricer,
         initial_volatilities,
         max_iterations=max_iterations,

@@ -33,8 +33,7 @@ py_test(
     name = "polya_approx_test",
     srcs = ["polya_approx_test.py"],
     deps = [
-        ":polya_approx",
-        "//tf_quant_finance/volatility:black_scholes",
+        "//tf_quant_finance",
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
@@ -59,7 +58,7 @@ py_test(
     srcs = ["newton_root_test.py"],
     shard_count = 4,
     deps = [
-        ":newton_root",
+        "//tf_quant_finance",
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,

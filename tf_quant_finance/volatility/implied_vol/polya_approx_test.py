@@ -23,7 +23,7 @@ import numpy as np
 import tensorflow as tf
 
 from tf_quant_finance.volatility import black_scholes
-from tf_quant_finance.volatility.implied_vol import polya_approx
+from tf_quant_finance.volatility.implied_vol import polya_implied_vol
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -46,8 +46,7 @@ class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
               forwards, strikes, volatilities, expiries, dtype=dtype))
 
       implied_vols = self.evaluate(
-          polya_approx.implied_vol(
-              prices, forwards, strikes, expiries, dtype=dtype))
+          polya_implied_vol(prices, forwards, strikes, expiries, dtype=dtype))
       self.assertArrayNear(volatilities, implied_vols, 0.6)
 
   def test_polya_implied_vol_validate(self):
@@ -65,7 +64,7 @@ class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
               forwards, strikes, volatilities, expiries, dtype=dtype))
 
       implied_vols = self.evaluate(
-          polya_approx.implied_vol(
+          polya_implied_vol(
               prices,
               forwards,
               strikes,
@@ -94,7 +93,7 @@ class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
       expiries = np.array([expiry]).astype(dtype)
       is_call_options = np.array([is_call_option])
       with self.assertRaises(tf.errors.InvalidArgumentError):
-        implied_vols = polya_approx.implied_vol(
+        implied_vols = polya_implied_vol(
             prices,
             forwards,
             strikes,

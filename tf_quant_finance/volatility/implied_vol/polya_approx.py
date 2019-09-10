@@ -23,16 +23,16 @@ import numpy as np
 import tensorflow as tf
 
 
-def implied_vol(option_prices,
-                forwards,
-                strikes,
-                expiries,
-                discount_factors=None,
-                is_call_options=None,
-                validate_args=False,
-                polya_factor=(2 / np.pi),
-                dtype=None,
-                name=None):
+def polya_implied_vol(option_prices,
+                      forwards,
+                      strikes,
+                      expiries,
+                      discount_factors=None,
+                      is_call_options=None,
+                      validate_args=False,
+                      polya_factor=(2 / np.pi),
+                      dtype=None,
+                      name=None):
   """Approximates the implied vol using the Stefanica-Radiocic algorithm.
 
   Finds an approximation to the implied vol using the Polya approximation for

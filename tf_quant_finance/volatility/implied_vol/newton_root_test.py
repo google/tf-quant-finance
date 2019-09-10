@@ -23,7 +23,9 @@ from absl.testing import parameterized
 import numpy as np
 import tensorflow as tf
 
-from tf_quant_finance.volatility.implied_vol import newton_root
+from tf_quant_finance.volatility import black_scholes
+from tf_quant_finance.volatility.implied_vol import implied_vol
+from tf_quant_finance.volatility.implied_vol import newton_root_finder
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -44,7 +46,7 @@ class NewtonVolTest(parameterized.TestCase, tf.test.TestCase):
       return objective, gradient
 
     # Obtain and evaluate a tensor containing the roots.
-    roots = newton_root.root_finder(objective_and_gradient, initial_values)
+    roots = newton_root_finder(objective_and_gradient, initial_values)
     root_values, converged, failed = self.evaluate(roots)
 
     # Reference values.
@@ -71,7 +73,7 @@ class NewtonVolTest(parameterized.TestCase, tf.test.TestCase):
       return objective, gradient
 
     # Obtain and evaluate a tensor containing the roots.
-    roots = newton_root.root_finder(objective_and_gradient, initial_values)
+    roots = newton_root_finder(objective_and_gradient, initial_values)
     _, converged, failed = self.evaluate(roots)
 
     # Reference values - we should not have converged and should have failed.
@@ -95,7 +97,7 @@ class NewtonVolTest(parameterized.TestCase, tf.test.TestCase):
       return objective, gradient
 
     # Obtain and evaluate a tensor containing the roots.
-    roots = newton_root.root_finder(
+    roots = newton_root_finder(
         objective_and_gradient, initial_values, max_iterations=1)
     _, converged, failed = self.evaluate(roots)
 
@@ -119,7 +121,7 @@ class NewtonVolTest(parameterized.TestCase, tf.test.TestCase):
     prices = np.array([
         0.38292492, 0.19061012, 0.38292492, 0.09530506, 0.27632639, 0.52049988
     ])
-    results = newton_root.implied_vol(
+    results = implied_vol(
         forwards,
         strikes,
         expiries,
@@ -145,8 +147,8 @@ class NewtonVolTest(parameterized.TestCase, tf.test.TestCase):
     prices = np.array([
         0.38292492, 0.19061012, 0.38292492, 0.09530506, 0.27632639, 0.52049988
     ])
-    results = newton_root.implied_vol(forwards, strikes, expiries, discounts,
-                                      prices, option_signs)
+    results = implied_vol(forwards, strikes, expiries, discounts, prices,
+                          option_signs)
     implied_vols, converged, failed = self.evaluate(results)
     num_volatilities = len(volatilities)
     self.assertAllEqual(np.ones(num_volatilities, dtype=np.bool), converged)
@@ -172,9 +174,49 @@ class NewtonVolTest(parameterized.TestCase, tf.test.TestCase):
     option_signs = np.array([option_sign])
     discounts = np.array([1.0])
     with self.assertRaises(tf.errors.InvalidArgumentError):
-      results = newton_root.implied_vol(forwards, strikes, expiries, discounts,
-                                        prices, option_signs)
+      results = implied_vol(forwards, strikes, expiries, discounts, prices,
+                            option_signs)
       self.evaluate(results)
+
+  def test_implied_vol_extensive(self):
+
+    np.random.seed(135)
+    num_examples = 1000
+
+    expiries = np.linspace(0.8, 1.2, num_examples)
+    rates = np.linspace(0.03, 0.08, num_examples)
+    discount_factors = np.exp(-rates * expiries)
+    spots = np.ones(num_examples)
+    forwards = spots / discount_factors
+    strikes = np.linspace(0.8, 1.2, num_examples)
+    volatilities = np.ones_like(forwards)
+    call_options = np.random.binomial(n=1, p=0.5, size=num_examples)
+    option_signs = 2.0 * call_options - 1.0
+    is_call_options = np.array(call_options, dtype=np.bool)
+
+    prices = self.evaluate(
+        black_scholes.option_price(
+            forwards,
+            strikes,
+            volatilities,
+            expiries,
+            is_call_options=is_call_options,
+            discount_factors=discount_factors,
+            dtype=tf.float64))
+
+    implied_vols = self.evaluate(
+        implied_vol(
+            forwards,
+            strikes,
+            expiries,
+            discount_factors,
+            prices,
+            option_signs,
+            dtype=tf.float64,
+            max_iterations=1000,
+            tolerance=1e-8))[0]
+
+    self.assertArrayNear(volatilities, implied_vols, 1e-7)
 
 
 if __name__ == '__main__':
