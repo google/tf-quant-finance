@@ -30,7 +30,7 @@ py_test(
     size = "medium",
     srcs = ["cubic_interpolation_test.py"],
     deps = [
-        ":cubic",
+        "//tf_quant_finance",
         # numpy dep,
         # tensorflow dep,
     ],

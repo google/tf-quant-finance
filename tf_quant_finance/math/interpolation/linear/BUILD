@@ -30,7 +30,7 @@ py_test(
     srcs = ["linear_interpolation_test.py"],
     #shard_count = 3,
     deps = [
-        ":linear",
+        "//tf_quant_finance",
         # numpy dep,
         # tensorflow dep,
     ],

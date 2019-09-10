@@ -22,7 +22,7 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
-from tf_quant_finance.math.interpolation import linear
+import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -35,7 +35,8 @@ class LinearInterpolation(tf.test.TestCase):
     x = [-10.0, -1.0, 1.0, 3.0, 6.0, 7.0, 8.0, 15.0, 18.0, 25.0, 30.0, 35.0]
     x_data = [-1.0, 2.0, 6.0, 8.0, 18.0, 30.0]
     y_data = [10.0, -1.0, -5.0, 7.0, 9.0, 20.0]
-    result = self.evaluate(linear.interpolate(x, x_data, y_data))
+    result = self.evaluate(
+        tff.math.interpolation.linear.interpolate(x, x_data, y_data))
     self.assertAllClose(result,
                         [np.interp(x_coord, x_data, y_data) for x_coord in x],
                         1e-8)
@@ -48,7 +49,8 @@ class LinearInterpolation(tf.test.TestCase):
     x_data = [-1, 2, 6, 8, 18, 30.0]
     y_data = [10, -1, -5, 7, 9, 20]
     result = self.evaluate(
-        linear.interpolate(x, x_data, y_data, dtype=tf.float32))
+        tff.math.interpolation.linear.interpolate(
+            x, x_data, y_data, dtype=tf.float32))
     self.assertAllClose(result,
                         [np.interp(x_coord, x_data, y_data) for x_coord in x],
                         1e-8)
@@ -63,7 +65,7 @@ class LinearInterpolation(tf.test.TestCase):
     left_slope = 2.0
     right_slope = -3.0
     result = self.evaluate(
-        linear.interpolate(
+        tff.math.interpolation.linear.interpolate(
             x,
             x_data,
             y_data,
@@ -85,7 +87,8 @@ class LinearInterpolation(tf.test.TestCase):
     x_data = [-1, 2, 6, 8, 18]
     y_data = 10
     result = self.evaluate(
-        linear.interpolate(x, x_data, y_data, dtype=tf.float64))
+        tff.math.interpolation.linear.interpolate(
+            x, x_data, y_data, dtype=tf.float64))
     self.assertAllClose(result, np.repeat(10, len(x)), 1e-8)
 
   def test_linear_interpolation_unequal_lengths_xys(self):
@@ -94,7 +97,9 @@ class LinearInterpolation(tf.test.TestCase):
     x_data = [-1, 2, 6, 8, 18]
     y_data = [10, -1, -5, 7, 9, 20]
     with self.assertRaises((tf.errors.InvalidArgumentError, ValueError)):
-      self.evaluate(linear.interpolate(x, x_data, y_data, dtype=tf.float64))
+      self.evaluate(
+          tff.math.interpolation.linear.interpolate(
+              x, x_data, y_data, dtype=tf.float64))
 
 
 if __name__ == '__main__':
