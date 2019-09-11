@@ -109,10 +109,13 @@ def segment_diff(x,
 
     needs_fix = tf.scatter_nd(
         fix_indices,
-        tf.reshape(tf.ones_like(fix_indices, dtype=tf.bool), [-1]),
+        # Unfortunately, scatter_nd doesn't support bool on GPUs so we need to
+        # do ints here and then convert to bool.
+        tf.reshape(tf.ones_like(fix_indices, dtype=tf.int32), [-1]),
         shape=tf.shape(x))
     # If exclusive is False, then needs_fix means we need to replace the values
     # in raw_diffs at those locations with the values in x.
+    needs_fix = tf.cast(needs_fix, dtype=tf.bool)
     if not exclusive:
       return tf.where(needs_fix, x, raw_diffs)
 

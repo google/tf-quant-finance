@@ -33,7 +33,7 @@ py_test(
     name = "monotone_convex_test",
     size = "small",
     srcs = ["monotone_convex_test.py"],
-    shard_count = 3,
+    shard_count = 5,
     deps = [
         ":monotone_convex",
         # numpy dep,
