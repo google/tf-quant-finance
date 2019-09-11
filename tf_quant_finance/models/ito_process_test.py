@@ -103,7 +103,8 @@ class GenericItoProcessTest(tf.test.TestCase):
       return mu * tf.sqrt(t) * tf.ones_like(x, dtype=t.dtype)
 
     def vol_fn(t, x):
-      return (a * t + b) * tf.ones(x.shape + [x.shape[-1]], dtype=t.dtype)
+      del x
+      return (a * t + b) * tf.ones([1, 1], dtype=t.dtype)
 
     process = TestItoProcess(1, drift_fn, vol_fn)
     times = np.array([0.1, 0.21, 0.32, 0.43, 0.55])
@@ -143,11 +144,12 @@ class GenericItoProcessTest(tf.test.TestCase):
       return mu * tf.sqrt(t) * tf.ones_like(x, dtype=t.dtype)
 
     def vol_fn(t, x):
-      return (a * t + b) * tf.ones(x.shape + [x.shape[-1]], dtype=t.dtype)
+      del x
+      return (a * t + b) * tf.ones([2, 2], dtype=t.dtype)
 
+    num_samples = 10000
     process = TestItoProcess(dim=2, drift_fn=drift_fn, vol_fn=vol_fn)
     times = np.array([0.1, 0.21, 0.32, 0.43, 0.55])
-    num_samples = 10000
     x0 = np.array([0.1, -1.1])
     paths = self.evaluate(
         process.sample_paths(
@@ -186,7 +188,8 @@ class GenericItoProcessTest(tf.test.TestCase):
       return mu * tf.sqrt(t)
 
     def vol_fn(t, x):
-      return (a * t + b) * tf.ones(x.shape + [x.shape[-1]], dtype=t.dtype)
+      del x
+      return (a * t + b) * tf.ones([2, 2], dtype=t.dtype)
 
     process = TestItoProcess(dim=2, drift_fn=drift_fn, vol_fn=vol_fn)
     times = np.array([0.1, 0.21, 0.32, 0.43, 0.55])
@@ -212,7 +215,7 @@ class GenericItoProcessTest(tf.test.TestCase):
   def test_sample_paths_dtypes(self):
     for dtype in [np.float32, np.float64]:
       drift_fn = lambda t, x: tf.sqrt(t) * tf.ones_like(x, dtype=t.dtype)
-      vol_fn = lambda t, x: t * tf.ones(x.shape + [x.shape[-1]], dtype=t.dtype)
+      vol_fn = lambda t, x: t * tf.ones([1, 1], dtype=t.dtype)
       process = TestItoProcess(
           dim=1, drift_fn=drift_fn, vol_fn=vol_fn, dtype=dtype)
 

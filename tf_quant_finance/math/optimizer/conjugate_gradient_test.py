@@ -230,8 +230,7 @@ class ConjugateGradientTest(tf.test.TestCase):
         start_point=np.ones(shape=[dim]),
         expected_argmin=[-0.020460034354, 0.171708568111, 0.021200423717],
         gtol=1e-6,
-        expected_iterations=10,
-        expected_func_calls=24)
+        expected_iterations=10)
 
   def test_rosenbrock_2d_v1(self):
     self._check_algorithm(

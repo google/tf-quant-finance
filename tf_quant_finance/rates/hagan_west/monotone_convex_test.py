@@ -79,8 +79,11 @@ class MonotoneConvexTest(tf.test.TestCase):
     test_time = tf.constant([1.1, 2.7], dtype=dtype)
     interpolated, _ = monotone_convex.interpolate(test_time, interval_values,
                                                   interval_times)
-    gradient_1y = self.evaluate(tf.gradients(interpolated[0], knot_1y)[0])
-    gradient_zero = self.evaluate(tf.gradients(interpolated[1], knot_1y)[0])
+    gradient_1y = self.evaluate(tf.convert_to_tensor(
+        tf.gradients(interpolated[0], knot_1y)[0]))
+    gradient_zero = self.evaluate(tf.convert_to_tensor(
+        tf.gradients(interpolated[1], knot_1y)[0]))
+
     self.assertAlmostEqual(gradient_1y[0], 0.42)
     self.assertAlmostEqual(gradient_zero[0], 0.0)
 
