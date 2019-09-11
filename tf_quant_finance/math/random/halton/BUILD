@@ -3,7 +3,6 @@
 licenses(["notice"])
 
 # [internal] load python3.bzl
-# [internal] load pytype.bzl
 
 package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 
@@ -16,7 +15,6 @@ py_library(
     ],
 )
 
-# pytype
 py_library(
     name = "halton_impl",
     srcs = ["halton_impl.py"],
@@ -35,7 +33,7 @@ py_test(
     srcs = ["halton_test.py"],
     shard_count = 2,
     deps = [
-        ":halton",
+        "//tf_quant_finance",
         # numpy dep,
         # six dep,
         # tensorflow dep,
@@ -50,7 +48,7 @@ py_test(
     srcs = ["halton_long_test.py"],
     shard_count = 5,
     deps = [
-        ":halton",
+        "//tf_quant_finance",
         # numpy dep,
         # six dep,
         # tensorflow dep,

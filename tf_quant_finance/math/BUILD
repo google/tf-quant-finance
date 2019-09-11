@@ -38,7 +38,7 @@ py_test(
     size = "small",
     srcs = ["root_search_test.py"],
     deps = [
-        ":root_search",
+        "//tf_quant_finance",
         # numpy dep,
         # tensorflow dep,
     ],
@@ -59,7 +59,7 @@ py_test(
     size = "small",
     srcs = ["diff_test.py"],
     deps = [
-        ":diff",
+        "//tf_quant_finance",
         # numpy dep,
         # tensorflow dep,
     ],
@@ -79,7 +79,7 @@ py_test(
     size = "small",
     srcs = ["gradient_test.py"],
     deps = [
-        ":gradient",
+        "//tf_quant_finance",
         # numpy dep,
         # tensorflow dep,
     ],
@@ -101,7 +101,7 @@ py_test(
     size = "small",
     srcs = ["segment_ops_test.py"],
     deps = [
-        ":segment_ops",
+        "//tf_quant_finance",
         # numpy dep,
         # tensorflow dep,
     ],
@@ -121,7 +121,7 @@ py_test(
     size = "small",
     srcs = ["piecewise_test.py"],
     deps = [
-        ":piecewise",
+        "//tf_quant_finance",
         # numpy dep,
         # tensorflow dep,
     ],

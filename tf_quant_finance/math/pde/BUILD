@@ -36,7 +36,7 @@ py_test(
     size = "small",
     srcs = ["grid_stepper_test.py"],
     deps = [
-        ":grid_stepper",
+        "//tf_quant_finance",
         # numpy dep,
         # tensorflow dep,
     ],
@@ -60,7 +60,7 @@ py_test(
     srcs = ["pde_kernels_test.py"],
     shard_count = 3,
     deps = [
-        "//tf_quant_finance/math",
+        "//tf_quant_finance",
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,

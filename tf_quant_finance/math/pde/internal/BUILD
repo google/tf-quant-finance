@@ -31,8 +31,7 @@ py_test(
     size = "small",
     srcs = ["pde_time_marching_schemes_internal_test.py"],
     deps = [
-        ":pde_time_marching_schemes_internal",
-        "//tf_quant_finance/math",
+        "//tf_quant_finance",
         # numpy dep,
         # tensorflow dep,
     ],

@@ -57,7 +57,7 @@ py_test(
     size = "small",
     srcs = ["stateless_test.py"],
     deps = [
-        ":stateless",
+        "//tf_quant_finance",
         # numpy dep,
         # tensorflow dep,
     ],

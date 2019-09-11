@@ -21,7 +21,7 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
-from tf_quant_finance.math import diff as diff_ops
+from tf_quant_finance import math
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -30,13 +30,13 @@ class DiffOpsTest(tf.test.TestCase):
   @test_util.run_in_graph_and_eager_modes
   def test_diffs(self):
     x = tf.constant([1, 2, 3, 4, 5])
-    dx = self.evaluate(diff_ops.diff(x, order=1, exclusive=False))
+    dx = self.evaluate(math.diff(x, order=1, exclusive=False))
     np.testing.assert_array_equal(dx, [1, 1, 1, 1, 1])
 
-    dx1 = self.evaluate(diff_ops.diff(x, order=1, exclusive=True))
+    dx1 = self.evaluate(math.diff(x, order=1, exclusive=True))
     np.testing.assert_array_equal(dx1, [1, 1, 1, 1])
 
-    dx2 = self.evaluate(diff_ops.diff(x, order=2, exclusive=False))
+    dx2 = self.evaluate(math.diff(x, order=2, exclusive=False))
     np.testing.assert_array_equal(dx2, [1, 2, 2, 2, 2])
 
   @test_util.deprecated_graph_mode_only
@@ -46,10 +46,10 @@ class DiffOpsTest(tf.test.TestCase):
     xv = tf.stack([x, x * x, x * x * x], axis=0)
 
     # Produces [x, x^2 - x, x^3 - x^2]
-    dxv = self.evaluate(diff_ops.diff(xv))
+    dxv = self.evaluate(math.diff(xv))
     np.testing.assert_array_equal(dxv, [2., 2., 4.])
 
-    grad = self.evaluate(tf.gradients(diff_ops.diff(xv), x)[0])
+    grad = self.evaluate(tf.gradients(math.diff(xv), x)[0])
     # Note that TF gradients adds up the components of the jacobian.
     # The sum of [1, 2x-1, 3x^2-2x] at x = 2 is 12.
     self.assertEqual(grad, 12.0)

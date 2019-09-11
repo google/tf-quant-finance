@@ -22,7 +22,7 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
-from tf_quant_finance.math.pde import grid_stepper
+from tf_quant_finance.math import pde
 from tf_quant_finance.math.pde import grids
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import,g-import-not-at-top
 
@@ -47,7 +47,7 @@ class GridStepperTest(tf.test.TestCase):
     def payoff_fn(state):
       return tf.maximum(state.coordinate_grid.grid, 0.5)
 
-    bgs = grid_stepper.BackwardGridStepper(
+    bgs = pde.BackwardGridStepper(
         2.0, kernel, grid_spec, time_step_fn=time_step_fn, dtype=dtype)
     bgs.transform_values(payoff_fn)  # At time 2.
     bgs.step_back_to_time(dtype(0.13))
@@ -84,7 +84,7 @@ class GridStepperTest(tf.test.TestCase):
     def payoff_fn(state):
       return tf.maximum(state.coordinate_grid.grid, 0.5)
 
-    bgs = grid_stepper.BackwardGridStepper(
+    bgs = pde.BackwardGridStepper(
         1.9, kernel, grid_spec, time_step_fn=time_step_fn, dtype=dtype)
     bgs.transform_values(payoff_fn)  # At time 1.9.
     bgs.step_back_to_time(dtype(0.13))
@@ -122,7 +122,7 @@ class GridStepperTest(tf.test.TestCase):
     def payoff_fn(state):
       return tf.maximum(state.coordinate_grid.grid, 0.5)
 
-    bgs = grid_stepper.BackwardGridStepper(
+    bgs = pde.BackwardGridStepper(
         1.9, kernel, grid_spec, time_step_fn=time_step_fn, dtype=dtype)
     bgs.transform_values(payoff_fn)  # At time 1.9.
 
@@ -157,7 +157,7 @@ class GridStepperTest(tf.test.TestCase):
     def payoff_fn(state):
       return tf.maximum(state.coordinate_grid.grid, 0.5)
 
-    bgs = grid_stepper.BackwardGridStepper(
+    bgs = pde.BackwardGridStepper(
         2.0, kernel, grid_spec, time_step=0.5, dtype=dtype)
     bgs.transform_values(payoff_fn)  # At time 2.
     expected_final_vals = np.maximum(np_grid, 0.5)
@@ -186,7 +186,7 @@ class GridStepperTest(tf.test.TestCase):
     def payoff_fn(state):
       return tf.maximum(state.coordinate_grid.grid, 0.5)
 
-    bgs = grid_stepper.BackwardGridStepper(
+    bgs = pde.BackwardGridStepper(
         2.0, kernel, grid_spec, time_step=0.3, dtype=dtype)
     bgs.transform_values(payoff_fn)  # At time 2.
     expected_final_vals = np.maximum(np_grid, 0.5)

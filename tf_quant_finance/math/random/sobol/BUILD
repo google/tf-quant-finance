@@ -34,7 +34,7 @@ py_test(
     size = "medium",
     srcs = ["sobol_test.py"],
     deps = [
-        ":sobol",
+        "//tf_quant_finance",
         # numpy dep,
         # tensorflow dep,
         # tensorflow_probability dep,

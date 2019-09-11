@@ -21,7 +21,7 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
-from tf_quant_finance.math import gradient
+from tf_quant_finance import math
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -32,7 +32,7 @@ class GradientTest(tf.test.TestCase):
     minimum = np.array([1.0, 1.0])
     scales = np.array([2.0, 3.0])
 
-    @gradient.make_val_and_grad_fn
+    @math.make_val_and_grad_fn
     def quadratic(x):
       return tf.reduce_sum(input_tensor=scales * (x - minimum)**2)
 

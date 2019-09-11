@@ -29,7 +29,7 @@ py_test(
     size = "medium",
     srcs = ["grids_test.py"],
     deps = [
-        ":grids",
+        "//tf_quant_finance",
         # numpy dep,
         # six dep,
         # tensorflow dep,
