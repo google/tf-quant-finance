@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Lint as: python2, python3
-"""Tests for quasirandom.halton."""
+"""Tests for random.halton."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -24,7 +24,7 @@ from six.moves import range
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from tf_quant_finance.math.random import halton
+from tf_quant_finance.math import random
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 # TODO(b/140242349): Remove dependency on contrib, which is being deprecated.
@@ -36,30 +36,30 @@ tfd = tfp.distributions
 class HaltonSequenceTest(tf.test.TestCase):
 
   def test_known_values_small_bases(self):
-    # The first five elements of the non-randomized Halton sequence
+    # The first five elements of the non-randomized random.halton sequence
     # with base 2 and 3.
     expected = np.array([[1. / 2, 1. / 3], [1. / 4, 2. / 3], [3. / 4, 1. / 9],
                          [1. / 8, 4. / 9], [5. / 8, 7. / 9]],
                         dtype=np.float32)
-    sample, _ = halton.sample(2, num_results=5, randomized=False)
+    sample, _ = random.halton.sample(2, num_results=5, randomized=False)
     self.assertAllClose(expected, self.evaluate(sample), rtol=1e-6)
 
   def test_dynamic_num_samples(self):
     """Tests that num_samples argument supports Tensors."""
-    # The first five elements of the non-randomized Halton sequence
+    # The first five elements of the non-randomized random.halton sequence
     # with base 2 and 3.
     expected = np.array([[1. / 2, 1. / 3], [1. / 4, 2. / 3], [3. / 4, 1. / 9],
                          [1. / 8, 4. / 9], [5. / 8, 7. / 9]],
                         dtype=np.float32)
-    sample, _ = halton.sample(2, num_results=tf.constant(5), randomized=False)
+    sample, _ = random.halton.sample(2, num_results=tf.constant(5), randomized=False)
     self.assertAllClose(expected, self.evaluate(sample), rtol=1e-6)
 
   def test_sequence_indices(self):
     """Tests access of sequence elements by index."""
     dim = 5
     indices = tf.range(10, dtype=tf.int32)
-    sample_direct, _ = halton.sample(dim, num_results=10, randomized=False)
-    sample_from_indices, _ = halton.sample(
+    sample_direct, _ = random.halton.sample(dim, num_results=10, randomized=False)
+    sample_from_indices, _ = random.halton.sample(
         dim, sequence_indices=indices, randomized=False)
     self.assertAllClose(
         self.evaluate(sample_direct),
@@ -69,9 +69,9 @@ class HaltonSequenceTest(tf.test.TestCase):
   def test_dtypes_works_correctly(self):
     """Tests that all supported dtypes work without error."""
     dim = 3
-    sample_float32, _ = halton.sample(
+    sample_float32, _ = random.halton.sample(
         dim, num_results=10, dtype=tf.float32, seed=11)
-    sample_float64, _ = halton.sample(
+    sample_float64, _ = random.halton.sample(
         dim, num_results=10, dtype=tf.float64, seed=21)
     self.assertEqual(self.evaluate(sample_float32).dtype, np.float32)
     self.assertEqual(self.evaluate(sample_float64).dtype, np.float64)
@@ -92,7 +92,8 @@ class HaltonSequenceTest(tf.test.TestCase):
     p = tfd.Normal(loc=mu_p, scale=sigma_p)
     q = tfd.Normal(loc=mu_q, scale=sigma_q)
 
-    cdf_sample, _ = halton.sample(2, num_results=n, dtype=tf.float64, seed=1729)
+    cdf_sample, _ = random.halton.sample(2, num_results=n, dtype=tf.float64,
+                                         seed=1729)
     q_sample = q.quantile(cdf_sample)
 
     # Compute E_p[X].
@@ -114,7 +115,8 @@ class HaltonSequenceTest(tf.test.TestCase):
     # Produce the first 1000 members of the Halton sequence in 3 dimensions.
     num_results = 1000
     dim = 3
-    sample, params = halton.sample(dim, num_results=num_results, seed=127)
+    sample, params = random.halton.sample(dim, num_results=num_results,
+                                          seed=127)
 
     # Evaluate the integral of x_1 * x_2^2 * x_3^3  over the three dimensional
     # hypercube.
@@ -132,7 +134,7 @@ class HaltonSequenceTest(tf.test.TestCase):
 
     sequence_indices = tf.range(
         start=1000, limit=1000 + num_results, dtype=tf.int32)
-    sample_leaped, _ = halton.sample(
+    sample_leaped, _ = random.halton.sample(
         dim, sequence_indices=sequence_indices, randomization_params=params)
 
     integral_leaped = tf.reduce_mean(
@@ -142,7 +144,7 @@ class HaltonSequenceTest(tf.test.TestCase):
         self.evaluate(integral_leaped), self.evaluate(true_value), rtol=0.05)
 
   def test_randomized_qmc_basic(self):
-    """Tests the randomization of the Halton sequences."""
+    """Tests the randomization of the random.halton sequences."""
     # This test is identical to the example given in Owen (2017), Figure 5.
 
     dim = 20
@@ -152,7 +154,8 @@ class HaltonSequenceTest(tf.test.TestCase):
 
     values = []
     for i in range(replica):
-      sample, _ = halton.sample(dim, num_results=num_results, seed=seed + i)
+      sample, _ = random.halton.sample(dim, num_results=num_results,
+                                       seed=seed + i)
       f = tf.reduce_mean(
           input_tensor=tf.reduce_sum(input_tensor=sample, axis=1)**2)
       values.append(self.evaluate(f))
@@ -194,9 +197,9 @@ class HaltonSequenceTest(tf.test.TestCase):
 
     estimates = []
     for i in range(replica):
-      sample_lo, _ = halton.sample(
+      sample_lo, _ = random.halton.sample(
           dim, num_results=num_results_lo, seed=seed_lo + i)
-      sample_hi, _ = halton.sample(
+      sample_hi, _ = random.halton.sample(
           dim, num_results=num_results_hi, seed=seed_hi + i)
       f_lo, f_hi = func_estimate(sample_lo), func_estimate(sample_hi)
       estimates.append((self.evaluate(f_lo), self.evaluate(f_hi)))
@@ -212,21 +215,22 @@ class HaltonSequenceTest(tf.test.TestCase):
     dim = 20
     num_results = 100
     seed = 1925
-    sample1, _ = halton.sample(dim, num_results=num_results, seed=seed)
-    sample2, _ = halton.sample(dim, num_results=num_results, seed=seed)
+    sample1, _ = random.halton.sample(dim, num_results=num_results, seed=seed)
+    sample2, _ = random.halton.sample(dim, num_results=num_results, seed=seed)
     [sample1_, sample2_] = self.evaluate([sample1, sample2])
     self.assertAllClose(sample1_, sample2_, atol=0., rtol=1e-6)
 
   def test_randomized_without_seed_raises(self):
     with self.assertRaises(ValueError):
-      halton.sample(1, 1, randomized=True, seed=None)
+      random.halton.sample(1, 1, randomized=True, seed=None)
 
   def test_randomization_does_not_depend_on_sequence_indices(self):
     dim = 2
     seed = 9427
-    sample1, _ = halton.sample(dim, sequence_indices=[0], seed=seed)
+    sample1, _ = random.halton.sample(dim, sequence_indices=[0], seed=seed)
     # For sample2, we generate an additional row at index=1000 then discard it.
-    sample2, _ = halton.sample(dim, sequence_indices=[0, 1000], seed=seed)
+    sample2, _ = random.halton.sample(dim, sequence_indices=[0, 1000],
+                                      seed=seed)
     sample2 = sample2[:1, :]
     self.assertAllClose(
         self.evaluate(sample1), self.evaluate(sample2), rtol=1e-6)
@@ -236,13 +240,13 @@ class HaltonSequenceTest(tf.test.TestCase):
     num_results_per_batch = 1
     num_batches = 3
     seed = 1925
-    sample1, _ = halton.sample(
+    sample1, _ = random.halton.sample(
         dim, num_results_per_batch * num_batches, seed=seed)
     batch_indices = (
         tf.range(i * num_results_per_batch, (i + 1) * num_results_per_batch)
         for i in range(num_batches))
     sample2 = (
-        halton.sample(dim, sequence_indices=sequence_indices, seed=seed)
+        random.halton.sample(dim, sequence_indices=sequence_indices, seed=seed)
         for sequence_indices in batch_indices)
     result_set1 = set(tuple(row) for row in self.evaluate(sample1))
     result_set2 = set()
@@ -252,7 +256,7 @@ class HaltonSequenceTest(tf.test.TestCase):
 
   def test_max_index_exceeded_raises(self):
     with self.assertRaises(tf.errors.InvalidArgumentError):
-      sample, _ = halton.sample(
+      sample, _ = random.halton.sample(
           1,
           sequence_indices=[2**30],
           dtype=tf.float32,
@@ -264,10 +268,11 @@ class HaltonSequenceTest(tf.test.TestCase):
     dim = 20
     num_results = 100
     seed1, seed2 = 1925, 62278
-    sample1, params = halton.sample(dim, num_results=num_results, seed=seed1)
+    sample1, params = random.halton.sample(dim, num_results=num_results,
+                                           seed=seed1)
     # We expect the same result because seed2 will be ignored when
     # randomization_params is supplied.
-    sample2, _ = halton.sample(
+    sample2, _ = random.halton.sample(
         dim, num_results=num_results, seed=seed2, randomization_params=params)
     [sample1_, sample2_] = self.evaluate([sample1, sample2])
     self.assertAllClose(sample1_, sample2_, atol=0., rtol=1e-6)
@@ -275,11 +280,11 @@ class HaltonSequenceTest(tf.test.TestCase):
   def test_using_params_with_randomization_false_does_not_randomize(self):
     dim = 20
     num_results = 100
-    sample_plain, _ = halton.sample(
+    sample_plain, _ = random.halton.sample(
         dim, num_results=num_results, randomized=False)
     seed = 87226
-    _, params = halton.sample(dim, num_results=num_results, seed=seed)
-    sample_with_params, _ = halton.sample(
+    _, params = random.halton.sample(dim, num_results=num_results, seed=seed)
+    sample_with_params, _ = random.halton.sample(
         dim,
         num_results=num_results,
         randomized=False,

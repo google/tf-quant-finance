@@ -24,7 +24,7 @@ import collections
 import numpy as np
 import tensorflow as tf
 
-from tf_quant_finance.math.random import stateless
+from tf_quant_finance.math.random_ops import stateless
 
 __all__ = [
     'sample',

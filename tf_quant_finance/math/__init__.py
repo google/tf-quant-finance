@@ -21,7 +21,7 @@ from tf_quant_finance.math import interpolation
 from tf_quant_finance.math import optimizer
 from tf_quant_finance.math import pde
 from tf_quant_finance.math import piecewise
-from tf_quant_finance.math import random
+from tf_quant_finance.math import random_ops as random
 from tf_quant_finance.math import root_search
 from tf_quant_finance.math import segment_ops
 from tf_quant_finance.math.diff import diff

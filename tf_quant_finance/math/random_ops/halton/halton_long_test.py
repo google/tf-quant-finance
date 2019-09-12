@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Lint as: python2, python3
-"""Tests for quasirandom.halton that are particularly long."""
+"""Tests for random.halton that are particularly long."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -24,7 +24,7 @@ from six.moves import range
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from tf_quant_finance.math.random import halton
+from tf_quant_finance.math import random
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 # TODO(b/140242349): Remove dependency on contrib, which is being deprecated.
@@ -61,7 +61,7 @@ class HaltonSequenceTest(tf.test.TestCase):
       seq_max = seq_min + batch_size
       sequence_indices = np.arange(seq_min, seq_max, dtype=np.int32)
       for replica_index in range(num_replicas):
-        sample, _ = halton.sample(
+        sample, _ = random.halton.sample(
             dim, sequence_indices=sequence_indices, seed=(seed + replica_index))
         batch_mean = self.evaluate(tf.reduce_mean(my_func(sample)))
         current_means[replica_index] = (

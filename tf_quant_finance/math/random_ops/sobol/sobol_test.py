@@ -23,7 +23,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from tf_quant_finance.math.random import sobol
+from tf_quant_finance.math import random
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -33,7 +33,7 @@ class SampleSobolSequenceTest(tf.test.TestCase):
   def test_known_values_small_dimension(self):
     # The first five elements of the non-randomized Sobol sequence
     # with dimension 2
-    sample = sobol.sample(2, 5)
+    sample = random.sobol.sample(2, 5)
     # These are in the original order, not Gray code order.
     expected = np.array([[0.5, 0.5], [0.25, 0.75], [0.75, 0.25], [0.125, 0.625],
                          [0.625, 0.125]],
@@ -43,7 +43,7 @@ class SampleSobolSequenceTest(tf.test.TestCase):
   def test_more_known_values(self):
     # The first 31 elements of the non-randomized Sobol sequence
     # with dimension 5
-    sample = sobol.sample(5, 31)
+    sample = random.sobol.sample(5, 31)
     # These are in the Gray code order.
     expected = [[0.5, 0.5, 0.5, 0.5, 0.5], [0.75, 0.25, 0.25, 0.25, 0.75],
                 [0.25, 0.75, 0.75, 0.75, 0.25],
@@ -87,8 +87,8 @@ class SampleSobolSequenceTest(tf.test.TestCase):
     dim = 10
     n = 50
     skip = 17
-    sample_noskip = sobol.sample(dim, n + skip)
-    sample_skip = sobol.sample(dim, n, skip)
+    sample_noskip = random.sobol.sample(dim, n + skip)
+    sample_skip = random.sobol.sample(dim, n, skip)
 
     self.assertAllClose(
         self.evaluate(sample_noskip[skip:, :]), self.evaluate(sample_skip))
@@ -109,7 +109,7 @@ class SampleSobolSequenceTest(tf.test.TestCase):
     p = tfp.distributions.Normal(loc=mu_p, scale=sigma_p)
     q = tfp.distributions.Normal(loc=mu_q, scale=sigma_q)
 
-    cdf_sample = sobol.sample(2, n)
+    cdf_sample = random.sobol.sample(2, n)
     q_sample = q.quantile(cdf_sample)
 
     # Compute E_p[X].
@@ -134,7 +134,7 @@ class SampleSobolSequenceTest(tf.test.TestCase):
     # correct 1/4.
     dim = 170
     n = 1000
-    sample = sobol.sample(dim, n)
+    sample = random.sobol.sample(dim, n)
     x = self.evaluate(sample[:, dim - 2])
     y = self.evaluate(sample[:, dim - 1])
     corr = np.corrcoef(x, y)[1, 0]

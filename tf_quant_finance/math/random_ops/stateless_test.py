@@ -20,8 +20,10 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
-from tf_quant_finance.math import random
+import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import,g-import-not-at-top
+
+tff_rnd = tff.math.random
 
 
 class StatelessRandomOpsTest(tf.test.TestCase):
@@ -31,9 +33,9 @@ class StatelessRandomOpsTest(tf.test.TestCase):
     """Checks that stateless_random_shuffle outputs a permutation."""
     for dtype in (tf.int32, tf.int64, tf.float32, tf.float64):
       identity_permutation = tf.range(10, dtype=dtype)
-      random_shuffle_seed_1 = random.stateless_random_shuffle(
+      random_shuffle_seed_1 = tff_rnd.stateless_random_shuffle(
           identity_permutation, seed=tf.constant((1, 42), tf.int64))
-      random_shuffle_seed_2 = random.stateless_random_shuffle(
+      random_shuffle_seed_2 = tff_rnd.stateless_random_shuffle(
           identity_permutation, seed=tf.constant((2, 42), tf.int64))
       # Check that the shuffles are of the correct dtype
       for shuffle in (random_shuffle_seed_1, random_shuffle_seed_2):
@@ -53,7 +55,7 @@ class StatelessRandomOpsTest(tf.test.TestCase):
     """Checks that stateless_random_shuffle is stateless."""
     random_permutation_next_call = None
     for dtype in (tf.int32, tf.int64, tf.float32, tf.float64):
-      random_permutation = random.stateless_random_shuffle(
+      random_permutation = tff_rnd.stateless_random_shuffle(
           tf.range(10, dtype=dtype), seed=(100, 42))
       random_permutation_first_call = self.evaluate(random_permutation)
       if random_permutation_next_call is not None:
@@ -74,11 +76,11 @@ class StatelessRandomOpsTest(tf.test.TestCase):
     random_input.sort()
     for dtype in (tf.int32, tf.int64, tf.float32, tf.float64):
       # Permutation of a sequence [0, 1, .., 9]
-      random_permutation = random.stateless_random_shuffle(
+      random_permutation = tff_rnd.stateless_random_shuffle(
           tf.range(10, dtype=dtype), seed=(100, 42))
       random_permutation = self.evaluate(random_permutation)
       # Shuffle `random_input` with the same seed
-      random_shuffle_control = random.stateless_random_shuffle(
+      random_shuffle_control = tff_rnd.stateless_random_shuffle(
           random_input, seed=(100, 42))
       random_shuffle_control = self.evaluate(random_shuffle_control)
       # Checks that the generated permutation does not depend on the underlying
@@ -91,7 +93,7 @@ class StatelessRandomOpsTest(tf.test.TestCase):
     """Checks that stateless_random_shuffle is stateless across Sessions."""
     random_permutation_next_call = None
     for dtype in (tf.int32, tf.int64, tf.float32, tf.float64):
-      random_permutation = random.stateless_random_shuffle(
+      random_permutation = tff_rnd.stateless_random_shuffle(
           tf.range(10, dtype=dtype), seed=tf.constant((100, 42), tf.int64))
       with tf.Session() as sess:
         random_permutation_first_call = sess.run(random_permutation)
@@ -110,7 +112,7 @@ class StatelessRandomOpsTest(tf.test.TestCase):
     for dtype in (tf.int32, tf.int64, tf.float32, tf.float64):
       input_permutation = tf.constant([[[1], [2], [3]], [[4], [5], [6]]],
                                       dtype=dtype)
-      random_shuffle = random.stateless_random_shuffle(
+      random_shuffle = tff_rnd.stateless_random_shuffle(
           input_permutation, seed=(1, 42))
       random_permutation_first_call = self.evaluate(random_shuffle)
       random_permutation_next_call = self.evaluate(random_shuffle)

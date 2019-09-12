@@ -17,7 +17,7 @@ py_library(
     name = "halton_impl",
     srcs = ["halton_impl.py"],
     deps = [
-        "//tf_quant_finance/math/random:stateless",
+        "//tf_quant_finance/math/random_ops:stateless",
         # numpy dep,
         # six dep,
         # tensorflow dep,

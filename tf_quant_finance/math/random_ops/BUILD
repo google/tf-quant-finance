@@ -5,14 +5,14 @@ licenses(["notice"])
 package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 
 py_library(
-    name = "random",
+    name = "random_ops",
     srcs = ["__init__.py"],
     srcs_version = "PY2AND3",
     deps = [
         ":multivariate_normal",
         ":stateless",
-        "//tf_quant_finance/math/random/halton",
-        "//tf_quant_finance/math/random/sobol",
+        "//tf_quant_finance/math/random_ops/halton",
+        "//tf_quant_finance/math/random_ops/sobol",
     ],
 )
 

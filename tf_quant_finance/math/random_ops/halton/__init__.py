@@ -11,13 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Sobol sampling."""
+"""Halton sampling."""
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from tf_quant_finance.math.random.sobol.sobol_impl import sample
+from tf_quant_finance.math.random_ops.halton.halton_impl import sample
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 

@@ -17,7 +17,7 @@ py_library(
     name = "ito_process",
     srcs = ["ito_process.py"],
     deps = [
-        "//tf_quant_finance/math/random",
+        "//tf_quant_finance/math/random_ops",
         # numpy dep,
         # six dep,
         # tensorflow dep,

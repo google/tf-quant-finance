@@ -17,11 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from tf_quant_finance.math.random import halton
-from tf_quant_finance.math.random import sobol
-from tf_quant_finance.math.random.multivariate_normal import multivariate_normal as mv_normal_sample
-from tf_quant_finance.math.random.multivariate_normal import RandomType
-from tf_quant_finance.math.random.stateless import stateless_random_shuffle
+from tf_quant_finance.math.random_ops import halton
+from tf_quant_finance.math.random_ops import sobol
+from tf_quant_finance.math.random_ops.multivariate_normal import multivariate_normal as mv_normal_sample
+from tf_quant_finance.math.random_ops.multivariate_normal import RandomType
+from tf_quant_finance.math.random_ops.stateless import stateless_random_shuffle
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
