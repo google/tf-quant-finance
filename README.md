@@ -134,6 +134,7 @@ This library has the following dependencies:
 4.  TensorFlow Probability
 5.  Numpy
 6.  Scipy (used only in tests)
+7.  Attrs
 
 This library requires the
 [Bazel](https://bazel.build/) build system. Please follow the
@@ -145,7 +146,7 @@ You can install TensorFlow and related dependencies using the ```pip3 install```
 command:
 
 ```sh
-pip3 install --upgrade tensorflow tensorflow-probability numpy scipy
+pip3 install --upgrade tensorflow tensorflow-probability numpy attrs scipy
 ```
 
 ### Commonly used commands
