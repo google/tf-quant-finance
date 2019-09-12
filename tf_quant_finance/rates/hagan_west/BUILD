@@ -2,8 +2,6 @@
 
 licenses(["notice"])
 
-# [internal] load python3.bzl
-
 package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 
 py_library(
@@ -33,6 +31,7 @@ py_test(
     name = "monotone_convex_test",
     size = "small",
     srcs = ["monotone_convex_test.py"],
+    python_version = "PY3",
     shard_count = 5,
     deps = [
         ":monotone_convex",
@@ -57,6 +56,7 @@ py_test(
     name = "bond_curve_test",
     size = "small",
     srcs = ["bond_curve_test.py"],
+    python_version = "PY3",
     shard_count = 3,
     deps = [
         ":bond_curve",

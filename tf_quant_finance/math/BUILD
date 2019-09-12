@@ -2,8 +2,6 @@
 
 licenses(["notice"])
 
-# [internal] load python3.bzl
-
 package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 
 py_library(
@@ -37,6 +35,7 @@ py_test(
     name = "root_search_test",
     size = "small",
     srcs = ["root_search_test.py"],
+    python_version = "PY3",
     deps = [
         "//tf_quant_finance",
         # numpy dep,
@@ -58,6 +57,7 @@ py_test(
     name = "diff_test",
     size = "small",
     srcs = ["diff_test.py"],
+    python_version = "PY3",
     deps = [
         "//tf_quant_finance",
         # numpy dep,
@@ -78,6 +78,7 @@ py_test(
     name = "gradient_test",
     size = "small",
     srcs = ["gradient_test.py"],
+    python_version = "PY3",
     deps = [
         "//tf_quant_finance",
         # numpy dep,
@@ -100,6 +101,7 @@ py_test(
     name = "segment_ops_test",
     size = "small",
     srcs = ["segment_ops_test.py"],
+    python_version = "PY3",
     deps = [
         "//tf_quant_finance",
         # numpy dep,
@@ -120,6 +122,7 @@ py_test(
     name = "piecewise_test",
     size = "small",
     srcs = ["piecewise_test.py"],
+    python_version = "PY3",
     deps = [
         "//tf_quant_finance",
         # numpy dep,

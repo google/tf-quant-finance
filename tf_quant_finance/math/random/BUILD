@@ -2,8 +2,6 @@
 
 licenses(["notice"])
 
-# [internal] load python3.bzl
-
 package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 
 py_library(
@@ -45,6 +43,7 @@ py_test(
     name = "multivariate_normal_test",
     size = "small",
     srcs = ["multivariate_normal_test.py"],
+    python_version = "PY3",
     deps = [
         "//tf_quant_finance",
         # numpy dep,
@@ -56,6 +55,7 @@ py_test(
     name = "stateless_test",
     size = "small",
     srcs = ["stateless_test.py"],
+    python_version = "PY3",
     deps = [
         "//tf_quant_finance",
         # numpy dep,

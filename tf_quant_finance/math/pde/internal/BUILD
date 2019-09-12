@@ -2,8 +2,6 @@
 
 licenses(["notice"])
 
-# [internal] load python3.bzl
-
 package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 
 py_library(
@@ -30,6 +28,7 @@ py_test(
     name = "pde_time_marching_schemes_internal_test",
     size = "small",
     srcs = ["pde_time_marching_schemes_internal_test.py"],
+    python_version = "PY3",
     deps = [
         "//tf_quant_finance",
         # numpy dep,

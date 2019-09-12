@@ -2,9 +2,6 @@
 
 licenses(["notice"])
 
-# [internal] load python3.bzl
-# [internal] load pytype.bzl
-
 package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 
 py_library(
@@ -16,7 +13,6 @@ py_library(
     ],
 )
 
-# pytype
 py_library(
     name = "sobol_impl",
     srcs = ["sobol_impl.py"],
@@ -33,6 +29,7 @@ py_test(
     name = "sobol_test",
     size = "medium",
     srcs = ["sobol_test.py"],
+    python_version = "PY3",
     deps = [
         "//tf_quant_finance",
         # numpy dep,
