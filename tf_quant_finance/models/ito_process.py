@@ -340,22 +340,100 @@ class ItoProcess(object):
           times, grid_step, keep_mask, times_size, num_samples, initial_state,
           random_type, seed, swap_memory)
 
-  def fd_method(self, *args, **kwargs):
-    """Returns a finite difference solver for solving Kolmogorov equations.
+  def fd_solver_backward(self,
+                         final_time,
+                         discounting_fn=None,
+                         grid_spec=None,
+                         time_step=None,
+                         time_step_fn=None,
+                         values_batch_size=1,
+                         name=None,
+                         **kwargs):
+    """Returns a solver for solving Feynman-Kac PDE associated to the process.
 
-    TODO(b/140312392): Complete the interface specification for this.
+    Constructs a finite differences grid solver for solving the final value
+    problem as it appears in the Feynman-Kac formula associated to this Ito
+    process. The Feynman-Kac PDE is closely related to the backward Kolomogorov
+    equation associated to the stochastic process and allows for the inclusion
+    of a discount rate.
+
+    A limited version of Feynman-Kac formula states the following.
+    Consider the expectation
+
+    ```None
+      V(x, t, T) = E_Q[e^{-R(t, T)} f(X_T) | X_t = x]
+    ```
+
+    where `Q` is a probability measure under which `W_j` is an n-dimensional
+    Wiener process, `X` is an n-dimensional Ito process satisfying:
+
+    ```None
+      dX_i = mu_i dt + Sum[Sigma_{ij} dW_j, 1 <= j <= n]
+    ```
+
+    and `R(t, T)` is a positive stochastic process given by:
+
+    ```None
+      R(t,T) = Integral[ r(s, X_s) ds, t <= s <= T]
+    ```
+
+    This expectation is the solution of the following second order linear
+    partial differential equation:
+
+    ```None
+      V_t + Sum[mu_i(t, x) V_i, 1<=i<=n] +
+        (1/2) Sum[ D_{ij} V_{ij}, 1 <= i,j <= n] - r(t, x) V = 0
+    ```
+
+    In the above, `V_t` is the derivative of `V` with respect to `t`,
+    `V_i` is the partial derivative with respect to `x_i` and `V_{ij}` the
+    (mixed) partial derivative with respect to `x_i` and `x_j`. `D_{ij}` are
+    the components of the diffusion tensor:
+
+    ```None
+      D_{ij} = (Sigma . Transpose[Sigma])_{ij}
+    ```
+
+    This method provides a finite difference solver to solve the above
+    differential equation. Whereas the coefficients `mu` and `D` are properties
+    of the SDE itself, the function `r(t, x)` may be arbitrarily specified
+    by the user (the parameter `discounting_fn` to this method).
 
     Args:
-      *args: Place value arguments.
-      **kwargs: Keyword args.
+      final_time: Positive scalar real `Tensor`. The time of the final value.
+        The solver is initialized to this final time.
+      discounting_fn: Python callable corresponding to the function `r(t, x)` in
+        the description above. The callable accepts two positional arguments.
+        The first argument is the time at which the discount rate function is
+        needed. The second argument contains the values of the state at which
+        the discount is to be computed.
+        Default value: None which maps to `r(t, x) = 0`.
+      grid_spec: An iterable convertible to a tuple containing at least the
+        attributes named 'grid', 'dim' and 'sizes'. For a full description of
+        the fields and expected types, see `grids.GridSpec` which provides the
+        canonical specification of this object.
+      time_step: A real positive scalar `Tensor` or None. The fixed
+        discretization parameter along the time dimension. Either this argument
+        or the `time_step_fn` must be specified. It is an error to specify both.
+        Default value: None.
+      time_step_fn: A callable accepting an instance of `grids.GridStepperState`
+        and returning the size of the next time step as a real scalar tensor.
+        This argument allows usage of a non-constant time step while stepping
+        back. If not specified, the `time_step` parameter must be specified. It
+        is an error to specify both.
+        Default value: None.
+      values_batch_size: A positive Python int. The batch size of values to be
+        propagated simultaneously.
+        Default value: 1.
+      name: Python str. The name to give this op.
+        Default value: None which maps to `fd_solver_backward`.
+      **kwargs: Any other keyword args needed.
 
     Returns:
-      An instance of `BackwardGridStepper` to solve the backward Kolmogorov
-      equation.
-      TODO(b/140370654): decide on the interface for solving the forward
-      Kolmogorov equation.
+      An instance of `BackwardGridStepper` configured for solving the
+      Feynman-Kac PDE associated to this process.
     """
-    raise NotImplementedError('Finite difference solvers are not yet '
+    raise NotImplementedError('Backward Finite difference solver not '
                               'implemented for ItoProcess.')
 
   def _sample_paths(self, times, grid_step, keep_mask, times_size, num_samples,

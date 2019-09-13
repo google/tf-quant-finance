@@ -31,12 +31,13 @@ A full description of the model class should contain the following methods:
   *   ```sample_paths``` - return sample paths of the process at specified time
   points. The base class provides Euler scheme sampling if the drift and
   volatility functions are defined;
-  * ```fd_method``` - returns a finite difference method for solving
-  the [Kolmogorov equations](https://en.wikipedia.org/wiki/Kolmogorov_backward_equations_(diffusion))
-  associated with the SDE. The corresponding
-  Kolmogorov backward equation is:
+  * ```fd_solver_backward``` - returns a finite difference method for solving
+  the [Feynman Kac PDE](https://en.wikipedia.org/wiki/Feynman%E2%80%93Kac_formula)
+  associated with the SDE. This equation is a slight generalization of the
+  [Kolmogorov backward equation](https://en.wikipedia.org/wiki/Kolmogorov_backward_equations_(diffusion))
+  with the inclusion of a discounting function. The Feynman Kac PDE is:
 
-  $$\frac{\partial}{\partial t} V(t, x) +  \sum_{i=1}^n a_i(t, X) \frac{\partial}{\partial x_i} V(t, x) + \sum_{i, j, k = 1}^n S_{ik} S_{jk} \frac{\partial^2}{\partial x_i \partial x_j} V(t, x) = 0.$$
+  $$V_t + Sum[mu_i(t, x) V_i, 1<=i<=n] + \frac{1}{2} Sum[ D_{ij} V_{ij}, 1 <= i,j <= n] - r(t, x) V = 0$$
 
   with the final value condition $$V(T, x) = u(x)$$.
 
@@ -51,5 +52,5 @@ A full description of the model class should contain the following methods:
   both ```drift_fn``` and ```volatility_fn``` should be defined.
 
 
-TODO(b/140290854): provide description of model calibration procedure.
-TODO(b/140313472): provide description of Ito process algebra API.
+TODO(b/140290854): Provide description of model calibration procedure.
+TODO(b/140313472): Provide description of Ito process algebra API.
