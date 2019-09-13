@@ -78,6 +78,7 @@ def bond_curve(bond_cashflows,
                initial_discount_rates=None,
                discount_tolerance=1e-8,
                maximum_iterations=50,
+               validate_args=False,
                dtype=None,
                name=None):
   """Constructs the bond discount rate curve using the Hagan-West algorithm.
@@ -220,6 +221,13 @@ def bond_curve(bond_cashflows,
     maximum_iterations: Optional positive integer `Tensor`. The maximum number
       of iterations permitted when fitting the curve.
       Default value: 50.
+    validate_args: Optional boolean flag to enable validation of the input
+      arguments. The checks performed are: (1) There are no cashflows which
+      expire before or at the corresponding settlement time (or at time 0 if
+      settlement time is not provided). (2) Cashflow times are strongly ordered
+      by increasing time. (3) Final cashflow for each bond is larger than any
+      other cashflow for that bond.
+      Default value: False.
     dtype: `tf.Dtype`. If supplied the dtype for the (elements of)
       `bond_cashflows`, `bond_cashflow_times` and `present_values`.
       Default value: None which maps to the default dtype inferred by TensorFlow
@@ -252,6 +260,9 @@ def bond_curve(bond_cashflows,
       length greater than or equal to two. Also raised if the
       `present_values_settlement_times` is not None and not of the same length
       as the `cashflows`.
+    tf.errors.InvalidArgumentError: In case argument validation is requested and
+      conditions explained in the corresponding section of Args comments are not
+      met.
   """
   with tf.compat.v1.name_scope(
       name,
@@ -260,10 +271,6 @@ def bond_curve(bond_cashflows,
           bond_cashflows, bond_cashflow_times, present_values,
           present_values_settlement_times
       ]):
-    # Always perform static validation.
-    _perform_static_validation(bond_cashflows, bond_cashflow_times,
-                               present_values, present_values_settlement_times)
-
     if present_values_settlement_times is None:
       pv_settle_times = [tf.zeros_like(pv) for pv in present_values]
     else:
@@ -273,6 +280,16 @@ def bond_curve(bond_cashflows,
                                present_values, pv_settle_times)
 
     bond_cashflows, bond_cashflow_times, present_values, pv_settle_times = args
+
+    # Always perform static validation.
+    _perform_static_validation(bond_cashflows, bond_cashflow_times,
+                               present_values, pv_settle_times)
+
+    control_inputs = []
+    if validate_args:
+      control_inputs = _validate_args_control_deps(bond_cashflows,
+                                                   bond_cashflow_times,
+                                                   pv_settle_times)
 
     if initial_discount_rates is not None:
       initial_rates = tf.convert_to_tensor(
@@ -291,12 +308,12 @@ def bond_curve(bond_cashflows,
 
     # TODO(b/139053811): This check is necessary to exclude zero coupon bonds.
     # Having zero coupons in the cashflows causes silent errors otherwise.
-
     no_zero_coupons = [
         tf.compat.v1.debugging.assert_greater(tf.size(cashflow), 1)
         for cashflow in bond_cashflows
     ]
-    with tf.compat.v1.control_dependencies(no_zero_coupons):
+    control_inputs += no_zero_coupons
+    with tf.compat.v1.control_dependencies(control_inputs):
       return _build_discount_curve(bond_cashflows, bond_cashflow_times,
                                    present_values, pv_settle_times,
                                    initial_rates, discount_tolerance,
@@ -490,7 +507,6 @@ def _initial_discount_rates(bond_cashflows,
 def _perform_static_validation(bond_cashflows, bond_cashflow_times,
                                present_values, pv_settle_times):
   """Performs static validation on the arguments."""
-  # Always perform static validation.
   if len(bond_cashflows) != len(bond_cashflow_times):
     raise ValueError(
         'Cashflow times and bond_cashflows must be of the same length.'
@@ -505,17 +521,39 @@ def _perform_static_validation(bond_cashflows, bond_cashflow_times,
         ' {} and PVs of size {}'.format(
             len(bond_cashflows), len(present_values)))
 
-  if pv_settle_times is not None:
-    if len(present_values) != len(pv_settle_times):
-      raise ValueError(
-          'Present value settlement times and present values must be of'
-          'the same length. Settlement times are of size'
-          ' {} and PVs of size {}'.format(
-              len(pv_settle_times), len(present_values)))
+  if len(present_values) != len(pv_settle_times):
+    raise ValueError(
+        'Present value settlement times and present values must be of'
+        'the same length. Settlement times are of size'
+        ' {} and PVs of size {}'.format(
+            len(pv_settle_times), len(present_values)))
+
   if len(bond_cashflows) < 2:
     raise ValueError(
         'At least two bonds must be supplied to calibrate the curve.'
         'Found {}.'.format(len(bond_cashflows)))
+
+
+def _validate_args_control_deps(bond_cashflows, bond_cashflow_times,
+                                pv_settle_times):
+  """Returns assertions for the validity of the arguments."""
+  cashflows_are_strongly_ordered = []
+  cashflow_after_settlement = []
+  final_cashflow_is_the_largest = []
+  for bond_index, bond_cashflow in enumerate(bond_cashflows):
+    cashflow = bond_cashflows[bond_index]
+    times = bond_cashflow_times[bond_index]
+    time_difference = times[1:] - times[:-1]
+    cashflows_are_strongly_ordered.append(
+        tf.debugging.assert_greater(time_difference,
+                                    tf.zeros_like(time_difference)))
+    cashflow_after_settlement.append(
+        tf.debugging.assert_greater(times[0], pv_settle_times[bond_index]))
+    final_cashflow_is_the_largest.append(
+        tf.debugging.assert_greater(
+            tf.fill(tf.shape(cashflow[:-1]), cashflow[-1]), cashflow[:-1]))
+  return (cashflow_after_settlement + cashflows_are_strongly_ordered +
+          final_cashflow_is_the_largest)
 
 
 def _convert_to_tensors(dtype, bond_cashflows, bond_cashflow_times,

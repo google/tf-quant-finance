@@ -31,6 +31,62 @@ from tensorflow.python.framework import test_util  # pylint: disable=g-direct-te
 @test_util.run_all_in_graph_and_eager_modes
 class BondCurveTest(tf.test.TestCase):
 
+  def test_cashflow_times_cashflow_before_settelment_error(self):
+    dtypes = [np.float64, np.float32]
+    for dtype in dtypes:
+      with self.assertRaises(tf.errors.InvalidArgumentError):
+        self.evaluate(
+            bond_curve.bond_curve(
+                bond_cashflows=[
+                    np.array([12.5, 12.5, 12.5, 1012.5], dtype=dtype),
+                    np.array([30.0, 30.0, 30.0, 1030.0], dtype=dtype)
+                ],
+                bond_cashflow_times=[
+                    np.array([0.25, 0.5, 0.75, 1.0], dtype=dtype),
+                    np.array([0.5, 1.0, 1.5, 2.0], dtype=dtype)
+                ],
+                present_values=np.array([999.0, 1022.0], dtype=dtype),
+                present_values_settlement_times=np.array([0.25, 0.25],
+                                                         dtype=dtype),
+                validate_args=True,
+                dtype=dtype))
+
+  def test_cashflow_times_are_strongly_ordered_error(self):
+    dtypes = [np.float64, np.float32]
+    for dtype in dtypes:
+      with self.assertRaises(tf.errors.InvalidArgumentError):
+        self.evaluate(
+            bond_curve.bond_curve(
+                bond_cashflows=[
+                    np.array([12.5, 12.5, 12.5, 1012.5], dtype=dtype),
+                    np.array([30.0, 30.0, 30.0, 1030.0], dtype=dtype)
+                ],
+                bond_cashflow_times=[
+                    np.array([0.25, 0.5, 0.75, 1.0], dtype=dtype),
+                    np.array([0.5, 1.0, 1.5, 1.5], dtype=dtype)
+                ],
+                present_values=np.array([999.0, 1022.0], dtype=dtype),
+                validate_args=True,
+                dtype=dtype))
+
+  def test_final_cashflow_is_the_largest_error(self):
+    dtypes = [np.float64, np.float32]
+    for dtype in dtypes:
+      with self.assertRaises(tf.errors.InvalidArgumentError):
+        self.evaluate(
+            bond_curve.bond_curve(
+                bond_cashflows=[
+                    np.array([12.5, 12.5, 12.5, 1012.5], dtype=dtype),
+                    np.array([30.0, 30.0, 30.0, 3.0], dtype=dtype)
+                ],
+                bond_cashflow_times=[
+                    np.array([0.25, 0.5, 0.75, 1.0], dtype=dtype),
+                    np.array([0.5, 1.0, 1.5, 2.0], dtype=dtype)
+                ],
+                present_values=np.array([999.0, 1022.0], dtype=dtype),
+                validate_args=True,
+                dtype=dtype))
+
   def test_correctness(self):
     dtypes = [np.float64, np.float32]
     for dtype in dtypes:
@@ -56,7 +112,8 @@ class BondCurveTest(tf.test.TestCase):
       ],
                      dtype=dtype)
       results = self.evaluate(
-          bond_curve.bond_curve(cashflows, cashflow_times, pvs))
+          bond_curve.bond_curve(
+              cashflows, cashflow_times, pvs, validate_args=True, dtype=dtype))
 
       np.testing.assert_allclose(results.times, [1.0, 2.0, 3.0, 4.0])
 
@@ -103,7 +160,12 @@ class BondCurveTest(tf.test.TestCase):
       # Check failure with default initial rates.
       results_default = self.evaluate(
           bond_curve.bond_curve(
-              cashflows, cashflow_times, pvs, maximum_iterations=100))
+              cashflows,
+              cashflow_times,
+              pvs,
+              maximum_iterations=100,
+              validate_args=True,
+              dtype=dtype))
       self.assertFalse(results_default.converged)
       self.assertTrue(results_default.failed)
       self.assertFalse(np.isnan(results_default.discount_rates[0]))
@@ -164,7 +226,9 @@ class BondCurveTest(tf.test.TestCase):
               cashflow_times,
               pvs,
               initial_discount_rates=initial_rates,
-              maximum_iterations=100))
+              maximum_iterations=100,
+              validate_args=True,
+              dtype=dtype))
       self.assertTrue(results.converged)
       self.assertFalse(results.failed)
       # It converges to a different set of rates.
@@ -206,7 +270,8 @@ class BondCurveTest(tf.test.TestCase):
                      dtype=dtype)
       true_discount_rates = np.array([0.15] * 4, dtype=dtype)
       results = self.evaluate(
-          bond_curve.bond_curve(cashflows, cashflow_times, pvs))
+          bond_curve.bond_curve(
+              cashflows, cashflow_times, pvs, validate_args=True, dtype=dtype))
       self.assertTrue(results.converged)
       self.assertFalse(results.failed)
       np.testing.assert_allclose(
@@ -237,7 +302,8 @@ class BondCurveTest(tf.test.TestCase):
           dtype=dtype)
       true_discount_rates = np.array([0.02, 0.01, -0.01, -0.03], dtype=dtype)
       results = self.evaluate(
-          bond_curve.bond_curve(cashflows, cashflow_times, pvs))
+          bond_curve.bond_curve(
+              cashflows, cashflow_times, pvs, validate_args=True, dtype=dtype))
       self.assertTrue(results.converged)
       self.assertFalse(results.failed)
       np.testing.assert_allclose(
@@ -269,7 +335,8 @@ class BondCurveTest(tf.test.TestCase):
           [10.88135262, 19.39268844, 98.48426722, 137.91938533, 122.63546542],
           dtype=dtype)
       results = self.evaluate(
-          bond_curve.bond_curve(cashflows, cashflow_times, pvs))
+          bond_curve.bond_curve(
+              cashflows, cashflow_times, pvs, validate_args=True, dtype=dtype))
       self.assertTrue(results.converged)
       self.assertFalse(results.failed)
       self.assertEqual(results.iterations, 6)
@@ -303,7 +370,10 @@ class BondCurveTest(tf.test.TestCase):
       ],
                      dtype=dtype)
       with self.assertRaises(tf.errors.InvalidArgumentError):
-        self.evaluate(bond_curve.bond_curve(cashflows, cashflow_times, pvs))
+        self.evaluate(
+            bond_curve.bond_curve(
+                cashflows, cashflow_times, pvs, validate_args=True,
+                dtype=dtype))
 
 
 def _compute_pv(cashflows, cashflow_times, reference_rates, reference_times):

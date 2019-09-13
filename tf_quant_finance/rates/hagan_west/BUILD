@@ -54,7 +54,7 @@ py_library(
 
 py_test(
     name = "bond_curve_test",
-    size = "small",
+    size = "medium",
     srcs = ["bond_curve_test.py"],
     python_version = "PY3",
     shard_count = 3,
