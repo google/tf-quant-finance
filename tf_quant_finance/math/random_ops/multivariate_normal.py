@@ -178,13 +178,14 @@ def multivariate_normal(sample_shape,
       # For the antithetic sampler `sample_shape` is split evenly between
       # samples and their antithetic counterparts. In order to do the splitting
       # we expect the first dimension of `sample_shape` to be even.
-      is_even_dim = tf.debugging.assert_equal(
-          sample_zero_dim % 2, 0,
+      is_even_dim = tf.compat.v1.debugging.assert_equal(
+          sample_zero_dim % 2,
+          0,
           message='First dimension of `sample_shape` should be even for '
-                  'PSEUDO_ANTITHETIC random type')
+          'PSEUDO_ANTITHETIC random type')
       # TODO(b/140722819): Make sure control_dependencies are trigerred with XLA
       # compilation.
-      with tf.control_dependencies([is_even_dim]):
+      with tf.compat.v1.control_dependencies([is_even_dim]):
         antithetic_shape = tf.concat(
             [[tf.cast(sample_zero_dim // 2, tf.int32)],
              tf.cast(sample_shape[1:], tf.int32)], -1)

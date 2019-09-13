@@ -623,7 +623,7 @@ def _brent(objective_fn,
               [params.max_iterations]),
       ]
 
-    with tf.control_dependencies(assertions):
+    with tf.compat.v1.control_dependencies(assertions):
       result = tf.while_loop(
           # Negate `_should_stop` to determine if the search should continue.
           # This means, in particular, that tf.reduce_*all* will return only

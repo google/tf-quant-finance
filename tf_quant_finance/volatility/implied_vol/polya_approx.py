@@ -142,9 +142,9 @@ def _validate_args_control_deps(option_prices, forwards, strikes, expiries,
                                 discount_factors, is_call_options):
   """Returns assertions for no-arbitrage conditions on the prices."""
   epsilon = tf.convert_to_tensor(1e-8, dtype=option_prices.dtype)
-  forwards_positive = tf.debugging.assert_positive(forwards)
-  strikes_positive = tf.debugging.assert_positive(strikes)
-  expiries_positive = tf.debugging.assert_non_negative(expiries)
+  forwards_positive = tf.compat.v1.debugging.assert_positive(forwards)
+  strikes_positive = tf.compat.v1.debugging.assert_positive(strikes)
+  expiries_positive = tf.compat.v1.debugging.assert_non_negative(expiries)
   put_lower_bounds = tf.nn.relu(strikes - forwards)
   call_lower_bounds = tf.nn.relu(forwards - strikes)
   lower_bounds = tf.where(
@@ -152,13 +152,15 @@ def _validate_args_control_deps(option_prices, forwards, strikes, expiries,
   upper_bounds = tf.where(is_call_options, x=forwards, y=strikes)
   undiscounted_prices = option_prices / discount_factors
   bounds_satisfied = [
-      tf.debugging.assert_less_equal(lower_bounds, undiscounted_prices),
-      tf.debugging.assert_greater_equal(upper_bounds, undiscounted_prices)
+      tf.compat.v1.debugging.assert_less_equal(lower_bounds,
+                                               undiscounted_prices),
+      tf.compat.v1.debugging.assert_greater_equal(upper_bounds,
+                                                  undiscounted_prices)
   ]
   not_too_close_to_bounds = [
-      tf.debugging.assert_greater(
+      tf.compat.v1.debugging.assert_greater(
           tf.abs(undiscounted_prices - lower_bounds), epsilon),
-      tf.debugging.assert_greater(
+      tf.compat.v1.debugging.assert_greater(
           tf.abs(undiscounted_prices - upper_bounds), epsilon)
   ]
   return [expiries_positive, forwards_positive, strikes_positive

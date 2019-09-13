@@ -245,7 +245,7 @@ def sample(dim,
                   'Maximum sequence index exceeded. Maximum index for dtype %s '
                   'is %d.' % (dtype, _MAX_INDEX_BY_DTYPE[dtype]))))
 
-    with tf.control_dependencies(runtime_assertions):
+    with tf.compat.v1.control_dependencies(runtime_assertions):
       radixes = tf.constant(_PRIMES[0:dim], dtype=dtype, shape=[dim, 1])
 
       max_sizes_by_axes = _MAX_SIZES_BY_AXES[dtype][:dim]

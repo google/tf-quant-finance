@@ -124,7 +124,7 @@ def build(x_data, y_data, name=None, dtype=None, validate_args=False):
     # check: are the x_data strictly increasing
     diffs = x_data[:, 1:] - x_data[:, :-1]
     # diffs should all be larger than 0
-    return tf.debugging.assert_greater(
+    return tf.compat.v1.debugging.assert_greater(
         diffs,
         tf.zeros_like(diffs),
         message="x_data are not strictly increasing")
@@ -216,7 +216,7 @@ def build(x_data, y_data, name=None, dtype=None, validate_args=False):
     else:
       assert_sanity_check = []
 
-    with tf.control_dependencies(assert_sanity_check):
+    with tf.compat.v1.control_dependencies(assert_sanity_check):
       beta = _calculate_beta(x_data, y_data, dtype=dtype)
 
     return SplineParameters(x_data=x_data, y_data=y_data, beta=beta)
@@ -298,7 +298,7 @@ def interpolate(x_values,
     else:
       assert_is_inside = []
 
-    with tf.control_dependencies(assert_is_inside):
+    with tf.compat.v1.control_dependencies(assert_is_inside):
       # Determine the splines to use.
       indices = tf.searchsorted(x_data, x_values, side="right") - 1
 

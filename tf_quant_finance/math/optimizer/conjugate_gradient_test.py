@@ -79,7 +79,7 @@ class ConjugateGradientTest(tf.test.TestCase):
     f_call_ctr = tf.Variable(0, dtype=tf.int32)
 
     def val_grad_func_with_counter(x):
-      with tf.control_dependencies([tf.assign_add(f_call_ctr, 1)]):
+      with tf.compat.v1.control_dependencies([tf.assign_add(f_call_ctr, 1)]):
         return val_grad_func(x)
 
     result = tff.math.optimizer.conjugate_gradient_minimize(

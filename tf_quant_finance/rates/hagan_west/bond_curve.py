@@ -293,7 +293,7 @@ def bond_curve(bond_cashflows,
     # Having zero coupons in the cashflows causes silent errors otherwise.
 
     no_zero_coupons = [
-        tf.debugging.assert_greater(tf.size(cashflow), 1)
+        tf.compat.v1.debugging.assert_greater(tf.size(cashflow), 1)
         for cashflow in bond_cashflows
     ]
     with tf.compat.v1.control_dependencies(no_zero_coupons):

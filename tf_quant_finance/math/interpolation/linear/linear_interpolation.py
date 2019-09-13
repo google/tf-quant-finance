@@ -88,7 +88,7 @@ def interpolate(x,
 
     # TODO(b/130141692): add batching support.
     x_data_is_rank_1 = tf.assert_rank(x_data, 1)
-    with tf.control_dependencies([x_data_is_rank_1]):
+    with tf.compat.v1.control_dependencies([x_data_is_rank_1]):
       # Get upper bound indices for `x`.
       upper_indices = tf.searchsorted(x_data, x, side='left', out_type=tf.int32)
       x_data_size = tf.shape(x_data)[-1]

@@ -116,8 +116,8 @@ def uniform_grid(minimums,
     control_deps = []
     if validate_args:
       control_deps = [
-          tf.debugging.assert_greater(maximums, minimums),
-          tf.debugging.assert_greater_equal(sizes, 2)
+          tf.compat.v1.debugging.assert_greater(maximums, minimums),
+          tf.compat.v1.debugging.assert_greater_equal(sizes, 2)
       ]
     with tf.compat.v1.control_dependencies(control_deps):
       dim = sizes.shape[0]
@@ -218,9 +218,10 @@ def log_uniform_grid(minimums,
     control_deps = []
     if validate_args:
       control_deps = [
-          tf.debugging.assert_greater(maximums, minimums),
-          tf.debugging.assert_greater(minimums, tf.constant(0, dtype=dtype)),
-          tf.debugging.assert_greater_equal(sizes, 2)
+          tf.compat.v1.debugging.assert_greater(maximums, minimums),
+          tf.compat.v1.debugging.assert_greater(minimums,
+                                                tf.constant(0, dtype=dtype)),
+          tf.compat.v1.debugging.assert_greater_equal(sizes, 2)
       ]
     # Generate a uniform grid in the log-space taking into account that the
     # arguments were already validated.
@@ -402,8 +403,8 @@ def uniform_grid_with_extra_point(minimums,
     control_deps = []
     if validate_args:
       control_deps = [
-          tf.debugging.assert_greater(maximums, minimums),
-          tf.debugging.assert_greater_equal(sizes, 2)
+          tf.compat.v1.debugging.assert_greater(maximums, minimums),
+          tf.compat.v1.debugging.assert_greater_equal(sizes, 2)
       ]
     locations = []
     with tf.compat.v1.control_dependencies(control_deps):
@@ -525,9 +526,10 @@ def log_uniform_grid_with_extra_point(minimums,
     control_deps = []
     if validate_args:
       control_deps = [
-          tf.debugging.assert_greater(maximums, minimums),
-          tf.debugging.assert_greater(minimums, tf.constant(0, dtype=dtype)),
-          tf.debugging.assert_greater_equal(sizes, 2)
+          tf.compat.v1.debugging.assert_greater(maximums, minimums),
+          tf.compat.v1.debugging.assert_greater(minimums,
+                                                tf.constant(0, dtype=dtype)),
+          tf.compat.v1.debugging.assert_greater_equal(sizes, 2)
       ]
     # Generate a uniform grid in the log-space taking into account that the
     # arguments were already validated.

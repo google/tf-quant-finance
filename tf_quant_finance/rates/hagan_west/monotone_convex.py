@@ -181,8 +181,8 @@ def interpolate(times,
     control_deps = []
     if validate_args:
       control_deps = [
-          tf.debugging.assert_non_negative(times),
-          tf.debugging.assert_positive(interval_times)
+          tf.compat.v1.debugging.assert_non_negative(times),
+          tf.compat.v1.debugging.assert_positive(interval_times)
       ]
     with tf.compat.v1.control_dependencies(control_deps):
       # Step 1: Find the values at the endpoints.
