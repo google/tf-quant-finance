@@ -58,8 +58,8 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-from tf_quant_finance.math import diff as diff_ops
 from tf_quant_finance.math import piecewise
+from tf_quant_finance.math.diff_ops import diff
 from tf_quant_finance.rates import forwards
 
 
@@ -560,8 +560,8 @@ def _interpolate_adjacent(times, values, name=None):
   """
   with tf.compat.v1.name_scope(
       name, default_name='interpolate_adjacent', values=[times, values]):
-    dt1 = diff_ops.diff(times, order=1, exclusive=False)
-    dt2 = diff_ops.diff(times, order=2, exclusive=False)[1:]
+    dt1 = diff(times, order=1, exclusive=False)
+    dt2 = diff(times, order=2, exclusive=False)[1:]
     weight_right = dt1[:-1] / dt2
     weight_left = dt1[1:] / dt2
     interior_values = weight_right * values[1:] + weight_left * values[:-1]

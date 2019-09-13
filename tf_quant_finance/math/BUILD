@@ -9,7 +9,7 @@ py_library(
     srcs = ["__init__.py"],
     srcs_version = "PY2AND3",
     deps = [
-        ":diff",
+        ":diff_ops",
         ":gradient",
         ":piecewise",
         ":root_search",
@@ -44,8 +44,8 @@ py_test(
 )
 
 py_library(
-    name = "diff",
-    srcs = ["diff.py"],
+    name = "diff_ops",
+    srcs = ["diff_ops.py"],
     srcs_version = "PY2AND3",
     deps = [
         # numpy dep,
@@ -54,9 +54,9 @@ py_library(
 )
 
 py_test(
-    name = "diff_test",
+    name = "diff_ops_test",
     size = "small",
-    srcs = ["diff_test.py"],
+    srcs = ["diff_ops_test.py"],
     python_version = "PY3",
     deps = [
         "//tf_quant_finance",
@@ -91,7 +91,7 @@ py_library(
     srcs = ["segment_ops.py"],
     srcs_version = "PY2AND3",
     deps = [
-        ":diff",
+        ":diff_ops",
         # numpy dep,
         # tensorflow dep,
     ],

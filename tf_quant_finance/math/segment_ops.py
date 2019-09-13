@@ -20,7 +20,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-from tf_quant_finance.math import diff as diff_ops
+from tf_quant_finance.math import diff_ops
 
 
 def segment_diff(x,

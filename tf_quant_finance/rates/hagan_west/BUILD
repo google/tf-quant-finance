@@ -19,7 +19,7 @@ py_library(
     srcs = ["monotone_convex.py"],
     srcs_version = "PY2AND3",
     deps = [
-        "//tf_quant_finance/math:diff",
+        "//tf_quant_finance/math:diff_ops",
         "//tf_quant_finance/math:piecewise",
         "//tf_quant_finance/rates:forwards",
         # numpy dep,
