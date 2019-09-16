@@ -68,9 +68,7 @@ class ConjugateGradientTest(tf.test.TestCase):
                        func=None,
                        start_point=None,
                        gtol=1e-4,
-                       expected_argmin=None,
-                       expected_iterations=None,
-                       expected_func_calls=None):
+                       expected_argmin=None):
     """Runs algorithm on given test case and verifies result."""
     val_grad_func = lambda x: tff.math.value_and_gradient(func, x)
     start_point = tf.constant(start_point, dtype=tf.float64)
@@ -102,14 +100,6 @@ class ConjugateGradientTest(tf.test.TestCase):
     # Check that number of function calls, declared by algorithm, is correct.
     self.assertEqual(result.num_objective_evaluations, f_call_ctr)
 
-    # Check number of iterations.
-    if expected_iterations is not None:
-      self.assertEqual(expected_iterations, result.num_iterations)
-
-    # Check number of objective evaluations.
-    if expected_func_calls is not None:
-      self.assertEqual(expected_func_calls, result.num_objective_evaluations)
-
     # Check returned function and gradient values.
     pos = tf.constant(result.position, dtype=tf.float64)
     f_at_pos, grad_at_pos = self.evaluate(val_grad_func(pos))
@@ -124,9 +114,7 @@ class ConjugateGradientTest(tf.test.TestCase):
     self._check_algorithm(
         func=lambda x: (x[0] - 20)**2,
         start_point=[100.0],
-        expected_argmin=[20.0],
-        expected_iterations=1,
-        expected_func_calls=3)
+        expected_argmin=[20.0])
 
   def test_quadratics(self):
 
@@ -161,9 +149,7 @@ class ConjugateGradientTest(tf.test.TestCase):
         func=lambda x: tf.reduce_sum(x**4),
         start_point=[1, 2, 3, 4, 5],
         expected_argmin=[0, 0, 0, 0, 0],
-        gtol=1e-10,
-        expected_iterations=24,
-        expected_func_calls=50)
+        gtol=1e-10)
 
   def test_logistic_regression(self):
     dim = 5
@@ -198,9 +184,7 @@ class ConjugateGradientTest(tf.test.TestCase):
         func=f_negative_log_likelihood,
         start_point=start_point,
         expected_argmin=argmin,
-        gtol=1e-5,
-        expected_iterations=24,
-        expected_func_calls=62)
+        gtol=1e-5)
 
   def test_data_fitting(self):
     """Tests MLE estimation for a simple geometric GLM."""
@@ -228,86 +212,66 @@ class ConjugateGradientTest(tf.test.TestCase):
     self._check_algorithm(
         func=neg_log_likelihood,
         start_point=np.ones(shape=[dim]),
-        expected_argmin=[-0.020460034354, 0.171708568111, 0.021200423717],
-        gtol=1e-6,
-        expected_iterations=10)
+        expected_argmin=[-0.020460034354, 0.171708568111, 0.021200423717])
 
   def test_rosenbrock_2d_v1(self):
     self._check_algorithm(
         func=_rosenbrock,
         start_point=[-1.2, 2],
-        expected_argmin=[1.0, 1.0],
-        expected_iterations=35,
-        expected_func_calls=98)
+        expected_argmin=[1.0, 1.0])
 
   def test_rosenbrock_2d_v2(self):
     self._check_algorithm(
         func=_rosenbrock,
         start_point=[7, -12],
-        expected_argmin=[1.0, 1.0],
-        expected_iterations=30,
-        expected_func_calls=78)
+        expected_argmin=[1.0, 1.0])
 
   def test_rosenbock_7d(self):
     self._check_algorithm(
         func=_rosenbrock,
         start_point=np.zeros(7),
-        expected_argmin=np.ones(7),
-        expected_iterations=146,
-        expected_func_calls=297)
+        expected_argmin=np.ones(7))
 
   def test_himmelblau_v1(self):
     self._check_algorithm(
         func=_himmelblau,
         start_point=[4, 3],
         expected_argmin=[3.0, 2.0],
-        gtol=1e-8,
-        expected_iterations=9,
-        expected_func_calls=19)
+        gtol=1e-8)
 
   def test_himmelblau_v2(self):
     self._check_algorithm(
         func=_himmelblau,
         start_point=[-2, 3],
         expected_argmin=[-2.805118, 3.131312],
-        gtol=1e-8,
-        expected_iterations=7,
-        expected_func_calls=17)
+        gtol=1e-8)
 
   def test_himmelblau_v3(self):
     self._check_algorithm(
         func=_himmelblau,
         start_point=[-3, -3],
         expected_argmin=[-3.779310, -3.283186],
-        gtol=1e-8,
-        expected_iterations=7,
-        expected_func_calls=16)
+        gtol=1e-8)
 
   def test_himmelblau_v4(self):
     self._check_algorithm(
         func=_himmelblau,
         start_point=[3, -1],
         expected_argmin=[3.584428, -1.848126],
-        gtol=1e-8,
-        expected_iterations=10,
-        expected_func_calls=23)
+        gtol=1e-8)
 
   def test_mc_cormick(self):
     self._check_algorithm(
         func=_mc_cormick,
         start_point=[0, 0],
-        expected_argmin=[-0.54719, -1.54719],
-        expected_iterations=5,
-        expected_func_calls=11)
+        expected_argmin=[-0.54719, -1.54719])
 
   def test_beale(self):
     self._check_algorithm(
         func=_beale,
         start_point=[-1.0, -1.0],
         expected_argmin=[3.0, 0.5],
-        gtol=1e-8,
-        expected_iterations=14,
-        expected_func_calls=30)
+        gtol=1e-8)
 
   def test_himmelblau_batch_all(self):
     self._check_algorithm(
@@ -315,9 +279,7 @@ class ConjugateGradientTest(tf.test.TestCase):
         start_point=[[1, 1], [-2, 2], [-1, -1], [1, -2]],
         expected_argmin=[[3, 2], [-2.805118, 3.131312], [-3.779310, -3.283186],
                          [3.584428, -1.848126]],
-        gtol=1e-8,
-        expected_iterations=11,
-        expected_func_calls=35)
+        gtol=1e-8)
 
   def test_himmelblau_batch_any(self):
     val_grad_func = tff.math.make_val_and_grad_fn(_himmelblau)
