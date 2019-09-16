@@ -224,9 +224,9 @@ def bond_curve(bond_cashflows,
     validate_args: Optional boolean flag to enable validation of the input
       arguments. The checks performed are: (1) There are no cashflows which
       expire before or at the corresponding settlement time (or at time 0 if
-      settlement time is not provided). (2) Cashflow times are strongly ordered
-      by increasing time. (3) Final cashflow for each bond is larger than any
-      other cashflow for that bond.
+      settlement time is not provided). (2) Cashflow times for each bond form
+      strictly increasing sequence. (3) Final cashflow for each bond is larger
+      than any other cashflow for that bond.
       Default value: False.
     dtype: `tf.Dtype`. If supplied the dtype for the (elements of)
       `bond_cashflows`, `bond_cashflow_times` and `present_values`.
@@ -537,14 +537,14 @@ def _perform_static_validation(bond_cashflows, bond_cashflow_times,
 def _validate_args_control_deps(bond_cashflows, bond_cashflow_times,
                                 pv_settle_times):
   """Returns assertions for the validity of the arguments."""
-  cashflows_are_strongly_ordered = []
+  cashflows_are_strictly_increasing = []
   cashflow_after_settlement = []
   final_cashflow_is_the_largest = []
   for bond_index, bond_cashflow in enumerate(bond_cashflows):
     cashflow = bond_cashflows[bond_index]
     times = bond_cashflow_times[bond_index]
     time_difference = times[1:] - times[:-1]
-    cashflows_are_strongly_ordered.append(
+    cashflows_are_strictly_increasing.append(
         tf.debugging.assert_greater(time_difference,
                                     tf.zeros_like(time_difference)))
     cashflow_after_settlement.append(
@@ -552,7 +552,7 @@ def _validate_args_control_deps(bond_cashflows, bond_cashflow_times,
     final_cashflow_is_the_largest.append(
         tf.debugging.assert_greater(
             tf.fill(tf.shape(cashflow[:-1]), cashflow[-1]), cashflow[:-1]))
-  return (cashflow_after_settlement + cashflows_are_strongly_ordered +
+  return (cashflow_after_settlement + cashflows_are_strictly_increasing +
           final_cashflow_is_the_largest)
 
 
