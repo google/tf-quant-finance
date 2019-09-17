@@ -306,13 +306,6 @@ def bond_curve(bond_cashflows,
           present_values,
           name='initial_rates')
 
-    # TODO(b/139053811): This check is necessary to exclude zero coupon bonds.
-    # Having zero coupons in the cashflows causes silent errors otherwise.
-    no_zero_coupons = [
-        tf.compat.v1.debugging.assert_greater(tf.size(cashflow), 1)
-        for cashflow in bond_cashflows
-    ]
-    control_inputs += no_zero_coupons
     with tf.compat.v1.control_dependencies(control_inputs):
       return _build_discount_curve(bond_cashflows, bond_cashflow_times,
                                    present_values, pv_settle_times,

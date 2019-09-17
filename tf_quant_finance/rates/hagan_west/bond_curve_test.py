@@ -19,6 +19,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import math
 import numpy as np
 import tensorflow as tf
 
@@ -345,35 +346,85 @@ class BondCurveTest(tf.test.TestCase):
       np.testing.assert_allclose(
           results.times, [0.25, 0.5, 1., 1.5, 2.2], atol=1e-6)
 
-  def test_zero_coupon_raises(self):
+  def test_zero_coupon_bond(self):
     dtypes = [np.float64, np.float32]
     for dtype in dtypes:
       cashflows = [
-          # 1 year bond with 5% three monthly coupon.
-          np.array([12.5, 12.5, 12.5, 1012.5], dtype=dtype),
-          # 2 year bond with no coupons. This should cause an error.
-          np.array([1030], dtype=dtype),
-          # 3 year bond with 8% semi-annual coupon.
-          np.array([40, 40, 40, 40, 40, 1040], dtype=dtype),
-          # 4 year bond with 3% semi-annual coupon.
-          np.array([15, 15, 15, 15, 15, 15, 15, 1015], dtype=dtype)
+          # 6 months bond with no coupons.
+          np.array([1020], dtype=dtype),
+          # 1 year bond with 5% semi-annual coupon.
+          np.array([25, 1025], dtype=dtype),
+          # 2 year bond with 8% annual coupon.
+          np.array([80, 1080], dtype=dtype),
+          # 3 year bond with 3% annual coupon.
+          np.array([30, 30, 1030], dtype=dtype)
       ]
       cashflow_times = [
-          np.array([0.25, 0.5, 0.75, 1.0], dtype=dtype),
-          np.array([2.0], dtype=dtype),
-          np.array([0.5, 1.0, 1.5, 2.0, 2.5, 3.0], dtype=dtype),
-          np.array([0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0], dtype=dtype)
+          np.array([0.5], dtype=dtype),
+          np.array([0.5, 1.0], dtype=dtype),
+          np.array([1.0, 2.0], dtype=dtype),
+          np.array([1.0, 2.0, 3.0], dtype=dtype)
       ]
-      pvs = np.array([
-          999.68155223943393, 1022.322872470043, 1093.9894418810143,
-          934.20885689015677
-      ],
+      pvs = np.array([1000.0, 1000.0, 1000.0, 1000.0], dtype=dtype)
+      # We can calculate discount rates going step-by-step.
+      r1 = -math.log(pvs[0] / cashflows[0][0]) / cashflow_times[0]
+      r2 = -(
+          math.log(
+              (pvs[1] - cashflows[1][0] * math.exp(-r1 * cashflow_times[1][0]))
+              / cashflows[1][1]) / cashflow_times[1][1])
+      r3 = -(
+          math.log(
+              (pvs[2] - cashflows[2][0] * math.exp(-r2 * cashflow_times[2][0]))
+              / cashflows[2][1]) / cashflow_times[2][1])
+      r4 = -(
+          math.log(
+              (pvs[3] - cashflows[3][0] * math.exp(-r2 * cashflow_times[3][0]) -
+               cashflows[3][1] * math.exp(-r3 * cashflow_times[3][1])) /
+              cashflows[3][2]) / cashflow_times[3][2])
+      true_discount_rates = np.array([r1, r2, r3, r4], dtype=dtype)
+
+      results = self.evaluate(
+          bond_curve.bond_curve(
+              cashflows, cashflow_times, pvs, validate_args=True, dtype=dtype))
+      self.assertTrue(results.converged)
+      self.assertFalse(results.failed)
+      self.assertEqual(results.iterations, 4)
+      np.testing.assert_allclose(
+          results.discount_rates, true_discount_rates, atol=1e-6)
+      np.testing.assert_allclose(results.times, [0.5, 1.0, 2.0, 3.0], atol=1e-6)
+
+  def test_only_zero_coupon_bonds(self):
+    dtypes = [np.float64, np.float32]
+    for dtype in dtypes:
+      cashflows = [
+          # 1 year bond with no coupons.
+          np.array([1010], dtype=dtype),
+          # 2 year bond with no coupons.
+          np.array([1030], dtype=dtype),
+          # 3 year bond with no coupons.
+          np.array([1020], dtype=dtype),
+          # 4 year bond with no coupons.
+          np.array([1040], dtype=dtype)
+      ]
+      cashflow_times = [
+          np.array([1.0], dtype=dtype),
+          np.array([2.0], dtype=dtype),
+          np.array([3.0], dtype=dtype),
+          np.array([4.0], dtype=dtype)
+      ]
+      true_discount_rates = np.array([0.001, 0.2, 0.03, 0.0], dtype=dtype)
+      pvs = np.array([(cashflows[i][0] * math.exp(-rate * cashflow_times[i][0]))
+                      for i, rate in enumerate(true_discount_rates)],
                      dtype=dtype)
-      with self.assertRaises(tf.errors.InvalidArgumentError):
-        self.evaluate(
-            bond_curve.bond_curve(
-                cashflows, cashflow_times, pvs, validate_args=True,
-                dtype=dtype))
+      results = self.evaluate(
+          bond_curve.bond_curve(
+              cashflows, cashflow_times, pvs, validate_args=True, dtype=dtype))
+      self.assertTrue(results.converged)
+      self.assertFalse(results.failed)
+      self.assertEqual(results.iterations, 1)
+      np.testing.assert_allclose(
+          results.discount_rates, true_discount_rates, atol=1e-6)
+      np.testing.assert_allclose(results.times, [1.0, 2.0, 3.0, 4.0], atol=1e-6)
 
 
 def _compute_pv(cashflows, cashflow_times, reference_rates, reference_times):
