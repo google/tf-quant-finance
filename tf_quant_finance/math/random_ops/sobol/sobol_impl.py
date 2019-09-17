@@ -32,8 +32,7 @@ import tensorflow as tf
 _LN_2 = np.log(2.)
 
 
-# TODO(b/112528100): Add dtype parameter and support for tf.float32.
-def sample(dim, num_results, skip=0, name=None):
+def sample(dim, num_results, skip=0, dtype=None, name=None):
   """Returns num_results samples from the Sobol sequence of dimension dim.
 
   Uses the original ordering of points, not the more commonly used Gray code
@@ -50,6 +49,9 @@ def sample(dim, num_results, skip=0, name=None):
       points to return in the output.
     skip: Positive scalar `Tensor` of dtype int32. The number of initial points
       of the Sobol sequence to skip.
+    dtype: Optional `dtype`. The dtype of the output `Tensor` (either `float16`,
+      `float32`, or `float64`).
+      Default value: `None` which maps to the `float32`.
     name: Python `str` name prefixed to ops created by this function.
 
   Returns:
@@ -116,7 +118,9 @@ def sample(dim, num_results, skip=0, name=None):
 
     result, _ = tf.while_loop(_cond, _body, (product[0, :, :], 1))
     # Shift back from integers to floats.
-    return result / tf.bitwise.left_shift(1, num_digits)
+    dtype = dtype or tf.float32
+    return (tf.cast(result, dtype)
+            / tf.cast(tf.bitwise.left_shift(1, num_digits), dtype))
 
 
 # TODO(b/112528100): Add option to store these instead of recomputing each time.

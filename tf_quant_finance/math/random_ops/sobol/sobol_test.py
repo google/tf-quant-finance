@@ -33,12 +33,14 @@ class SampleSobolSequenceTest(tf.test.TestCase):
   def test_known_values_small_dimension(self):
     # The first five elements of the non-randomized Sobol sequence
     # with dimension 2
-    sample = random.sobol.sample(2, 5)
-    # These are in the original order, not Gray code order.
-    expected = np.array([[0.5, 0.5], [0.25, 0.75], [0.75, 0.25], [0.125, 0.625],
-                         [0.625, 0.125]],
-                        dtype=np.float32)
-    self.assertAllClose(expected, self.evaluate(sample), rtol=1e-6)
+    for dtype in [np.float16, np.float32, np.float64]:
+      sample = random.sobol.sample(2, 5, dtype=dtype)
+      # These are in the original order, not Gray code order.
+      expected = np.array([[0.5, 0.5], [0.25, 0.75], [0.75, 0.25],
+                           [0.125, 0.625], [0.625, 0.125]],
+                          dtype=dtype)
+      self.assertAllClose(expected, self.evaluate(sample), rtol=1e-6)
+      self.assertEqual(sample.dtype.as_numpy_dtype, dtype)
 
   def test_more_known_values(self):
     # The first 31 elements of the non-randomized Sobol sequence
@@ -102,14 +104,15 @@ class SampleSobolSequenceTest(tf.test.TestCase):
     # (N=number of samples). For QMC in low dimensions, the expected convergence
     # rate is ~ 1/N. Hence we should only need 1e3 samples as compared to the
     # 1e6 samples used in the pseudo-random monte carlo.
-    mu_p = tf.constant([-1., 1.], dtype=tf.float64)
-    mu_q = tf.constant([0., 0.], dtype=tf.float64)
-    sigma_p = tf.constant([0.5, 0.5], dtype=tf.float64)
-    sigma_q = tf.constant([1., 1.], dtype=tf.float64)
+    dtype = tf.float64
+    mu_p = tf.constant([-1., 1.], dtype=dtype)
+    mu_q = tf.constant([0., 0.], dtype=dtype)
+    sigma_p = tf.constant([0.5, 0.5], dtype=dtype)
+    sigma_q = tf.constant([1., 1.], dtype=dtype)
     p = tfp.distributions.Normal(loc=mu_p, scale=sigma_p)
     q = tfp.distributions.Normal(loc=mu_q, scale=sigma_q)
 
-    cdf_sample = random.sobol.sample(2, n)
+    cdf_sample = random.sobol.sample(2, n, dtype=dtype)
     q_sample = q.quantile(cdf_sample)
 
     # Compute E_p[X].
