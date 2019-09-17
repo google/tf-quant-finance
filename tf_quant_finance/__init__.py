@@ -26,7 +26,7 @@ from __future__ import print_function
 # pylint: disable=g-import-not-at-top
 
 # Update this whenever we need to depend on a newer TensorFlow release.
-_REQUIRED_TENSORFLOW_VERSION = "1.12"  # pylint: disable=g-statement-before-imports
+_REQUIRED_TENSORFLOW_VERSION = "1.14"  # pylint: disable=g-statement-before-imports
 
 
 # Ensure TensorFlow is importable and its version is sufficiently recent. This
