@@ -25,6 +25,7 @@ from tf_quant_finance.math import random_ops as random
 from tf_quant_finance.math import root_search
 from tf_quant_finance.math import segment_ops
 from tf_quant_finance.math.diff_ops import diff
+from tf_quant_finance.math.gradient import fwd_gradient
 from tf_quant_finance.math.gradient import gradients
 from tf_quant_finance.math.gradient import make_val_and_grad_fn
 from tf_quant_finance.math.gradient import value_and_gradient
@@ -32,6 +33,7 @@ from tf_quant_finance.math.gradient import value_and_gradient
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
+    'fwd_gradient',
     'interpolation',
     'optimizer',
     'pde',
