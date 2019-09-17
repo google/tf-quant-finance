@@ -1,0 +1,20 @@
+language: python
+python:
+  - "3.5"
+  - "3.6"
+  - "3.7"
+
+addons:
+  apt:
+    update: true
+    sources:
+    - sourceline: "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8"
+      key_url: "https://bazel.build/bazel-release.pub.gpg"
+    packages:
+      - bazel
+
+install:
+  - pip3 install --upgrade tensorflow tensorflow-probability numpy attrs scipy
+
+script:
+  - bazel test tf_quant_finance/...
