@@ -103,7 +103,6 @@ def sample(dim, num_results, skip=0, dtype=None, name=None):
         1, tf.bitwise.right_shift(irange, dig_range))
     binary_matrix = tf.expand_dims(binary_matrix, -1)
 
-    # TODO(b/112528100): Replace while_loop() when we move this to C++.
     # Multiply and bitwise-xor everything together. We use while_loop rather
     # than foldl(bitwise_xor(...)) because the latter is not currently supported
     # on GPUs.
@@ -123,7 +122,7 @@ def sample(dim, num_results, skip=0, dtype=None, name=None):
             / tf.cast(tf.bitwise.left_shift(1, num_digits), dtype))
 
 
-# TODO(b/112528100): Add option to store these instead of recomputing each time.
+# TODO(b/135590027): Add option to store these instead of recomputing each time.
 def _compute_direction_numbers(dim):
   """Returns array of direction numbers for dimension dim.
 
