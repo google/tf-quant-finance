@@ -32,7 +32,12 @@ import tensorflow as tf
 _LN_2 = np.log(2.)
 
 
-def sample(dim, num_results, skip=0, dtype=None, name=None):
+def sample(dim,
+           num_results,
+           skip=0,
+           validate_args=False,
+           dtype=None,
+           name=None):
   """Returns num_results samples from the Sobol sequence of dimension dim.
 
   Uses the original ordering of points, not the more commonly used Gray code
@@ -49,6 +54,11 @@ def sample(dim, num_results, skip=0, dtype=None, name=None):
       points to return in the output.
     skip: Positive scalar `Tensor` of dtype int32. The number of initial points
       of the Sobol sequence to skip.
+    validate_args: Python `bool`. When `True`, input `Tensor's` are checked for
+      validity despite possibly degrading runtime performance. The checks verify
+      that `dim >= 1`, `num_results >= 1`, and `skip >= 0`. When `False` invalid
+      inputs may silently render incorrect outputs.
+      Default value: False.
     dtype: Optional `dtype`. The dtype of the output `Tensor` (either `float16`,
       `float32`, or `float64`).
       Default value: `None` which maps to the `float32`.
@@ -62,26 +72,35 @@ def sample(dim, num_results, skip=0, dtype=None, name=None):
   [1]: S. Joe and F. Y. Kuo. Notes on generating Sobol sequences. August 2008.
        https://web.maths.unsw.edu.au/~fkuo/sobol/joe-kuo-notes.pdf
   """
-  if dim < 1:
-    raise ValueError(
-        'Dimension must be greater than zero. Supplied {}'.format(dim))
-  if num_results < 1:
-    raise ValueError(
-        'Number of results must be greater than zero. Supplied {}'.format(
-            num_results))
-  if skip < 0:
-    raise ValueError('Skip must be non-negative. Supplied {}'.format(skip))
   with tf.compat.v1.name_scope(name, 'sobol_sample', [dim, num_results, skip]):
     num_results = tf.convert_to_tensor(
-        value=num_results, dtype=tf.int32, name='num_results')
-    skip = tf.convert_to_tensor(value=skip, dtype=tf.int32, name='skip')
-    direction_numbers = tf.convert_to_tensor(
-        value=_compute_direction_numbers(dim), name='m')
-    # Number of digits actually needed for binary representation.
-    num_digits = tf.cast(
-        tf.math.ceil(
-            tf.math.log(tf.cast(skip + num_results + 1, tf.float64)) / _LN_2),
-        tf.int32)
+        num_results, dtype=tf.int32, name='num_results')
+    skip = tf.convert_to_tensor(skip, dtype=tf.int32, name='skip')
+    control_dependencies = []
+    if validate_args:
+      if dim < 1:
+        raise ValueError(
+            'Dimension must be greater than zero. Supplied {}'.format(dim))
+      control_dependencies.append(tf.compat.v1.debugging.assert_greater(
+          num_results, 0,
+          message='Number of results `num_results` must be greater than zero.'))
+      control_dependencies.append(tf.compat.v1.debugging.assert_greater(
+          skip, 0,
+          message='`skip` must be non-negative.'))
+
+    with tf.compat.v1.control_dependencies(control_dependencies):
+      if validate_args:
+        # The following tf.maximum ensures that the graph can be executed
+        # even with ignored control dependencies
+        num_results = tf.maximum(num_results, 1, name='fix_num_results')
+        skip = tf.maximum(skip, 0, name='fix_skip')
+      direction_numbers = tf.convert_to_tensor(
+          _compute_direction_numbers(dim), name='direction_numbers')
+      # Number of digits actually needed for binary representation.
+      num_digits = tf.cast(
+          tf.math.ceil(
+              tf.math.log(tf.cast(skip + num_results + 1, tf.float64)) / _LN_2),
+          tf.int32)
     # Direction numbers, reshaped and with the digits shifted as needed for the
     # bitwise xor operations below. Note that here and elsewhere we use bit
     # shifts rather than powers of two because exponentiating integers is not
@@ -193,14 +212,11 @@ def _load_sobol_data():
       if header_line:
         header_line = False
         continue
-
       tokens = line.split()
       s, a = tokens[1:3]
-
       polynomial_coefficients[index] = 2**int(s) + 2 * int(a) + 1
       for i, m_i in enumerate(tokens[3:]):
         direction_numbers[i, index] = int(m_i)
-
       index += 1
   return polynomial_coefficients, direction_numbers
 
