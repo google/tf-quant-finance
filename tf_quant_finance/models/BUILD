@@ -24,6 +24,17 @@ py_library(
     ],
 )
 
+py_library(
+    name = "brownian_motion_utils",
+    srcs = ["brownian_motion_utils.py"],
+    deps = [
+        "//tf_quant_finance/math:gradient",
+        # numpy dep,
+        # six dep,
+        # tensorflow dep,
+    ],
+)
+
 py_test(
     name = "ito_process_test",
     size = "small",
@@ -32,6 +43,19 @@ py_test(
     python_version = "PY3",
     deps = [
         "//tf_quant_finance",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "brownian_motion_utils_test",
+    size = "small",
+    timeout = "moderate",
+    srcs = ["brownian_motion_utils_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":brownian_motion_utils",  # This dependency is deliberate. The bm utils will not be exported to top level TFF.
         # numpy dep,
         # tensorflow dep,
     ],
