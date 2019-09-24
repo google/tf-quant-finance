@@ -22,6 +22,7 @@ from __future__ import print_function
 import enum
 import tensorflow as tf
 import tensorflow_probability as tfp
+from tf_quant_finance.math.random_ops import sobol
 
 
 @enum.unique
@@ -42,7 +43,8 @@ def multivariate_normal(sample_shape,
                         validate_args=False,
                         seed=None,
                         dtype=None,
-                        name=None):
+                        name=None,
+                        **kwargs):
   """Generates draws from a multivariate Normal distribution.
 
   Draws samples from the multivariate Normal distribution on `R^k` with the
@@ -131,6 +133,10 @@ def multivariate_normal(sample_shape,
     name: Python `str` name prefixed to Ops created by this class.
       Default value: None which is mapped to the default name
         'multivariate_normal'.
+    **kwargs: parameters, specific to a random type:
+      (1) `skip` is an `int` 0-d `Tensor`. The number of initial points of the
+      Sobol sequence to skip. Used only when `random_type` is 'SOBOL', otherwise
+      ignored.
 
   Returns:
     A `Tensor` of shape `sample_shape + batch_shape + [k]`. The draws from the
@@ -144,11 +150,6 @@ def multivariate_normal(sample_shape,
   """
   random_type = RandomType.PSEUDO if random_type is None else random_type
   # TODO(b/140215145): Implement the other random types.
-  if random_type not in [RandomType.PSEUDO, RandomType.PSEUDO_ANTITHETIC]:
-    raise NotImplementedError(
-        'Only RandomType.PSEUDO and RandomType.PSEUDO_ANTITHETIC '
-        'are currently supported.')
-
   if mean is None and covariance_matrix is None and scale_matrix is None:
     raise ValueError('At least one of mean, covariance_matrix or scale_matrix'
                      ' must be specified.')
@@ -172,35 +173,28 @@ def multivariate_normal(sample_shape,
           validate_args=validate_args,
           seed=seed,
           dtype=dtype)
-    else:
-      # The case of PSEUDO_ANTITHETIC random type
-      sample_zero_dim = sample_shape[0]
-      # For the antithetic sampler `sample_shape` is split evenly between
-      # samples and their antithetic counterparts. In order to do the splitting
-      # we expect the first dimension of `sample_shape` to be even.
-      is_even_dim = tf.compat.v1.debugging.assert_equal(
-          sample_zero_dim % 2,
-          0,
-          message='First dimension of `sample_shape` should be even for '
-          'PSEUDO_ANTITHETIC random type')
-      # TODO(b/140722819): Make sure control_dependencies are trigerred with XLA
-      # compilation.
-      with tf.compat.v1.control_dependencies([is_even_dim]):
-        antithetic_shape = tf.concat(
-            [[tf.cast(sample_zero_dim // 2, tf.int32)],
-             tf.cast(sample_shape[1:], tf.int32)], -1)
-      result = _mvnormal_pseudo(
-          antithetic_shape,
+    elif random_type == RandomType.PSEUDO_ANTITHETIC:
+      return _mvnormal_pseudo_antithetic(
+          sample_shape,
           mean,
           covariance_matrix=covariance_matrix,
           scale_matrix=scale_matrix,
           validate_args=validate_args,
           seed=seed,
           dtype=dtype)
-      if mean is None:
-        return tf.concat([result, -result], 0)
-      else:
-        return tf.concat([result, 2 * mean - result], 0)
+    elif random_type == RandomType.SOBOL:
+      return _mvnormal_sobol(
+          sample_shape,
+          mean,
+          covariance_matrix=covariance_matrix,
+          scale_matrix=scale_matrix,
+          validate_args=validate_args,
+          dtype=dtype,
+          **kwargs)
+    else:
+      raise NotImplementedError(
+          'Only RandomType.PSEUDO, RandomType.PSEUDO_ANTITHETIC and '
+          'RandomType.SOBOL are currently supported.')
 
 
 def _mvnormal_pseudo(sample_shape,
@@ -214,16 +208,127 @@ def _mvnormal_pseudo(sample_shape,
   if scale_matrix is not None:
     scale_matrix = tf.convert_to_tensor(scale_matrix, dtype=dtype,
                                         name='scale_matrix')
-    distribution = tfp.distributions.MultivariateNormalLinearOperator(
-        loc=mean,
-        scale=tf.linalg.LinearOperatorFullMatrix(scale_matrix),
-        validate_args=validate_args)
+    scale_matrix = tf.linalg.LinearOperatorFullMatrix(scale_matrix)
   else:
     if covariance_matrix is not None:
       covariance_matrix = tf.convert_to_tensor(covariance_matrix, dtype=dtype,
                                                name='covariance_matrix')
-    distribution = tfp.distributions.MultivariateNormalFullCovariance(
-        loc=mean,
-        covariance_matrix=covariance_matrix,
-        validate_args=validate_args)
+      scale_matrix = tf.linalg.cholesky(covariance_matrix)
+      scale_matrix = tf.linalg.LinearOperatorFullMatrix(scale_matrix)
+  if scale_matrix is None:
+    scale_matrix = tf.linalg.LinearOperatorIdentity(
+        num_rows=tf.shape(mean)[-1],
+        dtype=mean.dtype,
+        is_self_adjoint=True,
+        is_positive_definite=True,
+        assert_proper_shapes=validate_args)
+  distribution = tfp.distributions.MultivariateNormalLinearOperator(
+      loc=mean,
+      scale=scale_matrix,
+      validate_args=validate_args)
   return distribution.sample(sample_shape, seed=seed)
+
+
+def _mvnormal_pseudo_antithetic(sample_shape,
+                                mean,
+                                covariance_matrix=None,
+                                scale_matrix=None,
+                                validate_args=False,
+                                seed=None,
+                                dtype=None):
+  """Returns normal draws with the antithetic samples."""
+  sample_zero_dim = sample_shape[0]
+  # For the antithetic sampler `sample_shape` is split evenly between
+  # samples and their antithetic counterparts. In order to do the splitting
+  # we expect the first dimension of `sample_shape` to be even.
+  is_even_dim = tf.compat.v1.debugging.assert_equal(
+      sample_zero_dim % 2,
+      0,
+      message='First dimension of `sample_shape` should be even for '
+      'PSEUDO_ANTITHETIC random type')
+  # TODO(b/140722819): Make sure control_dependencies are trigerred with XLA
+  # compilation.
+  with tf.compat.v1.control_dependencies([is_even_dim]):
+    antithetic_shape = tf.concat(
+        [[tf.cast(sample_zero_dim // 2, tf.int32)],
+         tf.cast(sample_shape[1:], tf.int32)], -1)
+  result = _mvnormal_pseudo(
+      antithetic_shape,
+      mean,
+      covariance_matrix=covariance_matrix,
+      scale_matrix=scale_matrix,
+      validate_args=validate_args,
+      seed=seed,
+      dtype=dtype)
+  if mean is None:
+    return tf.concat([result, -result], 0)
+  else:
+    return tf.concat([result, 2 * mean - result], 0)
+
+
+def _mvnormal_sobol(sample_shape,
+                    mean,
+                    covariance_matrix=None,
+                    scale_matrix=None,
+                    validate_args=False,
+                    dtype=None,
+                    **kwargs):
+  """Returns normal draws using Sobol low-discrepancy sequences."""
+  if scale_matrix is None and covariance_matrix is None:
+    scale_matrix = tf.linalg.eye(tf.shape(mean)[-1], dtype=mean.dtype)
+  elif scale_matrix is None and covariance_matrix is not None:
+    covariance_matrix = tf.convert_to_tensor(covariance_matrix, dtype=dtype,
+                                             name='covariance_matrix')
+    scale_matrix = tf.linalg.cholesky(covariance_matrix)
+  else:
+    scale_matrix = tf.convert_to_tensor(scale_matrix, dtype=dtype,
+                                        name='scale_matrix')
+  scale_shape = scale_matrix.shape
+  dim = scale_shape[-1]
+  if mean is None:
+    mean = tf.zeros([dim], dtype=scale_matrix.dtype)
+  distribution = tfp.distributions.Normal(
+      loc=tf.zeros_like(mean),
+      scale=tf.ones(scale_shape[:-1],
+                    dtype=scale_matrix.dtype),
+      validate_args=validate_args)
+  # Batch shape of the output
+  batch_shape = distribution.batch_shape
+  # Reverse elements of the batch shape
+  batch_shape_reverse = tf.reverse_sequence(
+      tf.expand_dims(batch_shape, 0),
+      seq_lengths=[tf.size(batch_shape)],
+      seq_dim=1)
+  batch_shape_reverse = tf.squeeze(batch_shape_reverse, 0)
+  # Reverse elements of the sample shape
+  sample_shape_reverse = tf.reverse_sequence(
+      tf.expand_dims(sample_shape, 0),
+      seq_lengths=[tf.size(sample_shape)],
+      seq_dim=1)
+  sample_shape_reverse = tf.squeeze(sample_shape_reverse, 0)
+  # Transposed shape of the output
+  output_shape_t = tf.concat(
+      [batch_shape_reverse, sample_shape_reverse], -1)
+  # Number of Sobol samples
+  num_samples = tf.reduce_prod(output_shape_t) // dim
+  if 'skip' in kwargs:
+    skip = kwargs['skip']
+  else:
+    skip = 0
+  # Shape [dim, num_samples] of the Sobol samples
+  low_discrepancy_seq = tf.transpose(sobol.sample(
+      dim=dim, num_results=num_samples, skip=skip,
+      dtype=distribution.dtype))
+  size_sample = tf.size(sample_shape)
+  size_batch = tf.size(batch_shape) - 1
+  # Permultation for `output_shape_t` to the output shape
+  permutation = tf.concat([tf.range(size_batch + size_sample, size_batch, -1),
+                           tf.range(size_batch, -1, -1)], -1)
+  # Reshape Sobol samples to the correct output shape
+  low_discrepancy_seq = tf.transpose(
+      tf.reshape(low_discrepancy_seq, output_shape_t),
+      permutation)
+  # Apply inverse Normal CDF to Sobol samples to obtain the corresponding
+  # Normal samples
+  samples = distribution.quantile(low_discrepancy_seq)
+  return  mean + tf.linalg.matvec(scale_matrix, samples)

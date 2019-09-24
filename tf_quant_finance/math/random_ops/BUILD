@@ -21,6 +21,8 @@ py_library(
     srcs = ["multivariate_normal.py"],
     srcs_version = "PY2AND3",
     deps = [
+        "//tf_quant_finance/math/random_ops/halton",
+        "//tf_quant_finance/math/random_ops/sobol",
         # enum dep,
         # tensorflow dep,
         # tensorflow_probability dep,
