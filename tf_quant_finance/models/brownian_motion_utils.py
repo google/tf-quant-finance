@@ -37,8 +37,6 @@ def is_callable(var_or_fn):
 def outer_multiply(x, y):
   """Performs an outer multiplication of two tensors.
 
-  # TODO: Should this function be moved to a more visible location?
-
   Given two `Tensor`s, `S` and `T` of shape `s` and `t` respectively, the outer
   product `P` is a `Tensor` of shape `s + t` whose components are given by:
 
