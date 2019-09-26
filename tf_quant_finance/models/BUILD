@@ -9,6 +9,7 @@ py_library(
     srcs = ["__init__.py"],
     srcs_version = "PY2AND3",
     deps = [
+        ":brownian_motion",
         ":ito_process",
     ],
 )
@@ -56,6 +57,32 @@ py_test(
     python_version = "PY3",
     deps = [
         ":brownian_motion_utils",  # This dependency is deliberate. The bm utils will not be exported to top level TFF.
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "brownian_motion",
+    srcs = ["brownian_motion.py"],
+    deps = [
+        ":brownian_motion_utils",
+        ":ito_process",
+        "//tf_quant_finance/math/random_ops",
+        # numpy dep,
+        # six dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "brownian_motion_test",
+    size = "small",
+    timeout = "moderate",
+    srcs = ["brownian_motion_test.py"],
+    python_version = "PY3",
+    deps = [
+        "//tf_quant_finance",
         # numpy dep,
         # tensorflow dep,
     ],

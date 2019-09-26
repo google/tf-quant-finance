@@ -49,12 +49,6 @@ class TestItoProcess(tff.models.ItoProcess):
   def name(self):
     return 'ito_process'
 
-  def total_drift_fn(self):
-    pass
-
-  def total_covariance_fn(self):
-    pass
-
   def backward_grid_stepper(self, *args, **kwargs):
     pass
 

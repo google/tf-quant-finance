@@ -77,18 +77,19 @@ def construct_drift_data(drift, total_drift_fn, dim, dtype):
     if is_callable(drift):
       # Case 2: drift is a function and total_drift_fn needs to be computed.
       # We need numerical integration for this which will be added later.
+      # For now, return None.
       # TODO(b/141091950): Add numerical integration.
-      raise ValueError('Total drift function cannot be inferred from drift.')
+      return drift, None
     # Case 3. Drift is a constant.
     def total_drift(t1, t2):
-      return outer_multiply(t2 - t1, tf.ones([dim], dtype=dtype) * drift)
+      dt = tf.convert_to_tensor(t2 - t1, dtype=dtype)
+      return outer_multiply(dt, tf.ones([dim], dtype=dt.dtype) * drift)
 
     return _make_drift_fn_from_const(drift, dim, dtype), total_drift
 
   # Total drift is not None
   # Case 4.
   if drift is None:
-
     def drift_from_total_drift(t):
       start_time = tf.zeros_like(t)
       return gradient.fwd_gradient(lambda x: total_drift_fn(start_time, x), t)
@@ -113,8 +114,8 @@ def construct_vol_data(volatility, total_covariance_fn, dim, dtype):
   4. total_covar is supplied and vol is a scalar constant.
   5. total_covar is supplied and vol is a vector constant.
   6. total_covar is supplied and vol is a matrix constant.
-  7. total_covar is not supplied and vol is a callable -> Raise error (numerical
-    integration is not supported yet).
+  7. total_covar is not supplied and vol is a callable -> Return None for total
+    covariance function.
   8. total_covar is not supplied and vol is a scalar constant.
   9. total_covar is not supplied and vol is a vector constant.
   10. total_covar is not supplied and vol is a matrix.
@@ -157,14 +158,17 @@ def construct_vol_data(volatility, total_covariance_fn, dim, dtype):
   # Case 7.
   if is_callable(volatility):
     # TODO(b/141091950): Add numerical integration.
-    raise ValueError('Total covariance fn cannot be inferred from vol fn.')
+    return volatility, None
 
   # Cases 8-10
   return _construct_vol_data_const_vol(volatility, None, dim, dtype)
 
 
 def _make_drift_fn_from_const(drift_const, dim, dtype):
-  drift_const = tf.ones([dim], dtype=dtype) * drift_const
+  drift_const = tf.convert_to_tensor(drift_const, dtype=dtype)
+  # This trivial multiplication ensures that drift_const is of shape at
+  # least [dim].
+  drift_const = tf.ones([dim], dtype=drift_const.dtype) * drift_const
   return lambda t: outer_multiply(tf.ones_like(t), drift_const)
 
 
@@ -187,19 +191,24 @@ def _default_drift_data(dimension, dtype):
   """Constructs a function which returns a zero drift."""
 
   def zero_drift(time):
-    return tf.zeros(
-        tf.concat([tf.shape(time), [dimension]], axis=0), dtype=dtype)
+    shape = tf.concat([tf.shape(time), [dimension]], axis=0)
+    time = tf.convert_to_tensor(time, dtype=dtype)
+    return tf.zeros(shape, dtype=time.dtype)
 
   return zero_drift, (lambda t1, t2: zero_drift(t1))
 
 
 def _default_vol_data(dimension, dtype):
   """Unit volatility and corresponding covariance functions."""
-  identity = tf.eye(dimension, dtype=dtype, name='identity_vol')
-  unit_vol = lambda time: outer_multiply(tf.ones_like(time), identity)
+
+  def unit_vol(time):
+    shape = tf.concat([tf.shape(time), [dimension, dimension]], axis=0)
+    out_dtype = tf.convert_to_tensor(time, dtype=dtype).dtype
+    return tf.ones(shape, dtype=out_dtype)
 
   def covar(start_time, end_time):
-    return outer_multiply(end_time - start_time, identity)
+    dt = tf.convert_to_tensor(end_time - start_time, dtype=dtype, name='dt')
+    return outer_multiply(dt, tf.eye(dimension, dtype=dt.dtype))
 
   return unit_vol, covar
 

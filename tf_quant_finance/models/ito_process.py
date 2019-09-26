@@ -55,19 +55,11 @@ class ItoProcess(object):
       dX_i = a_i(t, X) dt + Sum(S_{ij}(t, X) dW_j for 1 <= j <= n), 1 <= i <= n
     ```
 
-    `a_i(t, S)` is the instantaneous drift rate and the `S_{ij}(t)` is the
-    volatility matrix. While this is how the process is usually presented
-    mathematically, the initializer requires a slightly different
-    specification. Instead of the instantaneous drift and volatility, it is
-    computationally more efficient to use the total drift and covariance. These
-    are defined as:
-
-    ```None
-      total_drift_{i}(t1, t2, X) = Integrate(a_{i}(t, X), t1 <= t <= t2)
-      total_covariance_{ij}(t1, t2, X) = Integrate(inst_covariance_{ij}(t, X),
-                                                t1 <= t <= t2)
-      inst_covariance_{ij}(t, X) = (S.S^T)_{ij}
-    ```
+  The vector coefficient `a_i` is referred to as the drift of the process and
+  the matrix `S_{ij}` as the volatility of the process. For the process to be
+  well defined, these coefficients need to satisfy certain technical conditions
+  which may be found in Ref. [1]. The vector `dW_j` represents independent
+  Brownian increments.
 
   ### Example. 2-dimensional Ito process of the form
 
@@ -96,7 +88,7 @@ class ItoProcess(object):
       return self._dtype
 
     def name(self):
-      return 'ito_process'
+      return 'simple_ito_process'
 
   mu = np.array([0.2, 0.7])
   s = np.array([[0.3, 0.1], [0.1, 0.3]])
@@ -123,6 +115,10 @@ class ItoProcess(object):
             initial_state=x0,
             grid_step=0.01,
             seed=42)
+
+  ### References
+  [1]: Brent Oksendal. Stochastic Differential Equations: An Introduction with
+    Applications. Springer. 2010.
   """
 
   @abc.abstractmethod
@@ -160,124 +156,6 @@ class ItoProcess(object):
     [dim]`. The result is value of drift S(t, X). The return value of the
     callable is a real `Tensor` of the same dtype as the input arguments and of
     shape `batch_shape + [dim, dim]`.
-    """
-    return None
-
-  def total_drift_fn(self):
-    """Computes integrated drift of the process between two times.
-
-    Returns:
-      A Python callable returning the integrated drift rate
-      between two times. The callable accepts three real `Tensor`
-      arguments. The first argument is the left end point
-      and the second is the right end point of the time interval for which
-      the total drift is needed. The third argument contains the values of
-      the state at which the drift is to be computed. In most cases where
-      the instantaneous drift depends on the state the time step for which
-      the total drift is needed is very small. However, the interface allows
-      asking for a finite time step at a fixed value of the state (i.e. the
-      state at the start of the time interval). Implementations
-      are free to either raise an error for larger time steps or give the best
-      approximation they can for the given parameters. The two main advantages
-      of working with total drifts/covariances vs instantaneous quantities are
-        (a) If needed, the instantaneous values can be derived using either
-          automatic differentiation or finite difference.
-        (b) For cases where there is no non-trivial state dependence
-          (e.g. Brownian motion with time dependent drifts and covariance) or
-          the state dependence can be easily removed by a transformation of the
-          process (e.g. geometric brownian motion), it
-          is possible to directly generate samples from the joint distributions
-          of the process and these depend only on the total drift and
-          covariances.
-
-      The precise definition of total drift function is as follows.
-      Consider a general `dim` dimensional Ito process:
-
-      ```None
-        dX_i = mu_i(t, X) dt + Sum(S_{ij}(t, X) dW_j for 1 <= j <= dim)
-
-      ```
-
-      `mu_i(t, S)` is the instantaneous drift rate and the `S_{ij}(t)` is the
-      volatility matrix. The total drift function `M_{ij}(t1, t2, X)`
-      is then defined by
-
-      ```None
-        M_{i}(t1, t2, X) = Integral[ mu_{i}(t, X), t1 <= t <= t2]
-
-      ```
-      The shapes of the inputs and outputs of the callable are as follows:
-
-      Input `Tensor`s.
-        1. `start time` and `end time` are of shape `time_batch_shape`.
-          Here `time_batch_shape` is the shape of the times `Tensor` at which
-          to evaluate the integrated drift.
-        2. The state is of shape `batch_shape + time_batch_shape + [dim]` where
-          `dim` and `batch_shape` are the dimension and batch shape of the
-          process.
-
-      The output of this callable is a `Tensor` of shape
-      `batch_shape + time_batch_shape + [dim]` containing the integrated drift
-      between the start times and end times.
-    """
-    return None
-
-  def total_covariance_fn(self):
-    """The total covariance of the process between two times.
-
-      A Python callable returning the integrated covariances between two times.
-      The callable accepts three real `Tensor` arguments. The first argument is
-      the left end point and the second is the right end point of the time
-      interval for which the total covariance is needed. The third argument
-      contains the values of the state at which the covariance is to be
-      computed. In most cases where the instantaneous covariance depends on
-      the state the time step for which the total covariance is needed is
-      small (e.g. while doing finite differences or generating
-      Monte Carlo paths). However, the interface allows asking for a finite
-      time step at a fixed value of the state (i.e. the state at the start
-      of the time interval). Implementations are free to either raise an error
-      for larger time steps or give the best approximation they can for the
-      given parameters. The two main advantages of working with total
-      covariances/drifts vs instantaneous quantities are
-        (a) If needed, the instantaneous values can be derived using either
-          automatic differentiation or finite difference.
-        (b) For cases where there is no non-trivial state dependence
-          (e.g. Brownian motion with time dependent drifts and covariance)  or
-          the state dependence can be easily removed by a transformation of the
-          process (e.g. geometric brownian motion), it
-          is possible to directly generate samples from the joint distributions
-          of the process and these depend only on the total drift and
-          covariances.
-
-      The precise definition of total covariance function is as follows.
-      Consider a general `dim` dimensional Ito process:
-
-      ```None
-        dX_i = mu_i(t, X) dt + Sum(S_{ij}(t, X) dW_j for 1 <= j <= dim)
-
-      ```
-
-      `mu_i(t, S)` is the instantaneous drift rate and the `S_{ij}(t)` is the
-      volatility matrix. The total covariance function `V_{ij}(t1, t2, X)`
-      is then defined by
-
-      ```None
-        V_{ij}(t1, t2, X) = Integral[ (S.S^T)_{ij}(t), t1 <= t <= t2]
-
-      ```
-      The shapes of the inputs and outputs of the callable are as follows:
-
-      Input `Tensor`s.
-        1. `start time` and `end time` are of shape `time_batch_shape`.
-          Here `time_batch_shape` is the shape of the times `Tensor` at which
-          to evaluate the integrated covariances.
-        2. The state is of shape `batch_shape + time_batch_shape + [dim]` where
-          `dim` and `batch_shape` are the dimension and batch shape of the
-          process.
-
-      The output of this callable is a `Tensor` of shape
-      `batch_shape + time_batch_shape + [dim]` containing the integrated
-      covariances between the start times and end times.
     """
     return None
 
