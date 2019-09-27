@@ -357,7 +357,7 @@ def _mvnormal_quasi(sample_shape,
   else:
     scale_matrix = tf.convert_to_tensor(scale_matrix, dtype=dtype,
                                         name='scale_matrix')
-  scale_shape = scale_matrix.shape
+  scale_shape = scale_matrix.shape.as_list()
   dim = scale_shape[-1]
   if mean is None:
     mean = tf.zeros([dim], dtype=scale_matrix.dtype)
