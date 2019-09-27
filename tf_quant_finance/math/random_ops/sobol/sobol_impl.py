@@ -59,8 +59,8 @@ def sample(dim,
       that `dim >= 1`, `num_results >= 1`, and `skip >= 0`. When `False` invalid
       inputs may silently render incorrect outputs.
       Default value: False.
-    dtype: Optional `dtype`. The dtype of the output `Tensor` (either `float16`,
-      `float32`, or `float64`).
+    dtype: Optional `dtype`. The dtype of the output `Tensor` (either `float32`
+      or `float64`).
       Default value: `None` which maps to the `float32`.
     name: Python `str` name prefixed to ops created by this function.
 

@@ -60,11 +60,11 @@ HaltonParams = collections.namedtuple(
 def sample(dim,
            num_results=None,
            sequence_indices=None,
-           dtype=tf.float32,
            randomized=True,
            randomization_params=None,
            seed=None,
            validate_args=False,
+           dtype=None,
            name=None):
   r"""Returns a sample from the `dim` dimensional Halton sequence.
 
@@ -160,9 +160,6 @@ def sample(dim,
       parameter is None, then the `num_results` parameter must be specified
       which gives the number of desired samples starting from the first sample.
       Default value: `None`.
-    dtype: (Optional) The dtype of the sample. One of: `float16`, `float32` or
-      `float64`.
-      Default value: `tf.float32`.
     randomized: (Optional) bool indicating whether to produce a randomized
       Halton sequence. If True, applies the randomization described in [Owen
       (2017)][1]. If True, either seed or randomization_params must be
@@ -182,6 +179,9 @@ def sample(dim,
       Default value: `None`.
     validate_args: If True, checks that maximum index is not exceeded.
       Default value: `False`.
+    dtype: Optional `dtype`. The dtype of the output `Tensor` (either `float32`
+    or `float64`).
+      Default value: `None` which maps to the `float32`.
     name:  (Optional) Python `str` describing ops managed by this function. If
       not supplied the name of this function is used.
       Default value: "halton_sample".
@@ -214,11 +214,7 @@ def sample(dim,
   if (num_results is None) == (sequence_indices is None):
     raise ValueError('Either `num_results` or `sequence_indices` must be'
                      ' specified but not both.')
-
-  if randomized and (seed is None) and (randomization_params is None):
-    raise ValueError('`seed` or `randomization_params` must be specified if '
-                     '`randomized` is True.')
-
+  dtype = dtype or tf.float32
   if not dtype.is_floating:
     raise ValueError('dtype must be of `float`-type')
 
@@ -301,11 +297,15 @@ def sample(dim,
       # `max_size_by_axes` coefficients are zero. The following statements
       # perform this correction.
       if zero_correction is None:
-        zero_correction = tf.random.stateless_uniform([dim, 1],
-                                                      seed=(seed, seed),
-                                                      dtype=dtype)
+        if seed is None:
+          zero_correction = tf.random.uniform([dim, 1], dtype=dtype)
+        else:
+          zero_correction = tf.random.stateless_uniform([dim, 1],
+                                                        seed=(seed, seed),
+                                                        dtype=dtype)
         zero_correction /= radixes**max_sizes_by_axes
         zero_correction = tf.reshape(zero_correction, [-1])
+
       return base_values + zero_correction, HaltonParams(perms, zero_correction)
 
 
@@ -352,7 +352,11 @@ def _get_permutations(num_results, dims, seed):
   def generate_one(d):
 
     def fn(i):
-      return stateless.stateless_random_shuffle(tf.range(d), seed=(seed + i, d))
+      if seed is None:
+        return tf.random.shuffle(tf.range(d))
+      else:
+        return stateless.stateless_random_shuffle(tf.range(d),
+                                                  seed=(seed + i, d))
 
     return tf.map_fn(
         fn, sample_range, parallel_iterations=1 if seed is not None else 10)

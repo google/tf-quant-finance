@@ -51,14 +51,16 @@ class HaltonSequenceTest(tf.test.TestCase):
     expected = np.array([[1. / 2, 1. / 3], [1. / 4, 2. / 3], [3. / 4, 1. / 9],
                          [1. / 8, 4. / 9], [5. / 8, 7. / 9]],
                         dtype=np.float32)
-    sample, _ = random.halton.sample(2, num_results=tf.constant(5), randomized=False)
+    sample, _ = random.halton.sample(2, num_results=tf.constant(5),
+                                     randomized=False)
     self.assertAllClose(expected, self.evaluate(sample), rtol=1e-6)
 
   def test_sequence_indices(self):
     """Tests access of sequence elements by index."""
     dim = 5
     indices = tf.range(10, dtype=tf.int32)
-    sample_direct, _ = random.halton.sample(dim, num_results=10, randomized=False)
+    sample_direct, _ = random.halton.sample(dim, num_results=10,
+                                            randomized=False)
     sample_from_indices, _ = random.halton.sample(
         dim, sequence_indices=indices, randomized=False)
     self.assertAllClose(
@@ -219,10 +221,6 @@ class HaltonSequenceTest(tf.test.TestCase):
     sample2, _ = random.halton.sample(dim, num_results=num_results, seed=seed)
     [sample1_, sample2_] = self.evaluate([sample1, sample2])
     self.assertAllClose(sample1_, sample2_, atol=0., rtol=1e-6)
-
-  def test_randomized_without_seed_raises(self):
-    with self.assertRaises(ValueError):
-      random.halton.sample(1, 1, randomized=True, seed=None)
 
   def test_randomization_does_not_depend_on_sequence_indices(self):
     dim = 2

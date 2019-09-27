@@ -17,7 +17,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from tf_quant_finance.math.random_ops.halton.halton_impl import HaltonParams
 from tf_quant_finance.math.random_ops.halton.halton_impl import sample
+
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 

@@ -46,6 +46,7 @@ py_test(
     size = "small",
     srcs = ["multivariate_normal_test.py"],
     python_version = "PY3",
+    shard_count = 3,
     deps = [
         "//tf_quant_finance",
         # numpy dep,

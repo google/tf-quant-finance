@@ -22,6 +22,7 @@ from __future__ import print_function
 import enum
 import tensorflow as tf
 import tensorflow_probability as tfp
+from tf_quant_finance.math.random_ops import halton
 from tf_quant_finance.math.random_ops import sobol
 
 
@@ -135,8 +136,16 @@ def multivariate_normal(sample_shape,
         'multivariate_normal'.
     **kwargs: parameters, specific to a random type:
       (1) `skip` is an `int` 0-d `Tensor`. The number of initial points of the
-      Sobol sequence to skip. Used only when `random_type` is 'SOBOL', otherwise
+      Sobol or Halton sequence to skip. Used only when `random_type` is 'SOBOL',
+      'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
+      (2) `randomization_params` is an instance of
+      `tff.math.random.HaltonParams` that fully describes the randomization
+      behavior. Used only when `random_type` is 'HALTON_RANDOMIZED', otherwise
+      ignored (see halton.sample args for more details). If this parameter is
+      provided when random_type is `HALTON_RANDOMIZED`, the `seed` parameter is
       ignored.
+      Default value: `None`. In this case with randomized = True, the necessary
+        randomization parameters will be computed from scratch.
 
   Returns:
     A `Tensor` of shape `sample_shape + batch_shape + [k]`. The draws from the
@@ -149,7 +158,6 @@ def multivariate_normal(sample_shape,
     NotImplementedError: If `random_type` is not RandomType.PSEUDO.
   """
   random_type = RandomType.PSEUDO if random_type is None else random_type
-  # TODO(b/140215145): Implement the other random types.
   if mean is None and covariance_matrix is None and scale_matrix is None:
     raise ValueError('At least one of mean, covariance_matrix or scale_matrix'
                      ' must be specified.')
@@ -186,6 +194,28 @@ def multivariate_normal(sample_shape,
       return _mvnormal_sobol(
           sample_shape,
           mean,
+          covariance_matrix=covariance_matrix,
+          scale_matrix=scale_matrix,
+          validate_args=validate_args,
+          dtype=dtype,
+          **kwargs)
+    elif random_type == RandomType.HALTON:
+      return _mvnormal_halton(
+          sample_shape,
+          mean,
+          randomized=False,
+          seed=seed,
+          covariance_matrix=covariance_matrix,
+          scale_matrix=scale_matrix,
+          validate_args=validate_args,
+          dtype=dtype,
+          **kwargs)
+    elif random_type == RandomType.HALTON_RANDOMIZED:
+      return _mvnormal_halton(
+          sample_shape,
+          mean,
+          randomized=True,
+          seed=seed,
           covariance_matrix=covariance_matrix,
           scale_matrix=scale_matrix,
           validate_args=validate_args,
@@ -274,6 +304,50 @@ def _mvnormal_sobol(sample_shape,
                     dtype=None,
                     **kwargs):
   """Returns normal draws using Sobol low-discrepancy sequences."""
+  return _mvnormal_quasi(sample_shape,
+                         mean,
+                         random_type=RandomType.SOBOL,
+                         seed=None,
+                         covariance_matrix=covariance_matrix,
+                         scale_matrix=scale_matrix,
+                         validate_args=validate_args,
+                         dtype=dtype,
+                         **kwargs)
+
+
+def _mvnormal_halton(sample_shape,
+                     mean,
+                     randomized,
+                     seed=None,
+                     covariance_matrix=None,
+                     scale_matrix=None,
+                     validate_args=False,
+                     dtype=None,
+                     **kwargs):
+  """Returns normal draws using Halton low-discrepancy sequences."""
+  random_type = (RandomType.HALTON_RANDOMIZED if randomized
+                 else RandomType.HALTON)
+  return _mvnormal_quasi(sample_shape,
+                         mean,
+                         random_type,
+                         seed=seed,
+                         covariance_matrix=covariance_matrix,
+                         scale_matrix=scale_matrix,
+                         validate_args=validate_args,
+                         dtype=dtype,
+                         **kwargs)
+
+
+def _mvnormal_quasi(sample_shape,
+                    mean,
+                    random_type,
+                    seed,
+                    covariance_matrix=None,
+                    scale_matrix=None,
+                    validate_args=False,
+                    dtype=None,
+                    **kwargs):
+  """Returns normal draws using low-discrepancy sequences."""
   if scale_matrix is None and covariance_matrix is None:
     scale_matrix = tf.linalg.eye(tf.shape(mean)[-1], dtype=mean.dtype)
   elif scale_matrix is None and covariance_matrix is not None:
@@ -309,19 +383,38 @@ def _mvnormal_sobol(sample_shape,
   # Transposed shape of the output
   output_shape_t = tf.concat(
       [batch_shape_reverse, sample_shape_reverse], -1)
-  # Number of Sobol samples
+  # Number of quasi random samples
   num_samples = tf.reduce_prod(output_shape_t) // dim
+  # Number of initial low discrepancy sequence numbers to skip
   if 'skip' in kwargs:
     skip = kwargs['skip']
   else:
     skip = 0
-  # Shape [dim, num_samples] of the Sobol samples
-  low_discrepancy_seq = tf.transpose(sobol.sample(
-      dim=dim, num_results=num_samples, skip=skip,
-      dtype=distribution.dtype))
+  if random_type == RandomType.SOBOL:
+    # Shape [num_samples, dim] of the Sobol samples
+    low_discrepancy_seq = sobol.sample(
+        dim=dim, num_results=num_samples, skip=skip,
+        dtype=distribution.dtype)
+  else:  # HALTON or HALTON_RANDOMIZED random_dtype
+    if 'randomization_params' in kwargs:
+      randomization_params = kwargs['randomization_params']
+    else:
+      randomization_params = None
+    randomized = random_type == RandomType.HALTON_RANDOMIZED
+    # Shape [num_samples, dim] of the Sobol samples
+    low_discrepancy_seq, _ = halton.sample(
+        dim=dim,
+        sequence_indices=tf.range(skip, skip + num_samples),
+        randomized=randomized,
+        randomization_params=randomization_params,
+        seed=seed,
+        dtype=distribution.dtype)
+
+  # Transpose to the shape [dim, num_samples]
+  low_discrepancy_seq = tf.transpose(low_discrepancy_seq)
   size_sample = tf.size(sample_shape)
   size_batch = tf.size(batch_shape) - 1
-  # Permultation for `output_shape_t` to the output shape
+  # Permutation for `output_shape_t` to the output shape
   permutation = tf.concat([tf.range(size_batch + size_sample, size_batch, -1),
                            tf.range(size_batch, -1, -1)], -1)
   # Reshape Sobol samples to the correct output shape
