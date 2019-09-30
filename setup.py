@@ -34,7 +34,7 @@ cwd = path.abspath(path.dirname(__file__))
 with open(path.join(cwd, 'README.md'), encoding='utf-8') as f:
   long_description = f.read()
 
-__version__ = '0.0.1dev9'
+__version__ = '0.0.1dev10'
 REQUIRED_PACKAGES = [
     'attrs >= 18.2.0', 'tensorflow-probability >= 0.7.0', 'numpy >= 1.13.3'
 ]
