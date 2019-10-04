@@ -27,8 +27,6 @@ import tensorflow_probability as tfp
 from tf_quant_finance.math import random
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
-# TODO(b/140242349): Remove dependency on contrib, which is being deprecated.
-tfb = tf.contrib.bayesflow
 tfd = tfp.distributions
 
 
@@ -99,14 +97,13 @@ class HaltonSequenceTest(tf.test.TestCase):
     q_sample = q.quantile(cdf_sample)
 
     # Compute E_p[X].
-    e_x = tfb.monte_carlo.expectation_importance_sampler(
-        f=lambda x: x, log_p=p.log_prob, sampling_dist_q=q, z=q_sample, seed=42)
+    e_x = tf.reduce_mean(q_sample * p.prob(q_sample) / q.prob(q_sample), 0)
 
-    # Compute E_p[X^2].
-    e_x2 = tfb.monte_carlo.expectation_importance_sampler(
-        f=tf.square, log_p=p.log_prob, sampling_dist_q=q, z=q_sample, seed=1412)
+    # Compute E_p[X^2 - E_p[X]^2].
+    e_x2 = tf.reduce_mean(q_sample**2 * p.prob(q_sample) / q.prob(q_sample)
+                          - e_x**2, 0)
+    stddev = tf.sqrt(e_x2)
 
-    stddev = tf.sqrt(e_x2 - tf.square(e_x))
     # Keep the tolerance levels the same as in monte_carlo_test.py.
     self.assertEqual(p.batch_shape, e_x.shape)
     self.assertAllClose(self.evaluate(p.mean()), self.evaluate(e_x), rtol=0.01)

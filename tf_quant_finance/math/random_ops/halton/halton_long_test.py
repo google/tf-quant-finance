@@ -27,8 +27,6 @@ import tensorflow_probability as tfp
 from tf_quant_finance.math import random
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
-# TODO(b/140242349): Remove dependency on contrib, which is being deprecated.
-tfb = tf.contrib.bayesflow
 tfd = tfp.distributions
 
 
