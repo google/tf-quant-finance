@@ -63,9 +63,10 @@ def fwd_gradient(func, x, grad_x=None, use_gradient_tape=False):
   op and the standard `tf.gradients`
   ```python
     t = tf.range(1, 3, dtype=tf.float32)  # Shape [2]
-    y = tf.stack([t, t ** 2, t ** 3], axis=0)  # Shape [3, 2]
+    def fn(t):
+      return tf.stack([t, t ** 2, t ** 3], axis=0)  # Shape [3, 2]
     # Produces shape [3, 2] with values [[1, 1], [2, 4], [3, 12]]
-    fwd_grad_y = fwd_gradient(y, t)
+    fwd_grad_y = fwd_gradient(fn, t)
     # Produces shape [2] with values [6, 17].
     bck_grad_y = tf.gradients(y, t)[0]
   ```

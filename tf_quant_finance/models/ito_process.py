@@ -104,11 +104,13 @@ class ItoProcess(object):
     return s * tf.ones([num_samples, dim, dim], dtype=dtype)
 
   # Initialize `SimpleItoProcess`
-  process = TestItoProcess(dim=2, drift_fn=drift_fn, vol_fn=vol_fn, dtype=dtype)
+  process = SimpleItoProcess(dim=2, drift_fn=drift_fn, vol_fn=vol_fn,
+                             dtype=dtype)
   # Set starting location
   x0 = np.array([0.1, -1.1])
   # Sample `num_samples` paths at specified `times` locations using built-in
   # Euler scheme.
+  times = [0.1, 1.0, 2.0]
   paths = process.sample_paths(
             times,
             num_samples=num_samples,
