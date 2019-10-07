@@ -34,6 +34,7 @@ py_library(
 py_test(
     name = "root_search_test",
     size = "small",
+    timeout = "moderate",
     srcs = ["root_search_test.py"],
     python_version = "PY3",
     deps = [
