@@ -608,6 +608,8 @@ def _region_3(g1plus2g0, g0plus2g1, g0, g1, x):
   eta = 3 * g1 / (g1 - g0)
   x_cap = tf.math.minimum(x, eta)
   ratio = (eta - x_cap) / eta
+  # Replace NaN values (corresponding to g1 == 0) with zeros.
+  ratio = tf.where(tf.is_nan(ratio), tf.zeros_like(ratio), ratio)
   region_3_value = g1 + (g0 - g1) * tf.math.square(ratio)
   integrated_value = g1 * x + eta * (g0 - g1) / 3 * (1 - ratio**3)
   return is_region_3, region_3_value, integrated_value

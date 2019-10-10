@@ -40,16 +40,16 @@ class MonotoneConvexTest(tf.test.TestCase):
   @test_util.run_in_graph_and_eager_modes
   def test_interpolation(self):
     dtype = tf.float64
-    interval_times = tf.constant([0.25, 0.5, 1.0, 2.0, 3.0], dtype=dtype)
-    interval_values = tf.constant([0.05, 0.051, 0.052, 0.053, 0.055],
+    interval_times = tf.constant([0.25, 0.5, 1.0, 2.0, 3.0, 4.0], dtype=dtype)
+    interval_values = tf.constant([0.05, 0.051, 0.052, 0.053, 0.055, 0.055],
                                   dtype=dtype)
-    test_times = tf.constant([0.25, 0.5, 1.0, 2.0, 3.0, 1.1], dtype=dtype)
-    expected = [0.0505, 0.05133333, 0.05233333, 0.054, 0.0555, 0.05241]
+    test_times = tf.constant([0.25, 0.5, 1.0, 2.0, 3.0, 4.0, 1.1], dtype=dtype)
+    expected = [0.0505, 0.05133333, 0.05233333, 0.055, 0.055, 0.055, 0.05241]
     actual, integrated_actual = self.evaluate(
         monotone_convex.interpolate(test_times, interval_values,
                                     interval_times))
     np.testing.assert_allclose(actual, expected)
-    integrated_expected = [0, 0, 0, 0, 0.055, 0.005237]
+    integrated_expected = [0, 0, 0, 0, 0, 0.055, 0.005237]
     np.testing.assert_allclose(integrated_actual, integrated_expected)
 
   @test_util.run_in_graph_and_eager_modes
