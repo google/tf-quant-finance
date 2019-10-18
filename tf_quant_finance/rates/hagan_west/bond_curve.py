@@ -538,8 +538,7 @@ def _validate_args_control_deps(bond_cashflows, bond_cashflow_times,
     times = bond_cashflow_times[bond_index]
     time_difference = times[1:] - times[:-1]
     cashflows_are_strictly_increasing.append(
-        tf.debugging.assert_greater(time_difference,
-                                    tf.zeros_like(time_difference)))
+        tf.debugging.assert_positive(time_difference))
     cashflow_after_settlement.append(
         tf.debugging.assert_greater(times[0], pv_settle_times[bond_index]))
     final_cashflow_is_the_largest.append(
