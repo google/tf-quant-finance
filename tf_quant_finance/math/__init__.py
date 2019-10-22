@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from tf_quant_finance.math import integration
 from tf_quant_finance.math import interpolation
 from tf_quant_finance.math import optimizer
 from tf_quant_finance.math import pde
@@ -34,6 +35,7 @@ from tensorflow.python.util.all_util import remove_undocumented  # pylint: disab
 
 _allowed_symbols = [
     'fwd_gradient',
+    'integration',
     'interpolation',
     'optimizer',
     'pde',

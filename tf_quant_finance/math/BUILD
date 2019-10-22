@@ -14,6 +14,7 @@ py_library(
         ":piecewise",
         ":root_search",
         ":segment_ops",
+        "//tf_quant_finance/math/integration",
         "//tf_quant_finance/math/interpolation",
         "//tf_quant_finance/math/optimizer",
         "//tf_quant_finance/math/pde",
