@@ -21,7 +21,7 @@ from __future__ import print_function
 
 import collections
 import numpy as np
-import scipy
+from scipy import special
 import tensorflow as tf
 
 import tf_quant_finance as tff
@@ -83,7 +83,7 @@ BASIC_TEST_CASES = [
         func=lambda x: tf.exp(-x**2),
         lower=0.0,
         upper=1.0,
-        antiderivative=lambda x: 0.5 * np.sqrt(np.pi) * scipy.special.erf(x),
+        antiderivative=lambda x: 0.5 * np.sqrt(np.pi) * special.erf(x),
     ),
 ]
 
