@@ -68,7 +68,7 @@ class ItoProcess(object):
 
   @abc.abstractmethod
   def name(self):
-    """The name to give to the ops created by this class."""
+    """The name to give to ops created by this class."""
     pass
 
   @abc.abstractmethod
