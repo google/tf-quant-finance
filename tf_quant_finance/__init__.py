@@ -64,17 +64,17 @@ def _ensure_tf_install():  # pylint: disable=g-statement-before-imports
 
 _ensure_tf_install()
 
+from tf_quant_finance import black_scholes
 from tf_quant_finance import math
 from tf_quant_finance import models
 from tf_quant_finance import rates
-from tf_quant_finance import volatility
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     "math",
     "models",
     "rates",
-    "volatility",
+    "black_scholes",
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

@@ -17,13 +17,24 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from tf_quant_finance.volatility import black_scholes
-from tf_quant_finance.volatility import implied_vol
+from tf_quant_finance.black_scholes import vanilla_prices
+from tf_quant_finance.black_scholes.implied_vol_approximation import implied_vol as implied_vol_approx
+from tf_quant_finance.black_scholes.implied_vol_lib import implied_vol
+from tf_quant_finance.black_scholes.implied_vol_lib import ImpliedVolMethod
+from tf_quant_finance.black_scholes.implied_vol_newton_root import implied_vol as implied_vol_newton
+
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
+binary_price = vanilla_prices.binary_price
+option_price = vanilla_prices.option_price
+
 _allowed_symbols = [
+    'binary_price',
     'implied_vol',
-    'black_scholes',
+    'implied_vol_approx',
+    'implied_vol_newton',
+    'option_price',
+    'ImpliedVolMethod',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

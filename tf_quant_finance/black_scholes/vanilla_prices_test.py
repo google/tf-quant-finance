@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Lint as: python2, python3
-"""Tests for volatility.black_scholes."""
+"""Tests for vanilla_price."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -23,13 +23,16 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from tf_quant_finance.volatility import black_scholes
+import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
+print(dir(tff))
+
+
 @test_util.run_all_in_graph_and_eager_modes
-class BlackScholesTest(tf.test.TestCase):
-  """Tests for methods in the Black Scholes pricing module."""
+class VanillaPrice(tf.test.TestCase):
+  """Tests for methods for the vanilla pricing module."""
 
   def test_option_prices(self):
     """Tests that the BS prices are correct."""
@@ -38,8 +41,12 @@ class BlackScholesTest(tf.test.TestCase):
     volatilities = np.array([0.0001, 102.0, 2.0, 0.1, 0.4])
     expiries = 1.0
     computed_prices = self.evaluate(
-        black_scholes.option_price(
-            forwards, strikes, volatilities, expiries, dtype=tf.float64))
+        tff.black_scholes.option_price(
+            volatilities,
+            strikes,
+            expiries,
+            forwards=forwards,
+            dtype=tf.float64))
     expected_prices = np.array(
         [0.0, 2.0, 2.0480684764112578, 1.0002029716043364, 2.0730313058959933])
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
@@ -54,11 +61,11 @@ class BlackScholesTest(tf.test.TestCase):
     is_call_options = np.array([True, True, False, False])
     expected_prices = np.array([0.0, 0.1, 0.1, 0.0])
     computed_prices = self.evaluate(
-        black_scholes.option_price(
-            forwards,
-            strikes,
+        tff.black_scholes.option_price(
             volatilities,
+            strikes,
             expiries,
+            forwards=forwards,
             is_call_options=is_call_options,
             dtype=tf.float64))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
@@ -73,11 +80,11 @@ class BlackScholesTest(tf.test.TestCase):
     is_call_options = np.array([True, True, False, False])
     expected_prices = np.array([0.0, 0.1, 0.1, 0.0])
     computed_prices = self.evaluate(
-        black_scholes.option_price(
-            forwards,
-            strikes,
+        tff.black_scholes.option_price(
             volatilities,
+            strikes,
             expiries,
+            forwards=forwards,
             is_call_options=is_call_options,
             dtype=tf.float64))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
@@ -90,8 +97,12 @@ class BlackScholesTest(tf.test.TestCase):
     expiries = 1e10
     expected_prices = forwards
     computed_prices = self.evaluate(
-        black_scholes.option_price(
-            forwards, strikes, volatilities, expiries, dtype=tf.float64))
+        tff.black_scholes.option_price(
+            volatilities,
+            strikes,
+            expiries,
+            forwards=forwards,
+            dtype=tf.float64))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
 
   def test_price_long_expiry_puts(self):
@@ -102,11 +113,11 @@ class BlackScholesTest(tf.test.TestCase):
     expiries = 1e10
     expected_prices = strikes
     computed_prices = self.evaluate(
-        black_scholes.option_price(
-            forwards,
-            strikes,
+        tff.black_scholes.option_price(
             volatilities,
+            strikes,
             expiries,
+            forwards=forwards,
             is_call_options=False,
             dtype=tf.float64))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
@@ -121,14 +132,18 @@ class BlackScholesTest(tf.test.TestCase):
     expiries = np.exp(np.random.randn(n))
     scaling = 5.0
     base_prices = self.evaluate(
-        black_scholes.option_price(
-            forwards, strikes, volatilities, expiries, dtype=tf.float64))
-    scaled_prices = self.evaluate(
-        black_scholes.option_price(
-            forwards,
+        tff.black_scholes.option_price(
+            volatilities,
             strikes,
+            expiries,
+            forwards=forwards,
+            dtype=tf.float64))
+    scaled_prices = self.evaluate(
+        tff.black_scholes.option_price(
             volatilities * scaling,
+            strikes,
             expiries / scaling / scaling,
+            forwards=forwards,
             dtype=tf.float64))
     self.assertArrayNear(base_prices, scaled_prices, 1e-10)
 
@@ -139,8 +154,12 @@ class BlackScholesTest(tf.test.TestCase):
     volatilities = np.array([0.0001, 102.0, 2.0, 0.1, 0.4])
     expiries = 1.0
     computed_prices = self.evaluate(
-        black_scholes.binary_price(
-            forwards, strikes, volatilities, expiries, dtype=tf.float64))
+        tff.black_scholes.binary_price(
+            volatilities,
+            strikes,
+            expiries,
+            forwards=forwards,
+            dtype=tf.float64))
     expected_prices = np.array([0.0, 0.0, 0.15865525, 0.99764937, 0.85927418])
     self.assertArrayNear(expected_prices, computed_prices, 1e-8)
 
@@ -180,11 +199,11 @@ class BlackScholesTest(tf.test.TestCase):
 
     is_call_options = np.array(call_options, dtype=np.bool)
     computed_prices = self.evaluate(
-        black_scholes.binary_price(
-            forwards,
-            strikes,
+        tff.black_scholes.binary_price(
             volatilities,
+            strikes,
             expiries,
+            forwards=forwards,
             is_call_options=is_call_options,
             discount_factors=discount_factors))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
@@ -227,20 +246,20 @@ class BlackScholesTest(tf.test.TestCase):
     discount_factors = np.ones_like(forwards)
 
     option_prices_0 = self.evaluate(
-        black_scholes.option_price(
-            forwards,
-            strikes_0,
+        tff.black_scholes.option_price(
             volatilities,
+            strikes_0,
             expiries,
+            forwards=forwards,
             is_call_options=is_call_options,
             dtype=tf.float64))
 
     option_prices_1 = self.evaluate(
-        black_scholes.option_price(
-            forwards,
-            strikes_1,
+        tff.black_scholes.option_price(
             volatilities,
+            strikes_1,
             expiries,
+            forwards=forwards,
             is_call_options=is_call_options,
             dtype=tf.float64))
 
@@ -248,11 +267,11 @@ class BlackScholesTest(tf.test.TestCase):
                                                    option_prices_0) / epsilon
 
     binary_prices = self.evaluate(
-        black_scholes.binary_price(
-            forwards,
-            strikes_1,
+        tff.black_scholes.binary_price(
             volatilities,
+            strikes_1,
             expiries,
+            forwards=forwards,
             is_call_options=is_call_options,
             discount_factors=discount_factors))
 

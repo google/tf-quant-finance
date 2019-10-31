@@ -13,7 +13,8 @@
 # limitations under the License.
 
 # Lint as: python2, python3
-"""Tests for implied_volatility.approx_implied_vol."""
+"""Tests for implied_vol_approx."""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -22,16 +23,17 @@ from absl.testing import parameterized
 import numpy as np
 import tensorflow as tf
 
-from tf_quant_finance.volatility import black_scholes
-from tf_quant_finance.volatility.implied_vol import polya_implied_vol
+import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+
+bs = tff.black_scholes
 
 
 @test_util.run_all_in_graph_and_eager_modes
-class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
+class ImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
   """Tests for methods in implied_vol module."""
 
-  def test_polya_implied_vol(self):
+  def test_implied_vol(self):
     """Basic test of the implied vol calculation."""
     np.random.seed(6589)
     n = 100
@@ -42,15 +44,38 @@ class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
       strikes = forwards * (1 + (np.random.rand(n) - 0.5) * 0.2)
       expiries = np.exp(np.random.randn(n))
       prices = self.evaluate(
-          black_scholes.option_price(
-              forwards, strikes, volatilities, expiries, dtype=dtype))
+          bs.option_price(
+              volatilities, strikes, expiries, forwards=forwards, dtype=dtype))
+      # Using the default method
+      implied_vols_default = self.evaluate(
+          bs.implied_vol(
+              prices, strikes, expiries, forwards=forwards, dtype=dtype))
+      self.assertArrayNear(volatilities, implied_vols_default, 0.2)
 
-      implied_vols = self.evaluate(
-          polya_implied_vol(prices, forwards, strikes, expiries, dtype=dtype))
-      self.assertArrayNear(volatilities, implied_vols, 0.6)
+      # Using Newton explicitly
+      implied_vols_newton = self.evaluate(
+          bs.implied_vol(
+              prices,
+              strikes,
+              expiries,
+              forwards=forwards,
+              dtype=dtype,
+              method=bs.ImpliedVolMethod.NEWTON))
+      self.assertArrayNear(implied_vols_default, implied_vols_newton, 1e-5)
 
-  def test_polya_implied_vol_validate(self):
-    """Test the Radiocic-Polya approx doesn't raise where it shouldn't."""
+      # Using approximation.
+      implied_vols_approx = self.evaluate(
+          bs.implied_vol(
+              prices,
+              strikes,
+              expiries,
+              forwards=forwards,
+              dtype=dtype,
+              method=bs.ImpliedVolMethod.FAST_APPROX))
+      self.assertArrayNear(volatilities, implied_vols_approx, 0.6)
+
+  def test_validate(self):
+    """Test the algorithm doesn't raise where it shouldn't."""
     np.random.seed(6589)
     n = 100
     dtypes = [np.float32, np.float64]
@@ -60,15 +85,15 @@ class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
       strikes = forwards * (1 + (np.random.rand(n) - 0.5) * 0.2)
       expiries = np.exp(np.random.randn(n))
       prices = self.evaluate(
-          black_scholes.option_price(
-              forwards, strikes, volatilities, expiries, dtype=dtype))
+          bs.option_price(
+              volatilities, strikes, expiries, forwards=forwards, dtype=dtype))
 
       implied_vols = self.evaluate(
-          polya_implied_vol(
+          bs.implied_vol(
               prices,
-              forwards,
               strikes,
               expiries,
+              forwards=forwards,
               validate_args=True,
               dtype=dtype))
       self.assertArrayNear(volatilities, implied_vols, 0.6)
@@ -82,9 +107,9 @@ class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
       ('put_lower', 1.0, 1.0, 1.0, 1.0, False),
       # This case should hit the call lower bound since C = F - K.
       ('put_upper', 0.0, 1.0, 1.0, 1.0, False))
-  def test_polya_implied_vol_validate_raises(self, price, forward, strike,
-                                             expiry, is_call_option):
-    """Test the Radiocic-Polya approximation raises appropriately."""
+  def test_validate_raises(self, price, forward, strike, expiry,
+                           is_call_option):
+    """Test algorithm raises appropriately."""
     dtypes = [np.float32, np.float64]
     for dtype in dtypes:
       prices = np.array([price]).astype(dtype)
@@ -93,11 +118,11 @@ class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
       expiries = np.array([expiry]).astype(dtype)
       is_call_options = np.array([is_call_option])
       with self.assertRaises(tf.errors.InvalidArgumentError):
-        implied_vols = polya_implied_vol(
+        implied_vols = bs.implied_vol(
             prices,
-            forwards,
             strikes,
             expiries,
+            forwards=forwards,
             is_call_options=is_call_options,
             validate_args=True,
             dtype=dtype)

@@ -23,16 +23,17 @@ import numpy as np
 import tensorflow as tf
 
 
-def polya_implied_vol(option_prices,
-                      forwards,
-                      strikes,
-                      expiries,
-                      discount_factors=None,
-                      is_call_options=None,
-                      validate_args=False,
-                      polya_factor=(2 / np.pi),
-                      dtype=None,
-                      name=None):
+def implied_vol(prices,
+                strikes,
+                expiries,
+                spots=None,
+                forwards=None,
+                discount_factors=None,
+                is_call_options=None,
+                validate_args=False,
+                polya_factor=(2 / np.pi),
+                dtype=None,
+                name=None):
   """Approximates the implied vol using the Stefanica-Radiocic algorithm.
 
   Finds an approximation to the implied vol using the Polya approximation for
@@ -42,8 +43,8 @@ def polya_implied_vol(option_prices,
   implied vol can be solved for analytically. The Polya approximation produces
   absolute errors of less than 0.003 and the resulting implied vol is fairly
   close to the true value. For practical purposes, this may not be accurate
-  enough so this result should be used as a starting point for a root finder.
-
+  enough so this result should be used as a starting point for some method with
+  controllable tolerance (e.g. a root finder).
 
   ## References:
   [1]: Dan Stefanica and Rados Radoicic. An explicit implied volatility formula.
@@ -55,25 +56,32 @@ def polya_implied_vol(option_prices,
     http://www.hrpub.org/download/20160229/MS2-13405192.pdf
 
   Args:
-    option_prices: A real `Tensor` of any shape. The prices of the options whose
+    prices: A real `Tensor` of any shape. The prices of the options whose
       implied vol is to be calculated.
-    forwards: A real `Tensor` of any shape. The current forward prices to
-      expiry.
-    strikes: A real `Tensor` of the same shape and dtype as `forwards`. The
-      strikes of the options to be priced.
-    expiries: A real `Tensor` of same shape and dtype as `forwards`. The expiry
-      for each option. The units should be such that `expiry * volatility**2` is
-      dimensionless.
-    discount_factors: A real `Tensor` of same shape and dtype as the `forwards`.
-      The discount factors to expiry (i.e. e^(-rT)). If not specified, no
-      discounting is applied (i.e. the undiscounted option price is returned).
-      Default value: None, interpreted as discount factors = 1.
-    is_call_options: A boolean `Tensor` of a shape compatible with `forwards`.
-      Indicates whether to compute the price of a call (if True) or a put (if
-      False). If not supplied, it is assumed that every element is a call.
+    strikes: A real `Tensor` of the same dtype as `prices` and a shape that
+      broadcasts with `prices`. The strikes of the options.
+    expiries: A real `Tensor` of the same dtype as `prices` and a shape that
+      broadcasts with `prices`. The expiry for each option. The units should
+      be such that `expiry * volatility**2` is dimensionless.
+    spots: A real `Tensor` of any shape that broadcasts to the shape
+      of the `prices`. The current spot price of the underlying. Either this
+      argument or the `forwards` (but not both) must be supplied.
+    forwards: A real `Tensor` of any shape that broadcasts to the shape of
+      `prices`. The forwards to maturity. Either this argument or the `spots`
+      must be supplied but both must not be supplied.
+    discount_factors: An optional real `Tensor` of same dtype as the `prices`.
+      If not None, these are the discount factors to expiry (i.e. e^(-rT)).
+      If None, no discounting is applied (i.e. it is assumed that the
+      undiscounted option prices are provided ). If `spots` is supplied and
+      `discount_factors` is not None then this is also used to compute the
+      forwards to expiry.
+      Default value: None, equivalent to discount factors = 1.
+    is_call_options: A boolean `Tensor` of a shape compatible with `prices`.
+      Indicates whether the option is a call (if True) or a put (if False).
+      If not supplied, call options are assumed.
     validate_args: A Python bool. If True, indicates that arguments should be
       checked for correctness before performing the computation. The checks
-      performed are: (1) Forwards and strikes are positive. (2) The prices
+      performed are: (1) Forwards/spots and strikes are positive. (2) The prices
         satisfy the arbitrage bounds (i.e. for call options, checks the
         inequality `max(F-K, 0) <= Price <= F` and for put options, checks that
         `max(K-F, 0) <= Price <= K`.). (3) Checks that the prices are not too
@@ -88,69 +96,81 @@ def polya_implied_vol(option_prices,
         described in Ref [2], a slightly more accurate approximation is achieved
         if we use the value of `k=5/8`).
     dtype: `tf.Dtype` to use when converting arguments to `Tensor`s. If not
-      supplied, the default Tensorflow conversion will take place. Note that
+      supplied, the default TensorFlow conversion will take place. Note that
       this argument does not do any casting for `Tensor`s or numpy arrays.
       Default value: None.
     name: (Optional) Python str. The name prefixed to the ops created by this
-      function. If not supplied, the default name 'approx_implied_vol_polya' is
+      function. If not supplied, the default name 'implied_vol' is
       used.
       Default value: None
 
   Returns:
-    implied_vols: A `Tensor` of same shape and dtype as `option_prices`.
+    implied_vols: A `Tensor` of the same dtype as `prices` and shape as the
+      common broadcasted shape of `(prices, spots/forwards, strikes, expiries)`.
       The approximate implied total volatilities computed using the Polya
       approximation method.
 
   Raises:
-    ValueError: If any of the prices do not satisfy the arbitrage bounds (i.e.
-      for call options, if the inequality: `max(F-K, 0) <= Price <= F` is
-      violated and an analogous constraint for puts.)
+    ValueError: If both `forwards` and `spots` are supplied or if neither is
+      supplied.
   """
+  if (spots is None) == (forwards is None):
+    raise ValueError('Either spots or forwards must be supplied but not both.')
+
   with tf.compat.v1.name_scope(
       name,
-      default_name='approx_implied_vol_polya',
+      default_name='implied_vol',
       values=[
-          option_prices, forwards, strikes, expiries, discount_factors,
+          prices, spots, forwards, strikes, expiries, discount_factors,
           is_call_options
       ]):
-    option_prices = tf.convert_to_tensor(option_prices, dtype=dtype)
-    forwards = tf.convert_to_tensor(forwards, dtype=dtype)
-    strikes = tf.convert_to_tensor(strikes, dtype=dtype)
-    expiries = tf.convert_to_tensor(expiries, dtype=dtype)
+    prices = tf.convert_to_tensor(prices, dtype=dtype, name='prices')
+    strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
+    expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')
     if discount_factors is None:
-      discount_factors = tf.convert_to_tensor(1.0, dtype=dtype)
-    if is_call_options is not None:
-      is_call_options = tf.convert_to_tensor(is_call_options)
+      discount_factors = tf.convert_to_tensor(
+          1.0, dtype=dtype, name='discount_factors')
     else:
-      is_call_options = tf.ones_like(forwards, dtype=tf.bool)
+      discount_factors = tf.convert_to_tensor(
+          discount_factors, dtype=dtype, name='discount_factors')
+
+    if forwards is not None:
+      forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
+    else:
+      spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
+      forwards = spots / discount_factors
 
     control_inputs = None
     if validate_args:
-      control_inputs = _validate_args_control_deps(option_prices, forwards,
-                                                   strikes, expiries,
-                                                   discount_factors,
+      control_inputs = _validate_args_control_deps(prices, forwards, strikes,
+                                                   expiries, discount_factors,
                                                    is_call_options)
     with tf.compat.v1.control_dependencies(control_inputs):
       adjusted_strikes = strikes * discount_factors
-      normalized_prices = option_prices / adjusted_strikes
+      normalized_prices = prices / adjusted_strikes
       normalized_forwards = forwards / strikes
       return _approx_implied_vol_polya(normalized_prices, normalized_forwards,
                                        expiries, is_call_options, polya_factor)
 
 
-def _validate_args_control_deps(option_prices, forwards, strikes, expiries,
+def _validate_args_control_deps(prices, forwards, strikes, expiries,
                                 discount_factors, is_call_options):
   """Returns assertions for no-arbitrage conditions on the prices."""
-  epsilon = tf.convert_to_tensor(1e-8, dtype=option_prices.dtype)
+  epsilon = tf.convert_to_tensor(1e-8, dtype=prices.dtype)
   forwards_positive = tf.compat.v1.debugging.assert_positive(forwards)
   strikes_positive = tf.compat.v1.debugging.assert_positive(strikes)
   expiries_positive = tf.compat.v1.debugging.assert_non_negative(expiries)
   put_lower_bounds = tf.nn.relu(strikes - forwards)
   call_lower_bounds = tf.nn.relu(forwards - strikes)
-  lower_bounds = tf.where(
-      is_call_options, x=call_lower_bounds, y=put_lower_bounds)
-  upper_bounds = tf.where(is_call_options, x=forwards, y=strikes)
-  undiscounted_prices = option_prices / discount_factors
+  if is_call_options is not None:
+    lower_bounds = tf.where(
+        is_call_options, x=call_lower_bounds, y=put_lower_bounds)
+    upper_bounds = tf.where(is_call_options, x=forwards, y=strikes)
+  else:
+    lower_bounds = call_lower_bounds
+    upper_bounds = forwards
+
+  undiscounted_prices = prices / discount_factors
   bounds_satisfied = [
       tf.compat.v1.debugging.assert_less_equal(lower_bounds,
                                                undiscounted_prices),
@@ -159,9 +179,9 @@ def _validate_args_control_deps(option_prices, forwards, strikes, expiries,
   ]
   not_too_close_to_bounds = [
       tf.compat.v1.debugging.assert_greater(
-          tf.abs(undiscounted_prices - lower_bounds), epsilon),
+          tf.math.abs(undiscounted_prices - lower_bounds), epsilon),
       tf.compat.v1.debugging.assert_greater(
-          tf.abs(undiscounted_prices - upper_bounds), epsilon)
+          tf.math.abs(undiscounted_prices - upper_bounds), epsilon)
   ]
   return [expiries_positive, forwards_positive, strikes_positive
          ] + bounds_satisfied + not_too_close_to_bounds
@@ -205,7 +225,6 @@ def _approx_implied_vol_polya(normalized_prices, normalized_forwards, expiries,
   if polya_factor is None:
     polya_factor = tf.convert_to_tensor(
         2.0 / np.pi, dtype=normalized_prices.dtype)
-  ones = tf.ones_like(normalized_forwards)
   floored_forwards = tf.math.maximum(normalized_forwards, 1)
   capped_forwards = tf.math.minimum(normalized_forwards, 1)
 
@@ -213,6 +232,7 @@ def _approx_implied_vol_polya(normalized_prices, normalized_forwards, expiries,
   sign_log_forward = tf.math.sign(log_normalized_forwards)
 
   if is_call_options is not None:
+    ones = tf.ones_like(is_call_options, dtype=normalized_forwards.dtype)
     option_signs = tf.where(is_call_options, ones, -ones)
   else:
     option_signs = 1
