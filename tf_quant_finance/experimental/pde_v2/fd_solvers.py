@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Lint as: python2, python3
-"""Helper functions for solving linear parabolic PDEs."""
+"""Functions for solving linear parabolic PDEs."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -27,13 +27,14 @@ def step_back(start_time,
               coord_grid,
               values_grid,
               num_steps=None,
+              start_step_count=0,
               time_step=None,
               one_step_fn=None,
               boundary_conditions=None,
               values_transform_fn=None,
-              quadratic_coeff_fn=None,
-              linear_coeff_fn=None,
-              constant_coeff_fn=None,
+              second_order_coeff_fn=None,
+              first_order_coeff_fn=None,
+              zeroth_order_coeff_fn=None,
               maximum_steps=None,
               swap_memory=True,
               dtype=None,
@@ -45,7 +46,7 @@ def step_back(start_time,
 
   ```None
     V_t + Sum[mu_i(t, x) V_i, 1<=i<=n] +
-      (1/2) Sum[ D_{ij} V_{ij}, 1 <= i,j <= n] - r(t, x) V = 0
+       Sum[D_{ij}(t, x) V_{ij}, 1 <= i,j <= n] + r(t, x) V = 0
   ```
   from time `t0` to time `t1<t0` (i.e. backwards in time).
   The solution `V(t,x)` is assumed to be discretized on an `n`-dimensional
@@ -77,6 +78,73 @@ def step_back(start_time,
   The mapping between the arguments of this method and the above
   equation are described in the Args section below.
 
+  ### Example. European call option pricing.
+  ```python
+  num_equations = 2  # Number of PDE
+  num_grid_points = 1024  # Number of grid points
+  dtype = np.float64
+  # Build a log-uniform grid
+  s_min = 0.01
+  s_max = 300.
+  grid = uniform_grid(minimums=[s_min], maximums=[s_max],
+                      sizes=[num_grid_points],
+                      dtype=dtype)
+  # Specify volatilities and interest rates for the options
+  volatility = tf.constant([[0.3], [0.15]], dtype)
+  rate = tf.constant([[0.01], [0.03]], dtype)
+  expiry = 1.0
+  strike = tf.constant([[50], [100]], dtype)
+
+  # Define parabolic equation coefficients. In this case the coefficients
+  # can be computed exactly but the same functions as below can be used to
+  # get approximate values for general case.
+  def second_order_coeff_fn(t, x):
+    del t
+    return [[tf.square(volatility) * tf.square(x) / 2]]
+
+  def first_order_coeff_fn(t, x):
+    del t
+    return [rate * x]
+
+  def zeroth_order_coeff_fn(t, x):
+    del t, x
+    return -rate
+
+  @dirichlet
+  def lower_boundary_fn(t, x):
+    del t, x
+    return dtype([0.0, 0.0])
+
+  @dirichlet
+  def upper_boundary_fn(t, x):
+    return tf.squeeze(x - strike * tf.exp(-rate * (expiry - t)))
+
+  final_values = tf.nn.relu(grid - strike)
+  # Broadcast to the shape of value dimension, if necessary.
+  final_values += tf.zeros([num_equations, num_grid_points],
+                           dtype=dtype)
+  # Estimate European call option price
+  estimate = fd_solvers.step_back(
+      start_time=expiry,
+      end_time=0,
+      coord_grid=grid,
+      values_grid=final_values,
+      num_steps=None,
+      num_steps_performed=0,
+      time_step=tf.constant(0.01, dtype=dtype),
+      one_step_fn=crank_nicolson_step,
+      boundary_conditions=[(lower_boundary_fn, upper_boundary_fn)],
+      values_transform_fn=None,
+      second_order_coeff_fn=second_order_coeff_fn,
+      first_order_coeff_fn=first_order_coeff_fn,
+      zeroth_order_coeff_fn=zeroth_order_coeff_fn,
+      dtype=dtype)[0]
+
+  # Extract estimates for some of the grid locations and compare to the
+  # true option price
+  value_grid_first_option = estimate[0, :]
+  value_grid_second_option = estimate[1, :]
+  ```
   Args:
     start_time: Real positive scalar `Tensor`. The start time of the grid.
       Corresponds to time `t0` above.
@@ -97,16 +165,19 @@ def step_back(start_time,
       `time_step` argument must be supplied (but not both). If num steps is
       `k>=1`, uniform time steps of size `(t0 - t1)/k` are taken to evolve the
       solution from `t0` to `t1`. Corresponds to the `n_steps` parameter above.
+    start_step_count: A scalar integer `Tensor`. Number of steps performed so
+      far.
     time_step: The time step to take. Either this argument or the `num_steps`
       argument must be supplied (but not both). The type of this argument may
-      be one of the following (in order of generality): (a) None in which case
-        `num_steps` must be supplied. (b) A positive real scalar `Tensor`. The
-        maximum time step to take. If the value of this argument is `dt`, then
-        the total number of steps taken is N = (t0 - t1) / dt rounded up to the
-        nearest integer. The first N-1 steps are of size dt and the last step is
-        of size `t0 - t1 - (N-1) * dt`. (c) A callable accepting the current
-        time and returning the size of the step to take. The input and the
-        output are real scalar `Tensor`s.
+      be one of the following (in order of generality):
+        (a) None in which case `num_steps` must be supplied.
+        (b) A positive real scalar `Tensor`. The maximum time step to take.
+          If the value of this argument is `dt`, then the total number of steps
+          taken is N = (t0 - t1) / dt rounded up to the nearest integer. The
+          first N-1 steps are of size dt and the last step is of size
+          `t0 - t1 - (N-1) * dt`.
+        (c) A callable accepting the current time and returning the size of the
+          step to take. The input and the output are real scalar `Tensor`s.
     one_step_fn: The transition kernel. A callable that consumes the following
       arguments by keyword:
         1. 'time': Current time
@@ -114,27 +185,91 @@ def step_back(start_time,
           evolution, this time will be smaller than the current time.
         3. 'coord_grid': The coordinate grid.
         4. 'values_grid': The values grid.
-        5. 'quadratic_coeff': A callable returning the quadratic coefficients of
-          the PDE (i.e. `(1/2)D_{ij}(t, x)` above). The callable accepts the
-          time and  coordinate grid as keyword arguments and returns a `Tensor`
-          with shape that broadcasts with `[dim, dim]`.
-        6. 'linear_coeff': A callable returning the linear coefficients of the
-          PDE (i.e. `mu_i(t, x)` above). Accepts time and coordinate grid as
-          keyword arguments and returns a `Tensor` with shape that broadcasts
-          with `[dim]`.
-        7. 'constant_coeff': A callable returning the coefficient of the linear
-          homogenous term (i.e. `r(t,x)` above). Same spec as above. The
-          `one_step_fn` callable returns a 2-tuple containing the next
-          coordinate grid, next values grid.
-    boundary_conditions: The boundary conditions.
+        5. 'second_order_coeff_fn': Callable returning the coefficients of the
+          second order terms of the PDE. See the spec of the
+          `second_order_coeff_fn` argument below.
+        6. 'first_order_coeff_fn': Callable returning the coefficients of the
+          first order terms of the PDE. See the spec of the
+          `first_order_coeff_fn` argument below.
+        7. 'zeroth_order_coeff_fn': Callable returning the coefficient of the
+          zeroth order term of the PDE. See the spec of the
+          `zeroth_order_coeff_fn` argument below.
+        8. 'num_steps_performed': A scalar integer `Tensor`. Number of steps
+          performed so far.
+       The callable should return a sequence of two `Tensor`s. The first one
+       is a `Tensor` of the same `dtype` and `shape` as `coord_grid` and
+       represents a new coordinate grid after one iteration. The second `Tensor`
+       is of the same shape and `dtype` as`values_grid` and represents an
+       approximate solution of the equation after one iteration.
+    boundary_conditions: The boundary conditions. Only rectangular boundary
+      conditions are supported.
+      A list of tuples of size `n` (space dimension
+      of the PDE). Each tuple consists of two callables representing the
+      boundary conditions at the minimum and maximum values of the spatial
+      variable indexed by the position in the list. E.g. for `n=2`, the length
+      of `boundary_conditions` should be 2, `boundary_conditions[0][0]`
+      describes the boundary `(y_min, x)`, and `boundary_conditions[1][0]`- the
+      boundary `(y, x_min)`. The boundary conditions are accepted in the form
+      `alpha(t, x) V + beta(t, x) V_n = gamma(t, x)`, where `V_n` is the
+      derivative with respect to the exterior normal to the boundary.
+      Each callable receives the current time `t` and the `coord_grid` at the
+      current time, and should return a tuple of `alpha`, `beta`, and `gamma`.
+      Each can be a number, a zero-rank `Tensor` or a `Tensor` whose shape is
+      the grid shape with the corresponding dimension removed.
+      For example, for a two-dimensional grid of shape `(b, ny, nx)`, where `b`
+      is the batch size, `boundary_conditions[0][0]` should return a tuple of
+      either numbers, zero-rank tensors or tensors of shape `(b, nx)`. Similarly
+      for `boundary_conditions[1][0]`, except the tensor shape should be
+      `(b, ny)`. `alpha` and `beta` can also be `None` in case of Neumann and
+      Dirichlet conditions, respectively.
     values_transform_fn: An optional callable applied to transform the solution
       values at each time step. The callable is invoked after the time step has
       been performed. The callable should accept the time of the grid, the
       coordinate grid and the values grid and should return the values grid. All
       input arguments to be passed by keyword.
-    quadratic_coeff_fn: The quadratic coefficient.
-    linear_coeff_fn: The linear coefficient.
-    constant_coeff_fn: The constant coefficient.
+    second_order_coeff_fn: Callable returning the coefficients of the
+      second order terms of the PDE (i.e. `D_{ij}(t, x)` above) at given time
+      `t`.
+      The callable accepts the following arguments:
+        `t`: The time at which the coefficient should be evaluated.
+        `coord_grid`: a `Tensor` representing a grid of locations `r` at
+          which the coefficient should be evaluated.
+      Returns the object `D` such that `D[i][j]` is defined and
+      `D[i][j]=D_{ij}(r, t)`, where `0 <= i < n_dims` and `i <= j < n_dims`.
+      For example, the object may be a list of lists or a rank 2 Tensor.
+      `D[i][j]` is assumed to be symmetrical, and only the elements with
+      `j >= i` will be used, so elements with `j < i` can be `None`.
+      Each `D[i][j]` should be a Number, a `Tensor` broadcastable to the shape
+      of `coord_grid`, or `None` if corresponding term is absent in the
+      equation. Also, the callable itself may be None, meaning there are no
+      second-order derivatives in the equation.
+      For example, for a 2D equation with the following second order terms
+      ```
+      D_xx V_xx + 2 D_xy V_xy + D_yy V_yy
+      ```
+       the callable may return either
+      `[[D_yy, D_xy], [D_xy, D_xx]]` or `[[D_yy, D_xy], [None, D_xx]]`.
+    first_order_coeff_fn: Callable returning the coefficients of the
+      first order terms of the PDE (i.e. `mu_i(t, r)` above) evaluated at given
+      time `t`.
+      The callable accepts the following arguments:
+        `t`: The time at which the coefficient should be evaluated.
+        `locations_grid`: a `Tensor` representing a grid of locations `r` at
+          which the coefficient should be evaluated.
+      Returns a list or an 1D `Tensor`, `i`-th element of which represents
+      `mu_i(t, r)`. Each element is a `Tensor` broadcastable to the shape of
+      `locations_grid`, or None if corresponding term is absent in the
+      equation. The callable itself may be None, meaning there are no
+      first-order derivatives in the equation.
+    zeroth_order_coeff_fn: Callable returning the coefficient of the
+      zeroth order term of the PDE (i.e. `c(t, r)` above) evaluated at given
+      time `t`.
+      The callable accepts the following arguments:
+        `t`: The time at which the coefficient should be evaluated.
+        `locations_grid`: a `Tensor` representing a grid of locations `r` at
+          which the coefficient should be evaluated.
+      Should return a `Tensor` broadcastable to the shape of `locations_grid`.
+      May return None or be None if the shift term is absent in the equation.
     maximum_steps: Optional int `Tensor`. The maximum number of time steps that
       might be taken. This argument is only used if the `num_steps` is not used
       and `time_step` is a callable otherwise it is ignored. It is useful to
@@ -150,7 +285,8 @@ def step_back(start_time,
       Default value: None which means `step_back` is used.
 
   Returns:
-    The final time, final coordinate grid and the final values grid.
+    The final values grid, final coordinate grid, final time and number of steps
+    performed.
 
   Raises:
     ValueError if neither num steps nor time steps are provided or if both
@@ -183,11 +319,11 @@ def step_back(start_time,
     if est_max_steps is None and maximum_steps is not None:
       est_max_steps = maximum_steps
 
-    def loop_cond(should_stop, time, x_grid, f_grid):
-      del time, x_grid, f_grid
+    def loop_cond(should_stop, time, x_grid, f_grid, steps_performed):
+      del time, x_grid, f_grid, steps_performed
       return tf.logical_not(should_stop)
 
-    def loop_body(should_stop, time, x_grid, f_grid):
+    def loop_body(should_stop, time, x_grid, f_grid, steps_performed):
       """Propagates the grid backward in time."""
       del should_stop
       next_should_stop, t_next = time_step_fn(time)
@@ -195,28 +331,31 @@ def step_back(start_time,
           time=time,
           next_time=t_next,
           coord_grid=x_grid,
-          values_grid=f_grid,
+          value_grid=f_grid,
           boundary_conditions=boundary_conditions,
-          quadratic_coeff=quadratic_coeff_fn,
-          linear_coeff=linear_coeff_fn,
-          constant_coeff=constant_coeff_fn)
+          second_order_coeff_fn=second_order_coeff_fn,
+          first_order_coeff_fn=first_order_coeff_fn,
+          zeroth_order_coeff_fn=zeroth_order_coeff_fn,
+          num_steps_performed=steps_performed)
 
       if values_transform_fn is not None:
         next_xs, next_fs = values_transform_fn(t_next, next_xs, next_fs)
-      return next_should_stop, t_next, next_xs, next_fs
+      return next_should_stop, t_next, next_xs, next_fs, steps_performed + 1
 
       # If the start time is already equal to or before the end time,
       # no stepping is needed.
 
     should_already_stop = (start_time <= end_time)
-    initial_args = (should_already_stop, start_time, coord_grid, values_grid)
-    _, final_time, final_coords, final_values = tf.compat.v1.while_loop(
-        loop_cond,
-        loop_body,
-        initial_args,
-        swap_memory=swap_memory,
-        max_iterations=est_max_steps)
-    return final_time, final_coords, final_values
+    initial_args = (should_already_stop, start_time, coord_grid, values_grid,
+                    start_step_count)
+    (_, final_time, final_coords, final_values,
+     steps_performed) = tf.compat.v1.while_loop(
+         loop_cond,
+         loop_body,
+         initial_args,
+         swap_memory=swap_memory,
+         maximum_iterations=est_max_steps)
+    return final_values, final_coords, final_time, steps_performed
 
 
 def _is_callable(var_or_fn):
@@ -253,6 +392,6 @@ def _get_time_steps_info(start_time, end_time, num_steps, time_step):
     # t_next is the next time
     dt = raw_time_step_fn(t)
     t_next = tf.math.maximum(end_time, t - dt)
-    return t_next > end_time, t_next
+    return t_next <= end_time, t_next
 
   return step_fn, estimated_max_steps

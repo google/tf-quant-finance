@@ -21,3 +21,10 @@ py_library(
         # tensorflow dep,
     ],
 )
+
+py_library(
+    name = "boundary_conditions",
+    srcs = ["boundary_conditions.py"],
+    srcs_version = "PY2AND3",
+    deps = [],
+)
