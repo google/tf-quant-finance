@@ -32,10 +32,10 @@ py_test(
     shard_count = 10,
     deps = [
         ":fd_backward_schemes",
-        "//testing/pybase:parameterized",
         "//tf_quant_finance/experimental/pde_v2:boundary_conditions",
         "//tf_quant_finance/experimental/pde_v2:fd_solvers",
         "//tf_quant_finance/experimental/pde_v2/grids",
+        # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
     ],
@@ -49,7 +49,7 @@ py_test(
     shard_count = 1,
     deps = [
         ":fd_backward_schemes",
-        "//testing/pybase:parameterized",
+        # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
     ],
