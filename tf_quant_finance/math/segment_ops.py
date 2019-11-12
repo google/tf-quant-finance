@@ -177,7 +177,7 @@ def segment_cumsum(x, segment_ids, exclusive=False, dtype=None, name=None):
       `n-sum(min(order, length(segment_j)), j)` where the sum is over segments.
       If `exclusive` is False, then the size is `n`.
   """
-  with tf.compat.v1.name_scope(name, default_name='segment_diff', values=[x]):
+  with tf.compat.v1.name_scope(name, default_name='segment_cumsum', values=[x]):
     x = tf.convert_to_tensor(x, dtype=dtype)
     raw_cumsum = tf.math.cumsum(x, exclusive=exclusive)
     if segment_ids is None:
