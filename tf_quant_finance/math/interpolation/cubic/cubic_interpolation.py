@@ -13,35 +13,48 @@
 # limitations under the License.
 
 # Lint as: python2, python3
-"""Cubic Spline interpolation framework.
+"""Cubic Spline interpolation framework."""
 
-Given a tuple of state points `x_data` and corresponding values `y_data`
-creates an object that can interpolate new values for a set of state points `x`
-using a Cubic interpolation algorithm.
-It assumes that the second derivative of the first and last spline points
-are zero.
 
-The basic logic is explained here:
-  Algorithms in C
-  Robert Sedegewick
-  Princeton University
-  see Reference [2]
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
-  pages 545-550
+import collections
+import numpy as np
+import tensorflow as tf
 
-however the solution of the matrix is done using tf.linalg.tridiagonal_solve.
+SplineParameters = collections.namedtuple(
+    "SplineParameters",
+    [
+        # A real `Tensor` of shape batch_shape + [num_points] containing
+        # X-coordinates of the spline.
+        "x_data",
+        # A `Tensor` of the same shape and `dtype` as `x_data` containing
+        # Y-coordinates of the spline.
+        "y_data",
+        # A `Tensor` of the same shape and `dtype` as `x_data` containing
+        # spline interpolation coefficients
+        "spline_coeffs"
+    ])
 
-Alternate Source: [4]
 
-  The algorithm calculates the first derivatives S'(x). This and the x and y
-  data points together provide the necessary information to calculate the
-  interpolated data y = s(x)
+def build(x_data, y_data, validate_args=False, dtype=None, name=None):
+  """Builds a SplineParameters interpolation object.
 
-  ## References:
-  [1]: https://en.wikiversity.org/wiki/Cubic_Spline_Interpolation#Methods
-  [2]: http://index-of.co.uk/Algorithms/Algorithms%20in%20C.pdf
-  [3]: http://index-of.co.uk/Algorithms/Algorithms%20in%20C.pdf page 550
-  [4]: http://yieldcurve.com/mktresearch/files/PienaarChoudhry_CubicSpline2.pdf
+  Given a `Tensor` of state points `x_data` and corresponding values `y_data`
+  creates an object that contains iterpolation coefficients. The object can be
+  used by the `interpolate` function to get interpolated values for a set of
+  state points `x` using the cubic spline interpolation algorithm.
+  It assumes that the second derivative at the first and last spline points
+  are zero. The basic logic is explained in [1] (see also, e.g., [2]).
+
+  Repeated entries in `x_data` are allowed for the boundary values of `x_data`.
+  For example, `x_data` can be `[1., 1., 2, 3. 4., 4., 4.]` but not
+  `[1., 2., 2., 3.]`. The repeated values play no role in interpolation and are
+  useful only for interpolating multiple splines with different numbers of data
+  point. It is user responsibility to verify that the corresponding
+  values of `y_data` are the same for the repeated values of `x_data`.
 
   Typical Usage Example:
 
@@ -50,290 +63,279 @@ Alternate Source: [4]
   import numpy as np
 
   x_data = np.linspace(-5.0, 5.0,  num=11)
-
-  y_data = [1.0/(1.0 + x*x) for x in x ]
-
-  x_series = tf.constant(np.array([x_data, ..]))
-  y_series = tf.constant(np.array([y_data, ..]))
-  spline = cubic_interpolation.build(x_series, y_series)
-
-  x_args = [[3.3, 3.4, 3.9],
-            [2.1, 2.4, 4.4],
-           ...
-           ]
+  y_data = 1.0/(1.0 + x_data**2)
+  spline = cubic_interpolation.build(x_data, y_data)
+  x_args = [3.3, 3.4, 3.9]
 
   y = cubic_interpolation.interpolate(x_args, spline)
   ```
-Using interpolate with x_values outside of [min(spline_x), max(spline_x))
-will result in an exception
-"""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import collections
-import tensorflow as tf
-
-SplineParameters = collections.namedtuple(
-    "SplineParameters",
-    [
-        # A `Tensor` of floats containing X coordinates of  the
-        # Spline points. It is of shape [numSplines,splineLength].
-        "x_data",
-        # A `Tensor` of floats containing Y coordinates of  the
-        # Spline points. It is of shape [numSplines,splineLength].
-        "y_data",
-        # A `Tensor` of floats containing the second derivatives of the splines
-        "beta"
-    ])
-
-
-def build(x_data, y_data, name=None, dtype=None, validate_args=False):
-  """Builds a Cubic Spline interpolation object.
+  ## References:
+  [1]: R. Sedgewick, Algorithms in C, 1990, p. 545-550.
+    Link: http://index-of.co.uk/Algorithms/Algorithms%20in%20C.pdf
+  [2]: R. Pienaar, M Choudhry. Fitting the term structure of interest rates:
+    the practical implementation of cubic spline methodology.
+    Link:
+    http://yieldcurve.com/mktresearch/files/PienaarChoudhry_CubicSpline2.pdf
 
   Args:
-    x_data: `Tensor` of `float` containing X coordinates of points to fit the
-      splines to. It is of shape [numSplines,splineLength]. The values have to
-      be strictly monotonic increasing. Duplicate values will cause an
-      exception.
-    y_data: `Tensor` of `float` containing y coordinates of points to fit the
-      splines to. It has the same shape as `x_data`
-    name: Name of the operation
-    dtype: Optional dtype for both `x_data` and `y_data`
-    validate_args: Python `bool` indicating whether to validate arguments such
-      as that x coordinates must be strictly monotonic increasing
+    x_data: A real `Tensor` of shape `[..., num_points]` containing
+      X-coordinates of points to fit the splines to. The values have to
+      be monotonically non-decreasing along the last dimension.
+    y_data: A `Tensor` of the same shape and `dtype` as `x_data` containing
+      Y-coordinates of points to fit the splines to.
+    validate_args: Python `bool`. When `True`, verifies if elements of `x_data`
+      are sorted in the last dimension in non-decreasing order despite possibly
+      degrading runtime performance.
+      Default value: False.
+    dtype: Optional dtype for both `x_data` and `y_data`.
+      Default value: `None` which maps to the default dtype inferred by
+      TensorFlow.
+    name: Python `str` name prefixed to ops created by this function.
+      Default value: `None` which is mapped to the default name
+      `cubic_spline_build`.
 
   Returns:
-    `SplineParameters` object to be used with `cubic_interpolation.interpolate`
+    An instance of `SplineParameters`.
   """
-
-  def _validate_constructor_arguments(x_data):
-    """Validates the arguments.
-
-    Args:
-       x_data: `Tensor` of floats containing X coordinates of points to fit the
-         splines to. It is of shape [numSplines,splineLength]. The values have
-         to be strictly monotonic increasing. Duplicate values will cause an
-         exception.
-
-    Returns:
-      An op that will evaluate true or false
-    """
-
-    # check: are the x_data strictly increasing
-    diffs = x_data[:, 1:] - x_data[:, :-1]
-    # diffs should all be larger than 0
-    return tf.compat.v1.debugging.assert_greater(
-        diffs,
-        tf.zeros_like(diffs),
-        message="x_data are not strictly increasing")
-
-  def _calculate_beta(x_data, y_data, dtype=None):
-    """Calculates the coefficients for the second derivative.
-
-    Args:
-      x_data: `Tensor` of floats containing X coordinates of points to fit the
-        splines to. It is of shape [numSplines,splineLength]. The values have to
-        be strictly monotonic increasing. Duplicate values will cause an
-        exception.
-      y_data: `Tensor` of floats containing y coordinates of points to fit the
-        splines to. It has the same shape as `x_data`
-      dtype: Optional dtype for both `x_data` and `y_data`
-
-    Returns:
-       The solution to the tridiagonal system of equations.
-
-    Do this by building and solving a linear system of equaitons with matrix
-
-     w2,  dx2,   0,   0,   0
-     dx2,  w3, dx3,   0,   0
-     0,  dx3,   w4, dx4,   0
-     0,    0,  dx4,  w5, dx5
-     0,    0,    0, dx5,  w6
-
-     where:
-     wn = 2 * (x[n-2] + x[n-1])
-     dxn = x[n-1] - x[n-2]
-
-
-     and the right hand side of the equation is:
-     [[3*( (d2-d1)/X1 - (d1-d0)/x0],
-      [3*( (d3-d2)/X2 - (d2-d1)/x1],
-      ...
-     ]
-
-     with dn = self.y_points[:,n]
-
-     Solve for beta, so that beta * matrix = rhs
-
-     the solution is the beta parameter of the spline euqation:
-
-     y_pred = alpha * t^3 + beta * t^2  + gamma * t + d
-     with t being the proportion of the difference between the x value of
-     the spline used and the nx_value of the next spline.
-
-     t = (x_input - x_data[:,n])/(x_data[:,n+1]-x_data[:,n])
-
-     Note: alpha and gamma are not calculated explicitly, they are derived from
-           beta, d and X during the project method.
-    """
-
-    # dx is the distances between the x points. It i1 1 shorter than x_data
-    dx = x_data[:, 1:] - x_data[:, :-1]
-
-    # diag_values are the diagonal values 2 * (dx[i] + dx[i+1])
-    # its length 2 shorter
-
-    diag_values = 2.0 * (x_data[:, 2:] - x_data[:, :-2])
-    superdiag = dx[:, 1:]
-    subdiag = dx[:, :-1]
-
-    diagonals = tf.stack([superdiag, diag_values, subdiag], axis=1)
-
-    # determine the rhs of the equation
-    dd = (y_data[:, 1:] - y_data[:, :-1]) / dx
-    # rhs is a column vector:
-    # [[-3((y1-y0)/dx0 - (y2-y1)/dx0], ...]
-    rhs = tf.expand_dims((dd[:, :-1] - dd[:, 1:]) * -3.0, axis=2)
-    beta = tf.linalg.tridiagonal_solve(diagonals, rhs)
-
-    # Reshape beta
-    zero = tf.zeros_like(dx[:, :1], dtype=dtype)
-    beta = tf.concat([zero, tf.squeeze(beta, axis=[2]), zero], axis=1)
-
-    return beta
-
   # Main body of build
-  with tf.name_scope(
+  with tf.compat.v1.name_scope(
       name, default_name="cubic_spline_build", values=[x_data, y_data]):
-    x_data = tf.convert_to_tensor(x_data, name="x_data", dtype=dtype)
-    y_data = tf.convert_to_tensor(y_data, name="y_data", dtype=dtype)
-
-    # sanity check inputs
+    x_data = tf.convert_to_tensor(x_data, dtype=dtype, name="x_data")
+    y_data = tf.convert_to_tensor(y_data, dtype=dtype, name="y_data")
+    # Sanity check inputs
     if validate_args:
-      assert_sanity_check = [_validate_constructor_arguments(x_data)]
+      assert_sanity_check = [_validate_arguments(x_data)]
     else:
       assert_sanity_check = []
 
     with tf.compat.v1.control_dependencies(assert_sanity_check):
-      beta = _calculate_beta(x_data, y_data, dtype=dtype)
+      spline_coeffs = _calculate_spline_coeffs(x_data, y_data)
 
-    return SplineParameters(x_data=x_data, y_data=y_data, beta=beta)
+    return SplineParameters(x_data=x_data, y_data=y_data,
+                            spline_coeffs=spline_coeffs)
 
 
 def interpolate(x_values,
                 spline_data,
-                validate_args=False,
                 dtype=None,
                 name=None):
-  """Interpolates y_values for the given x_values and the spline_data.
+  """Interpolates spline values for the given `x_values` and the `spline_data`.
+
+  Constant extrapolation is performed for the values outside the domain
+  `spline_data.x_data`. This means that for `x > max(spline_data.x_data)`,
+  `interpolate(x, spline_data) = spline_data.y_data[-1]`
+  and for  `x < min(spline_data.x_data)`,
+  `interpolate(x, spline_data) = spline_data.y_data[0]`.
+
+  For the interpolation formula refer to p.548 of [1].
+
+  ## References:
+  [1]: R. Sedgewick, Algorithms in C, 1990, p. 545-550.
+    Link: http://index-of.co.uk/Algorithms/Algorithms%20in%20C.pdf
 
   Args:
-       x_values   : `Tensor` of floats containing x coordinates of points
-       spline_data: `SplineParameters` built by `cubic_interpolation.build`. if
-         spline_data.beta is None then build will be called.
-       validate_args: Python `bool` indicating whether to validate that the
-         x_values are within spline boundaries
-       dtype: Optional dtype for both `x_data` and `y_data`
-       name: Optional name of the operation
+    x_values: A real `Tensor` of shape `batch_shape + [num_points]`.
+    spline_data: An instance of `SplineParameters`. `spline_data.x_data` should
+      have the same batch shape as `x_values`.
+    dtype: Optional dtype for `x_values`.
+      Default value: `None` which maps to the default dtype inferred by
+      TensorFlow.
+    name: Python `str` name prefixed to ops created by this function.
+      Default value: `None` which is mapped to the default name
+      `cubic_spline_interpolate`.
 
   Returns:
-      A `Tensor` of `float` that represent the y_values interpolated
-      from the `x_values`
+      A `Tensor` of the same shape and `dtype` as `x_values`. Represents
+      the interpolated values.
+
+  Raises:
+    ValueError:
+      If `x_values` batch shape is different from `spline_data.x_data` batch
+      shape.
   """
-
-  def _is_inside(x_data, to_test):
-    """Test that all values in test are within x_data.
-
-    Args:
-       x_data: `Tensor` of float. shape (numSplines, spline_length)
-       to_test: `Tensor` of float, shape (num_splines, n_tests)
-    Returns: `Tensor` of True or False  Establishes that - any point in
-      to_test[spline_idx, test_idx] >= data[spline_idx, 0], - any point in
-      to_test[spline_idx, test_idx] < data[spline_idx, -1]
-    """
-    # Lower take the smallest value for each point and compare it
-    # With points[:,0]
-    lower_test = tf.reduce_min(to_test, axis=-1)
-    lower = tf.greater_equal(lower_test, x_data[:, 0])
-
-    # Get the largest value
-    upper_test = tf.reduce_max(to_test, axis=-1)
-    upper = tf.less(upper_test, x_data[:, -1])
-
-    return tf.reduce_all(tf.logical_and(lower, upper))
-
-  # Check that beta is supplied. If not call build()
-  if spline_data.beta is None:
-    spline_data = build(
-        spline_data.x_data,
-        spline_data.y_data,
-        name=name,
-        dtype=dtype,
-        validate_args=validate_args)
-  # Unpack the spline data
-  x_data = spline_data.x_data
-  y_data = spline_data.y_data
-  beta = spline_data.beta
-
-  x_values = tf.convert_to_tensor(x_values, name="x_values", dtype=dtype)
-
-  # Check that all the x_values are within the boundaries
-  if x_values.shape[0] != x_data.shape[0]:
-    msg = ("the input tensor has a different number of rows than the "
-           "number of splines: {} != {}")
-    raise ValueError(msg.format(x_values.shape[0], x_data.shape[0]))
-
-  with tf.name_scope(
+  with tf.compat.v1.name_scope(
       name,
       default_name="cubic_spline_interpolate",
-      values=[x_data, y_data, beta, x_values]):
+      values=[spline_data, x_values]):
+    # Unpack the spline data
+    x_data = spline_data.x_data
+    y_data = spline_data.y_data
+    spline_coeffs = spline_data.spline_coeffs
 
-    # Make sure x_values are legal.
-    if validate_args:
-      assert_is_inside = [
-          tf.Assert(_is_inside(x_data, x_values), [x_data, x_values])
-      ]
-    else:
-      assert_is_inside = []
+    x_values = tf.convert_to_tensor(x_values, dtype=dtype, name="x_values")
+    # Check that all the x_values are within the boundaries
+    if x_values.shape.as_list()[:-1] != x_data.shape.as_list()[:-1]:
+      msg = ("The input tensor has a different number of rows than the "
+             "number of splines: {} != {}")
+      raise ValueError(msg.format(x_values.shape.as_list()[:-1],
+                                  x_data.shape.as_list()[:-1]))
+    # Determine the splines to use.
+    indices = tf.searchsorted(x_data, x_values, side="right") - 1
 
-    with tf.compat.v1.control_dependencies(assert_is_inside):
-      # Determine the splines to use.
-      indices = tf.searchsorted(x_data, x_values, side="right") - 1
+    # Prepares the `indices` so that it can be used in gather_nd.
+    index_matrix = _prepare_indices(indices)
 
-      # Prepares the indices so that it can be used in gather_nd.
-      row_indices = tf.range(indices.shape[0], dtype=dtype)
-      index_matrix = tf.transpose(tf.tile([row_indices], [indices.shape[1], 1]))
-      # This selects all elements for the start of the spline interval.
-      selection_matrix = tf.stack([index_matrix, indices], axis=-1)
-      # This selects all elements for the end of the spline interval.
-      selection_matrix_1 = tf.stack([index_matrix, indices + 1], axis=-1)
+    # This selects all elements for the start of the spline interval.
+    # Make sure indices lie in the permissible range
+    indices_lower = tf.maximum(indices, 0)
+    selection_matrix = tf.concat(
+        [index_matrix, tf.expand_dims(indices_lower, -1)], -1)
+    # This selects all elements for the end of the spline interval.
+    # Make sure indices lie in the permissible range
+    indices_upper = tf.minimum(indices + 1, x_data.shape.as_list()[-1] - 1)
+    selection_matrix_1 = tf.concat(
+        [index_matrix, tf.expand_dims(indices_upper, -1)], -1)
 
-      # Calculate dx and dy.
-      # Simplified logic:
-      # dx = x_data[indices + 1] - x_data[indices]
-      # dy = y_data[indices + 1] - y_data[indices]
-      # indices is a tensor with different values per row/spline
-      # Hence use a selection matrix with gather_nd
+    # Calculate dx and dy.
+    # Simplified logic:
+    # dx = x_data[indices + 1] - x_data[indices]
+    # dy = y_data[indices + 1] - y_data[indices]
+    # indices is a tensor with different values per row/spline
+    # Hence use a selection matrix with gather_nd
+    x0 = tf.gather_nd(x_data, selection_matrix)
+    x1 = tf.gather_nd(x_data, selection_matrix_1)
+    dx = x1 - x0
 
-      x0 = tf.gather_nd(x_data, selection_matrix)
-      x1 = tf.gather_nd(x_data, selection_matrix_1)
-      dx = x1 - x0
+    y0 = tf.gather_nd(y_data, selection_matrix)
+    y1 = tf.gather_nd(y_data, selection_matrix_1)
+    dy = y1 - y0
+    spline_coeffs0 = tf.gather_nd(spline_coeffs, selection_matrix)
+    spline_coeffs1 = tf.gather_nd(spline_coeffs, selection_matrix_1)
 
-      y0 = tf.gather_nd(y_data, selection_matrix)
-      y1 = tf.gather_nd(y_data, selection_matrix_1)
-      dy = y1 - y0
-      beta0 = tf.gather_nd(beta, selection_matrix)
-      beta1 = tf.gather_nd(beta, selection_matrix_1)
+    t = (x_values - x0) / dx
+    t = tf.where(dx > 0, t, tf.zeros_like(t))
+    df = ((t + 1.0) * spline_coeffs1 * 2.0) - ((t - 2.0) * spline_coeffs0 * 2.0)
+    df1 = df * t * (t - 1) / 6.0
+    result = y0 + (t * dy) + (dx * dx * df1)
+    # Use constant extrapolation outside the domain
+    upper_bound = tf.expand_dims(
+        tf.reduce_max(x_data, -1), -1) + tf.zeros_like(result)
+    lower_bound = tf.expand_dims(
+        tf.reduce_min(x_data, -1), -1) + tf.zeros_like(result)
+    result = tf.where(tf.logical_and(x_values <= upper_bound,
+                                     x_values >= lower_bound),
+                      result, tf.where(x_values > upper_bound, y0, y1))
+    return result
 
-      # This reduces the amount of calculation effort to derive
-      # alpha and gamma separately.
-      # Reference: [3]
 
-      t = (x_values - x0) / dx
-      df = ((t + 1.0) * beta1 * 2.0) - ((t - 2.0) * beta0 * 2.0)
-      df1 = df * t * (t - 1) / 6.0
-      result = y0 + (t * dy) + (dx * dx * df1)
+def _calculate_spline_coeffs(x_data, y_data):
+  """Calculates the coefficients for the spline interpolation.
 
-      return result
+  These are the values of the second derivative of the spline at `x_data`.
+  See p.548 of [1].
+
+  Below is an outline of the function when number of observations if equal to 7.
+  The coefficients are obtained by building and solving a tridiagonal linear
+  system of equations with symmetric matrix
+
+   w2,  dx2,   0,   0,   0
+   dx2,  w3, dx3,   0,   0
+   0,  dx3,   w4, dx4,   0
+   0,    0,  dx4,  w5, dx5
+   0,    0,    0, dx5,  w6
+
+   where:
+   wn = 2 * (x_data[n-2] + x_data[n-1])
+   dxn = x_data[n-1] - x_data[n-2]
+
+   and the right hand side of the equation is:
+   [[3*( (d2-d1)/X1 - (d1-d0)/x0],
+    [3*( (d3-d2)/X2 - (d2-d1)/x1],
+    ...
+   ]
+
+   with di = y_data[..., i]
+
+   Solve for `spline_coeffs`, so that  matrix * spline_coeffs = rhs
+
+   the solution is the `spline_coeffs` parameter of the spline equation:
+
+   y_pred = a(spline_coeffs) * t^3 + b(spline_coeffs) * t^2
+            + c(spline_coeffs) * t + d(spline_coeffs)
+   with t being the proportion of the difference between the x value of
+   the spline used and the nx_value of the next spline:
+
+   t = (x_values - x_data[:,n]) / (x_data[:,n+1]-x_data[:,n])
+
+   and `a`, `b`, `c`, and `d` are functions of `spline_coeffs` and `x_data` and
+   are provided in the `interpolate` function.
+
+  ## References:
+  [1]: R. Sedgewick, Algorithms in C, 1990, p. 545-550.
+    Link: http://index-of.co.uk/Algorithms/Algorithms%20in%20C.pdf
+
+  Args:
+    x_data: A real `Tensor` of shape `[..., num_points]` containing
+      X-coordinates of points to fit the splines to. The values have to
+      be monotonically non-decreasing along the last dimension.
+    y_data: A `Tensor` of the same shape and `dtype` as `x_data` containing
+      Y-coordinates of points to fit the splines to.
+
+  Returns:
+     A `Tensor` of the same shape and `dtype` as `x_data`. Represents the
+     spline coefficients for the cubic spline interpolation.
+  """
+
+  # `dx` is the distances between the x points. It is 1 element shorter than
+  # `x_data`
+  dx = x_data[..., 1:] - x_data[..., :-1]
+
+  # `diag_values` are the diagonal values 2 * (x_data[i+1] - x_data[i-1])
+  # its length 2 shorter
+
+  diag_values = 2.0 * (x_data[..., 2:] - x_data[..., :-2])
+  superdiag = dx[..., 1:]
+  subdiag = dx[..., :-1]
+
+  corr_term = tf.logical_or(tf.equal(superdiag, 0), tf.equal(subdiag, 0))
+  diag_values_corr = tf.where(corr_term,
+                              tf.ones_like(diag_values), diag_values)
+  superdiag_corr = tf.where(tf.equal(subdiag, 0),
+                            tf.zeros_like(superdiag), superdiag)
+  subdiag_corr = tf.where(tf.equal(superdiag, 0),
+                          tf.zeros_like(subdiag), subdiag)
+  diagonals = tf.stack([superdiag_corr, diag_values_corr, subdiag_corr],
+                       axis=-2)
+
+  # determine the rhs of the equation
+  dd = (y_data[..., 1:] - y_data[..., :-1]) / dx
+  dd = tf.where(tf.equal(dx, 0), tf.zeros_like(dd), dd)
+  # rhs is a column vector:
+  # [[-3((y1-y0)/dx0 - (y2-y1)/dx0], ...]
+  rhs = -3 * (dd[..., :-1] - dd[..., 1:])
+  rhs = tf.where(corr_term, tf.zeros_like(rhs), rhs)
+  # Partial pivoting is unnecessary since the matrix is diagonally dominant.
+  spline_coeffs = tf.linalg.tridiagonal_solve(diagonals, rhs,
+                                              partial_pivoting=False)
+  # Reshape `spline_coeffs`
+  zero = tf.zeros_like(dx[..., :1], dtype=x_data.dtype)
+  spline_coeffs = tf.concat([zero, spline_coeffs, zero], axis=-1)
+  return spline_coeffs
+
+
+def _validate_arguments(x_data):
+  """Checks that input arguments are in the non-decreasing order."""
+  diffs = x_data[..., 1:] - x_data[..., :-1]
+  return tf.compat.v1.debugging.assert_greater_equal(
+      diffs,
+      tf.zeros_like(diffs),
+      message="x_data is not sorted in non-decreasing order.")
+
+
+def _prepare_indices(indices):
+  """Prepares `tf.searchsorted` output for index argument of `tf.gather_nd`."""
+  batch_shape = indices.shape.as_list()[:-1]
+  num_points = indices.shape.as_list()[-1]
+  batch_shape_reverse = indices.shape.as_list()[:-1]
+  batch_shape_reverse.reverse()
+  index_matrix = tf.constant(
+      np.flip(np.transpose(np.indices(batch_shape_reverse)), -1),
+      dtype=indices.dtype)
+  batch_rank = len(batch_shape)
+  # Broadcast index matrix to the shape of
+  # `batch_shape + [num_points] + [batch_rank]`
+  broadcasted_shape = batch_shape + [num_points] + [batch_rank]
+  index_matrix = tf.expand_dims(index_matrix, -2) + tf.zeros(
+      broadcasted_shape, dtype=indices.dtype)
+  return index_matrix

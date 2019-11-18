@@ -54,108 +54,39 @@ class CubicInterpolationTest(tf.test.TestCase):
     limit = 0.02
     self.assertLess(deviation, limit)
 
-  def test_compare_spline_64(self):
-    x_data1 = np.linspace(-5.0, 5.0, num=11, dtype=np.float64)
-    x_data2 = np.linspace(0.0, 10.0, num=11, dtype=np.float64)
-    x_series = np.array([x_data1, x_data2])
-    y_data1 = [1.0 / (1.0 + x * x) for x in x_data1]
-    y_data2 = [1.0 / (2.0 + x * x) for x in x_data2]
-    y_series = np.array([y_data1, y_data2])
-    search_args = tf.constant([[-1.2, 0.0, 0.3], [2.2, 1.8, 5.0]],
-                              dtype=tf.float64)
+  def test_spline_batch(self):
+    """Tests batching of four splines."""
+    for dtype in (np.float32, np.float64):
+      x_data = np.linspace(-11, 12, 24)
+      x_data = np.reshape(x_data, [2, 2, 6])
+      y_data = 1.0 / (1.0 + x_data * x_data)
+      search_args = np.array([[[-10.5, -5.], [-4.5, 1]],
+                              [[1.5, 2.], [7.5, 12.]]])
 
-    spline2 = tff.math.interpolation.cubic.build_spline(x_series, y_series)
-    result = tf.reshape(
-        tff.math.interpolation.cubic.interpolate(search_args, spline2), [6])
+      spline = tff.math.interpolation.cubic.build_spline(
+          x_data, y_data, dtype=dtype)
+      result = tff.math.interpolation.cubic.interpolate(search_args, spline,
+                                                        dtype=dtype)
 
-    expected = tf.constant([
-        0.401153371166, 1.0, 0.927547412565, 0.144129651521, 0.194406085855,
-        0.037037037037
-    ],
-                           dtype=tf.float64)
-
-    self.assertAllClose(expected, result)
-
-  def test_compare_spline_32(self):
-    x_data1 = np.linspace(-5.0, 5.0, num=11, dtype=np.float32)
-    x_data2 = np.linspace(0.0, 10.0, num=11, dtype=np.float32)
-    x_series = np.array([x_data1, x_data2])
-    y_data1 = [1.0 / (1.0 + x * x) for x in x_data1]
-    y_data2 = [1.0 / (2.0 + x * x) for x in x_data2]
-    y_series = np.array([y_data1, y_data2], dtype=np.float32)
-    search_args = tf.constant([[-1.2, 0.0, 0.3], [2.2, 1.8, 5.0]],
-                              dtype=tf.float32)
-
-    spline2 = tff.math.interpolation.cubic.build_spline(x_series, y_series)
-    result = tf.reshape(
-        tff.math.interpolation.cubic.interpolate(search_args, spline2), [6])
-
-    expected = tf.constant([
-        0.401153371166, 1.0, 0.927547412565, 0.144129651521, 0.194406085855,
-        0.037037037037
-    ],
-                           dtype=tf.float32)
-
-    self.assertAllClose(expected, result)
-
-  def test_compare_shape_conformance_of_interpolate(self):
-    """Test that the shape of the result of the interpolate method is correct.
-
-    i.e.
-    given
-    x_points.shape (num_splines, spline_length)
-    y_points.shape (num_splines, spline_length)
-    x_test.shape (num_splines, num_test_values)
-
-    then interpolate(x_test, spline ) -> shape(num_splines, num_test_values)
-    """
-
-    # num splines = 2
-    # spline_length = 11
-    x_data1 = np.linspace(-5.0, 5.0, num=11)
-    x_data2 = np.linspace(0.0, 10.0, num=11)
-    x_series = np.array([x_data1, x_data2])
-    y_data1 = [1.0 / (1.0 + x * x) for x in x_data1]
-    y_data2 = [1.0 / (2.0 + x * x) for x in x_data2]
-    y_series = np.array([y_data1, y_data2])
-
-    # num_test_values = 3
-    search_args = tf.constant([[-1.2, 0.0, 0.3], [2.2, 1.8, 5.0]],
-                              dtype=tf.float64)
-
-    x_data_series = tf.stack(x_series, axis=0)
-    y_data_series = tf.stack(y_series, axis=0)
-    x_test = tf.stack(search_args, axis=0)
-
-    spline = tff.math.interpolation.cubic.build_spline(x_data_series,
-                                                       y_data_series)
-    predicted = tff.math.interpolation.cubic.interpolate(x_test, spline)
-
-    self.assertAllEqual(tf.shape(x_test), tf.shape(predicted))
-
-    # num_test_values = 13
-    search_args11 = tf.constant(
-        [[-1.2, 0.0, 0.3, 1.2, 2.1, 0.8, 0.0, 0.3, 1.2, 2.1, 0.8],
-         [2.2, 1.8, 5.0, 2.2, 1.8, 5.0, 5.0, 2.2, 1.8, 5.0, 2.2]],
-        dtype=tf.float64)
-
-    x_test11 = tf.stack(search_args11, axis=0)
-    predicted11 = tff.math.interpolation.cubic.interpolate(x_test11, spline)
-
-    self.assertAllEqual(tf.shape(x_test11), tf.shape(predicted11))
+      expected = np.array([[[0.00900778, 0.02702703],
+                            [0.04705774, 1.]],
+                           [[0.33135411, 0.2],
+                            [0.01756963, 0.00689655]]],
+                          dtype=dtype)
+      self.assertEqual(result.dtype.as_numpy_dtype, dtype)
+      result = self.evaluate(result)
+      np.testing.assert_almost_equal(expected, result)
 
   def test_invalid_interpolate_parameter_shape(self):
-    """Test shape(x_points)[0] != shape(test_x)[0]."""
-
+    """Tests batch shape of spline and interpolation should be the same."""
     x_data1 = np.linspace(-5.0, 5.0, num=11)
     x_data2 = np.linspace(0.0, 10.0, num=11)
     x_series = np.array([x_data1, x_data2])
-    y_data1 = [1.0 / (1.0 + x * x) for x in x_data1]
-    y_data2 = [1.0 / (2.0 + x * x) for x in x_data2]
+    y_data1 = 1.0 / (1.0 + x_data1**2)
+    y_data2 = 1.0 / (2.0 + x_data2**2)
     y_series = np.array([y_data1, y_data2])
     x_data_series = tf.stack(x_series, axis=0)
     y_data_series = tf.stack(y_series, axis=0)
-
     search_args = tf.constant([[-1.2, 0.0, 0.3]], dtype=tf.float64)
     x_test = tf.stack(search_args, axis=0)
     spline = tff.math.interpolation.cubic.build_spline(x_data_series,
@@ -165,162 +96,32 @@ class CubicInterpolationTest(tf.test.TestCase):
     with self.assertRaises(ValueError, msg=msg):
       tff.math.interpolation.cubic.interpolate(x_test, spline)
 
-  def test_invalid_interpolate_parameter_value(self):
-    """Test where a value to interpolate lies outside the spline points."""
-
-    x_data1 = np.linspace(-5.0, 5.0, num=11)
-    x_data2 = np.linspace(0.0, 10.0, num=11)
-    x_series = np.array([x_data1, x_data2])
-    y_data1 = [1.0 / (1.0 + x * x) for x in x_data1]
-    y_data2 = [1.0 / (2.0 + x * x) for x in x_data2]
-    y_series = np.array([y_data1, y_data2])
-    x_data_series = tf.stack(x_series, axis=0)
-    y_data_series = tf.stack(y_series, axis=0)
-
-    # num_test_values = 3
-    search_args = tf.constant([[-5.2, 0.0, 5.3], [2.2, 1.8, 5.0]],
-                              dtype=tf.float64)
-    x_test = tf.stack(search_args, axis=0)
-    spline = tff.math.interpolation.cubic.build_spline(x_data_series,
-                                                       y_data_series)
-
-    msg = ("Failed to catch that the test vector data lies outside of "
-           "spline range")
-
-    with self.assertRaises(tf.errors.InvalidArgumentError, msg=msg) as cm:
-      self.evaluate(
-          tff.math.interpolation.cubic.interpolate(
-              x_test, spline, validate_args=True))
-    print(cm.exception)
-
   def test_invalid_spline_x_points(self):
-    """Test a spline where the x_points are not strictly increasing."""
+    """Tests a spline where the x_points are not increasing."""
     x_data = tf.constant([[1.0, 2.0, 1.5, 3.0, 4.0]], dtype=tf.float64)
     y_data = tf.constant([[1.0, 1.0, 1.0, 1.0, 1.0]], dtype=tf.float64)
 
     msg = "Failed to detect invalid x_data sequence"
-    with self.assertRaises(tf.errors.InvalidArgumentError, msg=msg) as cm:
+    with self.assertRaises(tf.errors.InvalidArgumentError, msg=msg):
       self.evaluate(
           tff.math.interpolation.cubic.build_spline(
               x_data, y_data, validate_args=True)[2])
-    print(cm.exception)
 
   def test_duplicate_x_points(self):
-    """Test a spline where there are x_points of the same value."""
-    x_data = tf.constant([[1.0, 2.0, 2.0, 3.0, 4.0]], dtype=tf.float64)
-    y_data = tf.constant([[1.0, 1.0, 1.0, 1.0, 1.0]], dtype=tf.float64)
-
-    msg = "Failed to detect duplicate x_data points"
-    with self.assertRaises(tf.errors.InvalidArgumentError, msg=msg) as cm:
-      self.evaluate(
-          tff.math.interpolation.cubic.build_spline(
-              x_data, y_data, validate_args=True)[2])
-    print(cm.exception)
-
-  def test_validate_args_build(self):
-    """Test that validation works as intended."""
-    x_data = tf.constant([[1.0, 2.0, 2.0, 3.0, 4.0]], dtype=tf.float64)
-    y_data = tf.constant([[1.0, 1.0, 1.0, 1.0, 1.0]], dtype=tf.float64)
-
-    # this should not fail
-    self.evaluate(
-        tff.math.interpolation.cubic.build_spline(
-            x_data, y_data, validate_args=False)[2])
-
-  def test_validate_args_interpolate(self):
-    """Test that validation can be turned off in the interpolate call."""
-    x_data1 = np.linspace(-5.0, 5.0, num=11)
-    x_data2 = np.linspace(0.0, 10.0, num=11)
-    x_series = np.array([x_data1, x_data2])
-    y_data1 = [1.0 / (1.0 + x * x) for x in x_data1]
-    y_data2 = [1.0 / (2.0 + x * x) for x in x_data2]
-    y_series = np.array([y_data1, y_data2])
-    x_data_series = tf.stack(x_series, axis=0)
-    y_data_series = tf.stack(y_series, axis=0)
-
-    # num_test_values = 3
-    search_args = tf.constant([[-5.2, 0.0, 5.3], [2.2, 1.8, 5.0]],
-                              dtype=tf.float64)
-    x_test = tf.stack(search_args, axis=0)
-    spline = tff.math.interpolation.cubic.build_spline(x_data_series,
-                                                       y_data_series)
-
-    # this should not fail with a validation error but a separate error
-    # thrown by gather_nd
-    msg = "The error should be an invalid argument"
-    with self.assertRaises(tf.errors.InvalidArgumentError, msg=msg) as cm:
-      self.evaluate(
-          tff.math.interpolation.cubic.interpolate(
-              x_test, spline, validate_args=False))
-      print(cm.exception)
-
-  def test_build_and_interpolate(self):
-    """Test a combined call by just calling interpolate."""
-    # num splines = 2
-    # spline_length = 11
-    x_data1 = np.linspace(-5.0, 5.0, num=11)
-    x_data2 = np.linspace(0.0, 10.0, num=11)
-    x_series = np.array([x_data1, x_data2])
-    y_data1 = [1.0 / (1.0 + x * x) for x in x_data1]
-    y_data2 = [1.0 / (2.0 + x * x) for x in x_data2]
-    y_series = np.array([y_data1, y_data2])
-
-    # num_test_values = 3
-    search_args = tf.constant([[-1.2, 0.0, 0.3], [2.2, 1.8, 5.0]],
-                              dtype=tf.float64)
-
-    x_data_series = tf.stack(x_series, axis=0)
-    y_data_series = tf.stack(y_series, axis=0)
-    x_test = tf.stack(search_args, axis=0)
-
-    spline = tff.math.interpolation.cubic.SplineParameters(
-        x_data_series, y_data_series, None)
-
-    predicted = tff.math.interpolation.cubic.interpolate(x_test, spline)
-
-    self.assertAllEqual(tf.shape(x_test), tf.shape(predicted))
-
-  def test_dtype_conversion_float32_64(self):
-    """Test specifying float32 data but requiring conversion to float64."""
-    x_data1 = np.linspace(-5.0, 5.0, num=11, dtype=np.float32)
-    x_data2 = np.linspace(0.0, 10.0, num=11, dtype=np.float32)
-    x_series = np.array([x_data1, x_data2])
-    y_data1 = [1.0 / (1.0 + x * x) for x in x_data1]
-    y_data2 = [1.0 / (2.0 + x * x) for x in x_data2]
-    y_series = np.array([y_data1, y_data2], dtype=np.float32)
-    search_args = tf.constant([[-1.2, 0.0, 0.3], [2.2, 1.8, 5.0]],
-                              dtype=tf.float32)
-
-    spline2 = tff.math.interpolation.cubic.build_spline(
-        x_series, y_series, dtype=tf.float64)
-
-    msg = "Tensor conversion float32 to float64  should fail here"
-    with self.assertRaises(ValueError, msg=msg) as cm:
-      self.evaluate(
-          tff.math.interpolation.cubic.interpolate(
-              search_args, spline2, dtype=tf.float64))
-      print(cm)
-
-  def test_dtype_conversion_float64_32(self):
-    """Test specifying float64 data but requiring conversion to float32."""
-    x_data1 = np.linspace(-5.0, 5.0, num=11, dtype=np.float64)
-    x_data2 = np.linspace(0.0, 10.0, num=11, dtype=np.float64)
-    x_series = np.array([x_data1, x_data2])
-    y_data1 = [1.0 / (1.0 + x * x) for x in x_data1]
-    y_data2 = [1.0 / (2.0 + x * x) for x in x_data2]
-    y_series = np.array([y_data1, y_data2], dtype=np.float64)
-    search_args = tf.constant([[-1.2, 0.0, 0.3], [2.2, 1.8, 5.0]],
-                              dtype=tf.float64)
-
-    spline2 = tff.math.interpolation.cubic.build_spline(
-        x_series, y_series, dtype=tf.float32)
-    msg = "Tensor conversion from float64 to float32 should fail here"
-    with self.assertRaises(ValueError, msg=msg) as cm:
-      self.evaluate(
-          tff.math.interpolation.cubic.interpolate(
-              search_args, spline2, dtype=tf.float32))
-      print(cm)
-
+    """Tests a spline where there are x_points of the same value."""
+    # Repeated boundary values are allowed
+    x_data = np.array([[1.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0],
+                       [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]])
+    y_data = np.array([[3.0, 3.0, 1.0, 3.0, 2.0, 3.0, 2.0],
+                       [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]])
+    spline = tff.math.interpolation.cubic.build_spline(x_data, y_data)
+    x_values = np.array([[0.0, 1.0, 1.5, 2.0, 2.5, 3.5, 4.0, 5.0],
+                         [0.0, 1.0, 1.5, 2.0, 2.5, 3.5, 4.0, 5.0]])
+    interpolated = tff.math.interpolation.cubic.interpolate(x_values, spline)
+    expected = np.array([[3.0, 3.0, 1.525, 1.0, 1.925, 2.9, 2.0, 2.0],
+                         [1.0, 1.0, 1.5, 2.0, 2.5, 3.5, 4.0, 5.0]])
+    interpolated = self.evaluate(interpolated)
+    np.testing.assert_almost_equal(expected, interpolated)
 
 if __name__ == "__main__":
   tf.test.main()
