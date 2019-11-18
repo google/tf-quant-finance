@@ -53,13 +53,16 @@ py_library(
 
 py_test(
     name = "euler_sampling_test",
-    size = "small",
+    size = "medium",
     timeout = "moderate",
     srcs = ["euler_sampling_test.py"],
     python_version = "PY3",
+    shard_count = 5,
     deps = [
         ":euler_sampling",
+        "//tf_quant_finance",
         "//tf_quant_finance/math/random_ops",
+        # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
     ],

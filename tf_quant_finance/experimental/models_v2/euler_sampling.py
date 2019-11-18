@@ -157,9 +157,12 @@ def _euler_step(i, written_count, current_state, result,
                 random_type, seed):
   """Performs one step of Euler scheme."""
   current_time = times[i + 1]
+  # In order to use Halton or Sobol random_type we need to set the `skip`
+  # argument that enusres new points are sampled at every iteration
+  skip = i * num_samples
   dw = random.mv_normal_sample(
       (num_samples,), mean=wiener_mean, random_type=random_type,
-      seed=seed)
+      seed=seed, skip=skip)
   dw = dw * sqrt_dt[i]
   dt_inc = dt[i] * drift_fn(current_time, current_state)  # pylint: disable=not-callable
   dw_inc = tf.squeeze(
