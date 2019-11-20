@@ -237,9 +237,10 @@ def multidim_parabolic_equation_step(
       Only the elements with `j >= i` will be used, and it is assumed that
       `a_{ji} = a_{ij}`, so `A[i][j] with `j < i` may return `None`.
       Each `A[i][j]` should be a Number, a `Tensor` broadcastable to the
-      shape of `locations_grid`, or `None` if corresponding term is absent in
-      the equation. Also, the callable itself may be None, meaning there are no
-      second-order derivatives in the equation.
+      shape of the grid represented by `locations_grid`, or `None` if
+      corresponding term is absent in the equation. Also, the callable itself
+      may be None, meaning there are no second-order derivatives in the
+      equation.
       For example, for `n_dims=2`, the callable may return either
       `[[a_yy, a_xy], [a_xy, a_xx]]` or `[[a_yy, a_xy], [None, a_xx]]`.
     first_order_coeff_fn: Callable returning the first order coefficients
@@ -250,9 +251,9 @@ def multidim_parabolic_equation_step(
           which the coefficient should be evaluated.
       Returns a list or an 1D `Tensor`, `i`-th element of which represents
       `b_{i}(t, r)`. Each element should be a Number, a `Tensor` broadcastable
-       to the shape of `locations_grid`, or None if corresponding term is absent
-       in the equation. The callable itself may be None, meaning there are no
-       first-order derivatives in the equation.
+       to the shape of of the grid represented by `locations_grid`, or None if
+       corresponding term is absent in the equation. The callable itself may be
+       None, meaning there are no first-order derivatives in the equation.
     zeroth_order_coeff_fn: Callable returning the zeroth order coefficient
       `c(t, r)` evaluated at given time `t`.
       The callable accepts the following arguments:
@@ -260,8 +261,8 @@ def multidim_parabolic_equation_step(
         `locations_grid`: a `Tensor` representing a grid of locations `r` at
           which the coefficient should be evaluated.
       Should return a Number or a `Tensor` broadcastable to the shape of
-      `locations_grid`. May also return None or be None if the shift term is
-      absent in the equation.
+      the grid represented by `locations_grid`. May also return None or be None
+      if the shift term is absent in the equation.
     dtype: The dtype to use.
     name: The name to give to the ops.
       Default value: None which means `parabolic_equation_step` is used.

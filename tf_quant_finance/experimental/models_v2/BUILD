@@ -25,6 +25,10 @@ py_library(
     deps = [
         ":euler_sampling",
         ":ito_process",
+        "//tf_quant_finance/experimental/pde_v2:boundary_conditions",
+        "//tf_quant_finance/experimental/pde_v2:fd_solvers",
+        "//tf_quant_finance/experimental/pde_v2/fd_backward_schemes",
+        "//tf_quant_finance/experimental/pde_v2/grids",
         # tensorflow dep,
     ],
 )

@@ -27,6 +27,8 @@ import tensorflow as tf
 
 from tf_quant_finance.experimental.models_v2 import euler_sampling
 from tf_quant_finance.experimental.models_v2 import ito_process
+from tf_quant_finance.experimental.pde_v2 import fd_solvers
+from tf_quant_finance.experimental.pde_v2.fd_backward_schemes import douglas_adi
 
 
 class GenericItoProcess(ito_process.ItoProcess):
@@ -94,17 +96,17 @@ class GenericItoProcess(ito_process.ItoProcess):
       drift_fn: A Python callable to compute the drift of the process. The
         callable should accept two real `Tensor` arguments of the same dtype.
         The first argument is the scalar time t, the second argument is the
-        value of Ito process X - `Tensor` of shape `batch_shape + [dim]`.
-        The result is value of drift a(t, X). The return value of the callable
-        is a real `Tensor` of the same dtype as the input arguments and of shape
+        value of Ito process X - `Tensor` of shape `batch_shape + [dim]`. The
+        result is value of drift a(t, X). The return value of the callable is a
+        real `Tensor` of the same dtype as the input arguments and of shape
         `batch_shape + [dim]`.
       volatility_fn: A Python callable to compute the volatility of the process.
         The callable should accept two real `Tensor` arguments of the same dtype
         and shape `times_shape`. The first argument is the scalar time t, the
         second argument is the value of Ito process X - `Tensor` of shape
-        `batch_shape + [dim]`. The result is value of drift b(t, X). The return
-        value of the callable is a real `Tensor` of the same dtype as the input
-        arguments and of shape `batch_shape + [dim, dim]`.
+        `batch_shape + [dim]`. The result is value of volatility S_{ij}(t, X).
+        The return value of the callable is a real `Tensor` of the same dtype as
+        the input arguments and of shape `batch_shape + [dim, dim]`.
       dtype: The default dtype to use when converting values to `Tensor`s.
         Default value: None which means that default dtypes inferred by
           TensorFlow are used.
@@ -159,9 +161,9 @@ class GenericItoProcess(ito_process.ItoProcess):
     The callable should accept two real `Tensor` arguments of the same dtype and
     shape `times_shape`. The first argument is the scalar time t, the second
     argument is the value of Ito process X - `Tensor` of shape `batch_shape +
-    [dim]`. The result is value of drift b(t, X). The return value of the
-    callable is a real `Tensor` of the same dtype as the input arguments and of
-    shape `batch_shape + [dim, dim]`.
+    [dim]`. The result is value of volatility `S_ij`(t, X). The return value of
+    the callable is a real `Tensor` of the same dtype as the input arguments and
+    of shape `batch_shape + [dim, dim]`.
 
     Returns:
       The instantaneous volatility callable.
@@ -190,8 +192,8 @@ class GenericItoProcess(ito_process.ItoProcess):
       initial_state: `Tensor` of shape `[dim]`. The initial state of the
         process.
         Default value: None which maps to a zero initial state.
-      random_type: Enum value of `RandomType`. The type of (quasi)-random
-        number generator to use to generate the paths.
+      random_type: Enum value of `RandomType`. The type of (quasi)-random number
+        generator to use to generate the paths.
         Default value: None which maps to the standard pseudo-random numbers.
       seed: Python `int`. The random seed to use. If not supplied, no seed is
         set.
@@ -225,3 +227,72 @@ class GenericItoProcess(ito_process.ItoProcess):
           swap_memory=swap_memory,
           dtype=self._dtype,
           name=name)
+
+  def fd_solver_backward(self,
+                         start_time,
+                         end_time,
+                         coord_grid,
+                         values_grid,
+                         discounting=None,
+                         one_step_fn=None,
+                         boundary_conditions=None,
+                         start_step_count=0,
+                         num_steps=None,
+                         time_step=None,
+                         values_transform_fn=None,
+                         dtype=None,
+                         name=None,
+                         **kwargs):
+    """See base class."""
+    # pde_solver_fn can be injected for unit testing.
+    pde_solver_fn = kwargs.get('pde_solver_fn', fd_solvers.step_back)
+
+    def second_order_coeff_fn(t, coord_grid):
+      sigma = self._volatility_fn(t, self._coord_grid_to_mesh_grid(coord_grid))
+      sigma_times_sigma_t = tf.linalg.matmul(sigma, sigma, transpose_b=True)
+
+      # We currently have [dim, dim] as innermost dimensions, but the returned
+      # tensor must have [dim, dim] as outermost dimensions.
+      rank = len(sigma.shape.as_list())
+      perm = [rank - 2, rank - 1] + list(range(rank - 2))
+      sigma_times_sigma_t = tf.transpose(sigma_times_sigma_t, perm)
+      return sigma_times_sigma_t / 2
+
+    def first_order_coeff_fn(t, coord_grid):
+      mu = self._drift_fn(t, self._coord_grid_to_mesh_grid(coord_grid))
+
+      # We currently have [dim] as innermost dimension, but the returned
+      # tensor must have [dim] as outermost dimension.
+      rank = len(mu.shape.as_list())
+      perm = [rank - 1] + list(range(rank - 1))
+      mu = tf.transpose(mu, perm)
+      return mu
+
+    def zeroth_order_coeff_fn(t, coord_grid):
+      if not discounting:
+        return None
+      return -discounting(t, self._coord_grid_to_mesh_grid(coord_grid))
+
+    one_step_fn = douglas_adi.douglas_adi_step(theta=0.5)
+
+    return pde_solver_fn(
+        start_time=start_time,
+        end_time=end_time,
+        coord_grid=coord_grid,
+        values_grid=values_grid,
+        num_steps=num_steps,
+        start_step_count=start_step_count,
+        time_step=time_step,
+        one_step_fn=one_step_fn,
+        boundary_conditions=boundary_conditions,
+        values_transform_fn=values_transform_fn,
+        second_order_coeff_fn=second_order_coeff_fn,
+        first_order_coeff_fn=first_order_coeff_fn,
+        zeroth_order_coeff_fn=zeroth_order_coeff_fn,
+        dtype=dtype,
+        name=name)
+
+  def _coord_grid_to_mesh_grid(self, coord_grid):
+    if self._dim == 1:
+      return coord_grid[0]
+    return tf.stack(values=tf.meshgrid(*coord_grid, indexing='ij'), axis=-1)

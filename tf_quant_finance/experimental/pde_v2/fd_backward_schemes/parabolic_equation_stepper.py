@@ -95,9 +95,10 @@ def parabolic_equation_step(
           which the coefficient should be evaluated.
       Returns an object `A` such that `A[0][0]` is defined and equals
       `a(r, t)`. `A[0][0]` should be a Number, a `Tensor` broadcastable to the
-      shape of `locations_grid`, or `None` if corresponding term is absent in
-      the equation. Also, the callable itself may be None, meaning there are no
-      second-order derivatives in the equation.
+      shape of the grid represented by `locations_grid`, or `None` if
+      corresponding term is absent in the equation. Also, the callable itself
+      may be None, meaning there are no second-order derivatives in the
+      equation.
     first_order_coeff_fn: Callable returning the first order coefficient
       `b(t, r)` evaluated at given time `t`.
       The callable accepts the following arguments:
@@ -106,9 +107,9 @@ def parabolic_equation_step(
           which the coefficient should be evaluated.
       Returns a list or an 1D `Tensor`, `0`-th element of which represents
       `b(t, r)`. This element should be a Number, a `Tensor` broadcastable
-       to the shape of `locations_grid`, or None if corresponding term is absent
-       in the equation. The callable itself may be None, meaning there are no
-       first-order derivatives in the equation.
+       to the shape of the grid represented by `locations_grid`, or None if
+       corresponding term is absent in the equation. The callable itself may be
+       None, meaning there are no first-order derivatives in the equation.
     zeroth_order_coeff_fn: Callable returning the zeroth order coefficient
       `c(t, r)` evaluated at given time `t`.
       The callable accepts the following arguments:
@@ -116,8 +117,8 @@ def parabolic_equation_step(
         `locations_grid`: a `Tensor` representing a grid of locations `r` at
           which the coefficient should be evaluated.
       Should return a Number or a `Tensor` broadcastable to the shape of
-      `locations_grid`. May also return None or be None if the shift term is
-      absent in the equation.
+      the grid represented by `locations_grid`. May also return None or be None
+      if the shift term is absent in the equation.
     time_marching_scheme: A callable which represents the time marching scheme
       for solving the PDE equation. If `u(t)` is space-discretized vector of the
       solution of the PDE, this callable approximately solves the equation
