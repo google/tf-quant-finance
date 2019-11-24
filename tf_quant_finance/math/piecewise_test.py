@@ -58,6 +58,133 @@ class Piecewise(tf.test.TestCase):
                                            last_interval_is_closed=True)
     self.assertAllEqual(result, [0, 1])
 
+  def test_piecewise_constant_value_no_batch(self):
+    """Tests PiecewiseConstantFunc with no batching."""
+    for dtype in [np.float32, np.float64]:
+      x = np.array([0., 0.1, 2., 11.])
+      jump_locations = np.array([0.1, 10], dtype=dtype)
+      values = tf.constant([3, 4, 5], dtype=dtype)
+      piecewise_func = piecewise.PiecewiseConstantFunc(jump_locations, values,
+                                                       dtype=dtype)
+      # Also verifies left-continuity
+      value = piecewise_func(x)
+      self.assertEqual(value.dtype.as_numpy_dtype, dtype)
+      expected_value = np.array([3., 3., 4., 5.])
+      self.assertAllEqual(value, expected_value)
+
+  def test_piecewise_constant_integral_no_batch(self):
+    """Tests PiecewiseConstantFunc with no batching."""
+    for dtype in [np.float32, np.float64]:
+      x = np.array([-4.1, 0., 1., 1.5, 2., 4.5, 5.5])
+      jump_locations = np.array([1, 2, 3, 4, 5], dtype=dtype)
+      values = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
+      piecewise_func = piecewise.PiecewiseConstantFunc(jump_locations, values,
+                                                       dtype=dtype)
+      value = piecewise_func.integrate(x, x + 4.1)
+      self.assertEqual(value.dtype.as_numpy_dtype, dtype)
+      expected_value = np.array([0.41, 1.05, 1.46, 1.66, 1.86, 2.41, 2.46])
+      self.assertAllClose(value, expected_value, atol=1e-5, rtol=1e-5)
+
+  def test_piecewise_constant_value_with_batch(self):
+    """Tests PiecewiseConstantFunc with batching."""
+    for dtype in [np.float32, np.float64]:
+      x = np.array([[[0.0, 0.1, 2.0, 11.0], [0.0, 2.0, 3.0, 9.0]],
+                    [[0.0, 1.0, 2.0, 3.0], [4.0, 5.0, 6.0, 7.0]]])
+      jump_locations = np.array([[[0.1, 10.0], [1.5, 10.0]],
+                                 [[1.0, 2.0], [5.0, 6.0]]])
+      values = tf.constant([[[3, 4, 5], [3, 4, 5]],
+                            [[3, 4, 5], [3, 4, 5]]], dtype=dtype)
+      piecewise_func = piecewise.PiecewiseConstantFunc(jump_locations, values,
+                                                       dtype=dtype)
+      # Also verifies right-continuity
+      value = piecewise_func(x, left_continuous=False)
+      self.assertEqual(value.dtype.as_numpy_dtype, dtype)
+      expected_value = np.array([[[3.0, 4.0, 4.0, 5.0],
+                                  [3.0, 4.0, 4.0, 4.0]],
+                                 [[3.0, 4.0, 5.0, 5.0],
+                                  [3.0, 4.0, 5.0, 5.0]]])
+      self.assertAllEqual(value, expected_value)
+
+  def test_piecewise_constant_value_with_batch_and_repetitions(self):
+    """Tests PiecewiseConstantFunc with batching and repetitive values."""
+    for dtype in [np.float32, np.float64]:
+      x = tf.constant([[-4.1, 0.1, 1., 2., 10, 11.],
+                       [1., 2., 3., 2., 5., 9.]], dtype=dtype)
+      jump_locations = tf.constant([[0.1, 0.1, 1., 1., 10., 10.],
+                                    [-1., 1.2, 2.2, 2.2, 2.2, 8.]], dtype=dtype)
+      values = tf.constant([[3, 3, 4, 5, 5., 2, 6.],
+                            [-1, -5, 2, 5, 5., 5., 1.]], dtype=dtype)
+      piecewise_func = piecewise.PiecewiseConstantFunc(jump_locations, values,
+                                                       dtype=dtype)
+      # Also verifies left-continuity
+      value = piecewise_func(x, left_continuous=True)
+      self.assertEqual(value.dtype.as_numpy_dtype, dtype)
+      expected_value = np.array([[3., 3., 4., 5., 5., 6.],
+                                 [-5., 2., 5., 2., 5., 1.]])
+      self.assertAllEqual(value, expected_value)
+
+  def test_piecewise_constant_integral_with_batch(self):
+    """Tests PiecewiseConstantFunc with batching."""
+    for dtype in [np.float32, np.float64]:
+      x = np.array([[[0.0, 0.1, 2.0, 11.0], [0.0, 2.0, 3.0, 9.0]],
+                    [[0.0, 1.0, 2.0, 3.0], [4.0, 5.0, 6.0, 7.0]]])
+      jump_locations = np.array([[[0.1, 10.0], [1.5, 10.0]],
+                                 [[1.0, 2.0], [5.0, 6.0]]])
+      values = tf.constant([[[3, 4, 5], [3, 4, 5]],
+                            [[3, 4, 5], [3, 4, 5]]], dtype=dtype)
+      piecewise_func = piecewise.PiecewiseConstantFunc(jump_locations, values,
+                                                       dtype=dtype)
+      value = piecewise_func.integrate(x, x + 1.1)
+      self.assertEqual(value.dtype.as_numpy_dtype, dtype)
+      expected_value = np.array([[[4.3, 4.4, 4.4, 5.5],
+                                  [3.3, 4.4, 4.4, 4.5]],
+                                 [[3.4, 4.5, 5.5, 5.5],
+                                  [3.4, 4.5, 5.5, 5.5]]])
+      self.assertAllClose(value, expected_value, atol=1e-5, rtol=1e-5)
+
+  def test_invalid_jump_batch_shape(self):
+    """Tests that `jump_locations` and `values` should have the same batch."""
+    for dtype in [np.float32, np.float64]:
+      jump_locations = np.array([[0.1, 10], [2., 10]])
+      values = tf.constant([[[3, 4, 5], [3, 4, 5]]], dtype=dtype)
+      with self.assertRaises(ValueError):
+        piecewise.PiecewiseConstantFunc(jump_locations, values, dtype=dtype)
+
+  def test_invalid_value_event_shape(self):
+    """Tests that `values` event shape is `jump_locations` event shape + 1."""
+    for dtype in [np.float32, np.float64]:
+      jump_locations = np.array([[0.1, 10], [2., 10]])
+      values = tf.constant([[3, 4, 5, 6], [3, 4, 5, 7]], dtype=dtype)
+      with self.assertRaises(ValueError):
+        piecewise.PiecewiseConstantFunc(jump_locations, values, dtype=dtype)
+
+  def test_invalid_x_batch_shape(self):
+    """Tests that `x` should have the same batch shape as `jump_locations`."""
+    for dtype in [np.float32, np.float64]:
+      x = np.array([0., 0.1, 2., 11.])
+      jump_locations = np.array([[0.1, 10], [2., 10]])
+      values = tf.constant([[3, 4, 5], [3, 4, 5]], dtype=dtype)
+      piecewise_func = piecewise.PiecewiseConstantFunc(jump_locations, values,
+                                                       dtype=dtype)
+      with self.assertRaises(ValueError):
+        piecewise_func(x, left_continuous=False)
+
+  def test_different_x1_x2_batch_shape(self):
+    """Tests that `x1` and `x2` should have the same batch shape."""
+    for dtype in [np.float32, np.float64]:
+      x1 = np.array([[0., 0.1, 2., 11.]])
+      x2 = np.array([[0., 0.1, 2., 11.], [0., 0.1, 2., 11.]])
+      x3 = x2 + 1
+      jump_locations = np.array([[0.1, 10]])
+      values = tf.constant([[3, 4, 5]], dtype=dtype)
+      piecewise_func = piecewise.PiecewiseConstantFunc(jump_locations, values,
+                                                       dtype=dtype)
+      with self.assertRaises(ValueError):
+        piecewise_func.integrate(x1, x2)
+      # `x2` and `x3` have the same batch shape but different from
+      # the batch shape of `jump_locations`
+      with self.assertRaises(ValueError):
+        piecewise_func.integrate(x2, x3)
 
 if __name__ == '__main__':
   tf.test.main()

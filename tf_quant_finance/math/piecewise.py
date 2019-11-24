@@ -18,7 +18,190 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 import tensorflow as tf
+
+
+class PiecewiseConstantFunc(object):
+  """Creates a piecewise constant function."""
+
+  def __init__(self, jump_locations, values, dtype=None, name=None):
+    r"""Initializes jumps of the piecewise constant function.
+
+    Sets jump locations and values for a piecewise constant function.
+    `jump_locations` split real line into intervals
+    `[-inf, jump_locations[..., 0]], ..,
+    [jump_locations[..., i], jump_locations[..., i + 1]], ...,
+    [jump_locations[..., -1], inf]`
+    so that the piecewise constant function takes corresponding `values` on the
+    intervals, i.e.,
+    ```
+    f(x) = \sum_i values[..., i]
+           * I_{x \in [jump_locations[..., i -1], jump_locations[..., i])}
+    ```
+
+    ### Example
+    ```python
+    dtype = np.float64
+    x = np.array([0., 0.1, 2., 11.])
+    jump_locations = np.array([0.1, 10])
+    values = np.array([3, 4, 5])
+    piecewise_func = piecewise.PiecewiseConstantFunc(jump_locations, values,
+                                                     dtype=dtype)
+    value = piecewise_func(x)
+    integral = piecewise_func.integrate(x, x + 1)
+    ```
+
+    Args:
+      jump_locations: A real `Tensor` of shape
+        `batch_shape + [num_jump_points]`. The locations where the function
+        changes its values. Note that the values are expected to be ordered
+        along the last dimension. Repetitive values are allowed but it is
+        up for the user to ensure that the corresponding `values` are also
+        repetitive.
+      values: A `Tensor` of the same `dtype` as `batch_shape` and shape
+        `batch_shape + [num_jump_points + 1]`. Defines `values[..., i]` on
+        `jump_locations[..., i - 1], jump_locations[..., i]`.
+      dtype:  Optional dtype for `jump_locations` and `values`.
+        Default value: `None` which maps to the default dtype inferred by
+        TensorFlow.
+      name: Python `str` name prefixed to ops created by this class.
+        Default value: `None` which is mapped to the default name
+        `PiecewiseConstantFunc`.
+
+    Raises:
+      ValueError:
+        If `jump_locations` and `values` have different batch shapes or,
+        in case of static shapes, if the event shape of `values` is different
+        from `num_jump_points + 1`.
+    """
+    self._name = name or 'PiecewiseConstantFunc'
+    with tf.compat.v1.name_scope(self._name, values=[jump_locations, values]):
+      self._jump_locations = tf.convert_to_tensor(jump_locations, dtype=dtype,
+                                                  name='jump_locations')
+      self._values = tf.convert_to_tensor(values, dtype=dtype,
+                                          name='values')
+      shape_values = self._values.shape.as_list()
+      shape_jump_locations = self._jump_locations.shape.as_list()
+      if shape_values[:-1] != shape_jump_locations[:-1]:
+        raise ValueError('Batch shapes of `values` and `jump_locations` should '
+                         'be the same but are {0} and {1}'.format(
+                             shape_values[:-1], shape_jump_locations[:-1]))
+      if shape_values[-1] and shape_jump_locations[-1]:
+        if shape_values[-1] - 1 != shape_jump_locations[-1]:
+          raise ValueError('Event shape of `values` should have one more '
+                           'element than the event shape of `jump_locations` '
+                           'but are {0} and {1}'.format(
+                               shape_values[-1], shape_jump_locations[-1]))
+
+  def values(self):
+    """The value of the piecewise constant function between jump locations."""
+    return self._values
+
+  def jump_locations(self):
+    """The jump locations of the piecewise constant function."""
+    return self._jump_locations
+
+  def name(self):
+    """The name to give to the ops created by this class."""
+    return self._name
+
+  def __call__(self, x, left_continuous=True, validate_args=False, name=None):
+    """Computes value of the piecewise constant function.
+
+    Returns a value of the piecewise function with jump locations and values
+    given by the initializer.
+
+    Args:
+      x: A real `Tensor` of shape `batch_shape + [num_points]`. Points at which
+        the function has to be evaluated.
+      left_continuous: Python `bool`. Whether the function is left- or right-
+        continuous.
+        Default value: `True` which means that the function is left-continuous.
+      validate_args: Python `bool`. When `True`, verifies that
+        `self.values() - 1 == self.jump_locations()`.. When `False` invalid
+        inputs may silently render incorrect outputs.
+      name: Python `str` name prefixed to ops created by this method.
+        Default value: `None` which is mapped to the default name
+        `self.name() + _call`.
+
+    Returns:
+      A `Tensor` of the same `dtype` and shape as `x` containing values of the
+      piecewise constant function.
+
+    Raises:
+      ValueError:
+        If `batch_shape` of `x` is different from the batch shape of
+        `self.jump_locations()`.
+    """
+    x = tf.convert_to_tensor(x, dtype=self._jump_locations.dtype, name='x')
+    with tf.compat.v1.name_scope(name, self._name + '_call', [x]):
+      side = 'left' if left_continuous else 'right'
+      control_dependencies = []
+      if validate_args:
+        control_dependencies.append(
+            tf.compat.v1.assert_equal(
+                tf.shape(self._jump_locations)[-1],
+                tf.shape(self._values)[-1] - 1,
+                message=('Event shape of `values` should have one more element '
+                         'than the event shape of `jump_locations`.')))
+      with tf.compat.v1.control_dependencies(control_dependencies):
+        return _piecewise_constant_function(
+            x, self._jump_locations, self._values, side=side)
+
+  def integrate(self, x1, x2, validate_args=False, name=None):
+    """Integrates the piecewise constant function between end points.
+
+    Returns a value of the integral on the interval `[x1, x2]` of a piecewise
+    constant function with jump locations and values given by the initializer.
+
+    Args:
+      x1: A real `Tensor` of shape `batch_shape + [num_points]`. Left end points
+        at which the function has to be integrated.
+      x2: A `Tensor` of the same shape and `dtype` as `x1`. Right end points at
+        which the function has to be integrated.
+      validate_args: Python `bool`. When `True`, verifies that
+        `self.values() - 1 == self.jump_locations()`.. When `False` invalid
+        inputs may silently render incorrect outputs.
+      name: Python `str` name prefixed to ops created by this method.
+        Default value: `None` which is mapped to the default name
+        `self.name() + `_integrate``.
+
+    Returns:
+      A `Tensor` of the same `dtype` and shape as `x` containing values of the
+      integral of the piecewise constant function between `[x1, x2]`.
+
+    Raises:
+      ValueError:
+        If `batch_shape` of `x1` and `x2` are different from the batch shape of
+        `self.jump_locations()`.
+    """
+    with tf.compat.v1.name_scope(name, self._name + '_integrate', [x1, x2]):
+      control_dependencies = []
+      if validate_args:
+        control_dependencies.append(
+            tf.compat.v1.assert_equal(
+                tf.shape(self._jump_locations)[-1],
+                tf.shape(self._values)[-1] - 1,
+                message=('Event shape of `values` should have one more element '
+                         'than the event shape of `jump_locations`.')))
+      with tf.compat.v1.control_dependencies(control_dependencies):
+        x1 = tf.convert_to_tensor(x1, dtype=self._jump_locations.dtype,
+                                  name='x1')
+        x2 = tf.convert_to_tensor(x2, dtype=self._jump_locations.dtype,
+                                  name='x2')
+        batch_shape_x1 = x1.shape.as_list()[:-1]
+        batch_shape_x2 = x2.shape.as_list()[:-1]
+        batch_shape = self._jump_locations.shape.as_list()[:-1]
+        if batch_shape_x1 != batch_shape_x2:
+          raise ValueError('Batch shapes of `x1` and `x2` should be the same '
+                           'but are {0} and {1}'.format(batch_shape_x1,
+                                                        batch_shape_x2))
+        if batch_shape != batch_shape_x1:
+          raise ValueError('Batch shapes of `x1` should be {0} but it is '
+                           '{1} instead'.format(batch_shape, batch_shape_x1))
+        return _piecewise_constant_integrate(
+            x1, x2, self._jump_locations, self._values)
 
 
 def find_interval_index(query_xs,
@@ -92,3 +275,143 @@ def find_interval_index(query_xs,
     caps = last_index - tf.cast(should_cap, dtype=tf.dtypes.int32)
 
     return tf.where(last_interval_is_closed, tf.minimum(indices, caps), indices)
+
+
+def _piecewise_constant_function(x, jump_locations, values, side='left'):
+  """Computes value of the piecewise constant function."""
+  # Initializer already verified that `jump_locations` and `values` have the
+  # same shape
+  batch_shape = jump_locations.shape.as_list()[:-1]
+  # Check that the batch shape of `x` is the same as of `jump_locations` and
+  # `values`
+  batch_shape_x = x.shape.as_list()[:-1]
+  if batch_shape_x != batch_shape:
+    raise ValueError('Batch shape of `x` is {1} but should be {0}'.format(
+        batch_shape, batch_shape_x))
+  if x.shape.as_list()[:-1]:
+    no_batch_shape = False
+  else:
+    no_batch_shape = True
+    x = tf.expand_dims(x, 0)
+  # Expand batch size to one if there is no batch shape
+  if not batch_shape:
+    jump_locations = tf.expand_dims(jump_locations, 0)
+    values = tf.expand_dims(values, 0)
+  indices = tf.searchsorted(jump_locations, x, side=side)
+  index_matrix = _prepare_index_matrix(
+      indices.shape.as_list()[:-1], indices.shape.as_list()[-1], indices.dtype)
+  indices_nd = tf.concat(
+      [index_matrix, tf.expand_dims(indices, -1)], -1)
+  res = tf.gather_nd(values, indices_nd)
+  if no_batch_shape:
+    return tf.squeeze(res, 0)
+  else:
+    return res
+
+
+def _piecewise_constant_integrate(x1, x2, jump_locations, values):
+  """Integrates piecewise constant function between `x1` and `x2`."""
+  # Initializer already verified that `jump_locations` and `values` have the
+  # same shape
+  # Expand batch size to one if there is no batch shape
+  if not jump_locations.shape.as_list()[:-1]:
+    jump_locations = tf.expand_dims(jump_locations, 0)
+    values = tf.expand_dims(values, 0)
+  if x1.shape.as_list()[:-1]:
+    no_batch_shape = False
+  else:
+    no_batch_shape = True
+    x1 = tf.expand_dims(x1, 0)
+    x2 = tf.expand_dims(x2, 0)
+
+  # Compute the index matrix that is later used for `tf.gather_nd`
+  index_matrix = _prepare_index_matrix(
+      x1.shape.as_list()[:-1], x1.shape.as_list()[-1], tf.int32)
+  # Compute integral values at the jump locations starting from the first jump
+  # location
+  integrals = tf.cumsum(values[..., 1:-1]
+                        * (jump_locations[..., 1:]
+                           - jump_locations[..., :-1]), -1)
+  # Pad integrals with zero values on left and right
+  batch_shape = integrals.shape.as_list()[:-1]
+  zeros = tf.zeros(batch_shape + [1], dtype=integrals.dtype)
+  integrals = tf.concat([zeros, integrals, zeros], -1)
+  # Get jump locations and values and the integration end points
+  value1, jump_location1, indices_nd1 = _get_indices_and_values(
+      x1, index_matrix, jump_locations, values, 'left')
+  value2, jump_location2, indices_nd2 = _get_indices_and_values(
+      x2, index_matrix, jump_locations, values, 'right')
+  integrals1 = tf.gather_nd(integrals, indices_nd1)
+  integrals2 = tf.gather_nd(integrals, indices_nd2)
+  # Compute the value of the integral
+  res = ((jump_location1 - x1) * value1
+         + (x2 - jump_location2) * value2
+         + integrals2  -  integrals1)
+  if no_batch_shape:
+    return tf.squeeze(res, 0)
+  else:
+    return res
+
+
+def _get_indices_and_values(x, index_matrix, jump_locations, values, side):
+  """Computes values and jump locations of the piecewise constant function.
+
+  Given `jump_locations` and the `values` on the corresponding segments of the
+  piecewise constant function, the function identifies the nearest jump to `x`
+  from the right or left (which is determined by the `side` argument) and the
+  corresponding value of the piecewise constant function at `x`
+
+  Args:
+    x: A real `Tensor` of shape `batch_shape + [num_points]`. Points at which
+      the function has to be evaluated.
+    index_matrix: An `int32` `Tensor` of shape
+      `batch_shape + [num_points] + [len(batch_shape)]` such that if
+      `batch_shape = [i1, .., in]`, then for all `j1, ..., jn, l`,
+      `index_matrix[j1,..,jn, l] = [j1, ..., jn]`.
+    jump_locations: A `Tensor` of the same `dtype` as `x` and shape
+      `batch_shape + [num_jump_points]`. The locations where the function
+      changes its values. Note that the values are expected to be ordered
+      along the last dimension.
+    values: A `Tensor` of the same `dtype` as `x` and shape
+      `batch_shape + [num_jump_points + 1]`. Defines `values[..., i]` on
+      `jump_locations[..., i - 1], jump_locations[..., i]`.
+    side: A Python string. Whether the function is left- or right- continuous.
+      The corresponding values for side should be `left` and `right`.
+
+  Returns:
+    A tuple of three `Tensor` of the same `dtype` as `x` and shapes
+    `batch_shape + [num_points]`, `batch_shape + [num_points]`, and
+    `batch_shape + [num_points] + [2 * len(batch_shape)]`. The `Tensor`s
+    correspond to the values, jump locations at `x`, and the corresponding
+    indices used to obtain jump locations via `tf.gather_nd`.
+  """
+  indices = tf.searchsorted(jump_locations, x, side=side)
+  num_data_points = tf.shape(values)[-1] - 2
+  if side == 'right':
+    indices_jump = indices - 1
+    indices_jump = tf.maximum(indices_jump, 0)
+  else:
+    indices_jump = tf.minimum(indices, num_data_points)
+  indices_nd = tf.concat(
+      [index_matrix, tf.expand_dims(indices, -1)], -1)
+  indices_jump_nd = tf.concat(
+      [index_matrix, tf.expand_dims(indices_jump, -1)], -1)
+  value = tf.gather_nd(values, indices_nd)
+  jump_location = tf.gather_nd(jump_locations, indices_jump_nd)
+  return value, jump_location, indices_jump_nd
+
+
+def _prepare_index_matrix(batch_shape, num_points, dtype):
+  """Prepares index matrix for index argument of `tf.gather_nd`."""
+  batch_shape_reverse = batch_shape.copy()
+  batch_shape_reverse.reverse()
+  index_matrix = tf.constant(
+      np.flip(np.transpose(np.indices(batch_shape_reverse)), -1),
+      dtype=dtype)
+  batch_rank = len(batch_shape)
+  # Broadcast index matrix to the shape of
+  # `batch_shape + [num_points] + [batch_rank]`
+  broadcasted_shape = batch_shape + [num_points] + [batch_rank]
+  index_matrix = tf.expand_dims(index_matrix, -2) + tf.zeros(
+      tf.TensorShape(broadcasted_shape), dtype=dtype)
+  return index_matrix

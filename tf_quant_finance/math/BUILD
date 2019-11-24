@@ -116,15 +116,17 @@ py_library(
     srcs = ["piecewise.py"],
     srcs_version = "PY2AND3",
     deps = [
+        # numpy dep,
         # tensorflow dep,
     ],
 )
 
 py_test(
     name = "piecewise_test",
-    size = "small",
+    size = "medium",
     srcs = ["piecewise_test.py"],
     python_version = "PY3",
+    shard_count = 5,
     deps = [
         "//tf_quant_finance",
         # numpy dep,
