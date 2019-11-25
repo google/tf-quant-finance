@@ -215,8 +215,6 @@ def sample(dim,
     raise ValueError('Either `num_results` or `sequence_indices` must be'
                      ' specified but not both.')
   dtype = dtype or tf.float32
-  if not dtype.is_floating:
-    raise ValueError('dtype must be of `float`-type')
 
   with tf.compat.v1.name_scope(
       name, 'halton_sample', values=[num_results, sequence_indices]):
