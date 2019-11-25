@@ -20,6 +20,8 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
+from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.douglas_adi import douglas_adi_step
+from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.oscillation_damped_crank_nicolson import crank_nicolson_with_oscillation_damping_step
 
 
 def step_back(start_time,
@@ -201,6 +203,9 @@ def step_back(start_time,
        represents a new coordinate grid after one iteration. The second `Tensor`
        is of the same shape and `dtype` as`values_grid` and represents an
        approximate solution of the equation after one iteration.
+       Default value: None, which means Crank-Nicolson scheme with oscillation
+       damping is used for 1D problems, and Douglas ADI scheme with `theta=0.5`
+       - for multidimensional problems.
     boundary_conditions: The boundary conditions. Only rectangular boundary
       conditions are supported.
       A list of tuples of size `n` (space dimension
@@ -222,6 +227,8 @@ def step_back(start_time,
       for `boundary_conditions[1][0]`, except the tensor shape should be
       `(b, ny)`. `alpha` and `beta` can also be `None` in case of Neumann and
       Dirichlet conditions, respectively.
+      Default value: None, which means Dirichlet conditions with zero value on
+      all boundaries are applied.
     values_transform_fn: An optional callable applied to transform the solution
       values at each time step. The callable is invoked after the time step has
       been performed. The callable should accept the time of the grid, the
@@ -281,6 +288,8 @@ def step_back(start_time,
       equivalent flag in `tf.while_loop` documentation for more details. Useful
       when computing a gradient of the op.
     dtype: The dtype to use.
+      Default value: None, which means dtype will be inferred from
+      `values_grid`.
     name: The name to give to the ops.
       Default value: None which means `step_back` is used.
 
@@ -295,6 +304,29 @@ def step_back(start_time,
   if (num_steps is None) == (time_step is None):
     raise ValueError('Exactly one of num_steps or time_step'
                      ' should be supplied.')
+
+  values_grid = tf.convert_to_tensor(values_grid, dtype=dtype)
+  start_time = tf.convert_to_tensor(start_time, dtype=values_grid.dtype)
+  end_time = tf.convert_to_tensor(end_time, dtype=values_grid.dtype)
+  coord_grid = [
+      tf.convert_to_tensor(dim_grid, dtype=values_grid.dtype)
+      for dim_grid in coord_grid
+  ]
+
+  n_dims = len(coord_grid)
+  if one_step_fn is None:
+    if n_dims == 1:
+      one_step_fn = crank_nicolson_with_oscillation_damping_step()
+    else:
+      one_step_fn = douglas_adi_step(theta=0.5)
+
+  if boundary_conditions is None:
+
+    def zero_dirichlet(t, grid):
+      del t, grid
+      return 1, None, tf.constant(0, dtype=values_grid.dtype)
+
+    boundary_conditions = [(zero_dirichlet, zero_dirichlet)] * n_dims
 
   with tf.name_scope(
       name,

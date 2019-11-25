@@ -9,7 +9,9 @@ py_library(
     srcs = ["__init__.py"],
     srcs_version = "PY2AND3",
     deps = [
+        ":boundary_conditions",
         ":fd_solvers",
+        "//tf_quant_finance/experimental/pde_v2/grids",
     ],
 )
 
@@ -18,6 +20,7 @@ py_library(
     srcs = ["fd_solvers.py"],
     srcs_version = "PY2AND3",
     deps = [
+        "//tf_quant_finance/experimental/pde_v2/fd_backward_schemes",
         # tensorflow dep,
     ],
 )

@@ -28,7 +28,6 @@ import tensorflow as tf
 from tf_quant_finance.experimental.models_v2 import euler_sampling
 from tf_quant_finance.experimental.models_v2 import ito_process
 from tf_quant_finance.experimental.pde_v2 import fd_solvers
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes import douglas_adi
 
 
 class GenericItoProcess(ito_process.ItoProcess):
@@ -272,8 +271,6 @@ class GenericItoProcess(ito_process.ItoProcess):
       if not discounting:
         return None
       return -discounting(t, self._coord_grid_to_mesh_grid(coord_grid))
-
-    one_step_fn = douglas_adi.douglas_adi_step(theta=0.5)
 
     return pde_solver_fn(
         start_time=start_time,

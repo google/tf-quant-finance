@@ -158,6 +158,7 @@ def parabolic_equation_step(
     value_grid = tf.convert_to_tensor(value_grid, dtype=dtype,
                                       name='value_grid')
 
+    second_order_coeff_fn = second_order_coeff_fn or (lambda *args: [[0.0]])
     first_order_coeff_fn = first_order_coeff_fn or (lambda *args: [0.0])
     zeroth_order_coeff_fn = zeroth_order_coeff_fn or (lambda *args: 0.0)
 

@@ -24,7 +24,6 @@ import numpy as np
 import tensorflow as tf
 
 from tf_quant_finance.experimental.models_v2 import generic_ito_process
-from tf_quant_finance.experimental.pde_v2.boundary_conditions import dirichlet
 from tf_quant_finance.experimental.pde_v2.grids import grids
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
@@ -385,8 +384,6 @@ class GenericItoProcessTest(tf.test.TestCase):
                 _gaussian(ys, final_variance), _gaussian(xs, final_variance)),
             dtype=tf.float32),
         axis=0)
-    bound_cond = [(_zero_boundary, _zero_boundary),
-                  (_zero_boundary, _zero_boundary)]
 
     result = self.evaluate(
         process.fd_solver_backward(
@@ -395,7 +392,6 @@ class GenericItoProcessTest(tf.test.TestCase):
             coord_grid=grid,
             values_grid=final_values,
             time_step=time_step,
-            boundary_conditions=bound_cond,
             dtype=tf.float32)[0])
 
     self.assertLess(np.max(np.abs(result - expected)) / np.max(expected), 0.01)
@@ -403,12 +399,6 @@ class GenericItoProcessTest(tf.test.TestCase):
 
 def _gaussian(xs, variance):
   return np.exp(-np.square(xs) / (2 * variance)) / np.sqrt(2 * np.pi * variance)
-
-
-@dirichlet
-def _zero_boundary(t, locations):
-  del t, locations
-  return 0.0
 
 
 if __name__ == "__main__":
