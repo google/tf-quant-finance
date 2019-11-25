@@ -155,7 +155,9 @@ def multivariate_normal(sample_shape,
     ValueError:
       (a) If all of `mean`, `covariance_matrix` and `scale_matrix` are None.
       (b) If both `covariance_matrix` and `scale_matrix` are specified.
-    NotImplementedError: If `random_type` is not RandomType.PSEUDO.
+    NotImplementedError: If `random_type` is neither RandomType.PSEUDO,
+      RandomType.PSEUDO_ANTITHETIC, RandomType.SOBOL, RandomType.HALTON, nor
+      RandomType.HALTON_RANDOMIZED.
   """
   random_type = RandomType.PSEUDO if random_type is None else random_type
   if mean is None and covariance_matrix is None and scale_matrix is None:
@@ -223,8 +225,8 @@ def multivariate_normal(sample_shape,
           **kwargs)
     else:
       raise NotImplementedError(
-          'Only RandomType.PSEUDO, RandomType.PSEUDO_ANTITHETIC and '
-          'RandomType.SOBOL are currently supported.')
+          'Only PSEUDO, PSEUDO_ANTITHETIC, HALTON, HALTON_RANDOMIZED, '
+          'and SOBOL random types are currently supported.')
 
 
 def _mvnormal_pseudo(sample_shape,
@@ -374,15 +376,9 @@ def _mvnormal_quasi(sample_shape,
       seq_lengths=[tf.size(batch_shape)],
       seq_dim=1)
   batch_shape_reverse = tf.squeeze(batch_shape_reverse, 0)
-  # Reverse elements of the sample shape
-  sample_shape_reverse = tf.reverse_sequence(
-      tf.expand_dims(sample_shape, 0),
-      seq_lengths=[tf.size(sample_shape)],
-      seq_dim=1)
-  sample_shape_reverse = tf.squeeze(sample_shape_reverse, 0)
   # Transposed shape of the output
   output_shape_t = tf.concat(
-      [batch_shape_reverse, sample_shape_reverse], -1)
+      [batch_shape_reverse, sample_shape], -1)
   # Number of quasi random samples
   num_samples = tf.reduce_prod(output_shape_t) // dim
   # Number of initial low discrepancy sequence numbers to skip
@@ -413,10 +409,10 @@ def _mvnormal_quasi(sample_shape,
   # Transpose to the shape [dim, num_samples]
   low_discrepancy_seq = tf.transpose(low_discrepancy_seq)
   size_sample = tf.size(sample_shape)
-  size_batch = tf.size(batch_shape) - 1
+  size_batch = tf.size(batch_shape)
   # Permutation for `output_shape_t` to the output shape
-  permutation = tf.concat([tf.range(size_batch + size_sample, size_batch, -1),
-                           tf.range(size_batch, -1, -1)], -1)
+  permutation = tf.concat([tf.range(size_batch, size_batch + size_sample),
+                           tf.range(size_batch - 1, -1, -1)], -1)
   # Reshape Sobol samples to the correct output shape
   low_discrepancy_seq = tf.transpose(
       tf.reshape(low_discrepancy_seq, output_shape_t),

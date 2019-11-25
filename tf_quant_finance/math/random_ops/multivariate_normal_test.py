@@ -125,7 +125,7 @@ class RandomTest(tf.test.TestCase):
     mean = np.array([[1.0, 0.1], [0.1, 1.0], [2.0, 0.3], [0., 0.]])
     scale = np.array([[0.4, -0.1], [0.22, 1.38]])
     covariance = np.matmul(scale, scale.transpose())
-    sample_shape = [2, 5000, 3]
+    sample_shape = [2, 3, 5000]
     sample = self.evaluate(
         tff_rnd.mv_normal_sample(
             sample_shape, mean=mean, scale_matrix=scale,
@@ -136,7 +136,7 @@ class RandomTest(tf.test.TestCase):
         np.mean(sample, axis=(0, 1, 2)), mean, decimal=1)
     for i in range(4):
       np.testing.assert_array_almost_equal(
-          np.cov(sample[0, :, 2, i, :], rowvar=False), covariance, decimal=1)
+          np.cov(sample[0, 1, :, i, :], rowvar=False), covariance, decimal=1)
 
   def test_mean_default_halton(self):
     """Tests that the default value of mean is 0."""
@@ -176,7 +176,7 @@ class RandomTest(tf.test.TestCase):
     mean = np.array([[1.0, 0.1], [0.1, 1.0], [2.0, 0.3], [0., 0.]])
     scale = np.array([[0.4, -0.1], [0.22, 1.38]])
     covariance = np.matmul(scale, scale.transpose())
-    sample_shape = [2, 5000, 3]
+    sample_shape = [2, 3, 5000]
     sample = self.evaluate(
         tff_rnd.mv_normal_sample(
             sample_shape, mean=mean, scale_matrix=scale,
@@ -187,7 +187,7 @@ class RandomTest(tf.test.TestCase):
         np.mean(sample, axis=(0, 1, 2)), mean, decimal=1)
     for i in range(4):
       np.testing.assert_array_almost_equal(
-          np.cov(sample[0, :, 2, i, :], rowvar=False), covariance, decimal=1)
+          np.cov(sample[0, 2, :, i, :], rowvar=False), covariance, decimal=1)
 
   def test_mean_and_scale_antithetic(self):
     """Tests antithetic sampler for scale specification."""
