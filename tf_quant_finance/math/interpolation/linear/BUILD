@@ -17,6 +17,7 @@ py_library(
     name = "linear_interpolation",
     srcs = ["linear_interpolation.py"],
     deps = [
+        "//tf_quant_finance/math:piecewise",
         # numpy dep,
         # tensorflow dep,
     ],
