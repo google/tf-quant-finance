@@ -169,7 +169,7 @@ def interpolate(times,
         computed from the largest interval time that is smaller than the time
         up to the given time.
   """
-  with tf.name_scope(
+  with tf.compat.v1.name_scope(
       name,
       default_name='interpolate',
       values=[times, interval_times, interval_values]):

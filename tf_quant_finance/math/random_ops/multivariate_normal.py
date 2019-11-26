@@ -168,7 +168,7 @@ def multivariate_normal(sample_shape,
     raise ValueError('Only one of covariance matrix or scale matrix'
                      ' must be specified')
 
-  with tf.name_scope(
+  with tf.compat.v1.name_scope(
       name,
       default_name='multivariate_normal',
       values=[sample_shape, mean, covariance_matrix, scale_matrix]):

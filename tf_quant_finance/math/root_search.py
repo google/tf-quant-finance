@@ -590,7 +590,7 @@ def _brent(objective_fn,
     ValueError: if the `stopping_policy_fn` is not callable.
   """
 
-  with tf.name_scope(name, "brent_root", [
+  with tf.compat.v1.name_scope(name, default_name="brent_root", values=[
       left_bracket, right_bracket, value_at_left_bracket,
       value_at_right_bracket, max_iterations
   ]):
