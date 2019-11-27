@@ -315,30 +315,6 @@ class ConjugateGradientTest(tf.test.TestCase):
     self._check_algorithm(
         func=func, start_point=np.zeros_like(minima), expected_argmin=minima)
 
-  def test_dynamic_shapes(self):
-    """Can build op with dynamic shapes in graph mode."""
-    if tf.executing_eagerly():
-      return
-    minimum = np.array([1.0, 1.0])
-    scales = np.array([2.0, 3.0])
-
-    @tff.math.make_val_and_grad_fn
-    def quadratic(x):
-      return tf.reduce_sum(input_tensor=scales * (x - minimum)**2)
-
-    # Test with a vector of unknown dimension, and a fully unknown shape.
-    for shape in ([None], None):
-      start = tf.compat.v1.placeholder(tf.float32, shape=shape)
-      op = tff.math.optimizer.conjugate_gradient_minimize(
-          quadratic, initial_position=start, tolerance=1e-8)
-      self.assertFalse(op.position.shape.is_fully_defined())
-
-      with self.cached_session() as session:
-        results = session.run(op, feed_dict={start: [0.6, 0.8]})
-      self.assertTrue(results.converged)
-      self.assertLessEqual(_norm(results.objective_gradient), 1e-8)
-      self.assertArrayNear(results.position, minimum, 1e-5)
-
   def test_float32(self):
     minimum = np.array([1.0, 1.0], dtype=np.float32)
     scales = np.array([2.0, 3.0], dtype=np.float32)
