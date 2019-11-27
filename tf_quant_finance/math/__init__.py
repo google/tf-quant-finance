@@ -35,6 +35,7 @@ from tensorflow.python.util.all_util import remove_undocumented  # pylint: disab
 
 _allowed_symbols = [
     'fwd_gradient',
+    'gradients',
     'integration',
     'interpolation',
     'optimizer',
