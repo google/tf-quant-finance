@@ -22,6 +22,7 @@ from tf_quant_finance.math.random_ops import sobol
 from tf_quant_finance.math.random_ops.multivariate_normal import multivariate_normal as mv_normal_sample
 from tf_quant_finance.math.random_ops.multivariate_normal import RandomType
 from tf_quant_finance.math.random_ops.stateless import stateless_random_shuffle
+from tf_quant_finance.math.random_ops.uniform import uniform
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
@@ -30,6 +31,7 @@ _allowed_symbols = [
     'mv_normal_sample',
     'RandomType',
     'stateless_random_shuffle',
+    'uniform',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

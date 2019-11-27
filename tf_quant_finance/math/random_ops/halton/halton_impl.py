@@ -35,12 +35,14 @@ __all__ = [
 _MAX_DIMENSION = 1000
 
 # The maximum sequence index we support, depending on data type.
-_MAX_INDEX_BY_DTYPE = {tf.float32: 2**24 - 1, tf.float64: 2**53 - 1}
+_MAX_INDEX_BY_DTYPE = {tf.float32: 2**24 - 1, np.float32: 2**24 - 1,
+                       tf.float64: 2**53 - 1, np.float64: 2**53 - 1}
 
 # The number of coefficients we use to represent each Halton number when
 # expressed in the (prime) base for an event dimension. In theory this should be
 # infinite, but in practice it is useful to cap this based on data type.
-_NUM_COEFFS_BY_DTYPE = {tf.float32: 24, tf.float64: 54}
+_NUM_COEFFS_BY_DTYPE = {tf.float32: 24, np.float32: 24,
+                        tf.float64: 54, np.float64: 54}
 
 # Parameters that can be reused with subsequent calls to halton.sample().
 HaltonParams = collections.namedtuple(

@@ -11,6 +11,7 @@ py_library(
     deps = [
         ":multivariate_normal",
         ":stateless",
+        ":uniform",
         "//tf_quant_finance/math/random_ops/halton",
         "//tf_quant_finance/math/random_ops/sobol",
     ],
@@ -26,6 +27,18 @@ py_library(
         # enum dep,
         # tensorflow dep,
         # tensorflow_probability dep,
+    ],
+)
+
+py_library(
+    name = "uniform",
+    srcs = ["uniform.py"],
+    srcs_version = "PY2AND3",
+    deps = [
+        ":multivariate_normal",
+        "//tf_quant_finance/math/random_ops/halton",
+        "//tf_quant_finance/math/random_ops/sobol",
+        # tensorflow dep,
     ],
 )
 
@@ -59,6 +72,19 @@ py_test(
     size = "small",
     srcs = ["stateless_test.py"],
     python_version = "PY3",
+    deps = [
+        "//tf_quant_finance",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "uniform_test",
+    size = "small",
+    srcs = ["uniform_test.py"],
+    python_version = "PY3",
+    shard_count = 3,
     deps = [
         "//tf_quant_finance",
         # numpy dep,

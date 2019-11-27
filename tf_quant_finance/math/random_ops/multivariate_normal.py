@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Lint as: python2, python3
-"""Functions to generate random numbers."""
+"""Multivariate Normal distribution with various random types."""
 
 from __future__ import absolute_import
 from __future__ import division
