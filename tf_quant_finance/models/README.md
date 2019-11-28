@@ -1,6 +1,6 @@
 # Diffusion Models.
 
-This module is a toolbox for generating and calibraring Diffusion
+This module is a toolbox for generating and calibrating Diffusion
 Models. A model is derived from the ```ItoProcess``` class. The model is
 described in terms of the underying stochastic differential equation (SDE):
 
