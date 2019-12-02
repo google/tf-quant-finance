@@ -103,8 +103,6 @@ development are:
       * SABR model calibration.
   * Rate curve fitting: Hagan-West algorithm for yield curve bootstrapping and
   the Monotone Convex interpolation scheme.
-  * Optimization:
-      * Conjugate gradient optimizer.
 
 
 ## Examples
