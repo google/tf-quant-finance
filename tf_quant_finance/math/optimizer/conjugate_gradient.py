@@ -343,7 +343,7 @@ def minimize(value_and_gradients_function,
 
       # Generate initial guess for line search.
       # [HZ2006] suggests to generate first initial guess separately, but
-      # [JuliaLiseSeacrhes] generates it as if previous step length was 1, and
+      # [JuliaLineSearches] generates it as if previous step length was 1, and
       # we do the same.
       phi_0 = f_k
       dphi_0 = _dot(g_k, d_k)
