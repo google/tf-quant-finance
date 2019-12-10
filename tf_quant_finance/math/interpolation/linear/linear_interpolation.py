@@ -107,7 +107,7 @@ def interpolate(x,
                                                 args[3], args[4], validate_args)
 
     with tf.control_dependencies(
-        [tf.assert_equal(tf.shape(x_data), tf.shape(y_data))]):
+        [tf.compat.v1.assert_equal(tf.shape(x_data), tf.shape(y_data))]):
       # Call 1D linear interpolation function for each batch separately.
       return tf.reshape(
           tf.map_fn(

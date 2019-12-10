@@ -274,7 +274,8 @@ def find_interval_index(query_xs,
     # cap to last_index - 1.
     caps = last_index - tf.cast(should_cap, dtype=tf.dtypes.int32)
 
-    return tf.where(last_interval_is_closed, tf.minimum(indices, caps), indices)
+    return tf.compat.v1.where(last_interval_is_closed,
+                              tf.minimum(indices, caps), indices)
 
 
 def _piecewise_constant_function(x, jump_locations, values, side='left'):
