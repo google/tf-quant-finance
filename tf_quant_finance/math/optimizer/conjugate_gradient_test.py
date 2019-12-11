@@ -25,6 +25,7 @@ from scipy import stats
 import tensorflow as tf
 
 import tf_quant_finance as tff
+from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
 def _norm(x):
@@ -61,7 +62,7 @@ def _beale(coord):
   term3 = (2.625 - x + x * y**3)**2
   return term1 + term2 + term3
 
-
+@test_util.run_all_in_graph_and_eager_modes
 class ConjugateGradientTest(tf.test.TestCase):
 
   def _check_algorithm(self,
@@ -85,10 +86,9 @@ class ConjugateGradientTest(tf.test.TestCase):
         start_point,
         tolerance=gtol,
         max_iterations=200)
-    with self.test_session() as sess:
-      sess.run(tf.global_variables_initializer())
-      result = sess.run(result)
-      f_call_ctr = sess.run(f_call_ctr)
+    self.evaluate(tf.compat.v1.global_variables_initializer())
+    result = self.evaluate(result)
+    f_call_ctr = self.evaluate(f_call_ctr)
 
     # Check that minimum is found.
     self.assertAllClose(result.position, expected_argmin, rtol=1e-3, atol=1e-3)

@@ -21,13 +21,15 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
-from tf_quant_finance import math as tff_math
+import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+tff_math = tff.math
 
 
+@test_util.run_all_in_graph_and_eager_modes
 class OptimizerTest(tf.test.TestCase):
+  """Tests for optimization algorithms."""
 
-  @test_util.run_in_graph_and_eager_modes
   def test_bfgs_minimize(self):
     """Use BFGS algorithm to find all four minima of Himmelblau's function."""
 
@@ -55,7 +57,6 @@ class OptimizerTest(tf.test.TestCase):
     self.assertEqual(results.position.shape, expected_minima.shape)
     self.assertNDArrayNear(results.position, expected_minima, 1e-5)
 
-  @test_util.run_in_graph_and_eager_modes
   def test_lbfgs_minimize(self):
     """Use L-BFGS algorithm to optimize randomly generated quadratic bowls."""
 
@@ -81,7 +82,6 @@ class OptimizerTest(tf.test.TestCase):
     self.assertNDArrayNear(
         results.position[results.converged], minima[results.converged], 1e-5)
 
-  @test_util.run_in_graph_and_eager_modes
   def test_nelder_mead_minimize(self):
     """Use Nelder Mead algorithm to optimize the Rosenbrock function."""
 
@@ -97,6 +97,21 @@ class OptimizerTest(tf.test.TestCase):
     self.assertTrue(results.converged)
     self.assertArrayNear(results.position, [1.0, 1.0], 1e-5)
 
+  def test_differential_evolution(self):
+    """Use differential evolution algorithm to minimize a quadratic function.""" 
+    minimum = np.array([1.0, 1.0])
+    scales = np.array([2.0, 3.0])
+    def quadratic(x):
+      return tf.reduce_sum(
+          scales * tf.math.squared_difference(x, minimum), axis=-1)
+
+    initial_population = tf.random.uniform([40, 2], seed=1243)
+    results = self.evaluate(tff_math.optimizer.differential_evolution_minimize(
+        quadratic,
+        initial_population=initial_population,
+        func_tolerance=1e-12,
+        seed=2484))
+    self.assertTrue(results.converged)
 
 if __name__ == '__main__':
   tf.test.main()
