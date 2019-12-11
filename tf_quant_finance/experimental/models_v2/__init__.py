@@ -19,6 +19,7 @@ from __future__ import print_function
 
 
 from tf_quant_finance.experimental.models_v2 import euler_sampling
+from tf_quant_finance.experimental.models_v2 import heston_model
 from tf_quant_finance.experimental.models_v2.generic_ito_process import GenericItoProcess
 from tf_quant_finance.experimental.models_v2.ito_process import ItoProcess
 
@@ -26,6 +27,7 @@ from tensorflow.python.util.all_util import remove_undocumented  # pylint: disab
 
 _allowed_symbols = [
     'euler_sampling',
+    'heston_model',
     'GenericItoProcess',
     'ItoProcess',
 ]

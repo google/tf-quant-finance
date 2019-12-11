@@ -71,3 +71,29 @@ py_test(
         # tensorflow dep,
     ],
 )
+
+py_library(
+    name = "heston_model",
+    srcs = ["heston_model.py"],
+    deps = [
+        ":ito_process",
+        "//tf_quant_finance/math:piecewise",
+        "//tf_quant_finance/math/random_ops",
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "heston_model_test",
+    size = "medium",
+    timeout = "moderate",
+    srcs = ["heston_model_test.py"],
+    python_version = "PY3",
+    shard_count = 3,
+    deps = [
+        ":heston_model",
+        "//tf_quant_finance",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
