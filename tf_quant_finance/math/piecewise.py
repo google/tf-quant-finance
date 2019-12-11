@@ -59,7 +59,7 @@ class PiecewiseConstantFunc(object):
         along the last dimension. Repetitive values are allowed but it is
         up for the user to ensure that the corresponding `values` are also
         repetitive.
-      values: A `Tensor` of the same `dtype` as `batch_shape` and shape
+      values: A `Tensor` of the same `dtype` as `jump_locations` and shape
         `batch_shape + [num_jump_points + 1]`. Defines `values[..., i]` on
         `jump_locations[..., i - 1], jump_locations[..., i]`.
       dtype:  Optional dtype for `jump_locations` and `values`.
