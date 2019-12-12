@@ -28,6 +28,8 @@ def extrapolation_step(
     second_order_coeff_fn,
     first_order_coeff_fn,
     zeroth_order_coeff_fn,
+    inner_second_order_coeff_fn,
+    inner_first_order_coeff_fn,
     num_steps_performed,
     dtype=None,
     name=None):
@@ -89,6 +91,8 @@ def extrapolation_step(
     second_order_coeff_fn: See the spec in fd_solvers.solve.
     first_order_coeff_fn: See the spec in fd_solvers.solve.
     zeroth_order_coeff_fn: See the spec in fd_solvers.solve.
+    inner_second_order_coeff_fn: See the spec in fd_solvers.solve.
+    inner_first_order_coeff_fn: See the spec in fd_solvers.solve.
     num_steps_performed: Python `int`. Number of steps performed so far.
     dtype: The dtype to use.
     name: The name to give to the ops.
@@ -111,6 +115,8 @@ def extrapolation_step(
                                  second_order_coeff_fn,
                                  first_order_coeff_fn,
                                  zeroth_order_coeff_fn,
+                                 inner_second_order_coeff_fn,
+                                 inner_first_order_coeff_fn,
                                  time_marching_scheme=extrapolation_scheme,
                                  dtype=dtype,
                                  name=name)
@@ -133,10 +139,10 @@ def extrapolation_scheme(value_grid, t1, t2, equation_params_fn):
   https://epubs.siam.org/doi/abs/10.1137/0715082
 
   Args:
-    value_grid: A `Tensor` of real dtype. Grid of solution values at the
-      current time.
-    t1: Lesser of the two times defining the step.
-    t2: Greater of the two times defining the step.
+    value_grid: A `Tensor` of real dtype. Grid of solution values at the current
+      time.
+    t1: Time before the step.
+    t2: Time after the step.
     equation_params_fn: A callable that takes a scalar `Tensor` argument
       representing time and constructs the tridiagonal matrix `A`
       (a tuple of three `Tensor`s, main, upper, and lower diagonals)

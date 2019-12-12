@@ -21,15 +21,19 @@ We currently support equations of the following form:
 
 \begin{equation}
     \frac{\d V}{\d t} +
-    \sum\limits_{i,j=1}^N D_{ij}(\b x, t) \frac{\d^2{V}}{\d x_i \d x_j} +
-    \sum\limits_{i=1}^N\mu_i(\b x, t) \frac{\d V}{\d x_i} +
-     r(\b x, t) V = 0.
+    \sum\limits_{i,j=1}^N a_{ij}(\b x, t) \frac{\d^2}{\d x_i \d x_j}
+    \left[A_{ij}(\b x, t) V\right] +
+    \sum\limits_{i=1}^N b_i(\b x, t) \frac{\d}{\d x_i}
+    \left[B_{i}(\b x, t) V\right] +
+     c(\b x, t) V = 0.
 \end{equation}
-
-Support for the Fokker-Planck equation is coming soon.
 
 Given $V(\b x, t_0)$, the solver approximates $V(\b x, t_1)$. The solver can
 go both forward ($t_1 > t_0$) and backward ($t_1 < t_0$) in time.
+
+This includes as particular cases the backward Kolmogorov equation: 
+$A_{ij} \equiv 1, B_{ij} \equiv 1, t_1 < t_0$, and the forward Kolmogorov
+(Fokker-Plank) equation: $a_{ij} \equiv 1, b_{ij} \equiv 1, t_1 > t_0.$ 
 
 The spatial grid (i.e. the grid of $\b x$ vectors) can be arbitrary in
 one-dimensional problems ($N = 1$). In multiple dimensions the grid should be
@@ -215,6 +219,69 @@ that `start_time` is greater than `end_time`.
 
 That's it, we can now numerically solve the Black-Scholes equation.
 
+## Coefficients under the derivatives. Fokker-Planck equation.
+
+As the next example let's consider the Fokker-Planck equation arising in the
+Black-Scholes model for the probability distribution of the stock prices:
+
+\begin{equation}
+ \frac{\d p}{\d t} - \frac12 \sigma^2 \frac{\d^2}{\d S^2} \left[S^2 p\right] +
+ \mu \frac{\d}{\d S}\left[S p\right] = 0.
+\end{equation}
+
+To specify coefficients under the derivatives, use
+`inner_second_order_coeff_fn` and `inner_first_order_coeff_fn` arguments. The
+specification is exactly the same as for `second_order_coeff_fn` and
+`first_order_coeff_fn`. For our example we write:
+
+```python
+sigma = 1
+mu = 2
+
+def inner_second_order_coeff_fn(t, grid):
+  s = grid[0]
+  return [[-sigma**2 * s**2 / 2]]
+
+def inner_first_order_coeff_fn(t, grid):
+  s = grid[0]
+  return [mu * s]
+
+result_value_grid, final_grid, end_time, steps_performed =
+    fd_solvers.solve(...,
+        inner_second_order_coeff_fn=inner_second_order_coeff_fn,
+        inner_first_order_coeff_fn=inner_first_order_coeff_fn)
+```
+
+We may specify both "outer" and "inner" coefficients, so the following is
+equivalent (albeit possibly less performant):
+
+```python
+sigma = 1
+mu = 2
+
+def second_order_coeff_fn(t, grid):
+  return [[-sigma**2 / 2]]
+
+def first_order_coeff_fn(t, grid):
+  return [mu]
+
+def inner_second_order_coeff_fn(t, grid):
+  s = grid[0]
+  return [[s**2]]
+
+def inner_first_order_coeff_fn(t, grid):
+  s = grid[0]
+  return [s]
+
+result_value_grid, final_grid, end_time, steps_performed =
+    fd_solvers.solve(...,
+        second_order_coeff_fn=second_order_coeff_fn,
+        first_order_coeff_fn=first_order_coeff_fn,
+        inner_second_order_coeff_fn=inner_second_order_coeff_fn,
+        inner_first_order_coeff_fn=inner_first_order_coeff_fn)
+```
+
+ 
 ## Batching
 
 The solver can work with multiple PDEs in parallel. For example, let's solve
@@ -471,7 +538,7 @@ initial_value_grid = (tf.math.exp(-(x_mesh**2 + y_mesh**2) / (2 * sigma))
                                      [[], []]) / (2 * np.pi * sigma))
     ```
 
-Finally, call `fd_solvers.solve_forward` or `fd_solvers.solve_backwards` as
+Finally, call `fd_solvers.solve_forward` or `fd_solvers.solve_backward` as
 usual:
 
 ```python
@@ -738,19 +805,20 @@ f(x_0 - \Delta_-) &=& f(x_0) - f'(x_0) \Delta_{-}
 \end{eqnarray}
 
 Solving this system of equations for $f'(x_0)$ and $f''(x_0)$ yields
-\begin{equation}
-f'(x_0) \approx \frac{\Delta_-}{\Delta_+ + \Delta_-} f'_+ +
-    \frac{\Delta_+}{\Delta_+ + \Delta_-} f'_-
-\label{deriv_approx_central}
-\end{equation}
+\begin{eqnarray}
+&f'(x_0) \approx C_+ f(x_0 + \Delta_+) + C_- f(x_0 - \Delta_-) - 
+  (C_+ + C_-) f(x_0),
+\label{deriv_approx_central} \\
+&C_\pm = \pm\frac{\Delta_\mp}{(\Delta_+ + \Delta_-)\Delta_\pm}.
+\end{eqnarray}
 
 and
-\begin{equation}
-f''(x_0) \approx 2\frac{f'_+ - f'_-}{\Delta_+ + \Delta_-},
-\end{equation}
-
-where $f'_{\pm} = \pm(f(x_0 + \Delta_\pm) - f(x_0))/ \Delta_{\pm}$ are the
-forward and backward estimates of the first derivative.
+\begin{eqnarray}
+&f''(x_0) \approx D_+ f(x_0 + \Delta_+) + D_- f(x_0 - \Delta_-) - 
+  (D_+ + D_-) f(x_0),
+\label{deriv_approx_central} \\
+&D_\pm = \frac{2}{(\Delta_+ + \Delta_-)\Delta_\pm}.
+\end{eqnarray}
 
 Thus, space discretization a 1D homogeneous parabolic PDE yields
 Eq.\eqref{space_discretized} with $\b b = 0$, and a tridiagonal matrix
@@ -787,7 +855,7 @@ closest grid points $x_1 = x_0 + \Delta_0$, and $x_2 = x_1 + \Delta_1$:
 f(x_1) &\approx& f(x_0) +  f'(x_0) \Delta_0
     + \frac12 f''(x_0) \Delta_0^2,\\
 f(x_2) &\approx& f(x_0) + f'(x_0) (\Delta_0 + \Delta_1)
-    + \frac12 f''(x_0) (\Delta_0 + \Delta_1)^2\\
+    + \frac12 f''(x_0) (\Delta_0 + \Delta_1)^2
 \end{eqnarray}
 
 Eliminating $f''(x_0)$ from this system, we obtain

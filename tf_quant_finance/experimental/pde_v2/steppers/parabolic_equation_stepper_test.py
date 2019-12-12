@@ -367,7 +367,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     final_values = tf.constant([final_cond_fn(x) for x in xs],
                                dtype=grid[0].dtype)
 
-    result = fd_solvers.solve_backwards(
+    result = fd_solvers.solve_backward(
         start_time=final_t,
         end_time=0,
         coord_grid=grid,
@@ -428,7 +428,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     final_values += tf.zeros([num_equations, num_grid_points],
                              dtype=dtype)
     # Estimate European call option price
-    estimate = fd_solvers.solve_backwards(
+    estimate = fd_solvers.solve_backward(
         start_time=expiry,
         end_time=0,
         coord_grid=grid,
@@ -493,7 +493,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     final_values += tf.zeros([num_equations, num_grid_points],
                              dtype=dtype)
     # Estimate European call option price
-    estimate = fd_solvers.solve_backwards(
+    estimate = fd_solvers.solve_backward(
         start_time=expiry,
         end_time=0,
         coord_grid=grid,
@@ -571,6 +571,267 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     actual = self.evaluate(result)
     expected = self.evaluate(expected_result_fn(grid[0]))
     self.assertLess(np.max(np.abs(actual - expected)), 1e-3)
+
+  def testReferenceEquation(self):
+    """Tests the equation used as reference for a few further tests.
+
+    We solve the diffusion equation `u_t = u_xx` on x = [0...1] with boundary
+    conditions `u(x<=1/2, t=0) = x`, `u(x>1/2, t=0) = 1 - x`,
+    `u(x=0, t) = u(x=1, t) = 0`.
+
+    The exact solution of the diffusion equation with zero-Dirichlet boundaries
+    is:
+    `u(x, t) = sum_{n=1..inf} b_n sin(pi n x) exp(-n^2 pi^2 t)`,
+    `b_n = 2 integral_{0..1} sin(pi n x) u(x, t=0) dx.`
+
+    The initial conditions are taken so that the integral easily calculates, and
+    the sum can be approximated by a few first terms (given large enough `t`).
+    See the result in _reference_heat_equation_solution.
+
+    Using this solution helps to simplify the tests, as we don't have to
+    maintain complicated boundary conditions in each test or tweak the
+    parameters to keep the "support" of the function far from boundaries.
+    """
+    grid = grids.uniform_grid(
+        minimums=[0], maximums=[1], sizes=[501], dtype=tf.float32)
+    xs = grid[0]
+
+    final_t = 0.1
+    time_step = 0.001
+
+    def second_order_coeff_fn(t, coord_grid):
+      del t, coord_grid
+      return [[-1]]
+
+    initial = _reference_pde_initial_cond(xs)
+    expected = _reference_pde_solution(xs, final_t)
+    actual = fd_solvers.solve_forward(
+        start_time=0,
+        end_time=final_t,
+        coord_grid=grid,
+        values_grid=initial,
+        time_step=time_step,
+        second_order_coeff_fn=second_order_coeff_fn)[0]
+
+    self.assertAllClose(expected, actual, atol=1e-3, rtol=1e-3)
+
+  def testReference_WithExponentMultiplier(self):
+    """Tests solving diffusion equation with an exponent multiplier.
+
+    Take the heat equation `v_{t} - v_{xx} = 0` and substitute `v = exp(x) u`.
+    This yields `u_{t} - u_{xx} - 2u_{x} - u = 0`. The test compares numerical
+    solution of this equation to the exact one, which is the diffusion equation
+    solution times `exp(-x)`.
+    """
+    grid = grids.uniform_grid(
+        minimums=[0], maximums=[1], sizes=[501], dtype=tf.float32)
+    xs = grid[0]
+
+    final_t = 0.1
+    time_step = 0.001
+
+    def second_order_coeff_fn(t, coord_grid):
+      del t, coord_grid
+      return [[-1]]
+
+    def first_order_coeff_fn(t, coord_grid):
+      del t, coord_grid
+      return [-2]
+
+    def zeroth_order_coeff_fn(t, coord_grid):
+      del t, coord_grid
+      return -1
+
+    initial = tf.exp(-xs) * _reference_pde_initial_cond(xs)
+    expected = tf.exp(-xs) * _reference_pde_solution(xs, final_t)
+
+    actual = fd_solvers.solve_forward(
+        start_time=0,
+        end_time=final_t,
+        coord_grid=grid,
+        values_grid=initial,
+        time_step=time_step,
+        second_order_coeff_fn=second_order_coeff_fn,
+        first_order_coeff_fn=first_order_coeff_fn,
+        zeroth_order_coeff_fn=zeroth_order_coeff_fn)[0]
+
+    self.assertAllClose(expected, actual, atol=1e-3, rtol=1e-3)
+
+  def testInnerSecondOrderCoeff(self):
+    """Tests handling inner_second_order_coeff.
+
+    As in previous test, take the diffusion equation `v_{t} - v_{xx} = 0` and
+    substitute `v = exp(x) u`, but this time keep exponent under the derivative:
+    `u_{t} - exp(-x)[exp(x)u]_{xx} = 0`. Expect the same solution as in
+    previous test.
+    """
+    grid = grids.uniform_grid(
+        minimums=[0], maximums=[1], sizes=[501], dtype=tf.float32)
+    xs = grid[0]
+
+    final_t = 0.1
+    time_step = 0.001
+
+    def second_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [[-tf.exp(-x)]]
+
+    def inner_second_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [[tf.exp(x)]]
+
+    initial = tf.exp(-xs) * _reference_pde_initial_cond(xs)
+    expected = tf.exp(-xs) * _reference_pde_solution(xs, final_t)
+
+    actual = fd_solvers.solve_forward(
+        start_time=0,
+        end_time=final_t,
+        coord_grid=grid,
+        values_grid=initial,
+        time_step=time_step,
+        second_order_coeff_fn=second_order_coeff_fn,
+        inner_second_order_coeff_fn=inner_second_order_coeff_fn)[0]
+
+    self.assertAllClose(expected, actual, atol=1e-3, rtol=1e-3)
+
+  def testInnerFirstAndSecondOrderCoeff(self):
+    """Tests handling both inner_first_order_coeff and inner_second_order_coeff.
+
+    We saw previously that the solution of `u_{t} - u_{xx} - 2u_{x} - u = 0` is
+    `u = exp(-x) v`, where v solves the diffusion equation. Substitute now
+    `u = exp(-x) v` without expanding the derivatives:
+    `v_{t} - exp(x)[exp(-x)v]_{xx} - 2exp(x)[exp(-x)v]_{x} - v = 0`.
+    Solve this equation and expect the solution of the diffusion equation.
+    """
+    grid = grids.uniform_grid(
+        minimums=[0], maximums=[1], sizes=[501], dtype=tf.float32)
+    xs = grid[0]
+
+    final_t = 0.1
+    time_step = 0.001
+
+    def second_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [[-tf.exp(x)]]
+
+    def inner_second_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [[tf.exp(-x)]]
+
+    def first_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [-2 * tf.exp(x)]
+
+    def inner_first_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [tf.exp(-x)]
+
+    def zeroth_order_coeff_fn(t, coord_grid):
+      del t, coord_grid
+      return -1
+
+    initial = _reference_pde_initial_cond(xs)
+    expected = _reference_pde_solution(xs, final_t)
+
+    actual = fd_solvers.solve_forward(
+        start_time=0,
+        end_time=final_t,
+        coord_grid=grid,
+        values_grid=initial,
+        time_step=time_step,
+        second_order_coeff_fn=second_order_coeff_fn,
+        first_order_coeff_fn=first_order_coeff_fn,
+        zeroth_order_coeff_fn=zeroth_order_coeff_fn,
+        inner_second_order_coeff_fn=inner_second_order_coeff_fn,
+        inner_first_order_coeff_fn=inner_first_order_coeff_fn)[0]
+
+    self.assertAllClose(expected, actual, atol=1e-3, rtol=1e-3)
+
+  def testCompareExpandedAndNotExpandedPdes(self):
+    """Tests comparing PDEs with expanded derivatives and without.
+
+    Take equation `u_{t} - [x^2 u]_{xx} + [x u]_{x} = 0`.
+    Expanding the derivatives yields `u_{t} - x^2 u_{xx} - 3x u_{x} - u = 0`.
+    Solve both equations and expect the results to be equal.
+    """
+    grid = grids.uniform_grid(
+        minimums=[0], maximums=[1], sizes=[501], dtype=tf.float32)
+    xs = grid[0]
+
+    final_t = 0.1
+    time_step = 0.001
+
+    initial = _reference_pde_initial_cond(xs)  # arbitrary
+
+    def inner_second_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [[-tf.square(x)]]
+
+    def inner_first_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [x]
+
+    result_not_expanded = fd_solvers.solve_forward(
+        start_time=0,
+        end_time=final_t,
+        coord_grid=grid,
+        values_grid=initial,
+        time_step=time_step,
+        inner_second_order_coeff_fn=inner_second_order_coeff_fn,
+        inner_first_order_coeff_fn=inner_first_order_coeff_fn)[0]
+
+    def second_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [[-tf.square(x)]]
+
+    def first_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [-3 * x]
+
+    def zeroth_order_coeff_fn(t, coord_grid):
+      del t, coord_grid
+      return -1
+
+    result_expanded = fd_solvers.solve_forward(
+        start_time=0,
+        end_time=final_t,
+        coord_grid=grid,
+        values_grid=initial,
+        time_step=time_step,
+        second_order_coeff_fn=second_order_coeff_fn,
+        first_order_coeff_fn=first_order_coeff_fn,
+        zeroth_order_coeff_fn=zeroth_order_coeff_fn)[0]
+
+    self.assertAllClose(
+        result_not_expanded, result_expanded, atol=1e-3, rtol=1e-3)
+
+
+def _reference_pde_initial_cond(xs):
+  """Initial conditions for the reference diffusion equation."""
+  return -tf.math.abs(xs - 0.5) + 0.5
+
+
+def _reference_pde_solution(xs, t, num_terms=5):
+  """Solution for the reference diffusion equation."""
+  u = tf.zeros_like(xs)
+  for k in range(num_terms):
+    n = 2 * k + 1
+    term = tf.math.sin(np.pi * n * xs) * tf.math.exp(-n**2 * np.pi**2 * t)
+    term *= 4 / (np.pi**2 * n**2)
+    if k % 2 == 1:
+      term *= -1
+    u += term
+  return u
 
 
 if __name__ == '__main__':

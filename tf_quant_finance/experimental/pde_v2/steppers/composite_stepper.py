@@ -38,6 +38,7 @@ def composite_scheme_step(first_scheme_steps, first_scheme, second_scheme):
   Returns:
     Callable to use as `one_step_fn` in fd_solvers.
   """
+
   def step_fn(
       time,
       next_time,
@@ -47,6 +48,8 @@ def composite_scheme_step(first_scheme_steps, first_scheme, second_scheme):
       second_order_coeff_fn,
       first_order_coeff_fn,
       zeroth_order_coeff_fn,
+      inner_second_order_coeff_fn,
+      inner_first_order_coeff_fn,
       num_steps_performed,
       dtype=None,
       name=None):
@@ -66,6 +69,8 @@ def composite_scheme_step(first_scheme_steps, first_scheme, second_scheme):
         second_order_coeff_fn,
         first_order_coeff_fn,
         zeroth_order_coeff_fn,
+        inner_second_order_coeff_fn,
+        inner_first_order_coeff_fn,
         time_marching_scheme=scheme,
         dtype=dtype,
         name=name)

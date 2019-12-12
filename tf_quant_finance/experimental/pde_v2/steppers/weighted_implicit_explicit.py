@@ -60,6 +60,8 @@ def weighted_implicit_explicit_step(theta):
       second_order_coeff_fn,
       first_order_coeff_fn,
       zeroth_order_coeff_fn,
+      inner_second_order_coeff_fn,
+      inner_first_order_coeff_fn,
       num_steps_performed,
       dtype=None,
       name=None):
@@ -74,6 +76,8 @@ def weighted_implicit_explicit_step(theta):
                                    second_order_coeff_fn,
                                    first_order_coeff_fn,
                                    zeroth_order_coeff_fn,
+                                   inner_second_order_coeff_fn,
+                                   inner_first_order_coeff_fn,
                                    time_marching_scheme=scheme,
                                    dtype=dtype,
                                    name=name)

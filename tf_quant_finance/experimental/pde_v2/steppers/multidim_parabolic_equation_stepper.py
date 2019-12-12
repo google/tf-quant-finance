@@ -33,26 +33,25 @@ def multidim_parabolic_equation_step(
     second_order_coeff_fn=None,
     first_order_coeff_fn=None,
     zeroth_order_coeff_fn=None,
+    inner_second_order_coeff_fn=None,
+    inner_first_order_coeff_fn=None,
     dtype=None,
     name=None):
   """Performs one step in time to solve a multidimensional PDE.
 
   The PDE is of the form
 
-  ```none
-   V_{t} + sum_{ij} a_{ij}(t, r) * V_{ij} + sum_{i} b_{i}(t, r) * V_{i}
-   + c(t, r) * V = 0,
+  ```None
+    dV/dt + Sum[a_ij d2(A_ij V)/dx_i dx_j, 1 <= i, j <=n] +
+       Sum[b_i d(B_i V)/dx_i, 1 <= i <= n] + c V = 0.
   ```
+  from time `t0` to time `t1`. The solver can go both forward and backward in
+  time. Here `a_ij`, `A_ij`, `b_i`, `B_i` and `c` are coefficients that may
+  depend on spatial variables `x` and time `t`.
 
   Here `V` is the unknown function, `V_{...}` denotes partial derivatives
   w.r.t. dimensions specified in curly brackets, `i` and `j` denote spatial
   dimensions, `r` is the spatial radius-vector.
-
-  `a_{ij}`, `b_{i}`, and `c` are referred to as second order, first order and
-  zeroth order coefficients, respectively. `a_{ij}` must be a positive-definite
-  symmetrical matrix for all `r` and `t` (the properties of the matrix are not
-  explicitly checked, however; in particular `a_{ij}` with `i > j` is never
-  queried and assumed to be equal `a_{ji}`).
 
   For example, let's solve a 2d diffusion-convection-reaction equation with
   anisotropic diffusion:
@@ -184,16 +183,12 @@ def multidim_parabolic_equation_step(
           superdiagonal, diagonal, and subdiagonal parts of the tridiagonal
           matrix. The shape of these tensors must be same as of `value_grid`.
           superdiagonal[..., -1] and subdiagonal[..., 0] are ignored.
-          `A[i][j]` with `i < j < n_dims` are Tensors with same shape of
-          `value_grid` representing the influence of points placed diagonally
-          from the given point in the plane of dimensions `i` and `j`.
-          Contributions from all 4 diagonal directions in the plane are assumed
-          equal up to a sign. This is the case when they come from the mixed
-          second derivative terms, and the grid is evenly spaced. The
-          contribution of mixed term to
-          `(A u)_{k, l}` is `A[i][j-i]_{k, l} (u_{k+1, l+1} - u_{k+1, l-1} -
-          u_{k-1, l+1} + u_{k-1, l-1})`, where `k` and `l` are indices in the
-          plain of dimensions `i` and `j`, and the other indices are omitted.
+          `A[i][j]` with `i < j < n_dims` are tuples of four Tensors with same
+          shape as `value_grid` representing the influence of four points placed
+          diagonally from the given point in the plane of dimensions `i` and
+          `j`. Denoting `k`, `l` the indices of a given grid point in the plane,
+          the four Tensors represent contributions of points `(k+1, l+1)`,
+          `(k+1, l-1)`, `(k-1, l+1)`, and `(k-1, l-1)`, in this order.
           The second element in the tuple is a list of contributions to `b(t)`
           associated with each dimension. E.g. if `b(t)` comes from boundary
           conditions, then it is split correspondingly. Each element in the list
@@ -203,17 +198,20 @@ def multidim_parabolic_equation_step(
           `i` is a neighbor of `j` in the x-y plane. Depict these non-zero
           elements on the grid as follows:
           ```
-          a_xy    a_y-   -a_xy
+          a_mm    a_y-   a_mp
           a_x-    a_0    a_x+
-          -a_xy   a_y+   a_xy
+          a_pm   a_y+   a_pp
           ```
           The callable should return
           ```
-          ([[(a_y-, a_0y, a_y+), a_xy], [a_xy, (a_x-, a_0x, a_x+)]],
+          ([[(a_y-, a_0y, a_y+), (a_pp, a_pm, a_mp, a_pp)],
+            [None, (a_x-, a_0x, a_x+)]],
           [b_y, b_x])
           ```
-          where `a_0x + a_0y = a_0` (the splitting is arbitrary). The second
-          `a_xy` is ignored and can be replaced with `None`.
+          where `a_0x + a_0y = a_0` (the splitting is arbitrary). Note that
+          there is no need to repeat the non-diagonal term
+          `(a_pp, a_pm, a_mp, a_pp)` for the second time: it's replaced with
+          `None`.
           All the elements `a_...` may be different for each point in the grid,
           so they are `Tensors` of shape `(B, ny, nx)`. `b_y` and `b_x` are also
           `Tensors` of that shape.
@@ -259,6 +257,12 @@ def multidim_parabolic_equation_step(
       Should return a Number or a `Tensor` broadcastable to the shape of
       the grid represented by `locations_grid`. May also return None or be None
       if the shift term is absent in the equation.
+    inner_second_order_coeff_fn: Callable returning the coefficients under the
+      second derivatives (i.e. `A_ij(t, x)` above) at given time `t`. The
+      requirements are the same as for `second_order_coeff_fn`.
+    inner_first_order_coeff_fn: Callable returning the coefficients under the
+      first derivatives (i.e. `B_i(t, x)` above) at given time `t`. The
+      requirements are the same as for `first_order_coeff_fn`.
     dtype: The dtype to use.
     name: The name to give to the ops.
       Default value: None which means `parabolic_equation_step` is used.
@@ -288,22 +292,27 @@ def multidim_parabolic_equation_step(
 
     n_dims = len(coord_grid)
 
+    # Sanitize the coeff callables.
     second_order_coeff_fn = (second_order_coeff_fn or
-                             (lambda *args: [[0.0] * n_dims] * n_dims))
+                             (lambda *args: [[None] * n_dims] * n_dims))
     first_order_coeff_fn = (first_order_coeff_fn or
-                            (lambda *args: [0.0] * n_dims))
-    zeroth_order_coeff_fn = zeroth_order_coeff_fn or (lambda *args: 0.0)
+                            (lambda *args: [None] * n_dims))
+    zeroth_order_coeff_fn = zeroth_order_coeff_fn or (lambda *args: None)
+    inner_second_order_coeff_fn = (
+        inner_second_order_coeff_fn or
+        (lambda *args: [[None] * n_dims] * n_dims))
+    inner_first_order_coeff_fn = (
+        inner_first_order_coeff_fn or (lambda *args: [None] * n_dims))
 
     batch_rank = len(value_grid.shape.as_list()) - len(coord_grid)
+
     def equation_params_fn(t):
-      return _construct_discretized_equation_params(coord_grid,
-                                                    value_grid,
-                                                    boundary_conditions,
-                                                    second_order_coeff_fn,
-                                                    first_order_coeff_fn,
-                                                    zeroth_order_coeff_fn,
-                                                    batch_rank,
-                                                    t)
+      return _construct_discretized_equation_params(
+          coord_grid, value_grid, boundary_conditions, second_order_coeff_fn,
+          first_order_coeff_fn, zeroth_order_coeff_fn,
+          inner_second_order_coeff_fn, inner_first_order_coeff_fn, batch_rank,
+          t)
+
     inner_grid_in = _trim_boundaries(value_grid, batch_rank)
 
     inner_grid_out = time_marching_scheme(
@@ -320,24 +329,23 @@ def multidim_parabolic_equation_step(
 
 
 def _construct_discretized_equation_params(
-    coord_grid,
-    value_grid,
-    boundary_conditions,
-    second_order_coeff_fn,
-    first_order_coeff_fn,
-    zeroth_order_coeff_fn,
-    batch_rank,
-    t):
+    coord_grid, value_grid, boundary_conditions, second_order_coeff_fn,
+    first_order_coeff_fn, zeroth_order_coeff_fn, inner_second_order_coeff_fn,
+    inner_first_order_coeff_fn, batch_rank, t):
   """Constructs parameters of discretized equation."""
   second_order_coeffs = second_order_coeff_fn(t, coord_grid)
   first_order_coeffs = first_order_coeff_fn(t, coord_grid)
   zeroth_order_coeffs = zeroth_order_coeff_fn(t, coord_grid)
+  inner_second_order_coeffs = inner_second_order_coeff_fn(t, coord_grid)
+  inner_first_order_coeffs = inner_first_order_coeff_fn(t, coord_grid)
 
   matrix_params = []
   inhomog_terms = []
 
-  zeroth_order_coeffs = _prepare_pde_coeff(zeroth_order_coeffs, value_grid,
-                                           batch_rank)
+  zeroth_order_coeffs = _prepare_pde_coeff(zeroth_order_coeffs, value_grid)
+  if zeroth_order_coeffs is not None:
+    zeroth_order_coeffs = _trim_boundaries(
+        zeroth_order_coeffs, from_dim=batch_rank)
 
   n_dims = len(coord_grid)
   for dim in range(n_dims):
@@ -345,20 +353,17 @@ def _construct_discretized_equation_params(
     # a tridiagonal matrix.
     delta = _get_grid_delta(coord_grid, dim)  # Non-uniform grids not supported.
 
-    if second_order_coeffs is not None:
-      second_order_coeff = second_order_coeffs[dim][dim]
-    else:
-      second_order_coeff = 0
-
-    if first_order_coeffs is not None:
-      first_order_coeff = first_order_coeffs[dim]
-    else:
-      first_order_coeff = 0
+    second_order_coeff = second_order_coeffs[dim][dim]
+    first_order_coeff = first_order_coeffs[dim]
+    inner_second_order_coeff = inner_second_order_coeffs[dim][dim]
+    inner_first_order_coeff = inner_first_order_coeffs[dim]
 
     superdiag, diag, subdiag = (
-        _construct_tridiagonal_matrix(
-            value_grid, second_order_coeff, first_order_coeff, delta,
-            batch_rank))
+        _construct_tridiagonal_matrix(value_grid, second_order_coeff,
+                                      first_order_coeff,
+                                      inner_second_order_coeff,
+                                      inner_first_order_coeff, delta, dim,
+                                      batch_rank, n_dims))
 
     # 2. Account for boundary conditions on boundaries orthogonal to dim.
     # This modifies the first and last row of the tridiagonal matrix and also
@@ -371,19 +376,19 @@ def _construct_discretized_equation_params(
     # 3. Evenly distribute shift term among tridiagonal matrices of each
     # dimension. The minus sign is because we move the shift term to rhs.
     if zeroth_order_coeffs is not None:
+      # pylint: disable=invalid-unary-operand-type
       diag += -zeroth_order_coeffs / n_dims
 
-    matrix_params_row = [None]*dim + [(superdiag, diag, subdiag)]
+    matrix_params_row = [None] * dim + [(superdiag, diag, subdiag)]
 
     # 4. Construct contributions of mixed terms, d^2V/(dx_dim dx_dim2).
     for dim2 in range(dim + 1, n_dims):
-      if second_order_coeffs is not None:
-        mixed_coeff = second_order_coeffs[dim][dim2]
-      else:
-        mixed_coeff = 0
+      mixed_coeff = second_order_coeffs[dim][dim2]
+      inner_mixed_coeff = inner_second_order_coeffs[dim][dim2]
       mixed_term_contrib = (
-          _construct_contribution_of_mixed_term(
-              mixed_coeff, coord_grid, value_grid, dim, dim2, batch_rank))
+          _construct_contribution_of_mixed_term(mixed_coeff, inner_mixed_coeff,
+                                                coord_grid, value_grid, dim,
+                                                dim2, batch_rank, n_dims))
       matrix_params_row.append(mixed_term_contrib)
 
     matrix_params.append(matrix_params_row)
@@ -393,34 +398,136 @@ def _construct_discretized_equation_params(
 
 
 def _construct_tridiagonal_matrix(value_grid, second_order_coeff,
-                                  first_order_coeff, delta, batch_rank):
+                                  first_order_coeff, inner_second_order_coeff,
+                                  inner_first_order_coeff, delta, dim,
+                                  batch_rank, n_dims):
   """Constructs contributions of first and non-mixed second order terms."""
-  second_order_coeff = _prepare_pde_coeff(second_order_coeff, value_grid,
-                                          batch_rank)
-  first_order_coeff = _prepare_pde_coeff(first_order_coeff, value_grid,
-                                         batch_rank)
+  second_order_coeff = _prepare_pde_coeff(second_order_coeff, value_grid)
+  first_order_coeff = _prepare_pde_coeff(first_order_coeff, value_grid)
+  inner_second_order_coeff = _prepare_pde_coeff(inner_second_order_coeff,
+                                                value_grid)
+  inner_first_order_coeff = _prepare_pde_coeff(inner_first_order_coeff,
+                                               value_grid)
 
-  dxdx_contrib = second_order_coeff / (delta * delta)
-  dx_contrib = first_order_coeff / (2 * delta)
+  zeros = tf.zeros_like(value_grid)
+  zeros = _trim_boundaries(zeros, from_dim=batch_rank)
 
-  superdiag = -dx_contrib - dxdx_contrib
-  subdiag = dx_contrib - dxdx_contrib
-  diag = 2 * dxdx_contrib
+  def create_trimming_shifts(dim_shift):
+    # See _trim_boundaries. We need to apply shift only to the dimension `dim`.
+    shifts = [0] * n_dims
+    shifts[dim] = dim_shift
+    return shifts
+
+  # Discretize first-order term.
+  if first_order_coeff is None and inner_first_order_coeff is None:
+    # No first-order term.
+    superdiag_first_order = zeros
+    diag_first_order = zeros
+    subdiag_first_order = zeros
+  else:
+    superdiag_first_order = -1 / (2 * delta)
+    subdiag_first_order = 1 / (2 * delta)
+    diag_first_order = -superdiag_first_order - subdiag_first_order
+    if first_order_coeff is not None:
+      first_order_coeff = _trim_boundaries(
+          first_order_coeff, from_dim=batch_rank)
+      superdiag_first_order *= first_order_coeff
+      subdiag_first_order *= first_order_coeff
+      diag_first_order *= first_order_coeff
+    if inner_first_order_coeff is not None:
+      superdiag_first_order *= _trim_boundaries(
+          inner_first_order_coeff,
+          from_dim=batch_rank,
+          shifts=create_trimming_shifts(1))
+      subdiag_first_order *= _trim_boundaries(
+          inner_first_order_coeff,
+          from_dim=batch_rank,
+          shifts=create_trimming_shifts(-1))
+      diag_first_order *= _trim_boundaries(
+          inner_first_order_coeff, from_dim=batch_rank)
+
+  # Discretize second-order term.
+  if second_order_coeff is None and inner_second_order_coeff is None:
+    # No second-order term.
+    superdiag_second_order = zeros
+    diag_second_order = zeros
+    subdiag_second_order = zeros
+  else:
+    superdiag_second_order = -1 / (delta * delta)
+    subdiag_second_order = -1 / (delta * delta)
+    diag_second_order = -superdiag_second_order - subdiag_second_order
+    if second_order_coeff is not None:
+      second_order_coeff = _trim_boundaries(
+          second_order_coeff, from_dim=batch_rank)
+      superdiag_second_order *= second_order_coeff
+      subdiag_second_order *= second_order_coeff
+      diag_second_order *= second_order_coeff
+    if inner_second_order_coeff is not None:
+      superdiag_second_order *= _trim_boundaries(
+          inner_second_order_coeff,
+          from_dim=batch_rank,
+          shifts=create_trimming_shifts(1))
+      subdiag_second_order *= _trim_boundaries(
+          inner_second_order_coeff,
+          from_dim=batch_rank,
+          shifts=create_trimming_shifts(-1))
+      diag_second_order *= _trim_boundaries(
+          inner_second_order_coeff, from_dim=batch_rank)
+
+  superdiag = superdiag_first_order + superdiag_second_order
+  subdiag = subdiag_first_order + subdiag_second_order
+  diag = diag_first_order + diag_second_order
   return superdiag, diag, subdiag
 
 
-def _construct_contribution_of_mixed_term(
-    coeff, coord_grid, value_grid, dim1, dim2, batch_rank):
+def _construct_contribution_of_mixed_term(outer_coeff, inner_coeff, coord_grid,
+                                          value_grid, dim1, dim2, batch_rank,
+                                          n_dims):
   """Constructs contribution of a mixed derivative term."""
+  if outer_coeff is None and inner_coeff is None:
+    return None
   delta_dim1 = _get_grid_delta(coord_grid, dim1)
   delta_dim2 = _get_grid_delta(coord_grid, dim2)
 
-  mixed_coeff = _prepare_pde_coeff(coeff, value_grid, batch_rank)
-  mixed_coeff *= -1  # Move to rhs
+  outer_coeff = _prepare_pde_coeff(outer_coeff, value_grid)
+  inner_coeff = _prepare_pde_coeff(inner_coeff, value_grid)
+
   # The contribution of d2V/dx_dim1 dx_dim2 is
   # mixed_coeff / (4 * delta_dim1 * delta_dim2), but there is also
   # d2V/dx_dim2 dx_dim1, so the contribution is doubled.
-  return mixed_coeff / (2 * delta_dim1 * delta_dim2)
+  # Also, the minus is because of moving to the rhs.
+  contrib = -1 / (2 * delta_dim1 * delta_dim2)
+
+  if outer_coeff is not None:
+    outer_coeff = _trim_boundaries(outer_coeff, batch_rank)
+    contrib *= outer_coeff
+
+  if inner_coeff is None:
+    return contrib, -contrib, -contrib, contrib
+
+  def create_trimming_shifts(dim1_shift, dim2_shift):
+    # See _trim_boundaries. We need to apply shifts to dimensions dim1 and
+    # dim2.
+    shifts = [0] * n_dims
+    shifts[dim1] = dim1_shift
+    shifts[dim2] = dim2_shift
+    return shifts
+
+  # When there are inner coefficients in mixed terms, the contributions of four
+  # diagonally placed points are significantly different. Below we use indices
+  # "p" and "m" to denote shifts by +1 and -1 in grid indices on the
+  # (dim1, dim2) plane. E.g. if the current point has grid indices (k, l),
+  # contrib_pm is the contribution of the point (k + 1, l - 1).
+  contrib_pp = contrib * _trim_boundaries(
+      inner_coeff, from_dim=batch_rank, shifts=create_trimming_shifts(1, 1))
+  contrib_pm = -contrib * _trim_boundaries(
+      inner_coeff, from_dim=batch_rank, shifts=create_trimming_shifts(1, -1))
+  contrib_mp = -contrib * _trim_boundaries(
+      inner_coeff, from_dim=batch_rank, shifts=create_trimming_shifts(-1, 1))
+  contrib_mm = contrib * _trim_boundaries(
+      inner_coeff, from_dim=batch_rank, shifts=create_trimming_shifts(-1, -1))
+
+  return contrib_pp, contrib_pm, contrib_mp, contrib_mm
 
 
 def _apply_boundary_conditions_to_tridiagonal_and_inhomog_terms(
@@ -567,15 +674,14 @@ def _get_grid_delta(coord_grid, dim):
   return coord_grid[dim][1] - coord_grid[dim][0]
 
 
-def _prepare_pde_coeff(raw_coeff, value_grid, batch_rank):
+def _prepare_pde_coeff(raw_coeff, value_grid):
   # Converts values received from second_order_coeff_fn and similar Callables
   # into a format usable further down in the pipeline.
   if raw_coeff is None:
-    raw_coeff = 0
+    return None
   dtype = value_grid.dtype
   coeff = tf.convert_to_tensor(raw_coeff, dtype=dtype)
   coeff = tf.broadcast_to(coeff, tf.shape(value_grid))
-  coeff = _trim_boundaries(coeff, batch_rank)
   return coeff
 
 
@@ -636,10 +742,18 @@ def _slice(tensor, dim, start, end):
   return tf.slice(tensor, slice_begin, slice_size)
 
 
-def _trim_boundaries(tensor, from_dim):
+def _trim_boundaries(tensor, from_dim, shifts=None):
   """Trims tensor boundaries starting from given dimension."""
   # For example, if tensor has shape (a, b, c, d) and from_dim=1, then the
   # output tensor has shape (a, b-2, c-2, d-2).
+  # For example _trim_boundaries_with_shifts(t, 1) with a rank-4
+  # tensor t yields t[:, 1:-1, 1:-1, 1:-1].
+  #
+  # If shifts is specified, the slices applied are shifted. shifts is an array
+  # of length rank(tensor) - from_dim, with values -1, 0, or 1, meaning slices
+  # [:-2], [-1, 1], and [2:], respectively.
+  # For example _trim_boundaries_with_shifts(t, 1, (1, 0, -1)) with a rank-4
+  #  tensor t yields t[:, 2:, 1:-1, :-2].
   rank = len(tensor.shape.as_list())
   slice_begin = np.zeros(rank, dtype=np.int32)
   slice_size = np.zeros(rank, dtype=np.int32)
@@ -648,4 +762,6 @@ def _trim_boundaries(tensor, from_dim):
   for i in range(from_dim, rank):
     slice_begin[i] = 1
     slice_size[i] = tf.dimension_value(tensor.shape.as_list()[i]) - 2
+    if shifts is not None:
+      slice_begin[i] += shifts[i - from_dim]
   return tf.slice(tensor, slice_begin, slice_size)

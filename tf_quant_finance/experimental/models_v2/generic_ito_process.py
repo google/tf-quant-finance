@@ -244,7 +244,7 @@ class GenericItoProcess(ito_process.ItoProcess):
                          **kwargs):
     """See base class."""
     # pde_solver_fn can be injected for unit testing.
-    pde_solver_fn = kwargs.get('pde_solver_fn', fd_solvers.solve_backwards)
+    pde_solver_fn = kwargs.get('pde_solver_fn', fd_solvers.solve_backward)
 
     def second_order_coeff_fn(t, coord_grid):
       sigma = self._volatility_fn(t, self._coord_grid_to_mesh_grid(coord_grid))

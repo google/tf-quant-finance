@@ -28,6 +28,8 @@ def explicit_step(
     second_order_coeff_fn,
     first_order_coeff_fn,
     zeroth_order_coeff_fn,
+    inner_second_order_coeff_fn,
+    inner_first_order_coeff_fn,
     num_steps_performed,
     dtype=None,
     name=None):
@@ -88,6 +90,8 @@ def explicit_step(
     second_order_coeff_fn: See the spec in fd_solvers.solve.
     first_order_coeff_fn: See the spec in fd_solvers.solve.
     zeroth_order_coeff_fn: See the spec in fd_solvers.solve.
+    inner_second_order_coeff_fn: See the spec in fd_solvers.solve.
+    inner_first_order_coeff_fn: See the spec in fd_solvers.solve.
     num_steps_performed: Python `int`. Number of steps performed so far.
     dtype: The dtype to use.
     name: The name to give to the ops.
@@ -110,6 +114,8 @@ def explicit_step(
                                  second_order_coeff_fn,
                                  first_order_coeff_fn,
                                  zeroth_order_coeff_fn,
+                                 inner_second_order_coeff_fn,
+                                 inner_first_order_coeff_fn,
                                  time_marching_scheme=explicit_scheme,
                                  dtype=dtype,
                                  name=name)

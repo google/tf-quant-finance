@@ -24,7 +24,7 @@ from tf_quant_finance.experimental.pde_v2.steppers.douglas_adi import douglas_ad
 from tf_quant_finance.experimental.pde_v2.steppers.oscillation_damped_crank_nicolson import crank_nicolson_with_oscillation_damping_step
 
 
-def solve_backwards(start_time,
+def solve_backward(start_time,
                     end_time,
                     coord_grid,
                     values_grid,
@@ -37,6 +37,8 @@ def solve_backwards(start_time,
                     second_order_coeff_fn=None,
                     first_order_coeff_fn=None,
                     zeroth_order_coeff_fn=None,
+                    inner_second_order_coeff_fn=None,
+                    inner_first_order_coeff_fn=None,
                     maximum_steps=None,
                     swap_memory=True,
                     dtype=None,
@@ -47,10 +49,13 @@ def solve_backwards(start_time,
   partial differential equation:
 
   ```None
-    V_t + Sum[mu_i(t, x) V_i, 1<=i<=n] +
-       Sum[D_{ij}(t, x) V_{ij}, 1 <= i,j <= n] + r(t, x) V = 0
+    dV/dt + Sum[a_ij d2(A_ij V)/dx_i dx_j, 1 <= i, j <=n] +
+       Sum[b_i d(B_i V)/dx_i, 1 <= i <= n] + c V = 0.
   ```
-  from time `t0` to time `t1<t0` (i.e. backwards in time).
+  from time `t0` to time `t1<t0` (i.e. backwards in time). Here `a_ij`,
+  `A_ij`, `b_i`, `B_i` and `c` are coefficients that may depend on spatial
+  variables `x` and time `t`.
+
   The solution `V(t,x)` is assumed to be discretized on an `n`-dimensional
   rectangular grid. A rectangular grid, G, in n-dimensions may be described
   by specifying the coordinates of the points along each axis. For example,
@@ -234,28 +239,30 @@ def solve_backwards(start_time,
       been performed. The callable should accept the time of the grid, the
       coordinate grid and the values grid and should return the values grid. All
       input arguments to be passed by keyword.
-    second_order_coeff_fn: Callable returning the coefficients of the
-      second order terms of the PDE (i.e. `D_{ij}(t, x)` above) at given time
-      `t`.
+    second_order_coeff_fn: Callable returning the coefficients of the second
+      order terms of the PDE (i.e. `a_{ij}(t, x)` above) at given time `t`.
       The callable accepts the following arguments:
         `t`: The time at which the coefficient should be evaluated.
-        `coord_grid`: a `Tensor` representing a grid of locations `r` at
-          which the coefficient should be evaluated.
-      Returns the object `D` such that `D[i][j]` is defined and
-      `D[i][j]=D_{ij}(r, t)`, where `0 <= i < n_dims` and `i <= j < n_dims`.
+        `coord_grid`: a `Tensor` representing a grid of locations `r` at which
+          the coefficient should be evaluated.
+      Returns the object `a` such that `a[i][j]` is defined and
+      `a[i][j]=a_{ij}(r, t)`, where `0 <= i < n_dims` and `i <= j < n_dims`.
       For example, the object may be a list of lists or a rank 2 Tensor.
-      `D[i][j]` is assumed to be symmetrical, and only the elements with
+      `a[i][j]` is assumed to be symmetrical, and only the elements with
       `j >= i` will be used, so elements with `j < i` can be `None`.
-      Each `D[i][j]` should be a Number, a `Tensor` broadcastable to the shape
+      Each `a[i][j]` should be a Number, a `Tensor` broadcastable to the shape
       of `coord_grid`, or `None` if corresponding term is absent in the
       equation. Also, the callable itself may be None, meaning there are no
       second-order derivatives in the equation.
       For example, for a 2D equation with the following second order terms
       ```
-      D_xx V_xx + 2 D_xy V_xy + D_yy V_yy
+      a_xx V_xx + 2 a_xy V_xy + a_yy V_yy
       ```
        the callable may return either
-      `[[D_yy, D_xy], [D_xy, D_xx]]` or `[[D_yy, D_xy], [None, D_xx]]`.
+      `[[a_yy, a_xy], [a_xy, a_xx]]` or `[[a_yy, a_xy], [None, a_xx]]`.
+      Default value: None. If both `second_order_coeff_fn` and
+        `inner_second_order_coeff_fn` are None, it means the second-order term
+        is absent. If only one of them is `None`, it is assumed to be `1`.
     first_order_coeff_fn: Callable returning the coefficients of the
       first order terms of the PDE (i.e. `mu_i(t, r)` above) evaluated at given
       time `t`.
@@ -264,10 +271,13 @@ def solve_backwards(start_time,
         `locations_grid`: a `Tensor` representing a grid of locations `r` at
           which the coefficient should be evaluated.
       Returns a list or an 1D `Tensor`, `i`-th element of which represents
-      `mu_i(t, r)`. Each element is a `Tensor` broadcastable to the shape of
+      `b_i(t, r)`. Each element is a `Tensor` broadcastable to the shape of
       `locations_grid`, or None if corresponding term is absent in the
       equation. The callable itself may be None, meaning there are no
       first-order derivatives in the equation.
+      Default value: None. If both `first_order_coeff_fn` and
+        `inner_first_order_coeff_fn` are None, it means the first-order term is
+        absent. If only one of them is `None`, it is assumed to be `1`.
     zeroth_order_coeff_fn: Callable returning the coefficient of the
       zeroth order term of the PDE (i.e. `c(t, r)` above) evaluated at given
       time `t`.
@@ -277,6 +287,13 @@ def solve_backwards(start_time,
           which the coefficient should be evaluated.
       Should return a `Tensor` broadcastable to the shape of `locations_grid`.
       May return None or be None if the shift term is absent in the equation.
+      Default value: None, meaning absent zeroth order term.
+    inner_second_order_coeff_fn: Callable returning the coefficients under the
+      second derivatives (i.e. `A_ij(t, x)` above) at given time `t`. The
+      requirements are the same as for `second_order_coeff_fn`.
+    inner_first_order_coeff_fn: Callable returning the coefficients under the
+      first derivatives (i.e. `B_i(t, x)` above) at given time `t`. The
+      requirements are the same as for `first_order_coeff_fn`.
     maximum_steps: Optional int `Tensor`. The maximum number of time steps that
       might be taken. This argument is only used if the `num_steps` is not used
       and `time_step` is a callable otherwise it is ignored. It is useful to
@@ -291,7 +308,7 @@ def solve_backwards(start_time,
       Default value: None, which means dtype will be inferred from
       `values_grid`.
     name: The name to give to the ops.
-      Default value: None which means `solve` is used.
+      Default value: None which means `solve_backward` is used.
 
   Returns:
     The final values grid, final coordinate grid, final time and number of steps
@@ -301,11 +318,13 @@ def solve_backwards(start_time,
     ValueError if neither num steps nor time steps are provided or if both
     are provided.
   """
+  values_grid = tf.convert_to_tensor(values_grid, dtype=dtype)
   start_time = tf.convert_to_tensor(
-      start_time, dtype=dtype, name='start_time')
+      start_time, dtype=values_grid.dtype, name='start_time')
   end_time = tf.math.maximum(
       tf.math.minimum(
-          tf.convert_to_tensor(end_time, dtype=dtype, name='end_time'),
+          tf.convert_to_tensor(end_time, dtype=values_grid.dtype,
+                               name='end_time'),
           start_time), 0)
   return _solve(_time_direction_backward_fn,
                 start_time,
@@ -321,10 +340,11 @@ def solve_backwards(start_time,
                 second_order_coeff_fn,
                 first_order_coeff_fn,
                 zeroth_order_coeff_fn,
+                inner_second_order_coeff_fn,
+                inner_first_order_coeff_fn,
                 maximum_steps,
                 swap_memory,
-                dtype,
-                name)
+                name or 'solve_backward')
 
 
 def solve_forward(start_time,
@@ -340,6 +360,8 @@ def solve_forward(start_time,
                   second_order_coeff_fn=None,
                   first_order_coeff_fn=None,
                   zeroth_order_coeff_fn=None,
+                  inner_second_order_coeff_fn=None,
+                  inner_first_order_coeff_fn=None,
                   maximum_steps=None,
                   swap_memory=True,
                   dtype=None,
@@ -350,10 +372,12 @@ def solve_forward(start_time,
   partial differential equation:
 
   ```None
-    V_t + Sum[mu_i(t, x) V_i, 1<=i<=n] +
-       Sum[D_{ij}(t, x) V_{ij}, 1 <= i,j <= n] + r(t, x) V = 0
+    dV/dt + Sum[a_ij d2(A_ij V)/dx_i dx_j, 1 <= i, j <=n] +
+       Sum[b_i d(B_i V)/dx_i, 1 <= i <= n] + c V = 0.
   ```
-  from time `t0` to time `t1 > t0` (i.e. forward in time).
+  from time `t0` to time `t1 > t0` (i.e. forward in time). Here `a_ij`,
+  `A_ij`, `b_i`, `B_i` and `c` are coefficients that may depend on spatial
+  variables `x` and time `t`.
 
   See more details in `solve_backwards()`: other than the forward time
   direction, the specification is the same.
@@ -445,28 +469,30 @@ def solve_forward(start_time,
       been performed. The callable should accept the time of the grid, the
       coordinate grid and the values grid and should return the values grid. All
       input arguments to be passed by keyword.
-    second_order_coeff_fn: Callable returning the coefficients of the
-      second order terms of the PDE (i.e. `D_{ij}(t, x)` above) at given time
-      `t`.
+    second_order_coeff_fn: Callable returning the coefficients of the second
+      order terms of the PDE (i.e. `a_{ij}(t, x)` above) at given time `t`.
       The callable accepts the following arguments:
         `t`: The time at which the coefficient should be evaluated.
-        `coord_grid`: a `Tensor` representing a grid of locations `r` at
-          which the coefficient should be evaluated.
-      Returns the object `D` such that `D[i][j]` is defined and
-      `D[i][j]=D_{ij}(r, t)`, where `0 <= i < n_dims` and `i <= j < n_dims`.
+        `coord_grid`: a `Tensor` representing a grid of locations `r` at which
+          the coefficient should be evaluated.
+      Returns the object `a` such that `a[i][j]` is defined and
+      `a[i][j]=a_{ij}(r, t)`, where `0 <= i < n_dims` and `i <= j < n_dims`.
       For example, the object may be a list of lists or a rank 2 Tensor.
-      `D[i][j]` is assumed to be symmetrical, and only the elements with
+      `a[i][j]` is assumed to be symmetrical, and only the elements with
       `j >= i` will be used, so elements with `j < i` can be `None`.
-      Each `D[i][j]` should be a Number, a `Tensor` broadcastable to the shape
+      Each `a[i][j]` should be a Number, a `Tensor` broadcastable to the shape
       of `coord_grid`, or `None` if corresponding term is absent in the
       equation. Also, the callable itself may be None, meaning there are no
       second-order derivatives in the equation.
       For example, for a 2D equation with the following second order terms
       ```
-      D_xx V_xx + 2 D_xy V_xy + D_yy V_yy
+      a_xx V_xx + 2 a_xy V_xy + a_yy V_yy
       ```
        the callable may return either
-      `[[D_yy, D_xy], [D_xy, D_xx]]` or `[[D_yy, D_xy], [None, D_xx]]`.
+      `[[a_yy, a_xy], [a_xy, a_xx]]` or `[[a_yy, a_xy], [None, a_xx]]`.
+      Default value: None. If both `second_order_coeff_fn` and
+        `inner_second_order_coeff_fn` are None, it means the second-order term
+        is absent. If only one of them is `None`, it is assumed to be `1`.
     first_order_coeff_fn: Callable returning the coefficients of the
       first order terms of the PDE (i.e. `mu_i(t, r)` above) evaluated at given
       time `t`.
@@ -475,10 +501,13 @@ def solve_forward(start_time,
         `locations_grid`: a `Tensor` representing a grid of locations `r` at
           which the coefficient should be evaluated.
       Returns a list or an 1D `Tensor`, `i`-th element of which represents
-      `mu_i(t, r)`. Each element is a `Tensor` broadcastable to the shape of
+      `b_i(t, r)`. Each element is a `Tensor` broadcastable to the shape of
       `locations_grid`, or None if corresponding term is absent in the
       equation. The callable itself may be None, meaning there are no
       first-order derivatives in the equation.
+      Default value: None. If both `first_order_coeff_fn` and
+        `inner_first_order_coeff_fn` are None, it means the first-order term is
+        absent. If only one of them is `None`, it is assumed to be `1`.
     zeroth_order_coeff_fn: Callable returning the coefficient of the
       zeroth order term of the PDE (i.e. `c(t, r)` above) evaluated at given
       time `t`.
@@ -488,6 +517,13 @@ def solve_forward(start_time,
           which the coefficient should be evaluated.
       Should return a `Tensor` broadcastable to the shape of `locations_grid`.
       May return None or be None if the shift term is absent in the equation.
+      Default value: None, meaning absent zeroth order term.
+    inner_second_order_coeff_fn: Callable returning the coefficients under the
+      second derivatives (i.e. `A_ij(t, x)` above) at given time `t`. The
+      requirements are the same as for `second_order_coeff_fn`.
+    inner_first_order_coeff_fn: Callable returning the coefficients under the
+      first derivatives (i.e. `B_i(t, x)` above) at given time `t`. The
+      requirements are the same as for `first_order_coeff_fn`.
     maximum_steps: Optional int `Tensor`. The maximum number of time steps that
       might be taken. This argument is only used if the `num_steps` is not used
       and `time_step` is a callable otherwise it is ignored. It is useful to
@@ -502,7 +538,7 @@ def solve_forward(start_time,
       Default value: None, which means dtype will be inferred from
       `values_grid`.
     name: The name to give to the ops.
-      Default value: None which means `solve` is used.
+      Default value: None which means `solve_forward` is used.
 
   Returns:
     The final values grid, final coordinate grid, final time and number of steps
@@ -512,10 +548,11 @@ def solve_forward(start_time,
     ValueError if neither num steps nor time steps are provided or if both
     are provided.
   """
+  values_grid = tf.convert_to_tensor(values_grid, dtype=dtype)
   start_time = tf.convert_to_tensor(
-      start_time, dtype=dtype, name='start_time')
+      start_time, dtype=values_grid.dtype, name='start_time')
   end_time = tf.math.maximum(
-      tf.convert_to_tensor(end_time, dtype=dtype, name='end_time'),
+      tf.convert_to_tensor(end_time, dtype=values_grid.dtype, name='end_time'),
       start_time)
   return _solve(_time_direction_forward_fn,
                 start_time,
@@ -531,10 +568,11 @@ def solve_forward(start_time,
                 second_order_coeff_fn,
                 first_order_coeff_fn,
                 zeroth_order_coeff_fn,
+                inner_second_order_coeff_fn,
+                inner_first_order_coeff_fn,
                 maximum_steps,
                 swap_memory,
-                dtype,
-                name)
+                name or "solve_forward")
 
 
 def _solve(
@@ -552,16 +590,16 @@ def _solve(
     second_order_coeff_fn=None,
     first_order_coeff_fn=None,
     zeroth_order_coeff_fn=None,
+    inner_second_order_coeff_fn=None,
+    inner_first_order_coeff_fn=None,
     maximum_steps=None,
     swap_memory=True,
-    dtype=None,
     name=None):
   """Common code for solve_backwards and solve_forward."""
   if (num_steps is None) == (time_step is None):
     raise ValueError('Exactly one of num_steps or time_step'
                      ' should be supplied.')
 
-  values_grid = tf.convert_to_tensor(values_grid, dtype=dtype)
   coord_grid = [
       tf.convert_to_tensor(dim_grid, dtype=values_grid.dtype)
       for dim_grid in coord_grid
@@ -616,6 +654,8 @@ def _solve(
           second_order_coeff_fn=second_order_coeff_fn,
           first_order_coeff_fn=first_order_coeff_fn,
           zeroth_order_coeff_fn=zeroth_order_coeff_fn,
+          inner_second_order_coeff_fn=inner_second_order_coeff_fn,
+          inner_first_order_coeff_fn=inner_first_order_coeff_fn,
           num_steps_performed=steps_performed)
 
       if values_transform_fn is not None:

@@ -41,7 +41,8 @@ class DouglasAdiSchemeTest(tf.test.TestCase):
 
     def equation_params_fn(t):
       del t
-      return ([[_tfconst(dy), _tfconst(dxy)], [_tfconst(dxy), _tfconst(dx)]],
+      return ([[_tfconst(dy), _spread_mixed_term(_tfconst(dxy))],
+               [None, _tfconst(dx)]],
               [_tfconst(by), _tfconst(bx)])
 
     scheme = douglas_adi_scheme(theta=theta)
@@ -69,9 +70,12 @@ class DouglasAdiSchemeTest(tf.test.TestCase):
 
     def equation_params_fn(t):
       del t
-      return ([[_tfconst(dz), _tfconst(dyz), _tfconst(dxz)],
-               [_tfconst(dyz), _tfconst(dy), _tfconst(dxy)],
-               [_tfconst(dxz), _tfconst(dxy), _tfconst(dx)]],
+      dyz_spread = _spread_mixed_term(_tfconst(dyz))
+      dxz_spread = _spread_mixed_term(_tfconst(dxz))
+      dxy_spread = _spread_mixed_term(_tfconst(dxy))
+      return ([[_tfconst(dz), dyz_spread, dxz_spread],
+               [dyz_spread, _tfconst(dy), dxy_spread],
+               [dxz_spread, dxy_spread, _tfconst(dx)]],
               [_tfconst(bz), _tfconst(by), _tfconst(bx)])
 
     scheme = douglas_adi_scheme(theta=theta)
@@ -195,14 +199,15 @@ class DouglasAdiSchemeTest(tf.test.TestCase):
     d = np.arange(10, 90, dtype=np.float32).reshape(4, 4, 5)
     dx = np.array([d, -3 * d, 2 * d])
     dy = 2 * dx
-    dxy = np.arange(-20, 60, dtype=np.float32).reshape(4, 4, 5)
+    dxy = (np.arange(-20, 60, dtype=np.float32).reshape(4, 4, 5)) * 4
     theta = 0.3
     bx = np.arange(20, 100, dtype=np.float32).reshape(4, 4, 5)
     by = np.arange(30, 110, dtype=np.float32).reshape(4, 4, 5)
 
     def equation_params_fn(t):
       del t
-      return ([[_tfconst(dy), _tfconst(dxy)], [_tfconst(dxy), _tfconst(dx)]],
+      return ([[_tfconst(dy), _spread_mixed_term(_tfconst(dxy))],
+               [None, _tfconst(dx)]],
               [_tfconst(by), _tfconst(bx)])
 
     scheme = douglas_adi_scheme(theta=theta)
@@ -231,6 +236,12 @@ def _np_shift(values, axis, delta):
 
 def _tfconst(np_array):
   return tf.constant(np_array, dtype=tf.float32)
+
+
+def _spread_mixed_term(term):
+  # Turns non-diagonal element into a tuple of 4 elements representing 4
+  # diagonal points.
+  return term, -term, -term, term
 
 if __name__ == '__main__':
   tf.test.main()

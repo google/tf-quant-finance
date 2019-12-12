@@ -120,6 +120,8 @@ def douglas_adi_step(theta):
       second_order_coeff_fn,
       first_order_coeff_fn,
       zeroth_order_coeff_fn,
+      inner_second_order_coeff_fn,
+      inner_first_order_coeff_fn,
       num_steps_performed,
       dtype=None,
       name=None):
@@ -135,6 +137,8 @@ def douglas_adi_step(theta):
                                             second_order_coeff_fn,
                                             first_order_coeff_fn,
                                             zeroth_order_coeff_fn,
+                                            inner_second_order_coeff_fn,
+                                            inner_first_order_coeff_fn,
                                             dtype=dtype,
                                             name=name)
   return _step_fn
@@ -211,9 +215,8 @@ def douglas_adi_scheme(theta):
       for j in range(i + 1, n_dims):
         mixed_term = matrix_params_t1[i][j]
         if mixed_term is not None:
-          mixed_term *= (t2 - t1)
-          current_grid += _apply_mixed_term_explicitly(
-              value_grid, mixed_term, i, j, n_dims)
+          current_grid += _apply_mixed_term_explicitly(value_grid, mixed_term,
+                                                       t2 - t1, i, j, n_dims)
 
     # These are A_i(t1) * U_{n-1} * dt; caching them because they appear again
     # later in the correction substeps.
@@ -247,8 +250,10 @@ def douglas_adi_scheme(theta):
   return _marching_scheme
 
 
-def _apply_mixed_term_explicitly(values, mixed_term, dim1, dim2, n_dims):
+def _apply_mixed_term_explicitly(values, mixed_term, delta_t, dim1, dim2,
+                                 n_dims):
   """Applies mixed term explicitly."""
+  mixed_term_pp, mixed_term_pm, mixed_term_mp, mixed_term_mm = mixed_term
   batch_rank = len(values.shape) - n_dims
   dim1 += batch_rank
   dim2 += batch_rank
@@ -258,8 +263,10 @@ def _apply_mixed_term_explicitly(values, mixed_term, dim1, dim2, n_dims):
   shift_left = _shift(values, dim1, -1)
   shift_left_down = _shift(shift_left, dim2, 1)
   shift_left_up = _shift(shift_left, dim2, -1)
-  return mixed_term * (
-      shift_left_up - shift_right_up - shift_left_down + shift_right_down)
+  return (mixed_term_mm * shift_right_down +
+          mixed_term_mp * shift_right_up +
+          mixed_term_pm * shift_left_down +
+          mixed_term_pp * shift_left_up) * delta_t
 
 
 def _apply_tridiag_matrix_explicitly(values, superdiag, diag, subdiag,

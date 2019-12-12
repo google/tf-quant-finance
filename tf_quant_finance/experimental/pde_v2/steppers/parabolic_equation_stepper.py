@@ -31,6 +31,8 @@ def parabolic_equation_step(
     second_order_coeff_fn,
     first_order_coeff_fn,
     zeroth_order_coeff_fn,
+    inner_second_order_coeff_fn,
+    inner_first_order_coeff_fn,
     time_marching_scheme,
     dtype=None,
     name=None):
@@ -42,15 +44,10 @@ def parabolic_equation_step(
   is of the form:
 
   ```none
-   V_{t} + a(t, x) * V_{xx} + b(t, x) * V_{x} + c(t, x) * V = 0
+   dV/dt + a * d2(A * V)/dx2 + b * d(B * V)/dx + c * V = 0
   ```
-
-  Here `V = V(t, x)` is a solution to the 2-dimensional PDE. `V_{t}` is the
-  derivative over time and `V_{x}` and `V_{xx}` are the first and second
-  derivatives over the space component. For a solution to be well-defined, it is
-  required for `a` to be positive on its domain. Henceforth, `a(t, x)`,
-  `b(t, x)`, and `c(t, x)` are referred to as second order, first order and
-  zeroth order coefficients, respectively.
+  Here `a`, `A`, `b`, `B`, and `c` are known coefficients which may depend on
+  `x` and `t`; `V = V(t, x)` is the solution to be found.
 
   See `fd_solvers.solve` for an example use case.
 
@@ -117,6 +114,12 @@ def parabolic_equation_step(
       Should return a Number or a `Tensor` broadcastable to the shape of
       the grid represented by `locations_grid`. May also return None or be None
       if the shift term is absent in the equation.
+    inner_second_order_coeff_fn: Callable returning the coefficients under the
+      second derivatives (i.e. `A(t, x)` above) at given time `t`. The
+      requirements are the same as for `second_order_coeff_fn`.
+    inner_first_order_coeff_fn: Callable returning the coefficients under the
+      first derivatives (i.e. `B(t, x)` above) at given time `t`. The
+      requirements are the same as for `first_order_coeff_fn`.
     time_marching_scheme: A callable which represents the time marching scheme
       for solving the PDE equation. If `u(t)` is space-discretized vector of the
       solution of the PDE, this callable approximately solves the equation
@@ -156,22 +159,15 @@ def parabolic_equation_step(
     value_grid = tf.convert_to_tensor(value_grid, dtype=dtype,
                                       name='value_grid')
 
-    second_order_coeff_fn = second_order_coeff_fn or (lambda *args: [[0.0]])
-    first_order_coeff_fn = first_order_coeff_fn or (lambda *args: [0.0])
-    zeroth_order_coeff_fn = zeroth_order_coeff_fn or (lambda *args: 0.0)
-
     inner_grid_in = value_grid[..., 1:-1]
     coord_grid_deltas = coord_grid[0][1:] - coord_grid[0][:-1]
 
     def equation_params_fn(t):
-      return _construct_space_discretized_eqn_params(coord_grid,
-                                                     coord_grid_deltas,
-                                                     value_grid,
-                                                     boundary_conditions,
-                                                     second_order_coeff_fn,
-                                                     first_order_coeff_fn,
-                                                     zeroth_order_coeff_fn,
-                                                     t)
+      return _construct_space_discretized_eqn_params(
+          coord_grid, coord_grid_deltas, value_grid, boundary_conditions,
+          second_order_coeff_fn, first_order_coeff_fn, zeroth_order_coeff_fn,
+          inner_second_order_coeff_fn, inner_first_order_coeff_fn, t)
+
     inner_grid_out = time_marching_scheme(
         value_grid=inner_grid_in,
         t1=time,
@@ -184,14 +180,10 @@ def parabolic_equation_step(
     return coord_grid, updated_value_grid
 
 
-def _construct_space_discretized_eqn_params(coord_grid,
-                                            coord_grid_deltas,
-                                            value_grid,
-                                            boundary_conditions,
-                                            second_order_coeff_fn,
-                                            first_order_coeff_fn,
-                                            zeroth_order_coeff_fn,
-                                            t):
+def _construct_space_discretized_eqn_params(
+    coord_grid, coord_grid_deltas, value_grid, boundary_conditions,
+    second_order_coeff_fn, first_order_coeff_fn, zeroth_order_coeff_fn,
+    inner_second_order_coeff_fn, inner_first_order_coeff_fn, t):
   """Constructs the tridiagonal matrix and the inhomogeneous term."""
   # The space-discretized PDE has the form dv/dt = A(t) v(t) + b(t), where
   # v(t) is V(t, x) discretized by x, A(t) is a tridiagonal matrix and b(t) is
@@ -211,30 +203,79 @@ def _construct_space_discretized_eqn_params(coord_grid,
   # `[value_dim, 3, num_grid_points]`.
 
   # Get the PDE coefficients and broadcast them to the shape of value grid.
+  second_order_coeff_fn = second_order_coeff_fn or (lambda *args: [[None]])
+  first_order_coeff_fn = first_order_coeff_fn or (lambda *args: [None])
+  zeroth_order_coeff_fn = zeroth_order_coeff_fn or (lambda *args: None)
+  inner_second_order_coeff_fn = inner_second_order_coeff_fn or (
+      lambda *args: [[None]])
+  inner_first_order_coeff_fn = inner_first_order_coeff_fn or (
+      lambda *args: [None])
+
   second_order_coeff = _prepare_pde_coeffs(
       second_order_coeff_fn(t, coord_grid)[0][0], value_grid)
   first_order_coeff = _prepare_pde_coeffs(
       first_order_coeff_fn(t, coord_grid)[0], value_grid)
-  zeroth_order_coeff = _prepare_pde_coeffs(zeroth_order_coeff_fn(t, coord_grid),
-                                           value_grid)
+  zeroth_order_coeff = _prepare_pde_coeffs(
+      zeroth_order_coeff_fn(t, coord_grid), value_grid)
+  inner_second_order_coeff = _prepare_pde_coeffs(
+      inner_second_order_coeff_fn(t, coord_grid)[0][0], value_grid)
+  inner_first_order_coeff = _prepare_pde_coeffs(
+      inner_first_order_coeff_fn(t, coord_grid)[0], value_grid)
 
-  # Here `dxdx_coef` is coming from the discretization of `V_{xx}` and
-  # `dx_coef` is from discretization of `V_{x}`.
-  temp = 2 * second_order_coeff / sum_deltas
-  dxdx_coef_1 = temp / forward_deltas
-  dxdx_coef_2 = temp / backward_deltas
-  dx_coef = first_order_coeff / sum_deltas
+  zeros = tf.zeros_like(value_grid[..., 1:-1])
 
-  # The 3 main diagonals are constructed below. Note that all the diagonals
-  # are of the same length
-  upper_diagonal = (-dx_coef - dxdx_coef_1)
-  lower_diagonal = (dx_coef - dxdx_coef_2)
-  diagonal = -zeroth_order_coeff - upper_diagonal - lower_diagonal
+  # Discretize zeroth-order term.
+  if zeroth_order_coeff is None:
+    diag_zeroth_order = zeros
+  else:
+    # Minus is due to moving to rhs.
+    diag_zeroth_order = -zeroth_order_coeff[..., 1:-1]
+
+  # Discretize first-order term.
+  if first_order_coeff is None and inner_first_order_coeff is None:
+    # No first-order term.
+    superdiag_first_order = zeros
+    diag_first_order = zeros
+    subdiag_first_order = zeros
+  else:
+    superdiag_first_order = -backward_deltas / (sum_deltas * forward_deltas)
+    subdiag_first_order = forward_deltas / (sum_deltas * backward_deltas)
+    diag_first_order = -superdiag_first_order - subdiag_first_order
+    if first_order_coeff is not None:
+      superdiag_first_order *= first_order_coeff[..., 1:-1]
+      subdiag_first_order *= first_order_coeff[..., 1:-1]
+      diag_first_order *= first_order_coeff[..., 1:-1]
+    if inner_first_order_coeff is not None:
+      superdiag_first_order *= inner_first_order_coeff[..., 2:]
+      subdiag_first_order *= inner_first_order_coeff[..., :-2]
+      diag_first_order *= inner_first_order_coeff[..., 1:-1]
+
+  # Discretize second-order term.
+  if second_order_coeff is None and inner_second_order_coeff is None:
+    # No second-order term.
+    superdiag_second_order = zeros
+    diag_second_order = zeros
+    subdiag_second_order = zeros
+  else:
+    superdiag_second_order = -2 / (sum_deltas * forward_deltas)
+    subdiag_second_order = -2 / (sum_deltas * backward_deltas)
+    diag_second_order = -superdiag_second_order - subdiag_second_order
+    if second_order_coeff is not None:
+      superdiag_second_order *= second_order_coeff[..., 1:-1]
+      subdiag_second_order *= second_order_coeff[..., 1:-1]
+      diag_second_order *= second_order_coeff[..., 1:-1]
+    if inner_second_order_coeff is not None:
+      superdiag_second_order *= inner_second_order_coeff[..., 2:]
+      subdiag_second_order *= inner_second_order_coeff[..., :-2]
+      diag_second_order *= inner_second_order_coeff[..., 1:-1]
+
+  superdiag = superdiag_first_order + superdiag_second_order
+  subdiag = subdiag_first_order + subdiag_second_order
+  diag = diag_zeroth_order + diag_first_order + diag_second_order
 
   return _apply_boundary_conditions_to_discretized_equation(
-      boundary_conditions,
-      coord_grid, coord_grid_deltas,
-      diagonal, upper_diagonal, lower_diagonal, t)
+      boundary_conditions, coord_grid, coord_grid_deltas, diag, superdiag,
+      subdiag, t)
 
 
 def _apply_boundary_conditions_to_discretized_equation(
@@ -323,16 +364,13 @@ def _apply_boundary_conditions_after_step(
 
 def _prepare_pde_coeffs(raw_coeffs, value_grid):
   """Prepares values received from second_order_coeff_fn and similar."""
+  if raw_coeffs is None:
+    return None
   dtype = value_grid.dtype
   coeffs = tf.convert_to_tensor(raw_coeffs, dtype=dtype)
 
   broadcast_shape = tf.shape(value_grid)
   coeffs = tf.broadcast_to(coeffs, broadcast_shape)
-
-  # Trim coefficients on boundaries. We don't need them, because the boundary
-  # values don't satisfy the PDE, they are restored using boundary conditions
-  # instead.
-  coeffs = coeffs[..., 1:-1]
   return coeffs
 
 
