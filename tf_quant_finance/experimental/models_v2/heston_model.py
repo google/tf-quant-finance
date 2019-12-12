@@ -21,12 +21,12 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-from tf_quant_finance.experimental.models_v2 import ito_process
+from tf_quant_finance.experimental.models_v2 import generic_ito_process
 from tf_quant_finance.math import piecewise
 from tf_quant_finance.math import random_ops
 
 
-class HestonModel(ito_process.ItoProcess):
+class HestonModel(generic_ito_process.GenericItoProcess):
   """Heston Model with piecewise constant parameters.
 
   Represents the Ito process:
@@ -326,24 +326,6 @@ class HestonModel(ito_process.ItoProcess):
                            vol_paths, log_spot_paths))
     return tf.stack([tf.transpose(log_spot_paths.stack()),
                      tf.transpose(vol_paths.stack())], -1)
-
-  def fd_solver_backward(self,
-                         start_time,
-                         end_time,
-                         coord_grid,
-                         values_grid,
-                         discounting=None,
-                         one_step_fn=None,
-                         boundary_conditions=None,
-                         start_step_count=0,
-                         num_steps=None,
-                         time_step=None,
-                         values_transform_fn=None,
-                         dtype=None,
-                         name=None,
-                         **kwargs):
-    """See base class."""
-    raise NotImplementedError
 
 
 def _get_parameters(times, *params):

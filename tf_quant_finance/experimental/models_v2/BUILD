@@ -76,7 +76,7 @@ py_library(
     name = "heston_model",
     srcs = ["heston_model.py"],
     deps = [
-        ":ito_process",
+        ":generic_ito_process",
         "//tf_quant_finance/math:piecewise",
         "//tf_quant_finance/math/random_ops",
         # tensorflow dep,
