@@ -26,8 +26,8 @@ import tensorflow as tf
 from tf_quant_finance.experimental.pde_v2 import fd_solvers
 from tf_quant_finance.experimental.pde_v2.boundary_conditions import dirichlet
 from tf_quant_finance.experimental.pde_v2.boundary_conditions import neumann
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.douglas_adi import douglas_adi_step
 from tf_quant_finance.experimental.pde_v2.grids import grids
+from tf_quant_finance.experimental.pde_v2.steppers.douglas_adi import douglas_adi_step
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 _SQRT2 = np.sqrt(2)
@@ -41,8 +41,8 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
 
     The equation is `u_{t} + Dx u_{xx} + Dy u_{yy} = 0`.
     The final condition is a gaussian centered at (0, 0) with variance sigma.
-    The variance along each dimension should evolve as `sigma + 2 Dx t` and
-    `sigma + 2 Dy (t_final - t)`.
+    The variance along each dimension should evolve as
+    `sigma + 2 Dx (t_final - t)` and `sigma + 2 Dy (t_final - t)`.
     """
     grid = grids.uniform_grid(
         minimums=[-10, -20],
@@ -74,7 +74,7 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
     bound_cond = [(_zero_boundary, _zero_boundary),
                   (_zero_boundary, _zero_boundary)]
     step_fn = douglas_adi_step(theta=0.5)
-    result = fd_solvers.step_back(
+    result = fd_solvers.solve_backwards(
         start_time=final_t,
         end_time=0,
         coord_grid=grid,
@@ -125,7 +125,7 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
     bound_cond = [(_zero_boundary, _zero_boundary),
                   (_zero_boundary, _zero_boundary)]
 
-    result = fd_solvers.step_back(
+    result = fd_solvers.solve_backwards(
         start_time=final_t,
         end_time=0,
         coord_grid=grid,
@@ -215,7 +215,7 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
     bound_cond = [(_zero_boundary, _zero_boundary),
                   (_zero_boundary, _zero_boundary)]
     step_fn = douglas_adi_step(theta=0.5)
-    result = fd_solvers.step_back(
+    result = fd_solvers.solve_backwards(
         start_time=final_t,
         end_time=0,
         coord_grid=grid,
@@ -263,7 +263,7 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
     bound_cond = [(_zero_boundary, _zero_boundary),
                   (_zero_boundary, _zero_boundary)]
     step_fn = douglas_adi_step(theta=0.5)
-    result = fd_solvers.step_back(
+    result = fd_solvers.solve_backwards(
         start_time=final_t,
         end_time=0,
         coord_grid=grid,
@@ -296,7 +296,7 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
     bound_cond = [(_zero_boundary, _zero_boundary),
                   (_zero_boundary, _zero_boundary)]
     step_fn = douglas_adi_step(theta=0.5)
-    result = fd_solvers.step_back(
+    result = fd_solvers.solve_backwards(
         start_time=final_t,
         end_time=0,
         coord_grid=grid,
@@ -373,7 +373,7 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
     bound_cond = [(lower_bound_y, upper_bound_y),
                   (lower_bound_x, upper_bound_x)]
     step_fn = douglas_adi_step(theta=0.5)
-    result = fd_solvers.step_back(
+    result = fd_solvers.solve_backwards(
         start_time=final_t,
         end_time=0,
         coord_grid=grid,
@@ -441,7 +441,7 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
     bound_cond = [(lower_bound_y, upper_bound_y),
                   (lower_bound_x, upper_bound_x)]
     step_fn = douglas_adi_step(theta=0.5)
-    result = fd_solvers.step_back(
+    result = fd_solvers.solve_backwards(
         start_time=final_t,
         end_time=0,
         coord_grid=grid,
@@ -509,7 +509,7 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
     bound_cond = [(lower_bound_y, upper_bound_y),
                   (lower_bound_x, upper_bound_x)]
     step_fn = douglas_adi_step(theta=0.5)
-    result = fd_solvers.step_back(
+    result = fd_solvers.solve_backwards(
         start_time=final_t,
         end_time=0,
         coord_grid=grid,
@@ -577,7 +577,7 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
     bound_cond = [(lower_bound_y, upper_bound_y),
                   (lower_bound_x, upper_bound_x)]
     step_fn = douglas_adi_step(theta=0.5)
-    result = fd_solvers.step_back(
+    result = fd_solvers.solve_backwards(
         start_time=final_t,
         end_time=0,
         coord_grid=grid,
@@ -593,6 +593,62 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
   def _assertClose(self, expected, stepper_result):
     actual = self.evaluate(stepper_result[0])
     self.assertLess(np.max(np.abs(actual - expected)) / np.max(expected), 0.01)
+
+  def testAnisotropicDiffusion_InForwardDirection(self):
+    """Tests solving 2d diffusion equation in forward direction.
+
+    The equation is `u_{t} - Dx u_{xx} - Dy u_{yy} = 0`.
+    The initial condition is a gaussian centered at (0, 0) with variance sigma.
+    The variance along each dimension should evolve as `sigma + 2 Dx (t - t_0)`
+    and `sigma + 2 Dy (t - t_0)`.
+    """
+    grid = grids.uniform_grid(
+        minimums=[-10, -20],
+        maximums=[10, 20],
+        sizes=[201, 301],
+        dtype=tf.float32)
+    ys = self.evaluate(grid[0])
+    xs = self.evaluate(grid[1])
+
+    diff_coeff_x = 0.4  # Dx
+    diff_coeff_y = 0.25  # Dy
+    time_step = 0.1
+    final_t = 1.0
+    initial_variance = 1
+
+    def quadratic_coeff_fn(t, location_grid):
+      del t, location_grid
+      u_xx = -diff_coeff_x
+      u_yy = -diff_coeff_y
+      u_xy = None
+      return [[u_yy, u_xy], [u_xy, u_xx]]
+
+    final_values = tf.expand_dims(
+        tf.constant(
+            np.outer(
+                _gaussian(ys, initial_variance),
+                _gaussian(xs, initial_variance)),
+            dtype=tf.float32),
+        axis=0)
+    bound_cond = [(_zero_boundary, _zero_boundary),
+                  (_zero_boundary, _zero_boundary)]
+    step_fn = douglas_adi_step(theta=0.5)
+    result = fd_solvers.solve_forward(
+        start_time=0.0,
+        end_time=final_t,
+        coord_grid=grid,
+        values_grid=final_values,
+        time_step=time_step,
+        one_step_fn=step_fn,
+        boundary_conditions=bound_cond,
+        second_order_coeff_fn=quadratic_coeff_fn,
+        dtype=grid[0].dtype)
+
+    variance_x = initial_variance + 2 * diff_coeff_x * final_t
+    variance_y = initial_variance + 2 * diff_coeff_y * final_t
+    expected = np.outer(_gaussian(ys, variance_y), _gaussian(xs, variance_x))
+
+    self._assertClose(expected, result)
 
 
 def _gaussian(xs, variance):

@@ -26,9 +26,10 @@ We currently support equations of the following form:
      r(\b x, t) V = 0.
 \end{equation}
 
-The equation is evolved backwards in time: given $V(\b x, t_f)$, the solver
-approximates $(\b x, t_0)$, where $t_0 < t_f$. Support for the forward
-time evolution (as well as the Fokker-Planck equation) is coming soon.
+Support for the Fokker-Planck equation is coming soon.
+
+Given $V(\b x, t_0)$, the solver approximates $V(\b x, t_1)$. The solver can
+go both forward ($t_1 > t_0$) and backward ($t_1 < t_0$) in time.
 
 The spatial grid (i.e. the grid of $\b x$ vectors) can be arbitrary in
 one-dimensional problems ($N = 1$). In multiple dimensions the grid should be
@@ -56,24 +57,27 @@ uses internally.
 
 ## Simplest case: 1D PDE with constant coefficients
 
-Let's start with a one-dimensional PDE with constant coefficients:
+Let's start with a one-dimensional PDE with constant coefficients[^const_coeff_eq]:
 
 \begin{equation}
- \frac{\d V}{\d t} + D \frac{\d^2{V}}{\d x^2} + \mu \frac{\d V}{\d x} + r V = 0.
+ \frac{\d V}{\d t} - D \frac{\d^2{V}}{\d x^2} + \mu \frac{\d V}{\d x} - r V = 0.
 \end{equation}
 
-Let the domain be $x \in [-1, 1]$, the distribution at the final time be
+[^const_coeff_eq]: This is a diffusion-convection-reaction equation with
+ constant diffusion coefficient $D$, drift $\mu$, and reaction rate $r$.
+
+Let the domain be $x \in [-1, 1]$, the distribution at the initial time be
 Gaussian, and the boundary conditions - Dirichlet with zero value on both
 boundaries:
 \begin{equation}
 \begin{split}
-&V(x, t_f) = e^{-x^2/2\sigma^2} (2\pi\sigma)^{-1/2},\\
+&V(x, t_0) = e^{-x^2/2\sigma^2} (2\pi\sigma)^{-1/2},\\
 &V(-1, t) = 0,\\
 &V(1, t) = 0.
 \end{split}
 \end{equation}
 
-We're seeking $V(x, t_0).$
+We're seeking $V(x, t_1)$ with $t_1 > t_0$. 
 
 Let's prepare the necessary ingredients. First, the spatial grid:
 
@@ -105,32 +109,32 @@ mu = 2
 r = 3
 
 def second_order_coeff_fn(t, grid):
-  return [[d]]
+  return [[-d]]
 
 def first_order_coeff_fn(t, grid):
   return [mu]
 
 def zeroth_order_coeff_fn(t, grid):
-  return r
+  return -r
 ```
 
 Note the square brackets - these are required for conformance with
 multidimensional case.
 
-Next, the values at the final time $t_f$:
+Next, the values at the initial time $t_0$:
 
 ```python
 variance = 0.2
 xs = grid[0]
-final_value_grid = (tf.math.exp(-xs**2 / (2 * variance)) / 
+initial_value_grid = (tf.math.exp(-xs**2 / (2 * variance)) / 
     tf.math.sqrt(2 * np.pi * variance)
 ```
 
 And finally, define the final time, initial time, and number of time steps:
 
 ```python
-t_f = 1
 t_0 = 0
+t_1 = 1
 num_time_steps = 100
 ```
 Just as the spatial grid, the temporal grid can be customized: we can specify
@@ -141,17 +145,17 @@ We now have all the ingredients to solve the PDE:
 
 ```python
 result_value_grid, final_grid, end_time, steps_performed =
-    fd_solvers.step_back(
-        start_time=t_f,
-        end_time=t_0,
+    fd_solvers.solve_forward(
+        start_time=t_0,
+        end_time=t_1,
         num_steps=num_time_steps,
         coord_grid=grid,
-        values_grid=final_value_grid,
+        values_grid=initial_value_grid,
         second_order_coeff_fn=second_order_coeff_fn,
         first_order_coeff_fn=first_order_coeff_fn,
         zeroth_order_coeff_fn=zeroth_order_coeff_fn)
 ```
-The resulting approximation of $V(x, t_0)$ is contained in
+The resulting approximation of $V(x, t_1)$ is contained in
 `result_value_grid`. The solver also yields the final spatial grid (because the
 solver may modify the grid we've provided), the end time (because it may not be
 exactly the one we specified, e.g. in case of custom time step callable), and
@@ -204,6 +208,10 @@ callables, and then can undergo arbitrary Tensorflow transormations. The
 returned tensors must be either scalars or have a shape implied by the `grid`
 (this is easy to do in 1D, and a bit more tricky in multidimensional case, more
 details are below).
+
+The Black-Scholes equation is evolved backwards in time. Therefore use 
+`fd_solvers.solve_backward` instead of `fd_solvers.solve_forward`, and make sure
+that `start_time` is greater than `end_time`.
 
 That's it, we can now numerically solve the Black-Scholes equation.
 
@@ -364,21 +372,24 @@ def upper_boundary(t, grid):
   return ...  # boundary condition at x = 1
 
 result_value_grid, final_grid, end_time, steps_performed =
-    fd_solvers.step_back(...,
+    fd_solvers.solve_forward(...,
         boundary_conditions=[(lower_boundary, upper_boundary)])
 ```
 
 ## Multidimensional PDEs; Hull-Heston-White equation.
 
 As a first example of a multi-dimensional PDE, let's consider a 2D PDE with
-constant coefficients:
+constant coefficients[^const_coeff_eq_2d]:
 
 \begin{equation}
-\frac{\d V}{\d t} +
-D_{xx} \frac{\d^2{V}}{\d x^2} + 2D_{xy} \frac{\d^2{V}}{\d x \d y} +
+\frac{\d V}{\d t} -
+D_{xx} \frac{\d^2{V}}{\d x^2} - 2D_{xy} \frac{\d^2{V}}{\d x \d y} -
 D_{yy} \frac{\d^2{V}}{\d y^2} +
-\mu_x \frac{\d V}{\d x} + \mu_y \frac{\d V}{\d y} + r V = 0
+\mu_x \frac{\d V}{\d x} + \mu_y \frac{\d V}{\d y} - r V = 0
 \end{equation}
+
+[^const_coeff_eq_2d]: This is a 2D diffusion-convection-reaction equation with
+anisotropic diffusion (i.e. $D$ is now a 2x2 matrix).
 
 First, we create a rectangular grid:
 
@@ -406,13 +417,13 @@ mu_x, mu_y = 1, 0.5
 r = 3
 
 def second_order_coeff_fn(t, grid):
-  return [[d_yy, d_xy], [d_xy, d_xx]]
+  return [[-d_yy, -d_xy], [-d_xy, -d_xx]]
 
 def first_order_coeff_fn(t, grid):
   return [mu_y, mu_x]
 
 def zeroth_order_coeff_fn(t, grid):
-  return r
+  return -r
 ```
 
 The matrix returned by `second_order_coeff_fn` can be a list of lists like
@@ -424,7 +435,7 @@ so the following is also acceptable[^nones]:
 
 ```python
 def second_order_coeff_fn(t, grid):
-  return [[d_yy, d_xy], [None, d_yy]]
+  return [[-d_yy, -d_xy], [None, -d_yy]]
 ```
 
 [^nones]: `None` can also be used to indicate that certain PDE terms are absent.
@@ -432,11 +443,11 @@ def second_order_coeff_fn(t, grid):
   `first_order_coeff_fn`. If both $\mu_x, \mu_y = 0$, we can return
   `[None, None]` or simply pass `first_order_coeff_fn=None` into the solver.
 
-The final values grid can be constructed, as usual, with the help of
+The initial values grid can be constructed, as usual, with the help of
 `tf.meshgrid`. For example,
 
 \begin{equation}
-V(x, y, t_f) =  (2\pi\sigma)^{-1} e^{-\frac{x^2 + y^2}{2\sigma^2}}
+V(x, y, t_0) =  (2\pi\sigma)^{-1} e^{-\frac{x^2 + y^2}{2\sigma^2}}
 \end{equation}
 
 translates into[^tf_tensordot]
@@ -446,7 +457,7 @@ translates into[^tf_tensordot]
 sigma = 0.1
 ys, xs = grid
 y_mesh, x_mesh = tf.meshgrid(ys, xs, indexing="ij")
-final_value_grid = (tf.math.exp(-(x_mesh**2 + y_mesh**2) / (2 * sigma))
+initial_value_grid = (tf.math.exp(-(x_mesh**2 + y_mesh**2) / (2 * sigma))
     / (2 * np.pi * sigma))
 ```
 
@@ -455,25 +466,26 @@ final_value_grid = (tf.math.exp(-(x_mesh**2 + y_mesh**2) / (2 * sigma))
     ```python
     sigma = 0.1
     ys, xs = grid
-    final_value_grid = (tf.tensordot(tf.math.exp(-ys**2 / (2 * sigma)),
+    initial_value_grid = (tf.tensordot(tf.math.exp(-ys**2 / (2 * sigma)),
                                      tf.math.exp(-xs**2 / (2 * sigma)), 
                                      [[], []]) / (2 * np.pi * sigma))
     ```
 
-Finally, call `fd_solvers.step_back` as usual:
+Finally, call `fd_solvers.solve_forward` or `fd_solvers.solve_backwards` as
+usual:
 
 ```python
-t_f = 1
 t_0 = 0
+t_1 = 1
 num_time_steps = 100
 
 result_value_grid, final_grid, end_time, steps_performed =
-    fd_solvers.step_back(
-        start_time=t_f,
-        end_time=t_0,
+    fd_solvers.solve_forward(
+        start_time=t_0,
+        end_time=t_1,
         num_steps=num_time_steps,
         coord_grid=grid,
-        values_grid=final_value_grid,
+        values_grid=initial_value_grid,
         second_order_coeff_fn=second_order_coeff_fn,
         first_order_coeff_fn=first_order_coeff_fn,
         zeroth_order_coeff_fn=zeroth_order_coeff_fn)
@@ -509,10 +521,10 @@ def boundary_y_max(t, grid):
 def boundary_y_min(t, grid):
   return 0.0
 
-result_value_grid, final_grid, end_time, steps_performed = fd_solvers.step_back(
-    ...
-     boundary_conditions=[(boundary_y_min, boundary_y_max),
-                          (boundary_x_min, boundary_x_max)])
+result_value_grid, final_grid, end_time, steps_performed =
+    fd_solvers.solve_forward(...,
+         boundary_conditions=[(boundary_y_min, boundary_y_max),
+                              (boundary_x_min, boundary_x_max)])
 ```
 
 The boundary conditions can be inhomogeneous. E.g. a "heat source" near
@@ -632,8 +644,8 @@ much faster than the default (Crank-Nicolson) scheme, we write:
 
 ```python
 result_value_grid, final_grid, end_time, steps_performed = 
-    fd_solvers.step_back(...
-        one_step_fn=fd_backward_schemes.explicit.explicit_step)
+    fd_solvers.solve_forward(...
+        one_step_fn=steppers.explicit.explicit_step)
 ```
 
 Currently the following schemes are supported for 1D:
@@ -1088,7 +1100,7 @@ we summarize the simplest of them, the Douglas scheme, in our notations:
 \b V_1 &=& \b Y_{dim}.
 \end{eqnarray}
 
-Here $\hat L^{(j)}$ contains contributions to $$L$ coming from derivatives
+Here $\hat L^{(j)}$ contains contributions to $\hat L$ coming from derivatives
 with respect to j-th dimension. Each $\hat L^{(j)}$ thus have only three
 nonzero diagonals. The contribution of the zeroth-order term
 is split evenly between $\hat L^{(j)}$. The contributions of mixed

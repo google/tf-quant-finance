@@ -17,7 +17,7 @@
 
 import tensorflow as tf
 
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.parabolic_equation_stepper import parabolic_equation_step
+from tf_quant_finance.experimental.pde_v2.steppers.parabolic_equation_stepper import parabolic_equation_step
 
 
 def composite_scheme_step(first_scheme_steps, first_scheme, second_scheme):

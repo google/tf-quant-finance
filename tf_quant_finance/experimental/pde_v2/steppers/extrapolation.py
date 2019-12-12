@@ -13,13 +13,13 @@
 # limitations under the License.
 
 # Lint as: python2, python3
-"""Implicit time marching scheme for parabolic PDEs."""
+"""Extrapolation time marching scheme for parabolic PDEs."""
 
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.parabolic_equation_stepper import parabolic_equation_step
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.weighted_implicit_explicit import weighted_implicit_explicit_scheme
+from tf_quant_finance.experimental.pde_v2.steppers.implicit import implicit_scheme
+from tf_quant_finance.experimental.pde_v2.steppers.parabolic_equation_stepper import parabolic_equation_step
 
 
-def implicit_step(
+def extrapolation_step(
     time,
     next_time,
     coord_grid,
@@ -31,12 +31,12 @@ def implicit_step(
     num_steps_performed,
     dtype=None,
     name=None):
-  """Performs one step of the parabolic PDE solver using implicit scheme.
+  """Performs one step of the parabolic PDE solver using extrapolation scheme.
 
   For a given solution (given by the `value_grid`) of a parabolic PDE at a given
   `time` on a given `coord_grid` computes an approximate solution at the
-  `next_time` on the same coordinate grid using implicit time marching scheme.
-  (see, e.g., [1]). The parabolic PDE is of the form:
+  `next_time` on the same coordinate grid using extrapolation implicit-explicit
+  time marching scheme. (see, e.g., [1]). The parabolic PDE is of the form:
 
   ```none
    V_{t} + a(t, x) * V_{xx} + b(t, x) * V_{x} + c(t, x) * V = 0
@@ -50,25 +50,24 @@ def implicit_step(
   See `fd_solvers.step_back` for an example use case.
 
   ### References:
-  [1]: P.A. Forsyth, K.R. Vetzal. Quadratic Convergence for Valuing American
-    Options Using A Penalty Method. Journal on Scientific Computing, 2002.
-    http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.28.9066&rep=rep1&type=pdf
+  [1]: D. Lawson, J & Ll Morris, J. The Extrapolation of First Order Methods
+  for Parabolic Partial Differential Equations. I. 1978
+  SIAM Journal on Numerical Analysis. 15. 1212-1224.
+  https://epubs.siam.org/doi/abs/10.1137/0715082
 
   Args:
-    time: Real positive scalar `Tensor`. The start time of the grid.
-      Corresponds to time `t0` above.
-    next_time: Real scalar `Tensor` smaller than the `start_time` and greater
-      than zero. The time to step back to. Corresponds to time `t1` above.
+    time: Real scalar `Tensor`. The time before the step.
+    next_time: Real scalar `Tensor`. The time after the step.
     coord_grid: List of `n` rank 1 real `Tensor`s. `n` is the dimension of the
       domain. The i-th `Tensor` has shape, `[d_i]` where `d_i` is the size of
       the grid along axis `i`. The coordinates of the grid points. Corresponds
       to the spatial grid `G` above.
     value_grid: Real `Tensor` containing the function values at time
-      `start_time` which have to be stepped back to time `end_time`. The shape
-      of the `Tensor` must broadcast with `[K, d_1, d_2, ..., d_n]`. The first
-      axis of size `K` is the values batch dimension and allows multiple
-      functions (with potentially different boundary/final conditions) to be
-      stepped back simultaneously.
+      `time` which have to be evolved to time `next_time`. The shape of the
+      `Tensor` must broadcast with `B + [d_1, d_2, ..., d_n]`. `B` is the batch
+      dimensions (one or more), which allow multiple functions (with potentially
+      different boundary/final conditions and PDE coefficients) to be evolved
+      simultaneously.
     boundary_conditions: The boundary conditions. Only rectangular boundary
       conditions are supported. A list of tuples of size 1. The list element is
       a tuple that consists of two callables representing the
@@ -87,13 +86,13 @@ def implicit_step(
       zero-rank tensors or tensors of shape `(b, n)`.
       `alpha` and `beta` can also be `None` in case of Neumann and
       Dirichlet conditions, respectively.
-    second_order_coeff_fn: See the spec in fd_solvers.step_back.
-    first_order_coeff_fn: See the spec in fd_solvers.step_back.
-    zeroth_order_coeff_fn: See the spec in fd_solvers.step_back.
+    second_order_coeff_fn: See the spec in fd_solvers.solve.
+    first_order_coeff_fn: See the spec in fd_solvers.solve.
+    zeroth_order_coeff_fn: See the spec in fd_solvers.solve.
     num_steps_performed: Python `int`. Number of steps performed so far.
     dtype: The dtype to use.
     name: The name to give to the ops.
-      Default value: None which means `implicit_step` is used.
+      Default value: None which means `extrapolation_step` is used.
 
   Returns:
     A sequence of two `Tensor`s. The first one is a `Tensor` of the same
@@ -103,7 +102,7 @@ def implicit_step(
     one iteration.
   """
   del num_steps_performed
-  name = name or 'implicit_step'
+  name = name or 'extrapolation_step'
   return parabolic_equation_step(time,
                                  next_time,
                                  coord_grid,
@@ -112,8 +111,47 @@ def implicit_step(
                                  second_order_coeff_fn,
                                  first_order_coeff_fn,
                                  zeroth_order_coeff_fn,
-                                 time_marching_scheme=implicit_scheme,
+                                 time_marching_scheme=extrapolation_scheme,
                                  dtype=dtype,
                                  name=name)
 
-implicit_scheme = weighted_implicit_explicit_scheme(theta=0)
+
+def extrapolation_scheme(value_grid, t1, t2, equation_params_fn):
+  """Constructs extrapolation implicit-explicit scheme.
+
+  Performs two implicit half-steps, one full implicit step, and combines them
+  with such coefficients that ensure second-order errors. More computationally
+  expensive than Crank-Nicolson scheme, but provides a better approximation for
+  high-wavenumber components, which results in absence of oscillations typical
+  for Crank-Nicolson scheme in case of non-smooth initial conditions. See [1]
+  for details.
+
+  ### References:
+  [1]: D. Lawson, J & Ll Morris, J. The Extrapolation of First Order Methods
+  for Parabolic Partial Differential Equations. I. 1978
+  SIAM Journal on Numerical Analysis. 15. 1212-1224.
+  https://epubs.siam.org/doi/abs/10.1137/0715082
+
+  Args:
+    value_grid: A `Tensor` of real dtype. Grid of solution values at the
+      current time.
+    t1: Lesser of the two times defining the step.
+    t2: Greater of the two times defining the step.
+    equation_params_fn: A callable that takes a scalar `Tensor` argument
+      representing time and constructs the tridiagonal matrix `A`
+      (a tuple of three `Tensor`s, main, upper, and lower diagonals)
+      and the inhomogeneous term `b`. All of the `Tensor`s are of the same
+      `dtype` as `inner_value_grid` and of the shape broadcastable with the
+      shape of `inner_value_grid`.
+
+  Returns:
+    A `Tensor` of the same shape and `dtype` a
+    `values_grid` and represents an approximate solution `u(t2)`.
+  """
+  first_half_step = implicit_scheme(value_grid, t1, (t1 + t2) / 2,
+                                    equation_params_fn)
+  two_half_steps = implicit_scheme(first_half_step, (t1 + t2) / 2, t2,
+                                   equation_params_fn)
+
+  full_step = implicit_scheme(value_grid, t1, t2, equation_params_fn)
+  return 2 * two_half_steps - full_step

@@ -17,7 +17,7 @@
 
 import tensorflow as tf
 
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.parabolic_equation_stepper import parabolic_equation_step
+from tf_quant_finance.experimental.pde_v2.steppers.parabolic_equation_stepper import parabolic_equation_step
 
 
 def weighted_implicit_explicit_step(theta):
@@ -63,7 +63,7 @@ def weighted_implicit_explicit_step(theta):
       num_steps_performed,
       dtype=None,
       name=None):
-    """Constructs parabolic_equation_stepper."""
+    """Applies parabolic_equation_stepper."""
     del num_steps_performed
     name = name or 'weighted_implicit_explicit_scheme'
     return parabolic_equation_step(time,
@@ -114,16 +114,14 @@ def weighted_implicit_explicit_scheme(theta):
     A callable consumes the following arguments by keyword:
       1. inner_value_grid: Grid of solution values at the current time of
         the same `dtype` as `value_grid` and shape of `value_grid[..., 1:-1]`.
-      2. t1: Lesser of the two times defining the step.
-      3. t2: Greater of the two times defining the step.
+      2. t1: Time before the step.
+      3. t2: Time after the step.
       4. equation_params_fn: A callable that takes a scalar `Tensor` argument
         representing time, and constructs the tridiagonal matrix `A`
         (a tuple of three `Tensor`s, main, upper, and lower diagonals)
         and the inhomogeneous term `b`. All of the `Tensor`s are of the same
         `dtype` as `inner_value_grid` and of the shape broadcastable with the
         shape of `inner_value_grid`.
-      5. backwards: A Python bool. Whether we're making a step backwards in
-        time.
     The callable returns a `Tensor` of the same shape and `dtype` a
     `values_grid` and represents an approximate solution `u(t2)`.
   """
@@ -131,7 +129,7 @@ def weighted_implicit_explicit_scheme(theta):
     raise ValueError(
         '`theta` should be in [0, 1]. Supplied: {}'.format(theta))
 
-  def _marching_scheme(value_grid, t1, t2, equation_params_fn, backwards):
+  def _marching_scheme(value_grid, t1, t2, equation_params_fn):
     """Constructs the time marching scheme."""
     (diag, superdiag, subdiag), inhomog_term = equation_params_fn(
         (t1 + t2) / 2)
@@ -139,24 +137,22 @@ def weighted_implicit_explicit_scheme(theta):
     if theta == 0:  # fully implicit scheme
       rhs = value_grid
     else:
-      rhs = _weighted_scheme_explicit_part(value_grid,
-                                           diag, superdiag, subdiag,
-                                           theta, t1, t2, backwards)
+      rhs = _weighted_scheme_explicit_part(value_grid, diag, superdiag, subdiag,
+                                           theta, t1, t2)
 
     if inhomog_term is not None:
-      rhs += inhomog_term * (t2 - t1) * (-1 if backwards else 1)
+      rhs += inhomog_term * (t2 - t1)
     if theta < 1:
       # Note that if theta is `0`, `rhs` equals to the `value_grid`, so that the
       # fully implicit step is performed.
       return _weighted_scheme_implicit_part(rhs, diag, superdiag, subdiag,
-                                            theta, t1, t2, backwards)
+                                            theta, t1, t2)
     return rhs
 
   return _marching_scheme
 
 
-def _weighted_scheme_explicit_part(vec, diag, upper, lower, theta, t1, t2,
-                                   backwards):
+def _weighted_scheme_explicit_part(vec, diag, upper, lower, theta, t1, t2):
   """Explicit step of the weighted implicit-explicit scheme.
 
   Args:
@@ -175,12 +171,11 @@ def _weighted_scheme_explicit_part(vec, diag, upper, lower, theta, t1, t2,
     theta: A Python float between 0 and 1.
     t1: Smaller of the two times defining the step.
     t2: Greater of the two times defining the step.
-    backwards: A Python bool. Whether we're making a step backwards in time.
 
   Returns:
     A tensor of the same shape and dtype as `vec`.
   """
-  multiplier = theta * (t2 - t1) * (-1 if backwards else 1)
+  multiplier = theta * (t2 - t1)
   diag = 1 + multiplier * diag
   upper = multiplier * upper
   lower = multiplier * lower
@@ -193,8 +188,7 @@ def _weighted_scheme_explicit_part(vec, diag, upper, lower, theta, t1, t2,
   return lower_part + diag_part + upper_part
 
 
-def _weighted_scheme_implicit_part(vec, diag, upper, lower, theta, t1, t2,
-                                   backwards):
+def _weighted_scheme_implicit_part(vec, diag, upper, lower, theta, t1, t2):
   """Implicit step of the weighted implicit-explicit scheme.
 
   Args:
@@ -213,12 +207,11 @@ def _weighted_scheme_implicit_part(vec, diag, upper, lower, theta, t1, t2,
     theta: A Python float between 0 and 1.
     t1: Smaller of the two times defining the step.
     t2: Greater of the two times defining the step.
-    backwards: A Python bool. Whether we're making a step backwards in time.
 
   Returns:
     A tensor of the same shape and dtype as `vec`.
   """
-  multiplier = (1 - theta) * (t2 - t1) * (1 if backwards else -1)
+  multiplier = (1 - theta) * (t1 - t2)
   diag = 1 + multiplier * diag
   upper = multiplier * upper
   lower = multiplier * lower

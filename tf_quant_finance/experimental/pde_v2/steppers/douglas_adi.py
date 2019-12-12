@@ -17,11 +17,11 @@
 
 import numpy as np
 import tensorflow as tf
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.multidim_parabolic_equation_stepper import multidim_parabolic_equation_step
+from tf_quant_finance.experimental.pde_v2.steppers.multidim_parabolic_equation_stepper import multidim_parabolic_equation_step
 
 
 def douglas_adi_step(theta):
-  """Makes a backwards step using the Douglas ADI scheme.
+  """Makes a step using the Douglas ADI scheme.
 
   See [1], [2], and also docstring to `douglas_adi_scheme` for details on the
   Douglas ADI scheme.
@@ -83,7 +83,7 @@ def douglas_adi_step(theta):
     return tf.expand_dims(tf.constant(...), axis=0)
 
   step_fn = douglas_adi_scheme(theta=0.5)
-  result = fd_solvers.step_back(
+  result = fd_solvers.solve(
       start_time=final_t,
       end_time=0,
       coord_grid=grid,
@@ -183,8 +183,8 @@ def douglas_adi_scheme(theta):
     A callable consumes the following arguments by keyword:
       1. inner_value_grid: Grid of solution values at the current time of
         the same `dtype` as `value_grid` and shape of `value_grid[..., 1:-1]`.
-      2. t1: Lesser of the two times defining the step.
-      3. t2: Greater of the two times defining the step.
+      2. t1: Time before the step.
+      3. t2: Time after the step.
       4. equation_params_fn: A callable that takes a scalar `Tensor` argument
         representing time, and constructs the tridiagonal matrix `A`
         (a tuple of three `Tensor`s, main, upper, and lower diagonals)
@@ -192,7 +192,6 @@ def douglas_adi_scheme(theta):
         `dtype` as `inner_value_grid` and of the shape broadcastable with the
         shape of `inner_value_grid`.
       5. n_dims: A Python integer, the spatial dimension of the PDE.
-      6. backwards: whether we're making the step backwards.
     The callable returns a `Tensor` of the same shape and `dtype` a
     `values_grid` and represents an approximate solution `u(t2)`.
   """
@@ -200,17 +199,8 @@ def douglas_adi_scheme(theta):
   if theta < 0 or theta > 1:
     raise ValueError('Theta should be in the interval [0, 1].')
 
-  def _marching_scheme(value_grid,
-                       t1,
-                       t2,
-                       equation_params_fn,
-                       n_dims,
-                       backwards=False):
+  def _marching_scheme(value_grid, t1, t2, equation_params_fn, n_dims):
     """Constructs the Douglas ADI time marching scheme."""
-    # This sign should be applied every time any of equation_params are used.
-    # Can we do better?
-    sign = -1 if backwards else 1
-
     current_grid = value_grid
     matrix_params_t1, inhomog_terms_t1 = equation_params_fn(t1)
     matrix_params_t2, inhomog_terms_t2 = equation_params_fn(t2)
@@ -221,7 +211,7 @@ def douglas_adi_scheme(theta):
       for j in range(i + 1, n_dims):
         mixed_term = matrix_params_t1[i][j]
         if mixed_term is not None:
-          mixed_term *= sign * (t2 - t1)
+          mixed_term *= (t2 - t1)
           current_grid += _apply_mixed_term_explicitly(
               value_grid, mixed_term, i, j, n_dims)
 
@@ -230,15 +220,14 @@ def douglas_adi_scheme(theta):
     explicit_contributions = []
 
     for i in range(n_dims):
-      superdiag, diag, subdiag = (
-          matrix_params_t1[i][i][d] * sign for d in range(3))
+      superdiag, diag, subdiag = (matrix_params_t1[i][i][d] for d in range(3))
       contribution = _apply_tridiag_matrix_explicitly(
           value_grid, superdiag, diag, subdiag, i, n_dims) * (t2 - t1)
       explicit_contributions.append(contribution)
       current_grid += contribution
 
     for inhomog_term in inhomog_terms_t1:
-      current_grid += inhomog_term * sign * (t2 - t1)
+      current_grid += inhomog_term * (t2 - t1)
 
     # Correction substeps. For each dimension i:
     # Y_i = (1 - theta * A_i(t2) * dt)^(-1) *
@@ -247,9 +236,8 @@ def douglas_adi_scheme(theta):
       return current_grid
 
     for i in range(n_dims):
-      inhomog_term_delta = (inhomog_terms_t2[i] - inhomog_terms_t2[i]) * sign
-      superdiag, diag, subdiag = (
-          matrix_params_t2[i][i][d] * sign for d in range(3))
+      inhomog_term_delta = (inhomog_terms_t2[i] - inhomog_terms_t2[i])
+      superdiag, diag, subdiag = (matrix_params_t2[i][i][d] for d in range(3))
       current_grid = _apply_correction(theta, current_grid,
                                        explicit_contributions[i],
                                        superdiag, diag, subdiag,

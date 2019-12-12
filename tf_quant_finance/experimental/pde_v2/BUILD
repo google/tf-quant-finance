@@ -20,7 +20,7 @@ py_library(
     srcs = ["fd_solvers.py"],
     srcs_version = "PY2AND3",
     deps = [
-        "//tf_quant_finance/experimental/pde_v2/fd_backward_schemes",
+        "//tf_quant_finance/experimental/pde_v2/steppers",
         # tensorflow dep,
     ],
 )

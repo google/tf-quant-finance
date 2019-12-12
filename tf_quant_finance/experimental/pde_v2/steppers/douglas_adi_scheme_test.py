@@ -22,7 +22,7 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.douglas_adi import douglas_adi_scheme
+from tf_quant_finance.experimental.pde_v2.steppers.douglas_adi import douglas_adi_scheme
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 

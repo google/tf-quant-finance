@@ -35,7 +35,7 @@ def multidim_parabolic_equation_step(
     zeroth_order_coeff_fn=None,
     dtype=None,
     name=None):
-  """Performs one step backwards in time to solve a multidimensional PDE.
+  """Performs one step in time to solve a multidimensional PDE.
 
   The PDE is of the form
 
@@ -109,7 +109,7 @@ def multidim_parabolic_equation_step(
       axis=0)
 
   step_fn = douglas_adi_scheme(theta=0.5)
-  result = fd_solvers.step_back(
+  result = fd_solvers.solve(
       start_time=final_t,
       end_time=0,
       coord_grid=grid,
@@ -123,20 +123,18 @@ def multidim_parabolic_equation_step(
       dtype=grid[0].dtype)
   ```
   Args:
-    time: Real positive scalar `Tensor`. The start time of the grid.
-      Corresponds to time `t0` above.
-    next_time: Real scalar `Tensor` smaller than the `start_time` and greater
-      than zero. The time to step back to. Corresponds to time `t1` above.
+    time: Real scalar `Tensor`. The time before the step.
+    next_time: Real scalar `Tensor`. The time after the step.
     coord_grid: List of `n` rank 1 real `Tensor`s. `n` is the dimension of the
       domain. The i-th `Tensor` has shape, `[d_i]` where `d_i` is the size of
       the grid along axis `i`. The coordinates of the grid points. Corresponds
       to the spatial grid `G` above.
     value_grid: Real `Tensor` containing the function values at time
-      `start_time` which have to be stepped back to time `end_time`. The shape
-      of the `Tensor` must broadcast with `[K, d_1, d_2, ..., d_n]`. The first
-      axis of size `K` is the values batch dimension and allows multiple
-      functions (with potentially different boundary/final conditions) to be
-      stepped back simultaneously.
+      `time` which have to be evolved to time `next_time`. The shape of the
+      `Tensor` must broadcast with `B + [d_1, d_2, ..., d_n]`. `B` is the batch
+      dimensions (one or more), which allow multiple functions (with potentially
+      different boundary/final conditions and PDE coefficients) to be evolved
+      simultaneously.
     boundary_conditions: The boundary conditions. Only rectangular boundary
       conditions are supported.
       A list of tuples of size `n` (space dimension
@@ -220,8 +218,6 @@ def multidim_parabolic_equation_step(
           so they are `Tensors` of shape `(B, ny, nx)`. `b_y` and `b_x` are also
           `Tensors` of that shape.
         5. n_dims: A Python integer, the spatial dimension of the PDE.
-        6. backwards: A Python bool. Whether we're making a step backwards in
-          time.
       The callable should return a `Tensor` of the same shape and `dtype` as
       `values_grid` that represents an approximate solution of the
       space-discretized PDE.
@@ -312,11 +308,10 @@ def multidim_parabolic_equation_step(
 
     inner_grid_out = time_marching_scheme(
         value_grid=inner_grid_in,
-        t1=next_time,
-        t2=time,
+        t1=time,
+        t2=next_time,
         equation_params_fn=equation_params_fn,
-        n_dims=n_dims,
-        backwards=True)
+        n_dims=n_dims)
 
     updated_value_grid = _apply_boundary_conditions_after_step(
         inner_grid_out, coord_grid, boundary_conditions, batch_rank, next_time)

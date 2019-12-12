@@ -52,23 +52,21 @@ def parabolic_equation_step(
   `b(t, x)`, and `c(t, x)` are referred to as second order, first order and
   zeroth order coefficients, respectively.
 
-  See `fd_solvers.step_back` for an example use case.
+  See `fd_solvers.solve` for an example use case.
 
   Args:
-    time: Real positive scalar `Tensor`. The start time of the grid.
-      Corresponds to time `t0` above.
-    next_time: Real scalar `Tensor` smaller than the `start_time` and greater
-      than zero. The time to step back to. Corresponds to time `t1` above.
+    time: Real scalar `Tensor`. The time before the step.
+    next_time: Real scalar `Tensor`. The time after the step.
     coord_grid: List of `n` rank 1 real `Tensor`s. `n` is the dimension of the
       domain. The i-th `Tensor` has shape, `[d_i]` where `d_i` is the size of
       the grid along axis `i`. The coordinates of the grid points. Corresponds
       to the spatial grid `G` above.
     value_grid: Real `Tensor` containing the function values at time
-      `start_time` which have to be stepped back to time `end_time`. The shape
-      of the `Tensor` must broadcast with `[K, d_1, d_2, ..., d_n]`. The first
-      axis of size `K` is the values batch dimension and allows multiple
-      functions (with potentially different boundary/final conditions) to be
-      stepped back simultaneously.
+      `time` which have to be evolved to time `next_time`. The shape of the
+      `Tensor` must broadcast with `B + [d_1, d_2, ..., d_n]`. `B` is the batch
+      dimensions (one or more), which allow multiple functions (with potentially
+      different boundary/final conditions and PDE coefficients) to be evolved
+      simultaneously.
     boundary_conditions: The boundary conditions. Only rectangular boundary
       conditions are supported. A list of tuples of size 1. The list element is
       a tuple that consists of two callables representing the
@@ -126,8 +124,8 @@ def parabolic_equation_step(
       matrix. The callable consumes the following arguments by keyword:
         1. inner_value_grid: Grid of solution values at the current time of
           the same `dtype` as `value_grid` and shape of `value_grid[..., 1:-1]`.
-        2. t1: Lesser of the two times defining the step.
-        3. t2: Greater of the two times defining the step.
+        2. t1: Time before the step.
+        3. t2: Time after the step.
         4. equation_params_fn: A callable that takes a scalar `Tensor` argument
           representing time, and constructs the tridiagonal matrix `A`
           (a tuple of three `Tensor`s, main, upper, and lower diagonals)
@@ -176,10 +174,9 @@ def parabolic_equation_step(
                                                      t)
     inner_grid_out = time_marching_scheme(
         value_grid=inner_grid_in,
-        t1=next_time,
-        t2=time,
-        equation_params_fn=equation_params_fn,
-        backwards=True)
+        t1=time,
+        t2=next_time,
+        equation_params_fn=equation_params_fn)
 
     updated_value_grid = _apply_boundary_conditions_after_step(
         inner_grid_out, boundary_conditions,

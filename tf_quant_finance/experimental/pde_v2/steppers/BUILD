@@ -4,7 +4,7 @@ licenses(["notice"])
 package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 
 py_library(
-    name = "fd_backward_schemes",
+    name = "steppers",
     srcs = [
         "composite_stepper.py",
         "crank_nicolson.py",
@@ -31,7 +31,7 @@ py_test(
     python_version = "PY3",
     shard_count = 10,
     deps = [
-        ":fd_backward_schemes",
+        ":steppers",
         "//tf_quant_finance/experimental/pde_v2:boundary_conditions",
         "//tf_quant_finance/experimental/pde_v2:fd_solvers",
         "//tf_quant_finance/experimental/pde_v2/grids",
@@ -48,7 +48,7 @@ py_test(
     python_version = "PY3",
     shard_count = 1,
     deps = [
-        ":fd_backward_schemes",
+        ":steppers",
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
@@ -63,7 +63,7 @@ py_test(
     python_version = "PY3",
     shard_count = 10,
     deps = [
-        ":fd_backward_schemes",
+        ":steppers",
         "//tf_quant_finance/experimental/pde_v2:boundary_conditions",
         "//tf_quant_finance/experimental/pde_v2:fd_solvers",
         "//tf_quant_finance/experimental/pde_v2/grids",
@@ -79,7 +79,7 @@ py_test(
     python_version = "PY3",
     shard_count = 1,
     deps = [
-        ":fd_backward_schemes",
+        ":steppers",
         # numpy dep,
         # tensorflow dep,
     ],

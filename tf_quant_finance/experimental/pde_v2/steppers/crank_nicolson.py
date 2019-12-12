@@ -15,8 +15,8 @@
 # Lint as: python2, python3
 """Crank-Nicolson time marching scheme for parabolic PDEs."""
 
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.parabolic_equation_stepper import parabolic_equation_step
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.weighted_implicit_explicit import weighted_implicit_explicit_scheme
+from tf_quant_finance.experimental.pde_v2.steppers.parabolic_equation_stepper import parabolic_equation_step
+from tf_quant_finance.experimental.pde_v2.steppers.weighted_implicit_explicit import weighted_implicit_explicit_scheme
 
 
 def crank_nicolson_step(
@@ -47,7 +47,7 @@ def crank_nicolson_step(
   derivatives over the space component. For a solution to be well-defined, it is
   required for `a` to be positive on its domain.
 
-  See `fd_solvers.step_back` for an example use case.
+  See `fd_solvers.solve` for an example use case.
 
   ### References:
   [1]: P.A. Forsyth, K.R. Vetzal. Quadratic Convergence for Valuing American
@@ -55,20 +55,18 @@ def crank_nicolson_step(
     http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.28.9066&rep=rep1&type=pdf
 
   Args:
-    time: Real positive scalar `Tensor`. The start time of the grid.
-      Corresponds to time `t0` above.
-    next_time: Real scalar `Tensor` smaller than the `start_time` and greater
-      than zero. The time to step back to. Corresponds to time `t1` above.
+    time: Real scalar `Tensor`. The time before the step.
+    next_time: Real scalar `Tensor`. The time after the step.
     coord_grid: List of `n` rank 1 real `Tensor`s. `n` is the dimension of the
       domain. The i-th `Tensor` has shape, `[d_i]` where `d_i` is the size of
       the grid along axis `i`. The coordinates of the grid points. Corresponds
       to the spatial grid `G` above.
     value_grid: Real `Tensor` containing the function values at time
-      `start_time` which have to be stepped back to time `end_time`. The shape
-      of the `Tensor` must broadcast with `[K, d_1, d_2, ..., d_n]`. The first
-      axis of size `K` is the values batch dimension and allows multiple
-      functions (with potentially different boundary/final conditions) to be
-      stepped back simultaneously.
+      `time` which have to be evolved to time `next_time`. The shape of the
+      `Tensor` must broadcast with `B + [d_1, d_2, ..., d_n]`. `B` is the batch
+      dimensions (one or more), which allow multiple functions (with potentially
+      different boundary/final conditions and PDE coefficients) to be evolved
+      simultaneously.
     boundary_conditions: The boundary conditions. Only rectangular boundary
       conditions are supported. A list of tuples of size 1. The list element is
       a tuple that consists of two callables representing the
@@ -87,9 +85,9 @@ def crank_nicolson_step(
       zero-rank tensors or tensors of shape `(b, n)`.
       `alpha` and `beta` can also be `None` in case of Neumann and
       Dirichlet conditions, respectively.
-    second_order_coeff_fn: See the spec in fd_solvers.step_back.
-    first_order_coeff_fn: See the spec in fd_solvers.step_back.
-    zeroth_order_coeff_fn: See the spec in fd_solvers.step_back.
+    second_order_coeff_fn: See the spec in fd_solvers.solve.
+    first_order_coeff_fn: See the spec in fd_solvers.solve.
+    zeroth_order_coeff_fn: See the spec in fd_solvers.solve.
     num_steps_performed: Python `int`. Number of steps performed so far.
     dtype: The dtype to use.
     name: The name to give to the ops.

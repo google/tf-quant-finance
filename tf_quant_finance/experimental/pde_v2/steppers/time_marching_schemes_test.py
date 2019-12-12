@@ -10,11 +10,11 @@ from absl.testing import parameterized
 import numpy as np
 import tensorflow as tf
 
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.crank_nicolson import crank_nicolson_scheme
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.explicit import explicit_scheme
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.extrapolation import extrapolation_scheme
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.implicit import implicit_scheme
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.weighted_implicit_explicit import weighted_implicit_explicit_scheme
+from tf_quant_finance.experimental.pde_v2.steppers.crank_nicolson import crank_nicolson_scheme
+from tf_quant_finance.experimental.pde_v2.steppers.explicit import explicit_scheme
+from tf_quant_finance.experimental.pde_v2.steppers.extrapolation import extrapolation_scheme
+from tf_quant_finance.experimental.pde_v2.steppers.implicit import implicit_scheme
+from tf_quant_finance.experimental.pde_v2.steppers.weighted_implicit_explicit import weighted_implicit_explicit_scheme
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -59,8 +59,7 @@ class TimeMarchingSchemeTest(tf.test.TestCase, parameterized.TestCase):
 
     tridiag_form = self._convert_to_tridiagonal_format(matrix)
     actual = self.evaluate(
-        scheme(u, 0, time_step, lambda t: (tridiag_form, None),
-               backwards=False))
+        scheme(u, 0, time_step, lambda t: (tridiag_form, None)))
     expected = self.evaluate(
         tf.squeeze(
             tf.matmul(tf.linalg.expm(matrix * time_step), tf.expand_dims(u,
@@ -81,12 +80,7 @@ class TimeMarchingSchemeTest(tf.test.TestCase, parameterized.TestCase):
 
     tridiag_form = self._convert_to_tridiagonal_format(matrix)
     actual = self.evaluate(
-        scheme(
-            u,
-            0,
-            time_step,
-            lambda t: (tridiag_form, None),
-            backwards=True))
+        scheme(u, time_step, 0, lambda t: (tridiag_form, None)))
 
     expected = self.evaluate(
         tf.squeeze(
@@ -108,13 +102,7 @@ class TimeMarchingSchemeTest(tf.test.TestCase, parameterized.TestCase):
     b = tf.constant([1, -1, -2, 2], dtype=tf.float64)
 
     tridiag_form = self._convert_to_tridiagonal_format(matrix)
-    actual = self.evaluate(
-        scheme(
-            u,
-            0,
-            time_step,
-            lambda t: (tridiag_form, b),
-            backwards=False))
+    actual = self.evaluate(scheme(u, 0, time_step, lambda t: (tridiag_form, b)))
 
     exponent = tf.linalg.expm(matrix * time_step)
     eye = tf.eye(4, 4, dtype=tf.float64)
@@ -141,13 +129,7 @@ class TimeMarchingSchemeTest(tf.test.TestCase, parameterized.TestCase):
     b = tf.constant([1, -1, -2, 2], dtype=tf.float64)
 
     tridiag_form = self._convert_to_tridiagonal_format(matrix)
-    actual = self.evaluate(
-        scheme(
-            u,
-            0,
-            time_step,
-            lambda t: (tridiag_form, b),
-            backwards=True))
+    actual = self.evaluate(scheme(u, time_step, 0, lambda t: (tridiag_form, b)))
 
     exponent = tf.linalg.expm(-matrix * time_step)
     eye = tf.eye(4, 4, dtype=tf.float64)

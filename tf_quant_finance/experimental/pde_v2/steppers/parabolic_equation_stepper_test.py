@@ -15,14 +15,13 @@ import tensorflow as tf
 from tf_quant_finance.experimental.pde_v2 import fd_solvers
 from tf_quant_finance.experimental.pde_v2.boundary_conditions import dirichlet
 from tf_quant_finance.experimental.pde_v2.boundary_conditions import neumann
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.crank_nicolson import crank_nicolson_step
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.explicit import explicit_step
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.extrapolation import extrapolation_step
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.implicit import implicit_step
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.oscillation_damped_crank_nicolson import crank_nicolson_with_oscillation_damping_step
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.weighted_implicit_explicit import weighted_implicit_explicit_step
 from tf_quant_finance.experimental.pde_v2.grids import grids
-
+from tf_quant_finance.experimental.pde_v2.steppers.crank_nicolson import crank_nicolson_step
+from tf_quant_finance.experimental.pde_v2.steppers.explicit import explicit_step
+from tf_quant_finance.experimental.pde_v2.steppers.extrapolation import extrapolation_step
+from tf_quant_finance.experimental.pde_v2.steppers.implicit import implicit_step
+from tf_quant_finance.experimental.pde_v2.steppers.oscillation_damped_crank_nicolson import crank_nicolson_with_oscillation_damping_step
+from tf_quant_finance.experimental.pde_v2.steppers.weighted_implicit_explicit import weighted_implicit_explicit_step
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -368,7 +367,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     final_values = tf.constant([final_cond_fn(x) for x in xs],
                                dtype=grid[0].dtype)
 
-    result = fd_solvers.step_back(
+    result = fd_solvers.solve_backwards(
         start_time=final_t,
         end_time=0,
         coord_grid=grid,
@@ -429,7 +428,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     final_values += tf.zeros([num_equations, num_grid_points],
                              dtype=dtype)
     # Estimate European call option price
-    estimate = fd_solvers.step_back(
+    estimate = fd_solvers.solve_backwards(
         start_time=expiry,
         end_time=0,
         coord_grid=grid,
@@ -494,7 +493,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     final_values += tf.zeros([num_equations, num_grid_points],
                              dtype=dtype)
     # Estimate European call option price
-    estimate = fd_solvers.step_back(
+    estimate = fd_solvers.solve_backwards(
         start_time=expiry,
         end_time=0,
         coord_grid=grid,
@@ -515,6 +514,63 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     # True call option price (obtained using black_scholes_price function)
     call_price = 12.582092
     self.assertAllClose(call_price, value_grid[loc_1], rtol=1e-02, atol=1e-02)
+
+  def testHeatEquation_InForwardDirection(self):
+    """Test solving heat equation with various time marching schemes.
+
+    Tests solving heat equation with the boundary conditions
+    `u(x, t=1) = e * sin(x)`, `u(-2 pi n - pi / 2, t) = -e^t`, and
+    `u(2 pi n + pi / 2, t) = -e^t` with some integer `n` for `u(x, t=0)`.
+
+    The exact solution is `u(x, t=0) = sin(x)`.
+
+    All time marching schemes should yield reasonable results given small enough
+    time steps. First-order accurate schemes (explicit, implicit, weighted with
+    theta != 0.5) require smaller time step than second-order accurate ones
+    (Crank-Nicolson, Extrapolation).
+    """
+    final_time = 1.0
+
+    def initial_cond_fn(x):
+      return tf.sin(x)
+
+    def expected_result_fn(x):
+      return np.exp(-final_time) * tf.sin(x)
+
+    @dirichlet
+    def lower_boundary_fn(t, x):
+      del x
+      return -tf.exp(-t)
+
+    @dirichlet
+    def upper_boundary_fn(t, x):
+      del x
+      return tf.exp(-t)
+
+    grid = grids.uniform_grid(
+        minimums=[-10.5 * math.pi],
+        maximums=[10.5 * math.pi],
+        sizes=[1000],
+        dtype=np.float32)
+
+    def second_order_coeff_fn(t, x):
+      del t, x
+      return [[-1]]
+
+    final_values = initial_cond_fn(grid[0])
+
+    result = fd_solvers.solve_forward(
+        start_time=0.0,
+        end_time=final_time,
+        coord_grid=grid,
+        values_grid=final_values,
+        time_step=0.01,
+        boundary_conditions=[(lower_boundary_fn, upper_boundary_fn)],
+        second_order_coeff_fn=second_order_coeff_fn)[0]
+
+    actual = self.evaluate(result)
+    expected = self.evaluate(expected_result_fn(grid[0]))
+    self.assertLess(np.max(np.abs(actual - expected)), 1e-3)
 
 
 if __name__ == '__main__':

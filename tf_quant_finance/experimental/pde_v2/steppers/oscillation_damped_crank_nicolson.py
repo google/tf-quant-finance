@@ -15,9 +15,9 @@
 # Lint as: python2, python3
 """Crank-Nicolson with oscillation damping time marching scheme."""
 
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.composite_stepper import composite_scheme_step
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.crank_nicolson import crank_nicolson_scheme
-from tf_quant_finance.experimental.pde_v2.fd_backward_schemes.extrapolation import extrapolation_scheme
+from tf_quant_finance.experimental.pde_v2.steppers.composite_stepper import composite_scheme_step
+from tf_quant_finance.experimental.pde_v2.steppers.crank_nicolson import crank_nicolson_scheme
+from tf_quant_finance.experimental.pde_v2.steppers.extrapolation import extrapolation_scheme
 
 
 def crank_nicolson_with_oscillation_damping_step(extrapolation_steps=1):
