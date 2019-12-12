@@ -23,6 +23,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import logging
 import os
 
 import numpy as np
@@ -200,6 +201,9 @@ def _get_sobol_data_path():
 def _load_sobol_data():
   """Parses file 'new-joe-kuo-6.21201'."""
   path = _get_sobol_data_path()
+  if path is None:
+    logging.warning('Unable to find path to sobol data file.')
+    return NotImplemented, NotImplemented
   header_line = True
   # Primitive polynomial coefficients.
   polynomial_coefficients = np.zeros(shape=(21200,), dtype=np.int64)
