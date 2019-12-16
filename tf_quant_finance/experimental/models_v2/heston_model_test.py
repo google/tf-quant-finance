@@ -24,6 +24,7 @@ import tensorflow as tf
 
 import tf_quant_finance as tff
 from tf_quant_finance.experimental.models_v2 import heston_model
+from tf_quant_finance.experimental.pde_v2.grids import grids
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -45,7 +46,7 @@ class HestonModelTest(tf.test.TestCase):
         num_samples=num_samples,
         initial_state=np.array([np.log(100), 0.045]),
         seed=None)
-    # For small values of espsilon, volatility should stay close to theta
+    # For small values of epsilon, volatility should stay close to theta
     volatility_trace = self.evaluate(paths)[..., 1]
     max_deviation = np.max(abs(volatility_trace[:, 50:] - theta))
     self.assertAlmostEqual(
@@ -66,13 +67,13 @@ class HestonModelTest(tf.test.TestCase):
         num_samples=num_samples,
         initial_state=np.array([np.log(start_value), 1.0]),
         seed=None)
-    # For small values of espsilon, state should behave like Geometric
+    # For small values of epsilon, state should behave like Geometric
     # Brownian Motion with volatility `theta`.
     state_trace = self.evaluate(paths)[..., 0]
     # Starting point should be the same
     np.testing.assert_allclose(state_trace[:, 0], np.log(100), 1e-8)
     for i in (1, 2):
-      # Mean and varianve of the approximating Geometric Brownian Motions
+      # Mean and variance of the approximating Geometric Brownian Motions
       gbm_mean = start_value
       gbm_std = start_value * np.sqrt((np.exp(times[i]) - 1))
       np.testing.assert_allclose(np.mean(np.exp(state_trace[:, i])),
@@ -107,7 +108,7 @@ class HestonModelTest(tf.test.TestCase):
       state_trace, volatility_trace = paths[..., 0], paths[..., 0]
       self.assertEqual(volatility_trace.dtype, dtype)
       self.assertEqual(state_trace.dtype, dtype)
-      # Check drift and volatility calcuation
+      # Check drift and volatility calculation
       self.assertAllClose(
           process.drift_fn()(times[0], initial_state),
           np.array([-0.0225, 0.955]))
@@ -116,6 +117,54 @@ class HestonModelTest(tf.test.TestCase):
           np.array([[0.21213203, 0.],
                     [0.00848528, 0.01944222]]))
 
+  def test_compare_monte_carlo_to_backward_pde(self):
+    dtype = tf.float64
+    kappa = 0.3
+    theta = 0.05
+    epsilon = 0.02
+    rho = 0.1
+    maturity_time = 1.0
+    initial_log_spot = 3.0
+    initial_vol = 0.05
+    strike = 15
+    discounting = 0.5
 
-if __name__ == '__main__':
+    heston = heston_model.HestonModel(kappa=kappa, theta=theta, epsilon=epsilon,
+                                      rho=rho, dtype=dtype)
+    initial_state = np.array([initial_log_spot, initial_vol])
+    samples = heston.sample_paths(times=[maturity_time],
+                                  initial_state=initial_state,
+                                  time_step=0.01,
+                                  num_samples=1000,
+                                  seed=42)
+    log_spots = samples[..., 0]
+    monte_carlo_price = (
+        tf.constant(np.exp(-discounting * maturity_time), dtype=dtype) *
+        tf.math.reduce_mean(tf.nn.relu(tf.math.exp(log_spots) - strike)))
+
+    s_min, s_max = 2, 4
+    v_min, v_max = 0.03, 0.07
+    grid_size_s, grid_size_v = 101, 101
+    time_step = 0.01
+
+    grid = grids.uniform_grid(minimums=[s_min, v_min],
+                              maximums=[s_max, v_max],
+                              sizes=[grid_size_s, grid_size_v],
+                              dtype=dtype)
+
+    s_mesh, _ = tf.meshgrid(grid[0], grid[1], indexing="ij")
+    final_value_grid = tf.nn.relu(tf.math.exp(s_mesh) - strike)
+    value_grid = heston.fd_solver_backward(
+        start_time=1.0,
+        end_time=0.0,
+        coord_grid=grid,
+        values_grid=final_value_grid,
+        time_step=time_step,
+        discounting=lambda *args: discounting)[0]
+    pde_price = value_grid[int(grid_size_s / 2), int(grid_size_v / 2)]
+
+    self.assertAllClose(monte_carlo_price, pde_price, atol=0.1, rtol=0.1)
+
+
+if __name__ == "__main__":
   tf.test.main()

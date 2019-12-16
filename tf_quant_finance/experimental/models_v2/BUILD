@@ -93,6 +93,7 @@ py_test(
     deps = [
         ":heston_model",
         "//tf_quant_finance",
+        "//tf_quant_finance/experimental/pde_v2/grids",
         # numpy dep,
         # tensorflow dep,
     ],

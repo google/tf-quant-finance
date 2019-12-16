@@ -127,56 +127,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
           rho, piecewise.PiecewiseConstantFunc) else tf.convert_to_tensor(
               rho, dtype=self._dtype, name='rho')
 
-  def dim(self):
-    """The dimension of the process."""
-    return 2
-
-  def dtype(self):
-    """The data type of process realizations."""
-    return self._dtype
-
-  def name(self):
-    """The name to give to the ops created by this class."""
-    return self._name
-
-  def drift_fn(self):
-    """Python callable calculating instantaneous drift."""
-    def _drift_fn(t, x):
-      """Computes instantaneous drift for a batch of states `x`.
-
-      Args:
-        t: A scalar `Tensor` of real `dtype`. Time at which the drift has to be
-          calculated.
-        x: A `Tensor` of the same `dtype` as `t` and of shape
-          `[batch_shape, 2]`. The states at which the drift has to be
-          calculated.
-      Returns:
-        A `Tensor` of shape `[batch_shape, 2]`.
-      """
-      var = x[..., 1]
-      # Get parameter values at time `t`
-      kappa, theta = _get_parameters([t], self._kappa, self._theta)
-      kappa, theta = kappa[0], theta[0]
-      log_spot_drift = - var / 2
-      var_drift = kappa * (theta - var)
-      drift = tf.stack([log_spot_drift, var_drift], -1)
-      return drift
-    return _drift_fn
-
-  def volatility_fn(self):
-    """Python callable calculating the instantaneous volatility."""
     def _vol_fn(t, x):
-      """Computes instantaneous volatility for a batch of states.
-
-      Args:
-        t: A scalar `Tensor` of real `dtype`. Time at which the volatility has
-          to be calculated.
-        x: A `Tensor` of the same `dtype` as `t` and of shape
-          `[batch_shape, 2]`. The states at which the volatility has to be
-          calculated.
-      Returns:
-        A `Tensor` of shape `[batch_shape, 2,  2]`.
-      """
       # For correlated brownian motions W_{X} and W_{V} with correlation
       # `rho(t)`, one can write
       # W_{V}(t) = rho(t) * W_{X}(t) + sqrt(1 - rho(t)**2) * W_{Z}(t)
@@ -192,11 +143,21 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       # First column of the volatility matrix
       vol_matrix_1 = tf.stack([vol, epsilon * rho * vol], -1)
       # Second column of the volatility matrix
-      vol_matrix_2 = tf.stack([zeros,
-                               epsilon * tf.sqrt(1 - rho**2) * vol], -1)
+      vol_matrix_2 = tf.stack([zeros, epsilon * tf.sqrt(1 - rho**2) * vol], -1)
       vol_matrix = tf.stack([vol_matrix_1, vol_matrix_2], -1)
       return vol_matrix
-    return _vol_fn
+
+    def _drift_fn(t, x):
+      var = x[..., 1]
+      # Get parameter values at time `t`
+      kappa, theta = _get_parameters([t], self._kappa, self._theta)
+      kappa, theta = kappa[0], theta[0]
+      log_spot_drift = -var / 2
+      var_drift = kappa * (theta - var)
+      drift = tf.stack([log_spot_drift, var_drift], -1)
+      return drift
+
+    super().__init__(2, _drift_fn, _vol_fn, dtype, name)
 
   def sample_paths(self,
                    times,
