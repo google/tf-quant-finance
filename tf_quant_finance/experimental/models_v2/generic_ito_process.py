@@ -243,34 +243,10 @@ class GenericItoProcess(ito_process.ItoProcess):
                          name=None,
                          **kwargs):
     """See base class."""
-    # pde_solver_fn can be injected for unit testing.
     pde_solver_fn = kwargs.get('pde_solver_fn', fd_solvers.solve_backward)
 
-    def second_order_coeff_fn(t, coord_grid):
-      sigma = self._volatility_fn(t, self._coord_grid_to_mesh_grid(coord_grid))
-      sigma_times_sigma_t = tf.linalg.matmul(sigma, sigma, transpose_b=True)
-
-      # We currently have [dim, dim] as innermost dimensions, but the returned
-      # tensor must have [dim, dim] as outermost dimensions.
-      rank = len(sigma.shape.as_list())
-      perm = [rank - 2, rank - 1] + list(range(rank - 2))
-      sigma_times_sigma_t = tf.transpose(sigma_times_sigma_t, perm)
-      return sigma_times_sigma_t / 2
-
-    def first_order_coeff_fn(t, coord_grid):
-      mu = self._drift_fn(t, self._coord_grid_to_mesh_grid(coord_grid))
-
-      # We currently have [dim] as innermost dimension, but the returned
-      # tensor must have [dim] as outermost dimension.
-      rank = len(mu.shape.as_list())
-      perm = [rank - 1] + list(range(rank - 1))
-      mu = tf.transpose(mu, perm)
-      return mu
-
-    def zeroth_order_coeff_fn(t, coord_grid):
-      if not discounting:
-        return None
-      return -discounting(t, self._coord_grid_to_mesh_grid(coord_grid))
+    second_order_coeff_fn, first_order_coeff_fn, zeroth_order_coeff_fn = (
+        _backward_pde_coeffs(self._drift_fn, self._volatility_fn, discounting))
 
     return pde_solver_fn(
         start_time=start_time,
@@ -289,7 +265,81 @@ class GenericItoProcess(ito_process.ItoProcess):
         dtype=dtype,
         name=name)
 
-  def _coord_grid_to_mesh_grid(self, coord_grid):
-    if self._dim == 1:
-      return coord_grid[0]
-    return tf.stack(values=tf.meshgrid(*coord_grid, indexing='ij'), axis=-1)
+  def fd_solver_forward(self,
+                        start_time,
+                        end_time,
+                        coord_grid,
+                        values_grid,
+                        one_step_fn=None,
+                        boundary_conditions=None,
+                        start_step_count=0,
+                        num_steps=None,
+                        time_step=None,
+                        values_transform_fn=None,
+                        dtype=None,
+                        name=None,
+                        **kwargs):
+    """See base class."""
+    pde_solver_fn = kwargs.get('pde_solver_fn', fd_solvers.solve_forward)
+
+    backward_second_order, backward_first_order, backward_zeroth_order = (
+        _backward_pde_coeffs(self._drift_fn, self._volatility_fn,
+                             discounting=None))
+
+    # Transform backward to forward equation.
+    inner_second_order_coeff_fn = lambda t, x: -backward_second_order(t, x)
+    inner_first_order_coeff_fn = backward_first_order
+    zeroth_order_coeff_fn = backward_zeroth_order
+
+    return pde_solver_fn(
+        start_time=start_time,
+        end_time=end_time,
+        coord_grid=coord_grid,
+        values_grid=values_grid,
+        num_steps=num_steps,
+        start_step_count=start_step_count,
+        time_step=time_step,
+        one_step_fn=one_step_fn,
+        boundary_conditions=boundary_conditions,
+        values_transform_fn=values_transform_fn,
+        inner_second_order_coeff_fn=inner_second_order_coeff_fn,
+        inner_first_order_coeff_fn=inner_first_order_coeff_fn,
+        zeroth_order_coeff_fn=zeroth_order_coeff_fn,
+        dtype=dtype,
+        name=name)
+
+def _backward_pde_coeffs(drift_fn, volatility_fn, discounting):
+  """Returns coeffs of the backward PDE."""
+  def second_order_coeff_fn(t, coord_grid):
+    sigma = volatility_fn(t, _coord_grid_to_mesh_grid(coord_grid))
+    sigma_times_sigma_t = tf.linalg.matmul(sigma, sigma, transpose_b=True)
+
+    # We currently have [dim, dim] as innermost dimensions, but the returned
+    # tensor must have [dim, dim] as outermost dimensions.
+    rank = len(sigma.shape.as_list())
+    perm = [rank - 2, rank - 1] + list(range(rank - 2))
+    sigma_times_sigma_t = tf.transpose(sigma_times_sigma_t, perm)
+    return sigma_times_sigma_t / 2
+
+  def first_order_coeff_fn(t, coord_grid):
+    mu = drift_fn(t, _coord_grid_to_mesh_grid(coord_grid))
+
+    # We currently have [dim] as innermost dimension, but the returned
+    # tensor must have [dim] as outermost dimension.
+    rank = len(mu.shape.as_list())
+    perm = [rank - 1] + list(range(rank - 1))
+    mu = tf.transpose(mu, perm)
+    return mu
+
+  def zeroth_order_coeff_fn(t, coord_grid):
+    if not discounting:
+      return None
+    return -discounting(t, _coord_grid_to_mesh_grid(coord_grid))
+
+  return second_order_coeff_fn, first_order_coeff_fn, zeroth_order_coeff_fn
+
+
+def _coord_grid_to_mesh_grid(coord_grid):
+  if len(coord_grid) == 1:
+    return coord_grid[0]
+  return tf.stack(values=tf.meshgrid(*coord_grid, indexing='ij'), axis=-1)

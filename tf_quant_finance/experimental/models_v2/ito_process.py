@@ -331,8 +331,8 @@ class ItoProcess(object):
     associated to this Ito process is given by:
 
     ```None
-      V_t + Sum[(mu_i(t, x) V)_i, 1<=i<=n] +
-        (1/2) Sum[ (D_{ij} V)_{ij}, 1 <= i,j <= n] = 0
+      V_t + Sum[(mu_i(t, x) V)_i, 1<=i<=n]
+        - (1/2) Sum[ (D_{ij} V)_{ij}, 1 <= i,j <= n] = 0
     ```
 
     with the initial value condition $$V(0, x) = u(x)$$.
