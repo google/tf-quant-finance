@@ -143,7 +143,7 @@ def _quadratic_interpolation_step(x1, x2, x3, y1, y2, y3):
 
 def default_relative_root_tolerance(dtype):
   """Returns the default relative root tolerance used for a TensorFlow dtype."""
-  return 4 * np.finfo(dtype.as_numpy_dtype()).eps
+  return 4 * np.finfo(dtype.as_numpy_dtype(0)).eps
 
 
 def _should_stop(state, stopping_policy_fn):
