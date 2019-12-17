@@ -20,8 +20,6 @@ from __future__ import print_function
 
 import math
 
-import scipy.optimize as optimize
-from six.moves import range
 import tensorflow as tf
 
 from tf_quant_finance.math import root_search
@@ -54,11 +52,20 @@ class BrentqTest(tf.test.TestCase):
                          objective_fn,
                          left_bracket,
                          right_bracket,
+                         expected_roots,
                          expected_num_iterations,
                          dtype=tf.float64,
                          absolute_root_tolerance=2e-7,
                          relative_root_tolerance=None,
                          function_tolerance=2e-7):
+    # expected_roots are pre-calculated as follows:
+    # import scipy.optimize as optimize
+    # roots = optimize.brentq(objective_fn,
+    #                         left_bracket[i],
+    #                         right_bracket[i],
+    #                         xtol=absolute_root_tolerance,
+    #                         rtol=relative_root_tolerance)
+
     assert len(left_bracket) == len(
         right_bracket), "Brackets have different sizes"
 
@@ -78,17 +85,6 @@ class BrentqTest(tf.test.TestCase):
     ])
 
     roots, value_at_roots, num_iterations, converged = result
-
-    expected_roots = []
-    for i in range(0, len(left_bracket)):
-      expected_roots.append(
-          optimize.brentq(
-              objective_fn,
-              left_bracket[i],
-              right_bracket[i],
-              xtol=absolute_root_tolerance,
-              rtol=relative_root_tolerance))
-
     zeros = [0.] * len(left_bracket)
 
     # The output of SciPy and Tensorflow implementation should match for
@@ -110,48 +106,56 @@ class BrentqTest(tf.test.TestCase):
         objective_fn=lambda x: 4 * x**2 - 4,
         left_bracket=[1],  # Root
         right_bracket=[0],
+        expected_roots=[1],
         expected_num_iterations=[0])
 
     self._testFindsAllRoots(
         objective_fn=lambda x: x**3 - 4 * x**2 + 3,
         left_bracket=[-1],
         right_bracket=[1],  # Root
+        expected_roots=[1],
         expected_num_iterations=[0])
 
     self._testFindsAllRoots(
         objective_fn=lambda x: x**2 - 7,
         left_bracket=[2],
         right_bracket=[3],
+        expected_roots=[2.6457513093775136],
         expected_num_iterations=[4])
 
     self._testFindsAllRoots(
         objective_fn=polynomial5,
         left_bracket=[-1],
         right_bracket=[1],
+        expected_roots=[-0.14823253013216148],
         expected_num_iterations=[6])
 
     self._testFindsAllRoots(
         objective_fn=lambda x: exp(x) - 2 * x**2,
         left_bracket=[1],
         right_bracket=[2],
+        expected_roots=[1.487962064137658],
         expected_num_iterations=[4])
 
     self._testFindsAllRoots(
         objective_fn=lambda x: exp(-x) - 2 * x**2,
         left_bracket=[0],
         right_bracket=[1],
+        expected_roots=[0.5398352897010781],
         expected_num_iterations=[5])
 
     self._testFindsAllRoots(
         objective_fn=lambda x: x * (1 - cos(x)),
         left_bracket=[-1],
         right_bracket=[1],
+        expected_roots=[0.0],
         expected_num_iterations=[1])
 
     self._testFindsAllRoots(
         objective_fn=lambda x: 1 - x + sin(x),
         left_bracket=[1],
         right_bracket=[2],
+        expected_roots=[1.934563210652628],
         expected_num_iterations=[4])
 
     self._testFindsAllRoots(
@@ -159,6 +163,7 @@ class BrentqTest(tf.test.TestCase):
         objective_fn=lambda x: 0 if x == 0 else x * exp(-1 / x**2),
         left_bracket=[-10],
         right_bracket=[1],
+        expected_roots=[-0.017029902449646958],
         expected_num_iterations=[22],
         # Set the tolerance to zero to match the SciPy implementation.
         function_tolerance=0)
@@ -169,6 +174,7 @@ class BrentqTest(tf.test.TestCase):
         objective_fn=polynomial5,
         left_bracket=[-10, 1],
         right_bracket=[10, -1],
+        expected_roots=[-0.14823252898856332, -0.14823253013216148],
         expected_num_iterations=[10, 6])
 
   @test_util.run_in_graph_and_eager_modes
@@ -178,6 +184,7 @@ class BrentqTest(tf.test.TestCase):
         left_bracket=[-4, 1],
         right_bracket=[3, -1],
         dtype=tf.float32,
+        expected_roots=[-0.14823253010472962, -0.14823253013216148],
         expected_num_iterations=[13, 7])
 
   @test_util.run_in_graph_and_eager_modes
@@ -221,10 +228,7 @@ class BrentqTest(tf.test.TestCase):
 
     roots, value_at_roots, num_iterations, _ = result
 
-    expected_roots = [
-        optimize.brentq(objective_fn, left_bracket[0], right_bracket[0]),
-        optimize.brentq(objective_fn, left_bracket[1], right_bracket[1])
-    ]
+    expected_roots = [-0.14823253013443427, -0.14823253013443677]
 
     self.assertNotAllClose(roots[0], expected_roots[0])
     self.assertAllClose(roots[1], expected_roots[1])

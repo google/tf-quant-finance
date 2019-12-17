@@ -17,7 +17,7 @@ RUN curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
 RUN sudo apt-get update && sudo apt-get install -y bazel
 
 # Install pip packages
-RUN pip3 install --upgrade tensorflow tensorflow-probability numpy attrs scipy
+RUN pip3 install --upgrade tensorflow tensorflow-probability numpy attrs
 
 # Clone GitHub repository
 RUN git clone https://github.com/google/tf-quant-finance.git tf-quant-finance

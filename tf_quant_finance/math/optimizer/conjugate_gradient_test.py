@@ -20,8 +20,6 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-from scipy import special
-from scipy import stats
 import tensorflow as tf
 
 import tf_quant_finance as tff
@@ -158,9 +156,9 @@ class ConjugateGradientTest(tf.test.TestCase):
     betas = np.random.randn(dim)  # The true beta
     intercept = np.random.randn()  # The true intercept
     features = np.random.randn(n_objs, dim)  # The feature matrix
-    probs = special.expit(
-        np.matmul(features, np.expand_dims(betas, -1)) + intercept)
-    labels = stats.bernoulli.rvs(probs)  # The true labels
+    probs = 1 / (1 + np.exp(
+        -np.matmul(features, np.expand_dims(betas, -1)) - intercept))
+    labels = np.random.binomial(1, probs)  # The true labels
     regularization = 0.8
     feat = tf.constant(features)
     lab = tf.constant(labels, dtype=feat.dtype)

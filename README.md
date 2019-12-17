@@ -136,8 +136,7 @@ This library has the following dependencies:
 3.  TensorFlow
 4.  TensorFlow Probability
 5.  Numpy
-6.  Scipy (used only in tests)
-7.  Attrs
+6.  Attrs
 
 This library requires the
 [Bazel](https://bazel.build/) build system. Please follow the
