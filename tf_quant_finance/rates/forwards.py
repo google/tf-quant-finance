@@ -81,7 +81,7 @@ def forward_rates_from_yields(yields,
 
   ```python
     dtype = np.float64
-    groups = np.array([0,    0    0,   1,    1,   1,  1  ])
+    groups = np.array([0, 0, 0, 1, 1, 1, 1])
     times = np.array([0.25, 0.5, 1.0, 0.25, 0.5, 1.0, 1.5], dtype=dtype)
     rates = np.array([0.04, 0.041, 0.044, 0.022, 0.025, 0.028, 0.036],
                      dtype=dtype)
@@ -188,7 +188,7 @@ def yields_from_forward_rates(discrete_forwards,
 
   ```python
     dtype = np.float64
-    groups = np.array([0,    0    0,   1,    1,   1,  1  ])
+    groups = np.array([0, 0, 0, 1, 1, 1, 1])
     times = np.array([0.25, 0.5, 1.0, 0.25, 0.5, 1.0, 1.5], dtype=dtype)
     discrete_forwards = np.array(
         [0.04, 0.042, 0.047, 0.022, 0.028, 0.031, 0.052], dtype=dtype)
