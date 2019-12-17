@@ -19,7 +19,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import mock
+from unittest import mock  # pylint: disable=g-importing-member
 import numpy as np
 import tensorflow as tf
 
