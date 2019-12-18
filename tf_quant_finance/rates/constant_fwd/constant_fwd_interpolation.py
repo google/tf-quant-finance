@@ -78,7 +78,7 @@ def interpolate(interpolation_times,
     A N-D `Tensor` of real dtype with the same shape as `interpolations_times`
       containing the interpolated yields.
   """
-  with tf.name_scope(
+  with tf.compat.v1.name_scope(
       name,
       default_name='constant_fwd_interpolation',
       values=[interpolation_times, reference_times, reference_yields]):

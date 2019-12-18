@@ -25,24 +25,24 @@ from tf_quant_finance.experimental.pde_v2.steppers.oscillation_damped_crank_nico
 
 
 def solve_backward(start_time,
-                    end_time,
-                    coord_grid,
-                    values_grid,
-                    num_steps=None,
-                    start_step_count=0,
-                    time_step=None,
-                    one_step_fn=None,
-                    boundary_conditions=None,
-                    values_transform_fn=None,
-                    second_order_coeff_fn=None,
-                    first_order_coeff_fn=None,
-                    zeroth_order_coeff_fn=None,
-                    inner_second_order_coeff_fn=None,
-                    inner_first_order_coeff_fn=None,
-                    maximum_steps=None,
-                    swap_memory=True,
-                    dtype=None,
-                    name=None):
+                   end_time,
+                   coord_grid,
+                   values_grid,
+                   num_steps=None,
+                   start_step_count=0,
+                   time_step=None,
+                   one_step_fn=None,
+                   boundary_conditions=None,
+                   values_transform_fn=None,
+                   second_order_coeff_fn=None,
+                   first_order_coeff_fn=None,
+                   zeroth_order_coeff_fn=None,
+                   inner_second_order_coeff_fn=None,
+                   inner_first_order_coeff_fn=None,
+                   maximum_steps=None,
+                   swap_memory=True,
+                   dtype=None,
+                   name=None):
   """Evolves a grid of function values backwards in time according to a PDE.
 
   Evolves a discretized solution of following second order linear
@@ -572,7 +572,7 @@ def solve_forward(start_time,
                 inner_first_order_coeff_fn,
                 maximum_steps,
                 swap_memory,
-                name or "solve_forward")
+                name or 'solve_forward')
 
 
 def _solve(
@@ -620,7 +620,7 @@ def _solve(
 
     boundary_conditions = [(zero_dirichlet, zero_dirichlet)] * n_dims
 
-  with tf.name_scope(
+  with tf.compat.v1.name_scope(
       name,
       default_name='solve',
       values=[

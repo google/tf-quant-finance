@@ -60,6 +60,7 @@ def _beale(coord):
   term3 = (2.625 - x + x * y**3)**2
   return term1 + term2 + term3
 
+
 @test_util.run_all_in_graph_and_eager_modes
 class ConjugateGradientTest(tf.test.TestCase):
 
@@ -76,7 +77,8 @@ class ConjugateGradientTest(tf.test.TestCase):
     f_call_ctr = tf.Variable(0, dtype=tf.int32)
 
     def val_grad_func_with_counter(x):
-      with tf.compat.v1.control_dependencies([tf.assign_add(f_call_ctr, 1)]):
+      with tf.compat.v1.control_dependencies(
+          [tf.compat.v1.assign_add(f_call_ctr, 1)]):
         return val_grad_func(x)
 
     result = tff.math.optimizer.conjugate_gradient_minimize(

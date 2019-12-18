@@ -354,14 +354,14 @@ def _shift(tensor, axis, delta):
     if d == axis:
       zeros_shape[d] = np.abs(delta)
     else:
-      zeros_shape[d] = tf.dimension_value(tensor.shape[d])
+      zeros_shape[d] = tf.compat.dimension_value(tensor.shape[d])
 
   zeros = tf.zeros(zeros_shape, dtype=tensor.dtype)
 
   slice_begin = np.zeros(rank, dtype=np.int32)
   slice_size = -np.ones(rank, dtype=np.int32)
   if delta > 0:
-    slice_size[axis] = tf.dimension_value(tensor.shape[axis]) - delta
+    slice_size[axis] = tf.compat.dimension_value(tensor.shape[axis]) - delta
     return tf.concat((zeros, tf.slice(tensor, slice_begin, slice_size)),
                      axis=axis)
   else:

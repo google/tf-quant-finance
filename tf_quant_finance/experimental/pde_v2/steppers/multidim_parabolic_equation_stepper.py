@@ -732,9 +732,9 @@ def _slice(tensor, dim, start, end):
   # as t[:, -3:].
   rank = len(tensor.shape.as_list())
   if start < 0:
-    start += tf.dimension_value(tensor.shape.as_list()[dim])
+    start += tf.compat.dimension_value(tensor.shape.as_list()[dim])
   if end <= 0:
-    end += tf.dimension_value(tensor.shape.as_list()[dim])
+    end += tf.compat.dimension_value(tensor.shape.as_list()[dim])
   slice_begin = np.zeros(rank, dtype=np.int32)
   slice_begin[dim] = start
   slice_size = -np.ones(rank, dtype=np.int32)
@@ -758,10 +758,10 @@ def _trim_boundaries(tensor, from_dim, shifts=None):
   slice_begin = np.zeros(rank, dtype=np.int32)
   slice_size = np.zeros(rank, dtype=np.int32)
   for i in range(from_dim):
-    slice_size[i] = tf.dimension_value(tensor.shape.as_list()[i])
+    slice_size[i] = tf.compat.dimension_value(tensor.shape.as_list()[i])
   for i in range(from_dim, rank):
     slice_begin[i] = 1
-    slice_size[i] = tf.dimension_value(tensor.shape.as_list()[i]) - 2
+    slice_size[i] = tf.compat.dimension_value(tensor.shape.as_list()[i]) - 2
     if shifts is not None:
       slice_begin[i] += shifts[i - from_dim]
   return tf.slice(tensor, slice_begin, slice_size)

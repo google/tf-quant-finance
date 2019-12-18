@@ -371,7 +371,7 @@ def _mvnormal_quasi(sample_shape,
   # Batch shape of the output
   batch_shape = distribution.batch_shape
   # Reverse elements of the batch shape
-  batch_shape_reverse = tf.reverse_sequence(
+  batch_shape_reverse = tf.compat.v1.reverse_sequence(
       tf.expand_dims(batch_shape, 0),
       seq_lengths=[tf.size(batch_shape)],
       seq_dim=1)

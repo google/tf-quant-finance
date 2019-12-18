@@ -271,7 +271,7 @@ def sample(dim,
       # about. Noting that all a_i < b by definition of place value expansion,
       # we see that taking the elements mod b of the above vector produces the
       # place value expansion coefficients.
-      coeffs = tf.floor_div(indices, weights)
+      coeffs = tf.compat.v1.floor_div(indices, weights)
       coeffs *= 1. - tf.cast(weight_mask, dtype)
       coeffs %= radixes
       if not randomized:

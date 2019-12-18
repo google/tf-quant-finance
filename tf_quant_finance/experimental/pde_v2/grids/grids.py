@@ -187,8 +187,8 @@ def log_uniform_grid(minimums,
     # arguments were already validated.
     with tf.compat.v1.control_dependencies(control_deps):
       dim = sizes.shape[0]
-      log_maximums = tf.log(maximums)
-      log_minimums = tf.log(minimums)
+      log_maximums = tf.math.log(maximums)
+      log_minimums = tf.math.log(minimums)
 
       locations = [
           tf.exp(tf.linspace(log_minimums[i], log_maximums[i], num=sizes[i]))
@@ -451,8 +451,8 @@ def log_uniform_grid_with_extra_point(minimums,
     locations = []
     with tf.compat.v1.control_dependencies(control_deps):
       dim = sizes.shape[0]
-      log_maximums = tf.log(maximums)
-      log_minimums = tf.log(minimums)
+      log_maximums = tf.math.log(maximums)
+      log_minimums = tf.math.log(minimums)
       for i in range(dim):
         locations.append(
             tf.expand_dims(log_minimums[..., i], -1) +
@@ -467,7 +467,8 @@ def log_uniform_grid_with_extra_point(minimums,
         location_update = tf.sort(
             tf.concat(
                 [location,
-                 tf.expand_dims(tf.log(extra_grid_point[:, i]), -1)], -1), -1)
+                 tf.expand_dims(tf.math.log(
+                     extra_grid_point[:, i]), -1)], -1), -1)
         locations[i] = tf.exp(location_update)
       return locations
 

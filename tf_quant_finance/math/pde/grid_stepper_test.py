@@ -78,8 +78,8 @@ class GridStepperTest(tf.test.TestCase):
       """A non-constant time step."""
       # Returns the first element of the harmonic sequence which is smaller
       # than the current time floored by 0.01. If the current time is t,
-      # then returns tf.max(1/tf.ceil(1/t), 0.01).
-      return tf.maximum(dtype(0.01), 1. / tf.ceil(1. / state.time))
+      # then returns tf.max(1/tf.math.ceil(1/t), 0.01).
+      return tf.maximum(dtype(0.01), 1. / tf.math.ceil(1. / state.time))
 
     def payoff_fn(state):
       return tf.maximum(state.coordinate_grid.grid, 0.5)
@@ -116,8 +116,8 @@ class GridStepperTest(tf.test.TestCase):
       """A non-constant time step."""
       # Returns the first element of the harmonic sequence which is smaller
       # than the current time floored by 0.01. If the current time is t,
-      # then returns tf.max(1/tf.ceil(1/t), 0.01).
-      return tf.maximum(dtype(0.01), 1. / tf.ceil(1. / state.time))
+      # then returns tf.max(1/tf.math.ceil(1/t), 0.01).
+      return tf.maximum(dtype(0.01), 1. / tf.math.ceil(1. / state.time))
 
     def payoff_fn(state):
       return tf.maximum(state.coordinate_grid.grid, 0.5)

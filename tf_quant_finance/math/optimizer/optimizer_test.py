@@ -98,7 +98,7 @@ class OptimizerTest(tf.test.TestCase):
     self.assertArrayNear(results.position, [1.0, 1.0], 1e-5)
 
   def test_differential_evolution(self):
-    """Use differential evolution algorithm to minimize a quadratic function.""" 
+    """Use differential evolution algorithm to minimize a quadratic function."""
     minimum = np.array([1.0, 1.0])
     scales = np.array([2.0, 3.0])
     def quadratic(x):

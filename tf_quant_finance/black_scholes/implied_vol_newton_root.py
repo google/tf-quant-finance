@@ -241,7 +241,7 @@ def newton_root_finder(value_and_grad_func,
 
     starting_position = (tf.constant(0, dtype=tf.int32), initial_values,
                          tf.zeros_like(initial_values, dtype=tf.bool),
-                         tf.is_nan(initial_values))
+                         tf.math.is_nan(initial_values))
 
     def _condition(counter, parameters, converged, failed):
       del parameters
@@ -259,7 +259,7 @@ def newton_root_finder(value_and_grad_func,
       update_mask = tf.cast(~converged, dtype=parameters.dtype)
       increment = -update_mask * values / gradients
       updated_parameters = parameters + increment
-      failed = ~tf.is_finite(updated_parameters)
+      failed = ~tf.math.is_finite(updated_parameters)
 
       return counter + 1, updated_parameters, converged, failed
 
@@ -378,7 +378,7 @@ def _make_black_objective_and_vega_func(prices, forwards, strikes, expiries,
   y = tf.where(orientations, units, strikes / forwards)
   # x is forwards/strikes when strikes >= forwards and 1 otherwise
   x = tf.where(orientations, forwards / strikes, units)
-  lnz = tf.log(forwards) - tf.log(strikes)
+  lnz = tf.math.log(forwards) - tf.math.log(strikes)
   sqrt_t = tf.sqrt(expiries)
 
   def _black_objective_and_vega(volatilities):

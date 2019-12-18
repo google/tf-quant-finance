@@ -182,7 +182,7 @@ def _volatility_fn_from_total_covar_fn(total_covariance_fn):
     start_time = tf.zeros_like(time)
     total_covar_fn = lambda t: total_covariance_fn(start_time, t)
     vol_sq = gradient.fwd_gradient(total_covar_fn, time)
-    return tf.cholesky(vol_sq, name='volatility')
+    return tf.linalg.cholesky(vol_sq, name='volatility')
 
   return vol_fn
 

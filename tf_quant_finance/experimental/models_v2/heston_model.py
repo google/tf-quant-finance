@@ -334,7 +334,7 @@ def _update_variance(
   p = (psi - 1) / (psi + 1)
   beta = (1 - p) / m
   next_var_false = tf.where(uniforms > p,
-                            tf.log(1 - p) - tf.log(1 - uniforms),
+                            tf.math.log(1 - p) - tf.math.log(1 - uniforms),
                             tf.zeros_like(uniforms)) / beta
   next_var = tf.where(cond, next_var_true, next_var_false)
   return next_var
