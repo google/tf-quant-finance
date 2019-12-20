@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import sys
+
 
 # We need to put some imports inside a function call below, and the function
 # call needs to come before the *actual* imports that populate the
@@ -28,6 +30,11 @@ from __future__ import print_function
 # Update this whenever we need to depend on a newer TensorFlow release.
 _REQUIRED_TENSORFLOW_VERSION = "1.15"  # pylint: disable=g-statement-before-imports
 
+
+# Ensure Python 3 is used.
+def _check_py_version():
+  if sys.version_info[0] < 3:
+    raise Exception("Please use Python 3. Python 2 is not supported.")
 
 # Ensure TensorFlow is importable and its version is sufficiently recent. This
 # needs to happen before anything else, since the imports below will try to
@@ -62,6 +69,7 @@ def _ensure_tf_install():  # pylint: disable=g-statement-before-imports
             required=_REQUIRED_TENSORFLOW_VERSION, present=tf.__version__))
 
 
+_check_py_version()
 _ensure_tf_install()
 
 from tf_quant_finance import black_scholes
