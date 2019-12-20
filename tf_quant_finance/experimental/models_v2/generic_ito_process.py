@@ -341,5 +341,5 @@ def _backward_pde_coeffs(drift_fn, volatility_fn, discounting):
 
 def _coord_grid_to_mesh_grid(coord_grid):
   if len(coord_grid) == 1:
-    return coord_grid[0]
+    return tf.expand_dims(coord_grid[0], -1)
   return tf.stack(values=tf.meshgrid(*coord_grid, indexing='ij'), axis=-1)

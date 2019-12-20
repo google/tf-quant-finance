@@ -163,11 +163,22 @@ class GenericItoProcessTest(tf.test.TestCase):
 
     # batch_shape = (3, ), dim = 1
     # vol_fn(...).shape = batch_shape + (dim, dim) = (3, 1, 1)
-    vol_fn = lambda t, x: tf.reshape(2 * x**2, (-1, 1, 1))
+    def vol_fn(t, x):
+      del t
+      x = x[:, 0]  # x.shape was (3, 1), now it's (3, )
+      return tf.reshape(2 * x**2, (-1, 1, 1))
+
     # drift_fn(...).shape = batch_shape + (dim,) = (3, 1)
-    drift_fn = lambda t, x: tf.reshape(3 * x, (-1, 1))
+    def drift_fn(t, x):
+      del t
+      x = x[:, 0]
+      return tf.reshape(3 * x, (-1, 1))
+
     # discounting_fn(...).shape = batch_shape = (3, )
-    discounting_fn = lambda t, x: 6 / x
+    def discounting_fn(t, x):
+      del t
+      x = x[:, 0]
+      return 6 / x
 
     coord_grid = [tf.constant([1, 2, 3])]
 
