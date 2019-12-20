@@ -346,7 +346,7 @@ def _apply_boundary_conditions_after_step(
   # v0 = xi1 v1 + xi2 v2 + eta.
 
   alpha, beta, gamma = boundary_conditions[0][0](time_after_step,
-                                                 coord_grid[0][0])
+                                                 coord_grid)
   xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[0],
                                                   coord_grid_deltas[1],
                                                   alpha, beta, gamma)

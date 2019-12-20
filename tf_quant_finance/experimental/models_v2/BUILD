@@ -9,6 +9,8 @@ py_library(
     srcs = ["__init__.py"],
     deps = [
         ":euler_sampling",
+        ":generic_ito_process",
+        ":heston_model",
         ":ito_process",
     ],
 )
