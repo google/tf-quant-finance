@@ -45,7 +45,7 @@ from __future__ import print_function
 
 import collections
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 _GridStepperState = collections.namedtuple(
     '_GridStepperState',

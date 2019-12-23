@@ -24,7 +24,7 @@ import math
 from absl.testing import parameterized
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 from tf_quant_finance.math import pde
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import

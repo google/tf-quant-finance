@@ -21,7 +21,7 @@ from __future__ import print_function
 
 import numpy as np
 from six.moves import range
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import tensorflow_probability as tfp
 
 from tf_quant_finance.math import random
