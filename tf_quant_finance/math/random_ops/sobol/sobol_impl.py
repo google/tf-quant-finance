@@ -28,7 +28,7 @@ import os
 
 import numpy as np
 from six.moves import range
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 _LN_2 = np.log(2.)
 

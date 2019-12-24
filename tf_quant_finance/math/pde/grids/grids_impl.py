@@ -24,7 +24,7 @@ import collections
 import numpy as np
 from six.moves import range
 from six.moves import zip
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 GridSpec = collections.namedtuple(
     'GridSpec',

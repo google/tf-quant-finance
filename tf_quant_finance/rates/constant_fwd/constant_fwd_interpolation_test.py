@@ -6,7 +6,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 from tf_quant_finance.rates.constant_fwd import constant_fwd_interpolation
 

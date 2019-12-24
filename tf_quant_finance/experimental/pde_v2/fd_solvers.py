@@ -19,7 +19,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from tf_quant_finance.experimental.pde_v2.steppers.douglas_adi import douglas_adi_step
 from tf_quant_finance.experimental.pde_v2.steppers.oscillation_damped_crank_nicolson import crank_nicolson_with_oscillation_damping_step
 

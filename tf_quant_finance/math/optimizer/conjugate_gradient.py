@@ -33,7 +33,7 @@ from __future__ import print_function
 import collections
 
 import attr
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 from tensorflow_probability.python.optimizer import converged_all
 from tensorflow_probability.python.optimizer import linesearch
