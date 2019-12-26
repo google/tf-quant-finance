@@ -38,7 +38,7 @@ class HestonModelTest(tf.test.TestCase):
         kappa=1.0, theta=theta, epsilon=0.00001,
         rho=-0.0, dtype=np.float64)
     years = 1.0
-    times = np.linspace(0.0, years, 365 * years)
+    times = np.linspace(0.0, years, int(365 * years))
     num_samples = 2
     paths = process.sample_paths(
         times,
