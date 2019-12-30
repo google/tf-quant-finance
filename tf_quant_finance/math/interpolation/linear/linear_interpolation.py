@@ -77,7 +77,7 @@ def interpolate(x,
   Returns:
     A N-D `Tensor` of real dtype corresponding to the x-values in `x`.
   """
-  with tf.name_scope(
+  with tf.compat.v1.name_scope(
       name,
       default_name='linear_interpolation',
       values=[x, x_data, y_data, left_slope, right_slope]):
