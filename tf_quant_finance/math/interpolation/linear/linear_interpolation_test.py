@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Lint as: python2, python3
-"""Tests for nomisma_quant_finance.math.interpolation.linear.interpolate"""
+"""Tests for nomisma_quant_finance.math.interpolation.linear.interpolate."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -101,7 +101,7 @@ class LinearInterpolation(tf.test.TestCase):
     with self.assertRaises((tf.errors.InvalidArgumentError, ValueError)):
       self.evaluate(
           tff.math.interpolation.linear.interpolate(
-              x, x_data, y_data, dtype=tf.float64))
+              x, x_data, y_data, validate_args=True, dtype=tf.float64))
 
   def test_linear_interpolation_empty_xys(self):
     """Tests an error would be thrown if knots are empty."""
@@ -123,11 +123,11 @@ class LinearInterpolation(tf.test.TestCase):
             x, x_data, y_data, dtype=tf.float32))
     self.assertAllClose(result, np.array([[0, 1, 4], [1, 1.5, 3]]), 1e-8)
 
-  def test_linear_interpolation_multiple_batching_dimenstions(self):
+  def test_linear_interpolation_multiple_batching_dimensions(self):
     """Tests linear interpolation with multiple batching dimensions."""
     x = [[[1.5], [3.5]]]
-    x_data = [[[1, 2]], [[3, 4]]]
-    y_data = [[[0, 1]], [[2, 3]]]
+    x_data = [[[1, 2], [3, 4]]]
+    y_data = [[[0, 1], [2, 3]]]
     result = self.evaluate(
         tff.math.interpolation.linear.interpolate(
             x, x_data, y_data, dtype=tf.float32))
