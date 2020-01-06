@@ -21,34 +21,39 @@ from tf_quant_finance.experimental.pde_v2.steppers.parabolic_equation_stepper im
 
 
 def weighted_implicit_explicit_step(theta):
-  """Constructs parabolic PDE solver using weighted implicit-explicit scheme.
+  """Creates a stepper function with weighted implicit-explicit scheme.
 
-  Creates a `parabolic_equation_step` function for solving a parabolic
-  differential equation form:
+  Given a space-discretized equation
 
-  ```none
-   V_{t} + a(t, x) * V_{xx} + b(t, x) * V_{x} + c(t, x) * V = 0
   ```
-  using  weighted implicit-explicit time marching scheme.
-  Here `V = V(t, x)` is a solution to the 2-dimensional PDE. `V_{t}` is the
-  derivative over time and `V_{x}` and `V_{xx}` are the first and second
-  derivatives over the space component.
+  du/dt = A(t) u(t) + b(t)
+  ```
+  (here `u` is a value vector, `A` and `b` are the matrix and the vector defined
+  by the PDE), the scheme approximates the right-hand side as a weighted average
+  of values taken before and after a time step:
 
-  ### References:
-  [1] I.V. Puzynin, A.V. Selin, S.I. Vinitsky, A high-order accuracy method for
-  numerical solving of the time-dependent Schrodinger equation, Comput. Phys.
-  Commun. 123 (1999), 1.
-  https://www.sciencedirect.com/science/article/pii/S0010465599002246
+  ```
+  (u(t2) - u(t1)) / (t2 - t1) = theta * (A(t1) u(t1) + b(t1))
+     + (1 - theta) (A(t2) u(t2) + b(t2)).
+  ```
+
+  Includes as particular cases the implicit (`theta = 0`), explicit
+  (`theta = 1`), and Crank-Nicolson (`theta = 0.5`) schemes.
+
+  The scheme is stable for `theta >= 0.5`, is second order accurate if
+  `theta = 0.5` (i.e. in Crank-Nicolson case), and first order accurate
+  otherwise.
+
+  More details can be found in `weighted_implicit_explicit_scheme` below.
 
   Args:
     theta: A float in range `[0, 1]`. A parameter used to mix implicit and
       explicit schemes together. Value of `0.0` corresponds to the fully
       implicit scheme, `1.0` to the fully explicit, and `0.5` to the
-      Crank-Nicolson scheme. See, e.g., [1].
+      Crank-Nicolson scheme.
 
   Returns:
-    `parabolic_equation_step` callable with weighted implicit-explicit time
-    marching scheme.
+    Callable to be used in finite-difference PDE solvers (see fd_solvers.py).
   """
   scheme = weighted_implicit_explicit_scheme(theta)
   def step_fn(
@@ -65,7 +70,7 @@ def weighted_implicit_explicit_step(theta):
       num_steps_performed,
       dtype=None,
       name=None):
-    """Applies parabolic_equation_stepper."""
+    """Performs the step."""
     del num_steps_performed
     name = name or 'weighted_implicit_explicit_scheme'
     return parabolic_equation_step(time,
@@ -87,20 +92,28 @@ def weighted_implicit_explicit_step(theta):
 def weighted_implicit_explicit_scheme(theta):
   """Constructs weighted implicit-explicit scheme.
 
-  Approximates the exponent in the solution `du/dt = A(t) u(t) + b(t)` as
+  Approximates the space-discretized equation of `du/dt = A(t) u(t) + b(t)` as
+  ```
+  (u(t2) - u(t1)) / (t2 - t1) = theta * (A u(t1) + b)
+     + (1 - theta) (A u(t2) + b),
+  ```
+  where `A = A((t1 + t2)/2)`, `b = b((t1 + t2)/2)`, and `theta` is a float
+  between `0` and `1`.
+
+  Note that typically `A` and `b` are evaluated at `t1` and `t2` in
+  the explicit and implicit terms respectively (the two terms of the right-hand
+  side). Instead, we evaluate them at the midpoint `(t1 + t2)/2`, which saves
+  some computation. One can check that evaluating at midpoint doesn't change the
+  order of accuracy of the scheme: it is still second order accurate in
+  `t2 - t1` if `theta = 0.5` and first order accurate otherwise.
+
+  The solution is the following:
   `u(t2) = (1 - (1 - theta) dt A)^(-1) * (1 + theta dt A) u(t1) + dt b`.
-  Here `dt = t2 - t1`, `A = A((t1 + t2)/2)`, `b = b((t1 + t2)/2)`, and `theta`
-  is a float between `0` and `1`.
-  Includes as particular cases the fully explicit scheme (`theta = 1`), the
-  fully implicit scheme (`theta = 0`) and the Crank-Nicolson scheme
-  (`theta = 0.5`).
-  The scheme is first-order accurate in `t2 - t1` if `theta != 0.5` and
-  second-order accurate if `theta = 0.5` (the Crank-Nicolson scheme).
-  Note that while traditionally in the Crank-Nicolson scheme `A(t)` and `b(t)`
-  are evaluated at `t1` and `t2` for the explicit and implicit substeps,
-  respectively, we evaluate them at midpoint `t = (t1 + t2)/2`. This is also
-  accurate to the second order (see e.g. [1], the paragraph after Eq. (14)), but
-  more efficient.
+
+  The main bottleneck here is inverting the matrix `(1 - (1 - theta) dt A)`.
+  This matrix is tridiagonal (each point is influenced by the two neighbouring
+  points), and thus the inversion can be efficiently performed using
+  `tf.linalg.tridiagonal_solve`.
 
   ### References:
   [1] I.V. Puzynin, A.V. Selin, S.I. Vinitsky, A high-order accuracy method for
@@ -112,22 +125,21 @@ def weighted_implicit_explicit_scheme(theta):
     theta: A float in range `[0, 1]`. A parameter used to mix implicit and
       explicit schemes together. Value of `0.0` corresponds to the fully
       implicit scheme, `1.0` to the fully explicit, and `0.5` to the
-      Crank-Nicolson scheme. See, e.g., [1].
+      Crank-Nicolson scheme.
 
   Returns:
-    A callable consumes the following arguments by keyword:
-      1. inner_value_grid: Grid of solution values at the current time of
-        the same `dtype` as `value_grid` and shape of `value_grid[..., 1:-1]`.
+    A callable that consumes the following arguments by keyword:
+      1. value_grid: Grid of values at time `t1`, i.e. `u(t1)`.
       2. t1: Time before the step.
       3. t2: Time after the step.
       4. equation_params_fn: A callable that takes a scalar `Tensor` argument
         representing time, and constructs the tridiagonal matrix `A`
         (a tuple of three `Tensor`s, main, upper, and lower diagonals)
         and the inhomogeneous term `b`. All of the `Tensor`s are of the same
-        `dtype` as `inner_value_grid` and of the shape broadcastable with the
-        shape of `inner_value_grid`.
-    The callable returns a `Tensor` of the same shape and `dtype` a
-    `values_grid` and represents an approximate solution `u(t2)`.
+        `dtype` as `value_grid` and of the shape broadcastable with the
+        shape of `value_grid`.
+    The callable returns a `Tensor` of the same shape and `dtype` as
+    `value_grid` and represents an approximate solution `u(t2)`.
   """
   if theta < 0 or theta > 1:
     raise ValueError(

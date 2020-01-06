@@ -285,25 +285,25 @@ result_value_grid, final_grid, end_time, steps_performed =
 ## Batching
 
 The solver can work with multiple PDEs in parallel. For example, let's solve
-Black-Scholes equation for European options with a batch of payoff values.
+Black-Scholes equation for European options with a batch of strike values.
 European options imply the final condition $V(S, t_f) = (S - K)_+$, where `K`
-is the payoff. So with one payoff value we write:
+is the strike. So with one strike value we write:
 
 ```python
-payoff = 0.3
+strike = 0.3
 s = grid[0]
-final_value_grid = tf.nn.relu(s - payoff)
+final_value_grid = tf.nn.relu(s - strike)
 ```
 
-With a batch of `b` payoff values, we need to stack the final value grids, so
-that `final_value_grid[i]` is the grid for `i`th payoff value. The simplest way
+With a batch of `b` strike values, we need to stack the final value grids, so
+that `final_value_grid[i]` is the grid for `i`th strike value. The simplest way
 to do this is by using `tf.meshgrid`:
 
 ```python
-payoffs = tf.constant([0.1, 0.3, 0.5])
+strikes = tf.constant([0.1, 0.3, 0.5])
 s = grid[0]
-payoffs, s = tf.meshgrid(payoffs, s, indexing='ij')
-final_value_grid = tf.nn.relu(s - payoffs)
+strikes, s = tf.meshgrid(strikes, s, indexing='ij')
+final_value_grid = tf.nn.relu(s - strikes)
 ```
 
 `tf.meshgrid` broadcasts the two tensors into a rectangular grid, and then we
@@ -327,13 +327,13 @@ the `result_value_grid` will contain the batch of solutions.
 We may also have different models for each element of the batch, for example:
 
 ```python
-payoffs = tf.constant([0.1, 0.3, 0.5])
+strikes = tf.constant([0.1, 0.3, 0.5])
 sigmas = tf.constant([1.0, 1.5, 2])
 rs = tf.constant([0.0, 1.0, 2.0])
 
 s = grid[0]
-payoffs, s = tf.meshgrid(payoffs, s, indexing='ij')
-final_value_grid = tf.nn.relu(s - payoffs)
+strikes, s = tf.meshgrid(strikes, s, indexing='ij')
+final_value_grid = tf.nn.relu(s - strikes)
 
 def second_order_coeff_fn(t, grid):
   s = grid[0]
@@ -351,7 +351,7 @@ def zeroth_order_coeff_fn(t, grid):
   return -rs_mesh
 ```
 
-This way we construct three PDEs: `i`-th equation has payoff `payoffs[i]`
+This way we construct three PDEs: `i`-th equation has strike `strikes[i]`
 and model parameters `sigmas[i]`, `rs[i]`.
 
 In the simplest case, the batch shapes of `final_value_grid` and PDE coefficient
@@ -712,7 +712,7 @@ much faster than the default (Crank-Nicolson) scheme, we write:
 ```python
 result_value_grid, final_grid, end_time, steps_performed = 
     fd_solvers.solve_forward(...
-        one_step_fn=steppers.explicit.explicit_step)
+        one_step_fn=steppers.explicit.explicit_step())
 ```
 
 Currently the following schemes are supported for 1D:

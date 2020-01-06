@@ -38,6 +38,10 @@ def parabolic_equation_step(
     name=None):
   """Performs one step of the parabolic PDE solver.
 
+  Typically one doesn't need to call this function directly, unless they have
+  a custom time marching scheme. A simple stepper function for one-dimensional
+  PDEs can be found in `crank_nicolson.py`.
+
   For a given solution (given by the `value_grid`) of a parabolic PDE at a given
   `time` on a given `coord_grid` computes an approximate solution at the
   `next_time` on the same coordinate grid. The parabolic differential equation
@@ -48,8 +52,6 @@ def parabolic_equation_step(
   ```
   Here `a`, `A`, `b`, `B`, and `c` are known coefficients which may depend on
   `x` and `t`; `V = V(t, x)` is the solution to be found.
-
-  See `fd_solvers.solve` for an example use case.
 
   Args:
     time: Real scalar `Tensor`. The time before the step.

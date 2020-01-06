@@ -15,7 +15,7 @@ def dirichlet(boundary_values_fn):
   def upper_boundary_fn(t, location_grid):
     return 0
 
-  solver = fd_solvers.step_back(...,
+  solver = fd_solvers.solve_forward(...,
       boundary_conditions = [(dirichlet(lower_boundary_fn),
                               dirichlet(upper_boundary_fn))],
       ...)
@@ -32,16 +32,22 @@ def dirichlet(boundary_values_fn):
   def upper_boundary_fn(t, location_grid):
     return 0
 
-  solver = fd_solvers.step_back(...,
+  solver = fd_solvers.solve_forward(...,
       boundary_conditions = [(lower_boundary_fn, upper_boundary_fn)],
       ...)
   ```
 
   Args:
     boundary_values_fn: Callable returning the boundary values at given time.
-      Can return a number, a zero-rank Tensor or a rank-one Tensor having the
-      size of the batch. See pde_kernels.py for more details. Accepts one
-       argument - the moment of time.
+      Accepts two arguments - the moment of time and the current coordinate
+      grid.
+      Returns a number, a zero-rank Tensor or a Tensor of shape
+      `batch_shape + grid_shape'`, where `grid_shape'` is grid_shape excluding
+      the axis orthogonal to the boundary. For example, in 3D the value grid
+      shape is `batch_shape + (z_size, y_size, x_size)`, and the boundary
+      tensors on the planes `y = y_min` and `y = y_max` should be either scalars
+      or have shape `batch_shape + (z_size, x_size)`. In 1D case this reduces
+      to just `batch_shape`.
 
   Returns:
     Callable suitable for PDE solvers.
@@ -67,7 +73,7 @@ def neumann(boundary_normal_derivative_fn):
     return 1
 
   def upper_boundary_fn(t, location_grid):
-    return 0
+    return 1
 
   solver = fd_solvers.step_back(...,
       boundary_conditions = [(neumann(lower_boundary_fn),
@@ -84,9 +90,9 @@ def neumann(boundary_normal_derivative_fn):
 
   @neumann
   def upper_boundary_fn(t, location_grid):
-    return 0
+    return 1
 
-  solver = fd_solvers.step_back(...,
+  solver = fd_solvers.solve_forward(...,
       boundary_conditions = [(lower_boundary_fn, upper_boundary_fn)],
       ...)
   ```
@@ -95,9 +101,15 @@ def neumann(boundary_normal_derivative_fn):
     boundary_normal_derivative_fn: Callable returning the values of the
       derivative with respect to the exterior normal to the boundary at the
       given time.
-      Can return a number, a zero-rank Tensor or a rank-one Tensor having the
-      size of the batch. See pde_kernels.py for more details. Accepts one
-      argument - the moment of time.
+      Accepts two arguments - the moment of time and the current coordinate
+      grid.
+      Returns a number, a zero-rank Tensor or a Tensor of shape
+      `batch_shape + grid_shape'`, where `grid_shape'` is grid_shape excluding
+      the axis orthogonal to the boundary. For example, in 3D the value grid
+      shape is `batch_shape + (z_size, y_size, x_size)`, and the boundary
+      tensors on the planes `y = y_min` and `y = y_max` should be either scalars
+      or have shape `batch_shape + (z_size, x_size)`. In 1D case this reduces
+      to just `batch_shape`.
 
   Returns:
     Callable suitable for PDE solvers.

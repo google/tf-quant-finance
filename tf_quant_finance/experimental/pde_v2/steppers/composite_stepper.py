@@ -36,7 +36,7 @@ def composite_scheme_step(first_scheme_steps, first_scheme, second_scheme):
       argument of `parabolic_equation_step`).
 
   Returns:
-    Callable to use as `one_step_fn` in fd_solvers.
+     Callable to be used in finite-difference PDE solvers (see fd_solvers.py).
   """
 
   def step_fn(
@@ -53,7 +53,7 @@ def composite_scheme_step(first_scheme_steps, first_scheme, second_scheme):
       num_steps_performed,
       dtype=None,
       name=None):
-    """Applies `parabolic_equation_step` with one of the two schemes."""
+    """Performs the step."""
     name = name or 'composite_scheme_step'
 
     def scheme(*args, **kwargs):

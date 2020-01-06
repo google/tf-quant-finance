@@ -39,6 +39,10 @@ def multidim_parabolic_equation_step(
     name=None):
   """Performs one step in time to solve a multidimensional PDE.
 
+  Typically one doesn't need to use this function directly, unless they have
+  a custom time marching scheme. A simple stepper function for multidimensional
+  PDEs can be found in `douglas_adi.py`.
+
   The PDE is of the form
 
   ```None
@@ -53,74 +57,6 @@ def multidim_parabolic_equation_step(
   w.r.t. dimensions specified in curly brackets, `i` and `j` denote spatial
   dimensions, `r` is the spatial radius-vector.
 
-  For example, let's solve a 2d diffusion-convection-reaction equation with
-  anisotropic diffusion:
-
-  ```
-  V_{t} + D_xx u_{xx} +  D_yy u_{yy} + 2 D_xy u_{xy} + mu_x u_{x} + mu_y u_{y}
-  + nu u = 0
-  ```
-
-  ```python
-  grid = grids.uniform_grid(
-      minimums=[-10, -10],
-      maximums=[10, 10],
-      sizes=[200, 200],
-      dtype=tf.float32)
-
-  diff_coeff_xx = 0.4   # D_xx
-  diff_coeff_yy = 0.25  # D_yy
-  diff_coeff_xy = 0.1   # D_xy
-  drift_x = 0.1         # mu_x
-  drift_y = 0.3         # mu_y
-  nu = 1
-  time_step = 0.1
-  final_t = 1
-  final_variance = 1
-
-  @dirichlet
-  def zero_boundary(t, location_grid):
-    return 0.0  # Let's set this simple boundary condition on all boundaries.
-
-
-  def second_order_coeff_fn(t, locations_grid):
-    del t, locations_grid  # Not used, because D_xx, D_yy, D_xy are constant.
-    return [[diff_coeff_y, diff_coeff_xy], [diff_coeff_xy, diff_coeff_x]]
-
-  def first_order_coeff_fn(t, locations_grid, dim):
-    del t, locations_grid  # Not used, because mu_x, mu_y are constant.
-    return [drift_y, drift_x]
-
-  def zeroth_order_coeff_fn(t, locations_grid):
-    del t, locations_grid  # Not used, because nu is constant.
-    return nu
-
-  # Final values for the PDE
-  def _gaussian(xs, variance):
-    return (np.exp(-np.square(xs) / (2 * variance))
-            / np.sqrt(2 * np.pi * variance))
-
-  final_values = tf.expand_dims(
-      tf.constant(
-          np.outer(
-              _gaussian(ys, final_variance), _gaussian(xs, final_variance)),
-          dtype=tf.float32),
-      axis=0)
-
-  step_fn = douglas_adi_scheme(theta=0.5)
-  result = fd_solvers.solve(
-      start_time=final_t,
-      end_time=0,
-      coord_grid=grid,
-      values_grid=final_values,
-      time_step=time_step,
-      one_step_fn=step_fn,
-      boundary_conditions=bound_cond,
-      second_order_coeff_fn=second_order_coeff_fn,
-      first_order_coeff_fn=first_order_coeff_fn,
-      zeroth_order_coeff_fn=zeroth_order_coeff_fn,
-      dtype=grid[0].dtype)
-  ```
   Args:
     time: Real scalar `Tensor`. The time before the step.
     next_time: Real scalar `Tensor`. The time after the step.

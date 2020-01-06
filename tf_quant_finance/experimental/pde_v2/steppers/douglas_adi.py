@@ -20,96 +20,24 @@ import tensorflow as tf
 from tf_quant_finance.experimental.pde_v2.steppers.multidim_parabolic_equation_stepper import multidim_parabolic_equation_step
 
 
-def douglas_adi_step(theta):
-  """Makes a step using the Douglas ADI scheme.
+def douglas_adi_step(theta=0.5):
+  """Creates a stepper function with Crank-Nicolson time marching scheme.
 
-  See [1], [2], and also docstring to `douglas_adi_scheme` for details on the
-  Douglas ADI scheme.
-
-  The function performs a step for solving PDE equations of the form
-
-  ```none
-  V_{t} + sum_{ij, j <= i} a_{ij}(t, r) * V_{ij} + sum_{i} b_{i}(t, r) * V_{i}
-  + c(t, r) * V = 0,
-  ```
-
-  Here `V` is the unknown function, `V_{...}` denotes partial derivatives
-  w.r.t. dimensions specified in curly brackets, `i` and `j` denote spatial
-  dimensions, `r` is the spatial radius-vector.
-
-  `a_{ij}`, `b_{i}`, and `c` are referred to as quadratic, linear and shift
-  coefficients, respectively.`a_{ij}` must be a positive-definite matrix for
-    all r and t (this is not explicitly checked, however).
-
-  For example, let's solve a 2d diffusion-convection-reaction equation with
-  anisotropic diffusion:
-
-  `V_{t} + D_xx u_{xx} +  D_yy u_{yy} + mu_x u_{x} + mu_y u_{y} + nu u = 0`
-
-  ```python
-  grid = grids.uniform_grid(
-      minimums=[-10, -10],
-      maximums=[10, 10],
-      sizes=[200, 200],
-      dtype=tf.float32)
-
-  diff_coeff_x = 0.4   # D_xx
-  diff_coeff_y = 0.25  # D_yy
-  drift_x = 0.1        # mu_x
-  drift_y = 0.3        # mu_y
-  time_step = 0.1
-  final_t = 1
-
-  @dirichlet
-  def zero_boundary(t, location_grid):
-    return 0.0  # Let's set this simple boundary condition on all boundaries.
-
-
-  def second_order_coeff_fn(t, locations_grid):
-    del t, locations_grid  # Not used, because D_xx, D_yy are constant
-
-    # "None" here represents the mixed second derivative term which is absent.
-    return [[diff_coeff_y, None], [None, diff_coeff_x]]
-
-  def first_order_coeff_fn(t, locations_grid, dim):
-    del t, locations_grid  # Not used, because mu_x, mu_y are constant
-    return [drift_y, drift_x]
-
-  def zeroth_order_coeff_fn(t, locations_grid):
-    del t, locations_grid  # Not used, because nu is constant.
-    return nu
-
-  def final_conditions(locations_grid):
-    return tf.expand_dims(tf.constant(...), axis=0)
-
-  step_fn = douglas_adi_scheme(theta=0.5)
-  result = fd_solvers.solve(
-      start_time=final_t,
-      end_time=0,
-      coord_grid=grid,
-      values_grid=final_values,
-      time_step=time_step,
-      one_step_fn=step_fn,
-      boundary_conditions=bound_cond,
-      second_order_coeff_fn=second_order_coeff_fn,
-      first_order_coeff_fn=first_order_coeff_fn,
-      zeroth_order_coeff_fn=zeroth_order_coeff_fn,
-      dtype=grid[0].dtype)
-  ```
-
-  ### References:
-  [1] Douglas Jr., Jim (1962), "Alternating direction methods for three space
-    variables", Numerische Mathematik, 4 (1): 41-63
-  [2] Tinne Haentjens, Karek J. in't Hout. ADI finite difference schemes for
-    the Heston-Hull-White PDE. https://arxiv.org/abs/1111.4087
+  Douglas ADI scheme is the simplest time marching scheme for solving parabolic
+  PDEs with multiple spatial dimensions. The time step consists of several
+  substeps: the first one is fully explicit, and the following `N` steps are
+  implicit with respect to contributions of one of the `N` axes (hence "ADI" -
+  alternating direction implicit). See `douglas_adi_scheme` below for more
+  details.
 
   Args:
-    theta: A scalar between 0 and 1. See the definition in
-      `douglas_adi_scheme` for details. `theta = 0`corresponds to
-      fully-explicit scheme.
-
+    theta: positive Number. `theta = 0` corresponds to fully explicit scheme.
+    The larger `theta` the stronger are the corrections by the implicit
+    substeps. The recommended value is `theta = 0.5`, because the scheme is
+    second order accurate in that case, unless mixed second derivative terms are
+    present in the PDE.
   Returns:
-    Callable to use as `one_step_fn` in fd_solvers.
+    Callable to be used in finite-difference PDE solvers (see fd_solvers.py).
   """
   def _step_fn(
       time,
@@ -125,7 +53,7 @@ def douglas_adi_step(theta):
       num_steps_performed,
       dtype=None,
       name=None):
-    """Applies `multidim_parabolic_equation_step` with Douglas scheme."""
+    """Performs the step."""
     del num_steps_performed
     name = name or 'douglas_adi_step'
     return multidim_parabolic_equation_step(time,

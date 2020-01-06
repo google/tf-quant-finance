@@ -105,24 +105,26 @@ def solve_backward(start_time,
   # Define parabolic equation coefficients. In this case the coefficients
   # can be computed exactly but the same functions as below can be used to
   # get approximate values for general case.
-  def second_order_coeff_fn(t, x):
+  def second_order_coeff_fn(t, grid):
     del t
+    x = grid[0]
     return [[tf.square(volatility) * tf.square(x) / 2]]
 
-  def first_order_coeff_fn(t, x):
+  def first_order_coeff_fn(t, grid):
     del t
+    x = grid[0]
     return [rate * x]
 
-  def zeroth_order_coeff_fn(t, x):
-    del t, x
+  def zeroth_order_coeff_fn(t, grid):
+    del t, grid
     return -rate
 
-  @dirichlet
+  @boundary_conditions.dirichlet
   def lower_boundary_fn(t, x):
     del t, x
     return dtype([0.0, 0.0])
 
-  @dirichlet
+  @boundary_conditions.dirichlet
   def upper_boundary_fn(t, x):
     return tf.squeeze(x - strike * tf.exp(-rate * (expiry - t)))
 
@@ -136,12 +138,8 @@ def solve_backward(start_time,
       end_time=0,
       coord_grid=grid,
       values_grid=final_values,
-      num_steps=None,
-      num_steps_performed=0,
-      time_step=tf.constant(0.01, dtype=dtype),
-      one_step_fn=crank_nicolson_step,
+      time_step=0.01,
       boundary_conditions=[(lower_boundary_fn, upper_boundary_fn)],
-      values_transform_fn=None,
       second_order_coeff_fn=second_order_coeff_fn,
       first_order_coeff_fn=first_order_coeff_fn,
       zeroth_order_coeff_fn=zeroth_order_coeff_fn,
@@ -152,6 +150,9 @@ def solve_backward(start_time,
   value_grid_first_option = estimate[0, :]
   value_grid_second_option = estimate[1, :]
   ```
+
+  See more examples in `pde_solvers.pdf`.
+
   Args:
     start_time: Real positive scalar `Tensor`. The start time of the grid.
       Corresponds to time `t0` above.
@@ -227,11 +228,11 @@ def solve_backward(start_time,
       Each can be a number, a zero-rank `Tensor` or a `Tensor` whose shape is
       the grid shape with the corresponding dimension removed.
       For example, for a two-dimensional grid of shape `(b, ny, nx)`, where `b`
-      is the batch size, `boundary_conditions[0][0]` should return a tuple of
-      either numbers, zero-rank tensors or tensors of shape `(b, nx)`. Similarly
-      for `boundary_conditions[1][0]`, except the tensor shape should be
-      `(b, ny)`. `alpha` and `beta` can also be `None` in case of Neumann and
-      Dirichlet conditions, respectively.
+      is the batch size, `boundary_conditions[0][i]` with `i = 0, 1` should
+      return a tuple of either numbers, zero-rank tensors or tensors of shape
+      `(b, nx)`. Similarly for `boundary_conditions[1][i]`, except the tensor
+      shape should be `(b, ny)`. `alpha` and `beta` can also be `None` in case
+      of Neumann and Dirichlet conditions, respectively.
       Default value: None, which means Dirichlet conditions with zero value on
       all boundaries are applied.
     values_transform_fn: An optional callable applied to transform the solution
@@ -239,6 +240,7 @@ def solve_backward(start_time,
       been performed. The callable should accept the time of the grid, the
       coordinate grid and the values grid and should return the values grid. All
       input arguments to be passed by keyword.
+      It returns the updated value grid and the coordinate grid.
     second_order_coeff_fn: Callable returning the coefficients of the second
       order terms of the PDE (i.e. `a_{ij}(t, x)` above) at given time `t`.
       The callable accepts the following arguments:
@@ -457,11 +459,11 @@ def solve_forward(start_time,
       Each can be a number, a zero-rank `Tensor` or a `Tensor` whose shape is
       the grid shape with the corresponding dimension removed.
       For example, for a two-dimensional grid of shape `(b, ny, nx)`, where `b`
-      is the batch size, `boundary_conditions[0][0]` should return a tuple of
-      either numbers, zero-rank tensors or tensors of shape `(b, nx)`. Similarly
-      for `boundary_conditions[1][0]`, except the tensor shape should be
-      `(b, ny)`. `alpha` and `beta` can also be `None` in case of Neumann and
-      Dirichlet conditions, respectively.
+      is the batch size, `boundary_conditions[0][i]` with `i = 0, 1` should
+      return a tuple of either numbers, zero-rank tensors or tensors of shape
+      `(b, nx)`. Similarly for `boundary_conditions[1][i]`, except the tensor
+      shape should be `(b, ny)`. `alpha` and `beta` can also be `None` in case
+      of Neumann and Dirichlet conditions, respectively.
       Default value: None, which means Dirichlet conditions with zero value on
       all boundaries are applied.
     values_transform_fn: An optional callable applied to transform the solution
@@ -469,6 +471,8 @@ def solve_forward(start_time,
       been performed. The callable should accept the time of the grid, the
       coordinate grid and the values grid and should return the values grid. All
       input arguments to be passed by keyword.
+      It returns the updated value grid and the coordinate grid, which may be
+      updated as well.
     second_order_coeff_fn: Callable returning the coefficients of the second
       order terms of the PDE (i.e. `a_{ij}(t, x)` above) at given time `t`.
       The callable accepts the following arguments:
@@ -595,7 +599,7 @@ def _solve(
     maximum_steps=None,
     swap_memory=True,
     name=None):
-  """Common code for solve_backwards and solve_forward."""
+  """Common code for solve_backward and solve_forward."""
   if (num_steps is None) == (time_step is None):
     raise ValueError('Exactly one of num_steps or time_step'
                      ' should be supplied.')

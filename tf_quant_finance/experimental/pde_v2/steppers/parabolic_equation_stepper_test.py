@@ -31,11 +31,11 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
   @parameterized.named_parameters(
       {
           'testcase_name': 'Implicit',
-          'one_step_fn': implicit_step,
+          'one_step_fn': implicit_step(),
           'time_step': 0.001
       }, {
           'testcase_name': 'Explicit',
-          'one_step_fn': explicit_step,
+          'one_step_fn': explicit_step(),
           'time_step': 0.001
       }, {
           'testcase_name': 'Weighted',
@@ -43,11 +43,11 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
           'time_step': 0.001
       }, {
           'testcase_name': 'CrankNicolson',
-          'one_step_fn': crank_nicolson_step,
+          'one_step_fn': crank_nicolson_step(),
           'time_step': 0.01
       }, {
           'testcase_name': 'Extrapolation',
-          'one_step_fn': extrapolation_step,
+          'one_step_fn': extrapolation_step(),
           'time_step': 0.01
       }, {
           'testcase_name': 'CrankNicolsonWithOscillationDamping',
@@ -139,7 +139,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
         time_step=0.01,
         final_cond_fn=final_cond_fn,
         expected_result_fn=expected_result_fn,
-        one_step_fn=crank_nicolson_step,
+        one_step_fn=crank_nicolson_step(),
         lower_boundary_fn=lower_boundary_fn,
         upper_boundary_fn=upper_boundary_fn,
         error_tolerance=1e-3)
@@ -178,7 +178,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
         time_step=0.01,
         final_cond_fn=final_cond_fn,
         expected_result_fn=expected_result_fn,
-        one_step_fn=crank_nicolson_step,
+        one_step_fn=crank_nicolson_step(),
         lower_boundary_fn=lower_boundary_fn,
         upper_boundary_fn=upper_boundary_fn,
         error_tolerance=1e-3)
@@ -216,7 +216,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
         time_step=0.01,
         final_cond_fn=final_cond_fn,
         expected_result_fn=expected_result_fn,
-        one_step_fn=crank_nicolson_step,
+        one_step_fn=crank_nicolson_step(),
         lower_boundary_fn=lower_boundary_fn,
         upper_boundary_fn=upper_boundary_fn,
         error_tolerance=1e-2)
@@ -249,7 +249,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
         time_step=0.01,
         final_cond_fn=final_cond_fn,
         expected_result_fn=expected_result_fn,
-        one_step_fn=crank_nicolson_step,
+        one_step_fn=crank_nicolson_step(),
         lower_boundary_fn=lower_boundary_fn,
         upper_boundary_fn=upper_boundary_fn,
         error_tolerance=1e-2)
@@ -291,7 +291,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
         time_step=0.01,
         final_cond_fn=final_cond_fn,
         expected_result_fn=expected_result_fn,
-        one_step_fn=crank_nicolson_step,
+        one_step_fn=crank_nicolson_step(),
         lower_boundary_fn=lower_boundary_fn,
         upper_boundary_fn=upper_boundary_fn,
         error_tolerance=1e-2)
@@ -436,7 +436,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
         num_steps=None,
         start_step_count=0,
         time_step=tf.constant(0.01, dtype=dtype),
-        one_step_fn=crank_nicolson_step,
+        one_step_fn=crank_nicolson_step(),
         boundary_conditions=[(lower_boundary_fn, upper_boundary_fn)],
         values_transform_fn=None,
         second_order_coeff_fn=second_order_coeff_fn,
@@ -501,7 +501,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
         num_steps=None,
         start_step_count=0,
         time_step=tf.constant(0.01, dtype=dtype),
-        one_step_fn=crank_nicolson_step,
+        one_step_fn=crank_nicolson_step(),
         boundary_conditions=[(lower_boundary_fn, upper_boundary_fn)],
         values_transform_fn=None,
         second_order_coeff_fn=second_order_coeff_fn,
