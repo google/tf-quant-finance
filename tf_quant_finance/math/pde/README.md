@@ -1,6 +1,5 @@
 # Partial Differential Equation Solvers
 
-This module provides ops to compute numerical solutions of linear parabolic
-second order partial differential equations.
-
-# TODO(b/140215142): Complete description
+This package provides ops to compute numerical solutions of linear parabolic
+partial differential equations. See [pde_solvers.pdf](pde_solvers.pdf) for a
+detailed guide.

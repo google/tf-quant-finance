@@ -13,18 +13,18 @@
 # limitations under the License.
 """TensorFlow Quantitative Finance tools to build Diffusion Models."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-
-from tf_quant_finance.models.brownian_motion import BrownianMotion
+from tf_quant_finance.models import euler_sampling
+from tf_quant_finance.models import heston_model
+from tf_quant_finance.models.generic_ito_process import GenericItoProcess
 from tf_quant_finance.models.ito_process import ItoProcess
+
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
+    'euler_sampling',
+    'heston_model',
+    'GenericItoProcess',
     'ItoProcess',
-    'BrownianMotion',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

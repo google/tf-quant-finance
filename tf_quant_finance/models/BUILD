@@ -7,9 +7,10 @@ package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 py_library(
     name = "models",
     srcs = ["__init__.py"],
-    srcs_version = "PY2AND3",
     deps = [
-        ":brownian_motion",
+        ":euler_sampling",
+        ":generic_ito_process",
+        ":heston_model",
         ":ito_process",
     ],
 )
@@ -17,30 +18,25 @@ py_library(
 py_library(
     name = "ito_process",
     srcs = ["ito_process.py"],
-    deps = [
-        "//tf_quant_finance/math/random_ops",
-        # numpy dep,
-        # six dep,
-        # tensorflow dep,
-    ],
+    deps = [],
 )
 
 py_library(
-    name = "brownian_motion_utils",
-    srcs = ["brownian_motion_utils.py"],
+    name = "generic_ito_process",
+    srcs = ["generic_ito_process.py"],
     deps = [
-        "//tf_quant_finance/math:gradient",
-        # numpy dep,
-        # six dep,
+        ":euler_sampling",
+        ":ito_process",
+        "//tf_quant_finance/math/pde",
         # tensorflow dep,
     ],
 )
 
 py_test(
-    name = "ito_process_test",
+    name = "generic_ito_process_test",
     size = "small",
     timeout = "moderate",
-    srcs = ["ito_process_test.py"],
+    srcs = ["generic_ito_process_test.py"],
     python_version = "PY3",
     deps = [
         "//tf_quant_finance",
@@ -49,39 +45,50 @@ py_test(
     ],
 )
 
-py_test(
-    name = "brownian_motion_utils_test",
-    size = "small",
-    timeout = "moderate",
-    srcs = ["brownian_motion_utils_test.py"],
-    python_version = "PY3",
+py_library(
+    name = "euler_sampling",
+    srcs = ["euler_sampling.py"],
     deps = [
-        ":brownian_motion_utils",  # This dependency is deliberate. The bm utils will not be exported to top level TFF.
+        "//tf_quant_finance/math/random_ops",
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "euler_sampling_test",
+    size = "medium",
+    timeout = "moderate",
+    srcs = ["euler_sampling_test.py"],
+    python_version = "PY3",
+    shard_count = 5,
+    deps = [
+        "//tf_quant_finance",
+        # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
     ],
 )
 
 py_library(
-    name = "brownian_motion",
-    srcs = ["brownian_motion.py"],
+    name = "heston_model",
+    srcs = ["heston_model.py"],
     deps = [
-        ":brownian_motion_utils",
-        ":ito_process",
+        ":generic_ito_process",
+        "//tf_quant_finance/math:piecewise",
         "//tf_quant_finance/math/random_ops",
-        # numpy dep,
-        # six dep,
         # tensorflow dep,
     ],
 )
 
 py_test(
-    name = "brownian_motion_test",
-    size = "small",
+    name = "heston_model_test",
+    size = "medium",
     timeout = "moderate",
-    srcs = ["brownian_motion_test.py"],
+    srcs = ["heston_model_test.py"],
     python_version = "PY3",
+    shard_count = 3,
     deps = [
+        ":heston_model",
         "//tf_quant_finance",
         # numpy dep,
         # tensorflow dep,

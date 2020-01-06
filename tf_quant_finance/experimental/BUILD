@@ -10,7 +10,5 @@ py_library(
     srcs_version = "PY2AND3",
     deps = [
         "//tf_quant_finance/experimental/finite_difference",
-        "//tf_quant_finance/experimental/models_v2",
-        "//tf_quant_finance/experimental/pde_v2",
     ],
 )

@@ -7,61 +7,36 @@ package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 py_library(
     name = "pde",
     srcs = ["__init__.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
-        ":grid_stepper",
-        ":pde_kernels",
-        "//tf_quant_finance/math/pde/grids",
-        "//tf_quant_finance/math/pde/time_marching_schemes",
-        # numpy dep,
+        ":boundary_conditions",
+        ":fd_solvers",
+        ":grids",
+    ],
+)
+
+py_library(
+    name = "fd_solvers",
+    srcs = ["fd_solvers.py"],
+    srcs_version = "PY3",
+    deps = [
+        "//tf_quant_finance/math/pde/steppers",
         # tensorflow dep,
     ],
 )
 
 py_library(
-    name = "grid_stepper",
-    srcs = ["grid_stepper.py"],
-    srcs_version = "PY2AND3",
-    deps = [
-        "//tf_quant_finance/math/pde/grids",
-        # numpy dep,
-        # tensorflow dep,
-    ],
-)
-
-py_test(
-    name = "grid_stepper_test",
-    size = "small",
-    srcs = ["grid_stepper_test.py"],
-    python_version = "PY3",
-    deps = [
-        "//tf_quant_finance",
-        # numpy dep,
-        # tensorflow dep,
-    ],
+    name = "boundary_conditions",
+    srcs = ["boundary_conditions.py"],
+    srcs_version = "PY3",
+    deps = [],
 )
 
 py_library(
-    name = "pde_kernels",
-    srcs = [
-        "pde_kernels.py",
-    ],
+    name = "grids",
+    srcs = ["grids.py"],
+    srcs_version = "PY3",
     deps = [
-        "//tf_quant_finance/math/pde/time_marching_schemes",
-        # numpy dep,
-        # tensorflow dep,
-    ],
-)
-
-py_test(
-    name = "pde_kernels_test",
-    size = "medium",
-    srcs = ["pde_kernels_test.py"],
-    python_version = "PY3",
-    shard_count = 3,
-    deps = [
-        "//tf_quant_finance",
-        # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
     ],

@@ -11,20 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PDE solver methods."""
+"""Legacy tools to build Diffusion Models.
 
-from tf_quant_finance.math.pde import grids
-from tf_quant_finance.math.pde import steppers
-from tf_quant_finance.math.pde import fd_solvers
-from tf_quant_finance.math.pde import boundary_conditions
+TODO(b/147222558): brownian_motion.py currently uses an old version of
+ItoProcess interface. It should be updated to use the new interface, or merged
+with generic_ito_process.py. Then the "legacy" package should be removed.
+"""
 
+from tf_quant_finance.models.legacy.brownian_motion import BrownianMotion
+from tf_quant_finance.models.legacy.ito_process import ItoProcess
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
-    'grids',
-    'steppers',
-    'fd_solvers',
-    'boundary_conditions',
+    'ItoProcess',
+    'BrownianMotion',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
