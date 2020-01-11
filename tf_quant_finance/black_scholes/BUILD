@@ -25,7 +25,8 @@ py_library(
     srcs_version = "PY3",
     deps = [
         # tensorflow dep,
-    ],
+        # numpy dep,
+  ],
 )
 
 py_test(
