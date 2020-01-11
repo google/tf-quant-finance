@@ -13,6 +13,7 @@
 # limitations under the License.
 """Black Scholes prices of a batch of European options."""
 
+import numpy as np
 import tensorflow.compat.v2 as tf
 
 
@@ -21,6 +22,8 @@ def option_price(volatilities,
                  expiries,
                  spots=None,
                  forwards=None,
+                 risk_free_rates=None,
+                 cost_of_carries=None,
                  discount_factors=None,
                  is_call_options=None,
                  dtype=None,
@@ -63,12 +66,25 @@ def option_price(volatilities,
     forwards: A real `Tensor` of any shape that broadcasts to the shape of
       `volatilities`. The forwards to maturity. Either this argument or the
       `spots` must be supplied but both must not be supplied.
+    risk_free_rates: An optional real `Tensor` of same dtype as the
+      `volatilities`. If not None, discount factors are calculated using it:
+      e^(-rT), where r is the risk free rate. If not None, `spots` is supplied
+      and `cost_of_carries` is not, also used to compute forwards to expiry.
+      Default value: None, equivalent to r = 0 and discount factors = 1 when
+      discount_factors also not given.
+    cost_of_carries: An optional real `Tensor` of same dtype as the
+      `volatilities`. If not None, and `spots` is supplied, used to calculate
+      forwards from spots: F = e^(bT) * S. If None, value assumed
+      to be equal to the risk free rate.
+      Default value: None, equivalent to b = r.
     discount_factors: An optional real `Tensor` of same dtype as the
       `volatilities`. If not None, these are the discount factors to expiry
-      (i.e. e^(-rT)). If None, no discounting is applied (i.e. the undiscounted
+      (i.e. e^(-rT)). Mutually exclusive with risk_free_rate and cost_of_carry.
+      If neither is given, no discounting is applied (i.e. the undiscounted
       option price is returned). If `spots` is supplied and `discount_factors`
       is not None then this is also used to compute the forwards to expiry.
-      Default value: None, equivalent to discount factors = 1.
+      Default value: None, equivalent to discount factors = 1 when
+      risk_free_rates is also not given.
     is_call_options: A boolean `Tensor` of a shape compatible with
       `volatilities`. Indicates whether the option is a call (if True) or a put
       (if False). If not supplied, call options are assumed.
@@ -86,9 +102,13 @@ def option_price(volatilities,
   Raises:
     ValueError: If both `forwards` and `spots` are supplied or if neither is
       supplied.
+    ValueError: If both `risk_free_rates` and `discount_factors` is supplied.
   """
   if (spots is None) == (forwards is None):
     raise ValueError('Either spots or forwards must be supplied but not both.')
+  if risk_free_rates is not None and discount_factors is not None:
+    raise ValueError('At most one of risk_free_rates and discount_factors may '
+                     'be supplied')
 
   with tf.name_scope(name or 'option_price'):
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
@@ -97,21 +117,35 @@ def option_price(volatilities,
         volatilities, dtype=dtype, name='volatilities')
     expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')
 
-    if discount_factors is None:
-      discount_factors = tf.convert_to_tensor(
-          1.0, dtype=dtype, name='discount_factors')
+    if risk_free_rates is not None:
+      risk_free_rates = tf.convert_to_tensor(
+          risk_free_rates, dtype=dtype, name='risk_free_rates')
+    elif discount_factors is not None:
+      risk_free_rates = -tf.math.log(discount_factors) / expiries
     else:
+      risk_free_rates = tf.convert_to_tensor(
+          0.0, dtype=dtype, name='risk_free_rates')
+
+    if cost_of_carries is not None:
+      cost_of_carries = tf.convert_to_tensor(
+          cost_of_carries, dtype=dtype, name='cost_of_carries')
+    else:
+      cost_of_carries = risk_free_rates
+
+    if discount_factors is not None:
       discount_factors = tf.convert_to_tensor(
           discount_factors, dtype=dtype, name='discount_factors')
+    else:
+      discount_factors = tf.exp(-risk_free_rates * expiries)
 
     if forwards is not None:
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
     else:
       spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
-      forwards = spots / discount_factors
+      forwards = spots * tf.exp(cost_of_carries * expiries)
 
     sqrt_var = volatilities * tf.math.sqrt(expiries)
-    d1 = (tf.math.log(forwards / strikes) + sqrt_var * sqrt_var / 2) / sqrt_var
+    d1 = (tf.math.log(forwards / strikes) + cost_of_carries * expiries + sqrt_var * sqrt_var / 2) / sqrt_var
     d2 = d1 - sqrt_var
     undiscounted_calls = forwards * _ncdf(d1) - strikes * _ncdf(d2)
     if is_call_options is None:
@@ -240,4 +274,4 @@ def _ncdf(x):
   return (tf.math.erf(x / _SQRT_2) + 1) / 2
 
 
-_SQRT_2 = 1.4142135623730951
+_SQRT_2 = np.sqrt(2. , dtype=np.float64)
