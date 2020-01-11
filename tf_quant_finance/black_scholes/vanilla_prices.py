@@ -25,6 +25,8 @@ def option_price(volatilities,
                  expiries,
                  spots=None,
                  forwards=None,
+                 risk_free_rates=None,
+                 cost_of_carries=None,
                  discount_factors=None,
                  is_call_options=None,
                  dtype=None,
@@ -67,12 +69,25 @@ def option_price(volatilities,
     forwards: A real `Tensor` of any shape that broadcasts to the shape of
       `volatilities`. The forwards to maturity. Either this argument or the
       `spots` must be supplied but both must not be supplied.
+    risk_free_rates: An optional real `Tensor` of same dtype as the
+      `volatilities`. If not None, discount factors are calculated using it:
+      e^(-rT), where r is the risk free rate. If not None, `spots` is supplied
+      and `cost_of_carries` is not, also used to compute forwards to expiry.
+      Default value: None, equivalent to r = 0 and discount factors = 1 when
+      discount_factors also not given.
+    cost_of_carries: An optional real `Tensor` of same dtype as the
+      `volatilities`. If not None, and `spots` is supplied, used to calculate
+      forwards from spots: F = e^(bT) * S. If None, value assumed
+      to be equal to the risk free rate.
+      Default value: None, equivalent to b = r.
     discount_factors: An optional real `Tensor` of same dtype as the
       `volatilities`. If not None, these are the discount factors to expiry
-      (i.e. e^(-rT)). If None, no discounting is applied (i.e. the undiscounted
+      (i.e. e^(-rT)). Mutually exclusive with risk_free_rate and cost_of_carry.
+      If neither is given, no discounting is applied (i.e. the undiscounted
       option price is returned). If `spots` is supplied and `discount_factors`
       is not None then this is also used to compute the forwards to expiry.
-      Default value: None, equivalent to discount factors = 1.
+      Default value: None, equivalent to discount factors = 1 when
+      risk_free_rates is also not given.
     is_call_options: A boolean `Tensor` of a shape compatible with
       `volatilities`. Indicates whether the option is a call (if True) or a put
       (if False). If not supplied, call options are assumed.
@@ -90,9 +105,17 @@ def option_price(volatilities,
   Raises:
     ValueError: If both `forwards` and `spots` are supplied or if neither is
       supplied.
+    ValueError: If both `risk_free_rates` and `discount_factors` is supplied.
+    ValueError: If `cost_of_carries` is supplied without `discount_factors`.
   """
   if (spots is None) == (forwards is None):
     raise ValueError('Either spots or forwards must be supplied but not both.')
+  if risk_free_rates and discount_factors:
+    raise ValueError('At most one of risk_free_rates and discount_factors may '
+                     'be supplied')
+  if cost_of_carries and not risk_free_rates:
+    raise ValueError('cost_of_carries may only be supplied alongside the '
+                     'risk_free_rates')
 
   with tf.compat.v1.name_scope(
       name,
