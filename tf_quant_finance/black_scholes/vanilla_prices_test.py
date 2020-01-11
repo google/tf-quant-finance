@@ -15,8 +15,8 @@
 
 
 """Tests for vanilla_price."""
-
 from absl.testing import parameterized
+
 import numpy as np
 import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
@@ -26,7 +26,7 @@ from tensorflow.python.framework import test_util  # pylint: disable=g-direct-te
 
 
 @test_util.run_all_in_graph_and_eager_modes
-class VanillaPrice(tf.test.TestCase, parameterized.TestCase):
+class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
   """Tests for methods for the vanilla pricing module."""
 
   def test_option_prices(self):
@@ -144,10 +144,11 @@ class VanillaPrice(tf.test.TestCase, parameterized.TestCase):
           'dtype': np.float64},
   )
   def test_option_prices_detailed_discount(self, dtype):
-    """Tests that the prices with risk_free_rates and cost_of_carries."""
+    """Tests that the prices are when giving discount_rates and
+    cost_of_carries."""
     spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
     strikes = np.array([100.0] * 10)
-    risk_free_rates = 0.08
+    discount_rates = 0.08
     volatilities = 0.2
     expiries = 0.25
 
@@ -159,7 +160,7 @@ class VanillaPrice(tf.test.TestCase, parameterized.TestCase):
             strikes=strikes,
             expiries=expiries,
             spots=spots,
-            discount_rates=risk_free_rates,
+            discount_rates=discount_rates,
             cost_of_carries=cost_of_carries,
             is_call_options=is_call_options,
             dtype=dtype))

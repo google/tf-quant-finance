@@ -14,6 +14,7 @@ py_library(
         ":implied_vol_lib",
         ":implied_vol_newton_root",
         ":vanilla_prices",
+        "//tf_quant_finance/black_scholes/approximations",
         # numpy dep,
         # tensorflow dep,
     ],
@@ -149,3 +150,4 @@ py_test(
         # tensorflow dep,
     ],
 )
+
