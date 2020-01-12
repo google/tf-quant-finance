@@ -103,5 +103,3 @@ def option_price(volatilities,
   if cost_of_carries and not risk_free_rates:
     raise ValueError('cost_of_carries may only be supplied alongside the '
                      'risk_free_rates')
-
-  

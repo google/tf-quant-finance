@@ -129,21 +129,33 @@ def option_price(volatilities,
         volatilities, dtype=dtype, name='volatilities')
     expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')
 
-    if discount_factors is None:
-      discount_factors = tf.convert_to_tensor(
-          1.0, dtype=dtype, name='discount_factors')
+    if risk_free_rates is not None:
+      risk_free_rates = tf.convert_to_tensor(
+          risk_free_rates, dtype=dtype, name='risk_free_rates')
     else:
+      risk_free_rates = tf.convert_to_tensor(
+          0.0, dtype=dtype, name='risk_free_rates')
+
+    if cost_of_carries is not None:
+      cost_of_carries = tf.convert_to_tensor(
+          cost_of_carries, dtype=dtype, name='cost_of_carries')
+    else:
+      cost_of_carries = risk_free_rates
+
+    if discount_factors is not None:
       discount_factors = tf.convert_to_tensor(
           discount_factors, dtype=dtype, name='discount_factors')
+    else:
+      discount_factors = tf.exp(-risk_free_rates * expiries)
 
     if forwards is not None:
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
     else:
       spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
-      forwards = spots / discount_factors
+      forwards = spots * tf.exp(cost_of_carries * expiries)
 
     sqrt_var = volatilities * tf.math.sqrt(expiries)
-    d1 = (tf.math.log(forwards / strikes) + sqrt_var * sqrt_var / 2) / sqrt_var
+    d1 = (tf.math.log(forwards / strikes) + cost_of_carries * expiries + sqrt_var * sqrt_var / 2) / sqrt_var
     d2 = d1 - sqrt_var
     undiscounted_calls = forwards * _ncdf(d1) - strikes * _ncdf(d2)
     if is_call_options is None:
