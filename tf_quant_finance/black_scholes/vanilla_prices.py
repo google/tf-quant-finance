@@ -122,7 +122,7 @@ def option_price(volatilities,
       default_name='option_price',
       values=[
           forwards, strikes, volatilities, expiries, discount_factors,
-          is_call_options
+          is_call_options, risk_free_rates, cost_of_carries
       ]):
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
     volatilities = tf.convert_to_tensor(

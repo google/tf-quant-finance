@@ -22,10 +22,10 @@ import tf_quant_finance as tff
 def option_price(volatilities,
                  strikes,
                  expiries,
+                 risk_free_rates,
+                 cost_of_carries,
                  spots=None,
                  forwards=None,
-                 risk_free_rates=None,
-                 cost_of_carries=None,
                  is_call_options=None,
                  dtype=None,
                  name=None):
@@ -67,17 +67,12 @@ def option_price(volatilities,
   forwards: A real `Tensor` of any shape that broadcasts to the shape of
     `volatilities`. The forwards to maturity. Either this argument or the
     `spots` must be supplied but both must not be supplied.
-  risk_free_rates: An optional real `Tensor` of same dtype as the
-    `volatilities`. If not None, discount factors are calculated using it:
-    e^(-rT), where r is the risk free rate. If not None, `spots` is supplied
-    and `cost_of_carries` is not, also used to compute forwards to expiry.
-    Default value: None, equivalent to r = 0 and discount factors = 1 when
-    discount_factors also not given.
-  cost_of_carries: An optional real `Tensor` of same dtype as the
-    `volatilities`. If not None, and `spots` is supplied, used to calculate
-    forwards from spots: F = e^(bT) * S. If None, value assumed
-    to be equal to the risk free rate.
-    Default value: None, equivalent to b = r.
+  risk_free_rates: An real `Tensor` of same dtype and compatible shape as
+    `volatilities`. Discount factors are calculated using it: e^(-rT), where r
+    is the risk free rate.
+  cost_of_carries: An real `Tensor` of same dtype and compatible shape as
+    `volatilities`. If `spots` is supplied, used to calculate forwards from
+    spots: F = e^(bT) * S.
   is_call_options: A boolean `Tensor` of a shape compatible with
     `volatilities`. Indicates whether the option is a call (if True) or a put
     (if False). If not supplied, call options are assumed.
@@ -95,11 +90,81 @@ def option_price(volatilities,
   Raises:
     ValueError: If both `forwards` and `spots` are supplied or if neither is
       supplied.
-    ValueError: If both `risk_free_rates` and `discount_factors` is supplied.
-    ValueError: If `cost_of_carries` is supplied without `discount_factors`.
   """
   if (spots is None) == (forwards is None):
     raise ValueError('Either spots or forwards must be supplied but not both.')
-  if cost_of_carries and not risk_free_rates:
-    raise ValueError('cost_of_carries may only be supplied alongside the '
-                     'risk_free_rates')
+  #TODO: ask: if b=r, should use European therefore no point in allowing it to
+  # be not given, yes? then again, have to build that part anyway so may as well
+  # allow for it
+
+  #TODO: ask:  _ncdf better to duplicate or move to like math & use from there
+
+  with tf.compat.v1.name_scope(
+      name,
+      default_name='option_price',
+      values=[
+          forwards, strikes, volatilities, expiries, risk_free_rates,
+          cost_of_carries, is_call_options
+      ]):
+    
+    # Check to see if not any b < r ---> return European options
+    # Evaluate q2 for call
+    # Evaluate S* for call
+    # - Evaluate S* seed for call
+    # - Evaluate S* for call
+    # Evaluate A2
+    # Evaluate european (S, T)
+    # call_adjustment = where S < S*: european (S, T) + A2 * (S/S*) ** q2,
+    # where S >= S*: S - X
+    # is_call_options is None: ----> Evaluate european (S, T) with True
+    #   for is_call_options, return price
+    # Evaluate q1 for put
+    # Evaluate S** for put
+    # - Evaluate S** seed for put
+    # - Evaluate S** for put
+    # Evaluate A1
+    # price_put = where S > S**: european (S, T) + A1 * (S/S**) ** q1,
+    # where S <= S**: X - X
+    # return where is_call_options(price_call, price_put)
+    #TODO: can caluclate S* and S** fewer times if underlying is the same!
+    #   (scale by X)
+    # Check if can caluclate q1, q2, A1, A2 more efficiently together for
+    #   put & call
+    # Check if logical where's & tensorflow smart enough to minimise calculation
+    #   when e.g. all put/ only calculate put field for fields where
+    #   is_call_options is false
+
+    strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
+    volatilities = tf.convert_to_tensor(
+        volatilities, dtype=dtype, name='volatilities')
+    expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')
+    risk_free_rates = tf.convert_to_tensor(
+          risk_free_rates, dtype=dtype, name='risk_free_rates')
+    cost_of_carries = tf.convert_to_tensor(
+          cost_of_carries, dtype=dtype, name='cost_of_carries')
+    discount_factors = tf.exp(-risk_free_rates * expiries)
+
+    if forwards is not None:
+      forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
+    else:
+      spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
+      forwards = spots * tf.exp(cost_of_carries * expiries)
+
+    sqrt_var = volatilities * tf.math.sqrt(expiries)
+    d1 = (tf.math.log(forwards / strikes) + cost_of_carries * expiries + sqrt_var * sqrt_var / 2) / sqrt_var
+    d2 = d1 - sqrt_var
+    undiscounted_calls = forwards * _ncdf(d1) - strikes * _ncdf(d2)
+    if is_call_options is None:
+      return discount_factors * undiscounted_calls
+    undiscounted_forward = forwards - strikes
+    undiscounted_puts = undiscounted_calls - undiscounted_forward
+    predicate = tf.broadcast_to(is_call_options, tf.shape(undiscounted_calls))
+    return discount_factors * tf.where(predicate, undiscounted_calls,
+                                       undiscounted_puts)
+
+
+def _ncdf(x):
+  return (tf.math.erf(x / _SQRT_2) + 1) / 2
+
+
+_SQRT_2 = 1.4142135623730951
