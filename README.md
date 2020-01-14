@@ -45,30 +45,23 @@ higher level components.
 
 The easiest way to get started with the library is via the pip package.
 
+Note that library requires Python 3 and Tensorflow >= 2.1
+
 First please install the most recent version of TensorFlow by following
 the [TensorFlow installation instructions](https://tensorflow.org/install).
 For example, you could install TensorFlow using
 
 ```sh
-pip install --upgrade tensorflow
+pip3 install --upgrade tensorflow
 ```
-
-or
-
-```sh
-pip install --upgrade tensorflow-gpu
-```
-
-if you want to use GPUs.
 
 Then run
 
 ```sh
-pip install --upgrade tf-quant-finance
+pip3 install --upgrade tf-quant-finance
 ```
 
-If you use Python 3, you might need to use ```pip3 install```. You'll
-maybe also have to use option ```--user```.
+You maybe also have to use the option ```--user```.
 
 ## TensorFlow training
 
@@ -133,9 +126,9 @@ This library has the following dependencies:
 
 1.  Bazel
 2.  Python 3 (Bazel uses Python 3 by default)
-3.  TensorFlow
-4.  TensorFlow Probability
-5.  Numpy
+3.  TensorFlow version 2.1 or higher
+4.  TensorFlow Probability version 0.8 or higher
+5.  Numpy version 1.16 or higher
 6.  Attrs
 
 This library requires the
