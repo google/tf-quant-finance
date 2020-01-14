@@ -35,7 +35,7 @@ Copula samplers etc.
 3. **Pricing methods and other quant finance specific utilities**.
 Specific Pricing models (e.g Local Vol (LV), Stochastic Vol (SV),
 Stochastic Local Vol (SLV), Hull-White (HW)) and their calibration.
-Rate curve building and payoff descriptions.
+Rate curve building, payoff descriptions and schedule generation.
 
 We aim for the library components to be easily accessible at each level. Each
 layer will be accompanied by many examples which can be run independently of
@@ -45,7 +45,7 @@ higher level components.
 
 The easiest way to get started with the library is via the pip package.
 
-Note that library requires Python 3 and Tensorflow >= 2.1
+Note that library requires Python 3 and Tensorflow >= 2.1.
 
 First please install the most recent version of TensorFlow by following
 the [TensorFlow installation instructions](https://tensorflow.org/install).
@@ -89,13 +89,13 @@ development are:
       * Local volatility model.
       * Quadratic Local Vol model.
       * SABR model
-  * ADI method for solving multi dimensional PDEs.
   * Copulas: Support for defining and sampling from copulas.
   * Model Calibration:
       * Dupire local vol calibration.
       * SABR model calibration.
   * Rate curve fitting: Hagan-West algorithm for yield curve bootstrapping and
   the Monotone Convex interpolation scheme.
+  * Support for dates, day-count conventions, holidays, etc.
 
 
 ## Examples
