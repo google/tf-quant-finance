@@ -141,7 +141,7 @@ You can install TensorFlow and related dependencies using the ```pip3 install```
 command:
 
 ```sh
-pip3 install --upgrade tensorflow tensorflow-probability numpy attrs scipy
+pip3 install --upgrade tensorflow tensorflow-probability numpy attrs
 ```
 
 ### Commonly used commands
