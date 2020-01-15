@@ -12,20 +12,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Experimental modules."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-from tf_quant_finance.experimental import dates
-from tf_quant_finance.experimental import finite_difference
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
+from enum import Enum
 
 
-_allowed_symbols = [
-    'dates',
-    'finite_difference',
-]
+class Month(Enum):
+  JANUARY = 1
+  FEBUARY = 2
+  MARCH = 3
+  APRIL = 4
+  MAY = 5
+  JUNE = 6
+  JULY = 7
+  AUGUST = 8
+  SEPTEMBER = 9
+  OCTOBER = 10
+  NOVEMBER = 11
+  DECEMBER = 12
 
-remove_undocumented(__name__, _allowed_symbols)
+
+class WeekDay(Enum):
+  # We follow Python datetime convention of starting from 0.
+  MONDAY = 0
+  TUESDAY = 1
+  WEDNESDAY = 2
+  THURSDAY = 3
+  FRIDAY = 4
+  SATURDAY = 5
+  SUNDAY = 6
+
+
+class PeriodType(Enum):
+  DAY = 0
+  WEEK = 1
+  MONTH = 2
+  YEAR = 3

@@ -11,21 +11,27 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Date-related utilities."""
 
-"""Experimental modules."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-from tf_quant_finance.experimental import dates
-from tf_quant_finance.experimental import finite_difference
+from tf_quant_finance.experimental.dates.date_tensor import DateTensor
+from tf_quant_finance.experimental.dates.periods import PeriodTensor
+from tf_quant_finance.experimental.dates.constants import Month
+from tf_quant_finance.experimental.dates.constants import PeriodType
+from tf_quant_finance.experimental.dates.constants import WeekDay
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
+
+import tf_quant_finance.experimental.dates.date_utils
+import tf_quant_finance.experimental.dates.periods
 
 
 _allowed_symbols = [
-    'dates',
-    'finite_difference',
+    'DateTensor',
+    'PeriodTensor',
+    'PeriodType',
+    'periods',
+    'Month',
+    'WeekDay'
+    'date_utils',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
