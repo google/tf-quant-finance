@@ -11,6 +11,7 @@ py_library(
     deps = [
         ":bond_curve",
         ":monotone_convex",
+        ":swap_curve",
     ],
 )
 
@@ -61,6 +62,37 @@ py_test(
     deps = [
         ":bond_curve",
         ":monotone_convex",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "swap_curve",
+    srcs = ["swap_curve.py"],
+    srcs_version = "PY2AND3",
+    deps = [
+        "//tf_quant_finance/math:gradient",
+        "//tf_quant_finance/math/interpolation/linear:linear_interpolation",
+        "//tf_quant_finance/math/optimizer:conjugate_gradient",
+        # attr dep,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "swap_curve_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["swap_curve_test.py"],
+    python_version = "PY3",
+    shard_count = 3,
+    deps = [
+        ":monotone_convex",
+        ":swap_curve",
+        "//tf_quant_finance",
+        "//tf_quant_finance/math/interpolation/linear",
         # numpy dep,
         # tensorflow dep,
     ],
