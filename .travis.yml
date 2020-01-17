@@ -18,4 +18,4 @@ install:
   - pip install --upgrade tensorflow==2.1.0 tensorflow-probability==0.8.0 numpy attrs
 
 script:
-  - bazel test tf_quant_finance/... --test_summary=detailed
+  - bazel test tf_quant_finance/... --test_summary=detailed --test_output=errors
