@@ -63,26 +63,26 @@ SwapCurveBuilderResult = collections.namedtuple(
     ])
 
 
-def swap_curve(float_leg_start_times,
-               float_leg_end_times,
-               float_leg_daycount_fractions,
-               fixed_leg_start_times,
-               fixed_leg_end_times,
-               fixed_leg_daycount_fractions,
-               fixed_leg_cashflows,
-               present_values,
-               present_values_settlement_times=None,
-               float_leg_discount_rates=None,
-               float_leg_discount_times=None,
-               fixed_leg_discount_rates=None,
-               fixed_leg_discount_times=None,
-               optimize=None,
-               initial_curve_rates=None,
-               instrument_weights=None,
-               curve_tolerance=1e-8,
-               maximum_iterations=50,
-               dtype=None,
-               name=None):
+def swap_curve_fit(float_leg_start_times,
+                   float_leg_end_times,
+                   float_leg_daycount_fractions,
+                   fixed_leg_start_times,
+                   fixed_leg_end_times,
+                   fixed_leg_daycount_fractions,
+                   fixed_leg_cashflows,
+                   present_values,
+                   present_values_settlement_times=None,
+                   float_leg_discount_rates=None,
+                   float_leg_discount_times=None,
+                   fixed_leg_discount_rates=None,
+                   fixed_leg_discount_times=None,
+                   optimize=None,
+                   initial_curve_rates=None,
+                   instrument_weights=None,
+                   curve_tolerance=1e-8,
+                   maximum_iterations=50,
+                   dtype=None,
+                   name=None):
   """Constructs the zero swap curve using optimization.
 
   A zero swap curve is a function of time which gives the interest rate that
@@ -177,11 +177,11 @@ def swap_curve(float_leg_start_times,
   # Initial state of the curve.
   initial_curve_rates = np.array([0.01, 0.01, 0.01, 0.01], dtype=dtype)
 
-  results = swap_curve(float_leg_start_times, float_leg_end_times,
-                       float_leg_daycount, fixed_leg_start_times,
-                       fixed_leg_end_times, fixed_leg_cashflows,
-                       fixed_leg_daycount, pvs, dtype=dtype,
-                       initial_curve_rates=initial_curve_rates)
+  results = swap_curve_fit(float_leg_start_times, float_leg_end_times,
+                           float_leg_daycount, fixed_leg_start_times,
+                           fixed_leg_end_times, fixed_leg_cashflows,
+                           fixed_leg_daycount, pvs, dtype=dtype,
+                           initial_curve_rates=initial_curve_rates)
 
   ### References:
   [1]: Leif B.G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling,

@@ -60,7 +60,7 @@ class SwapCurveTest(tf.test.TestCase):
       initial_curve_rates = np.array(np.repeat(0.01, len(mats)), dtype=dtype)
 
       results = self.evaluate(
-          tff.rates.hagan_west.swap_curve(
+          tff.rates.swap_curve_fit(
               float_leg_start_times,
               float_leg_end_times,
               float_leg_dc,
@@ -129,7 +129,7 @@ class SwapCurveTest(tf.test.TestCase):
       initial_curve_rates = np.array(np.repeat(0.01, len(mats)), dtype=dtype)
 
       results = self.evaluate(
-          tff.rates.hagan_west.swap_curve(
+          tff.rates.swap_curve_fit(
               float_leg_start_times,
               float_leg_end_times,
               float_leg_dc,

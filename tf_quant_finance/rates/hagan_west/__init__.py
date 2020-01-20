@@ -19,21 +19,16 @@ from __future__ import print_function
 
 from tf_quant_finance.rates.hagan_west import bond_curve as bond_curve_lib
 from tf_quant_finance.rates.hagan_west import monotone_convex
-from tf_quant_finance.rates.hagan_west import swap_curve as swap_curve_lib
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 bond_curve = bond_curve_lib.bond_curve
 CurveBuilderResult = bond_curve_lib.CurveBuilderResult
-swap_curve = swap_curve_lib.swap_curve
-SwapCurveBuilderResult = swap_curve_lib.SwapCurveBuilderResult
 
 _allowed_symbols = [
     'bond_curve',
-    'swap_curve',
     'monotone_convex',
     'CurveBuilderResult',
-    'SwapCurveBuilderResult',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
