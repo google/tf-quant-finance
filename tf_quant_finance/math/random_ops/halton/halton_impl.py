@@ -15,10 +15,6 @@
 # Lint as: python2, python3
 """Quasi Monte Carlo support: Halton sequence."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import collections
 
 import numpy as np
@@ -179,7 +175,8 @@ def sample(dim,
       specified. Ignored if randomized is False or randomization_params is
       specified.
       Default value: `None`.
-    validate_args: If True, checks that maximum index is not exceeded.
+    validate_args: If True, checks that maximum index is not exceeded and that
+      the dimension `dim` is less than 1 or greater than 1000.
       Default value: `False`.
     dtype: Optional `dtype`. The dtype of the output `Tensor` (either `float32`
     or `float64`).
@@ -199,8 +196,7 @@ def sample(dim,
       `HaltonParams` that fully describes the randomization behavior.
 
   Raises:
-    ValueError: if both `sequence_indices` and `num_results` were specified or
-      if dimension `dim` is less than 1 or greater than 1000.
+    ValueError: if both `sequence_indices` and `num_results` were specified.
     ValueError: if `randomization` is True but `seed` is not specified.
     InvalidArgumentError: if `validate_args` is True and the maximum supported
       sequence index is exceeded.
@@ -210,9 +206,6 @@ def sample(dim,
   [1]: Art B. Owen. A randomized Halton algorithm in R. _arXiv preprint
        arXiv:1706.02808_, 2017. https://arxiv.org/abs/1706.02808
   """
-  if dim < 1 or dim > _MAX_DIMENSION:
-    raise ValueError('Dimension must be between 1 and {}. Supplied {}'.format(
-        _MAX_DIMENSION, dim))
   if (num_results is None) == (sequence_indices is None):
     raise ValueError('Either `num_results` or `sequence_indices` must be'
                      ' specified but not both.')
@@ -226,9 +219,13 @@ def sample(dim,
     # weights of the starting integer when expressed in the (prime) base for
     # an event dimension.
     if num_results is not None:
-      num_results = tf.convert_to_tensor(value=num_results)
+      num_results = tf.convert_to_tensor(value=num_results,
+                                         dtype=tf.int32,
+                                         name='name_results')
     if sequence_indices is not None:
-      sequence_indices = tf.convert_to_tensor(value=sequence_indices)
+      sequence_indices = tf.convert_to_tensor(value=sequence_indices,
+                                              dtype=tf.int32,
+                                              name='sequence_indices')
     indices = _get_indices(num_results, sequence_indices, dtype)
 
     runtime_assertions = []
@@ -240,12 +237,23 @@ def sample(dim,
               message=(
                   'Maximum sequence index exceeded. Maximum index for dtype %s '
                   'is %d.' % (dtype, _MAX_INDEX_BY_DTYPE[dtype]))))
+      runtime_assertions.append(
+          tf.compat.v1.assert_greater_equal(
+              dim, 1, message='`dim` should be greater than 1'))
+      runtime_assertions.append(
+          tf.compat.v1.assert_less_equal(
+              dim, _MAX_DIMENSION,
+              message='`dim` should be less or equal than %d' % _MAX_DIMENSION))
 
     with tf.compat.v1.control_dependencies(runtime_assertions):
-      radixes = tf.constant(_PRIMES[0:dim], dtype=dtype, shape=[dim, 1])
+      radixes = tf.convert_to_tensor(_PRIMES, dtype=dtype, name='radixes')
+      radixes = tf.reshape(radixes[0:dim], shape=[dim, 1])
 
-      max_sizes_by_axes = _MAX_SIZES_BY_AXES[dtype][:dim]
-      max_size = max_sizes_by_axes.max()
+      max_sizes_by_axes = tf.convert_to_tensor(
+          _MAX_SIZES_BY_AXES[dtype],
+          dtype=dtype,
+          name='max_sizes_by_axes')[:dim]
+      max_size = tf.reduce_max(max_sizes_by_axes)
 
       # The powers of the radixes that we will need. Note that there is a bit
       # of an excess here. Suppose we need the place value coefficients of 7

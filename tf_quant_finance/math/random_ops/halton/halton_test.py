@@ -15,10 +15,6 @@
 # Lint as: python2, python3
 """Tests for random.halton."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import numpy as np
 from six.moves import range
 import tensorflow as tf
@@ -145,7 +141,6 @@ class HaltonSequenceTest(tf.test.TestCase):
   def test_randomized_qmc_basic(self):
     """Tests the randomization of the random.halton sequences."""
     # This test is identical to the example given in Owen (2017), Figure 5.
-
     dim = 20
     num_results = 2000
     replica = 5
@@ -180,7 +175,6 @@ class HaltonSequenceTest(tf.test.TestCase):
     This test confirms that the mean squared error of RQMC estimation falls
     as O(N^(2-e)) for any e>0.
     """
-
     n, m = 5, 5
     dim = n + m
     num_results_lo, num_results_hi = 500, 5000
@@ -254,6 +248,26 @@ class HaltonSequenceTest(tf.test.TestCase):
       sample, _ = random.halton.sample(
           1,
           sequence_indices=[2**30],
+          dtype=tf.float32,
+          randomized=False,
+          validate_args=True)
+      self.evaluate(sample)
+
+  def test_dim_is_negative(self):
+    with self.assertRaises(tf.errors.InvalidArgumentError):
+      sample, _ = random.halton.sample(
+          -1,
+          num_results=10,
+          dtype=tf.float32,
+          randomized=False,
+          validate_args=True)
+      self.evaluate(sample)
+
+  def test_dim_too_big(self):
+    with self.assertRaises(tf.errors.InvalidArgumentError):
+      sample, _ = random.halton.sample(
+          1001,
+          num_results=10,
           dtype=tf.float32,
           randomized=False,
           validate_args=True)
