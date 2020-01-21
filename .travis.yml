@@ -1,6 +1,6 @@
 language: python
+dist: bionic
 python:
-  - "3.5"
   - "3.6"
   - "3.7"
 
@@ -14,7 +14,7 @@ addons:
       - bazel
 
 install:
-  - pip install --upgrade pip
+  - pip install --upgrade pip==19.3.1
   - pip install --upgrade tensorflow==2.1.0 tensorflow-probability==0.8.0 numpy attrs
 
 script:
