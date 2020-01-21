@@ -100,7 +100,7 @@ class HolidayCalendarTest(tf.test.TestCase, parameterized.TestCase):
   def test_skip_eager_reset(self):
     cal = dates.HolidayCalendar(start_year=2020, end_year=2021)
     cal.is_business_day(dates.DateTensor.from_tuples([]))  # Trigger caching.
-    tf.reset_default_graph()
+    tf.compat.v1.reset_default_graph()
     cal.reset()
     date_tensor = dates.DateTensor.from_tuples([(2020, 1, 3), (2020, 1, 4),
                                                 (2021, 12, 24), (2021, 12, 25)])
