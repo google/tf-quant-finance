@@ -11,11 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Date-related constants and enums."""
 
 from enum import Enum
 
 
 class Month(Enum):
+  """Months. Values are one-based."""
   JANUARY = 1
   FEBUARY = 2
   MARCH = 3
@@ -31,6 +33,7 @@ class Month(Enum):
 
 
 class WeekDay(Enum):
+  """Weeks. Values are zero-based."""
   # We follow Python datetime convention of starting from 0.
   MONDAY = 0
   TUESDAY = 1
@@ -42,7 +45,32 @@ class WeekDay(Enum):
 
 
 class PeriodType(Enum):
+  """Periods that can be added or subtracted from DateTensors."""
   DAY = 0
   WEEK = 1
   MONTH = 2
   YEAR = 3
+
+
+class BusinessDayConvention(Enum):
+  """Conventions that determine how to roll dates that fall on holidays."""
+  # No adjustment.
+  NONE = 0
+
+  # Choose the first business day after the given holiday.
+  FOLLOWING = 1
+
+  # Choose the first business day after the given holiday unless that day falls
+  # in the next calendar month, in which case choose the first business day
+  # before the holiday.
+  MODIFIED_FOLLOWING = 2
+
+  # Choose the first business day before the given holiday.
+  PRECEDING = 3
+
+  # Choose the first business day before the given holiday unless that day falls
+  # in the previous calendar month, in which case choose the first business day
+  # after the holiday.
+  MODIFIED_PRECEDING = 4
+
+# TODO(b/148011715): add NEAREST convention.

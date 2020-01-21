@@ -164,13 +164,13 @@ class DateTensor(TensorWrapper):
       max_days = tf.gather(days_in_months,
                            months + 12 * tf.dtypes.cast(is_leap, np.int32))
       control_deps.append(tf.debugging.assert_less_equal(days, max_days))
-      with tf.control_dependencies(control_deps):
+      with tf.compat.v1.control_dependencies(control_deps):
         # Ensure years, months, days themselves are under control_deps.
         years = tf.identity(years)
         months = tf.identity(months)
         days = tf.identity(days)
 
-    with tf.control_dependencies(control_deps):
+    with tf.compat.v1.control_dependencies(control_deps):
       ordinals = date_utils.year_month_day_to_ordinal(years, months, days)
       return DateTensor(ordinals, years, months, days)
 
@@ -202,10 +202,10 @@ class DateTensor(TensorWrapper):
     control_deps = []
     if validate:
       control_deps.append(tf.debugging.assert_positive(ordinals))
-      with tf.control_dependencies(control_deps):
+      with tf.compat.v1.control_dependencies(control_deps):
         ordinals = tf.identity(ordinals)
 
-    with tf.control_dependencies(control_deps):
+    with tf.compat.v1.control_dependencies(control_deps):
       years, months, days = date_utils.ordinal_to_year_month_day(ordinals)
       return DateTensor(ordinals, years, months, days)
 

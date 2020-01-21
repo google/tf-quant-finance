@@ -164,3 +164,337 @@ invalid_dates = [
     (2015, 2, 29),
     (2016, 2, 30),
 ]
+
+holidays = [
+    (2020, 1, 1),  # Wed
+    (2020, 7, 3),  # Fri
+    (2020, 12, 25),  # Fri
+    (2021, 1, 1),  # Fri
+    (2021, 7, 5),  # Mon
+    (2021, 12, 24),  # Fri
+]
+
+is_business_day_data = [
+    ((2020, 1, 1), False),
+    ((2020, 1, 2), True),
+    ((2020, 1, 3), True),
+    ((2020, 1, 4), False),
+    ((2020, 1, 5), False),
+    ((2020, 3, 20), True),
+    ((2020, 3, 21), False),
+    ((2020, 3, 22), False),
+    ((2020, 3, 23), True),
+    ((2020, 7, 3), False),
+    ((2020, 12, 25), False),
+    ((2021, 1, 1), False),
+    ((2021, 7, 5), False),
+    ((2021, 12, 24), False),
+    ((2021, 12, 25), False),
+    ((2021, 12, 26), False),
+    ((2021, 12, 31), True)
+]
+
+adjusted_dates_data = [
+    {
+        "date": (2020, 1, 4),  # Sat
+        "unadjusted": (2020, 1, 4),
+        "following": (2020, 1, 6),
+        "preceding": (2020, 1, 3),
+        "modified_following": (2020, 1, 6),
+        "modified_preceding": (2020, 1, 3),
+    },
+    {
+        "date": (2020, 1, 5),  # Sun
+        "unadjusted": (2020, 1, 5),
+        "following": (2020, 1, 6),
+        "preceding": (2020, 1, 3),
+        "modified_following": (2020, 1, 6),
+        "modified_preceding": (2020, 1, 3),
+    },
+    {
+        "date": (2020, 1, 3),  # Fri, business day
+        "unadjusted": (2020, 1, 3),
+        "following": (2020, 1, 3),
+        "preceding": (2020, 1, 3),
+        "modified_following": (2020, 1, 3),
+        "modified_preceding": (2020, 1, 3),
+    },
+    {
+        "date": (2020, 7, 3),  # Fri, holiday
+        "unadjusted": (2020, 7, 3),
+        "following": (2020, 7, 6),
+        "preceding": (2020, 7, 2),
+        "modified_following": (2020, 7, 6),
+        "modified_preceding": (2020, 7, 2),
+    },
+    {
+        "date": (2020, 7, 4),  # Sat, after holiday
+        "unadjusted": (2020, 7, 4),
+        "following": (2020, 7, 6),
+        "preceding": (2020, 7, 2),
+        "modified_following": (2020, 7, 6),
+        "modified_preceding": (2020, 7, 2),
+    },
+    {
+        "date": (2021, 2, 27),  # Sat
+        "unadjusted": (2021, 2, 27),
+        "following": (2021, 3, 1),
+        "preceding": (2021, 2, 26),
+        "modified_following": (2021, 2, 26),
+        "modified_preceding": (2021, 2, 26),
+    },
+    {
+        "date": (2021, 2, 28),  # Sun
+        "unadjusted": (2021, 2, 28),
+        "following": (2021, 3, 1),
+        "preceding": (2021, 2, 26),
+        "modified_following": (2021, 2, 26),
+        "modified_preceding": (2021, 2, 26),
+    },
+    {
+        "date": (2020, 2, 1),  # Sat
+        "unadjusted": (2020, 2, 1),
+        "following": (2020, 2, 3),
+        "preceding": (2020, 1, 31),
+        "modified_following": (2020, 2, 3),
+        "modified_preceding": (2020, 2, 3),
+    },
+]
+
+add_months_data = [
+    {
+        "date": (2019, 12, 4),
+        "months": 1,
+        "unadjusted": (2020, 1, 4),
+        "following": (2020, 1, 6),
+        "preceding": (2020, 1, 3),
+        "modified_following": (2020, 1, 6),
+        "modified_preceding": (2020, 1, 3),
+    },
+    {
+        "date": (2019, 11, 5),
+        "months": 2,
+        "unadjusted": (2020, 1, 5),
+        "following": (2020, 1, 6),
+        "preceding": (2020, 1, 3),
+        "modified_following": (2020, 1, 6),
+        "modified_preceding": (2020, 1, 3),
+    },
+    {
+        "date": (2019, 10, 3),
+        "months": 3,
+        "unadjusted": (2020, 1, 3),
+        "following": (2020, 1, 3),
+        "preceding": (2020, 1, 3),
+        "modified_following": (2020, 1, 3),
+        "modified_preceding": (2020, 1, 3),
+    },
+    {
+        "date": (2020, 2, 3),
+        "months": 5,
+        "unadjusted": (2020, 7, 3),
+        "following": (2020, 7, 6),
+        "preceding": (2020, 7, 2),
+        "modified_following": (2020, 7, 6),
+        "modified_preceding": (2020, 7, 2),
+    },
+    {
+        "date": (2020, 2, 29),
+        "months": 12,
+        "unadjusted": (2021, 2, 28),
+        "following": (2021, 3, 1),
+        "preceding": (2021, 2, 26),
+        "modified_following": (2021, 2, 26),
+        "modified_preceding": (2021, 2, 26),
+    },
+    {
+        "date": (2020, 2, 1),
+        "months": 6,
+        "unadjusted": (2020, 8, 1),
+        "following": (2020, 8, 3),
+        "preceding": (2020, 7, 31),
+        "modified_following": (2020, 8, 3),
+        "modified_preceding": (2020, 8, 3),
+    },
+]
+
+add_days_data = [  # Assumes "modified following" convention.
+    {
+        "date": (2020, 1, 2),
+        "days": 1,
+        "shifted_date": (2020, 1, 3),
+    },
+    {
+        "date": (2020, 1, 2),
+        "days": 2,
+        "shifted_date": (2020, 1, 6),
+    },
+    {
+        "date": (2020, 1, 2),
+        "days": 10,
+        "shifted_date": (2020, 1, 16),
+    },
+    {
+        "date": (2020, 1, 4),   # Sat
+        "days": 0,
+        "shifted_date": (2020, 1, 6),
+    },
+    {
+        "date": (2020, 1, 4),
+        "days": 1,
+        "shifted_date": (2020, 1, 7),
+    },
+    {
+        "date": (2020, 1, 4),
+        "days": -1,
+        "shifted_date": (2020, 1, 3),
+    },
+    {
+        "date": (2020, 2, 27),
+        "days": 3,
+        "shifted_date": (2020, 3, 3),
+    },
+    {
+        "date": (2021, 2, 26),
+        "days": 3,
+        "shifted_date": (2021, 3, 3),
+    },
+    {
+        "date": (2020, 2, 29),   # Sat
+        "days": 0,
+        "shifted_date": (2020, 2, 28),
+    },
+    {
+        "date": (2020, 2, 29),
+        "days": 1,
+        "shifted_date": (2020, 3, 2),
+    },
+    {
+        "date": (2020, 2, 29),
+        "days": -1,
+        "shifted_date": (2020, 2, 27),
+    },
+    {
+        "date": (2020, 6, 29),
+        "days": 5,
+        "shifted_date": (2020, 7, 7),
+    },
+    {
+        "date": (2020, 6, 29),
+        "days": 10,
+        "shifted_date": (2020, 7, 14),
+    },
+    {
+        "date": (2020, 12, 23),
+        "days": 10,
+        "shifted_date": (2021, 1, 8),
+    },
+    {
+        "date": (2021, 12, 29),
+        "days": 2,
+        "shifted_date": (2021, 12, 31),
+    }
+]
+
+days_between_data = [
+    {
+        "date1": (2020, 1, 2),
+        "date2": (2020, 1, 3),
+        "days": 1,
+    },
+    {
+        "date1": (2020, 1, 2),
+        "date2": (2020, 1, 6),
+        "days": 2,
+    },
+    {
+        "date1": (2020, 1, 6),
+        "date2": (2020, 1, 2),
+        "days": 0,
+    },
+    {
+        "date1": (2020, 1, 6),
+        "date2": (2020, 1, 6),
+        "days": 0,
+    },
+    {
+        "date1": (2020, 1, 2),
+        "date2": (2020, 1, 16),
+        "days": 10,
+    },
+    {
+        "date1": (2020, 1, 3),
+        "date2": (2020, 1, 4),
+        "days": 1,
+    },
+    {
+        "date1": (2020, 1, 4),
+        "date2": (2020, 1, 6),
+        "days": 0,
+    },
+    {
+        "date1": (2020, 1, 4),
+        "date2": (2020, 1, 5),
+        "days": 0,
+    },
+    {
+        "date1": (2020, 1, 4),
+        "date2": (2020, 1, 7),
+        "days": 1,
+    },
+    {
+        "date1": (2020, 1, 4),
+        "date2": (2020, 1, 3),
+        "days": 0,
+    },
+    {
+        "date1": (2020, 2, 27),
+        "days": 3,
+        "date2": (2020, 3, 3),
+    },
+    {
+        "date1": (2021, 2, 26),
+        "days": 3,
+        "date2": (2021, 3, 3),
+    },
+    {
+        "date1": (2020, 2, 29),   # Sat
+        "date2": (2020, 2, 28),
+        "days": 0,
+    },
+    {
+        "date1": (2020, 2, 29),
+        "date2": (2020, 3, 1),
+        "days": 0,
+    },
+    {
+        "date1": (2020, 2, 29),
+        "date2": (2020, 3, 2),
+        "days": 0,
+    },
+    {
+        "date1": (2020, 2, 29),
+        "date2": (2020, 3, 3),
+        "days": 1,
+    },
+    {
+        "date1": (2020, 6, 29),
+        "date2": (2020, 7, 7),
+        "days": 5,
+    },
+    {
+        "date1": (2020, 6, 29),
+        "date2": (2020, 7, 14),
+        "days": 10,
+    },
+    {
+        "date1": (2020, 12, 23),
+        "date2": (2021, 1, 8),
+        "days": 10,
+    },
+    {
+        "date1": (2021, 12, 29),
+        "date2": (2021, 12, 31),
+        "days": 2,
+    }
+]

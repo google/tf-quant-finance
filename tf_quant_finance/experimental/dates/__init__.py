@@ -1,4 +1,4 @@
-# Copyright 2019 Google LLC
+# Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +13,16 @@
 # limitations under the License.
 """Date-related utilities."""
 
-from tf_quant_finance.experimental.dates.date_tensor import DateTensor
-from tf_quant_finance.experimental.dates.periods import PeriodTensor
+from tf_quant_finance.experimental.dates.constants import BusinessDayConvention
 from tf_quant_finance.experimental.dates.constants import Month
 from tf_quant_finance.experimental.dates.constants import PeriodType
 from tf_quant_finance.experimental.dates.constants import WeekDay
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
-
+from tf_quant_finance.experimental.dates.date_tensor import DateTensor
 import tf_quant_finance.experimental.dates.date_utils
+from tf_quant_finance.experimental.dates.holiday_calendar import HolidayCalendar
 import tf_quant_finance.experimental.dates.periods
+from tf_quant_finance.experimental.dates.periods import PeriodTensor
+from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 
 _allowed_symbols = [
@@ -30,7 +31,9 @@ _allowed_symbols = [
     'PeriodType',
     'periods',
     'Month',
-    'WeekDay'
+    'WeekDay',
+    'HolidayCalendar',
+    'BusinessDayConvention',
     'date_utils',
 ]
 
