@@ -15,15 +15,15 @@
 # Lint as: python2, python3
 """Multivariate Normal distribution with various random types."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import enum
+import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 from tf_quant_finance.math.random_ops import halton
 from tf_quant_finance.math.random_ops import sobol
+
+
+_SQRT_2 = np.sqrt(2.)
 
 
 @enum.unique
@@ -359,26 +359,16 @@ def _mvnormal_quasi(sample_shape,
   else:
     scale_matrix = tf.convert_to_tensor(scale_matrix, dtype=dtype,
                                         name='scale_matrix')
-  scale_shape = scale_matrix.shape.as_list()
+  scale_shape = scale_matrix.shape
   dim = scale_shape[-1]
   if mean is None:
     mean = tf.zeros([dim], dtype=scale_matrix.dtype)
-  distribution = tfp.distributions.Normal(
-      loc=tf.zeros_like(mean),
-      scale=tf.ones(scale_shape[:-1],
-                    dtype=scale_matrix.dtype),
-      validate_args=validate_args)
   # Batch shape of the output
-  batch_shape = distribution.batch_shape
+  batch_shape = tf.broadcast_static_shape(mean.shape, scale_shape[:-1])
   # Reverse elements of the batch shape
-  batch_shape_reverse = tf.compat.v1.reverse_sequence(
-      tf.expand_dims(batch_shape, 0),
-      seq_lengths=[tf.size(batch_shape)],
-      seq_dim=1)
-  batch_shape_reverse = tf.squeeze(batch_shape_reverse, 0)
+  batch_shape_reverse = tf.TensorShape(reversed(batch_shape))
   # Transposed shape of the output
-  output_shape_t = tf.concat(
-      [batch_shape_reverse, sample_shape], -1)
+  output_shape_t = tf.concat([batch_shape_reverse, sample_shape], -1)
   # Number of quasi random samples
   num_samples = tf.reduce_prod(output_shape_t) // dim
   # Number of initial low discrepancy sequence numbers to skip
@@ -390,7 +380,7 @@ def _mvnormal_quasi(sample_shape,
     # Shape [num_samples, dim] of the Sobol samples
     low_discrepancy_seq = sobol.sample(
         dim=dim, num_results=num_samples, skip=skip,
-        dtype=distribution.dtype)
+        dtype=mean.dtype)
   else:  # HALTON or HALTON_RANDOMIZED random_dtype
     if 'randomization_params' in kwargs:
       randomization_params = kwargs['randomization_params']
@@ -404,7 +394,8 @@ def _mvnormal_quasi(sample_shape,
         randomized=randomized,
         randomization_params=randomization_params,
         seed=seed,
-        dtype=distribution.dtype)
+        validate_args=validate_args,
+        dtype=mean.dtype)
 
   # Transpose to the shape [dim, num_samples]
   low_discrepancy_seq = tf.transpose(low_discrepancy_seq)
@@ -419,5 +410,5 @@ def _mvnormal_quasi(sample_shape,
       permutation)
   # Apply inverse Normal CDF to Sobol samples to obtain the corresponding
   # Normal samples
-  samples = distribution.quantile(low_discrepancy_seq)
+  samples = tf.math.erfinv((low_discrepancy_seq - 0.5) * 2)* _SQRT_2
   return  mean + tf.linalg.matvec(scale_matrix, samples)

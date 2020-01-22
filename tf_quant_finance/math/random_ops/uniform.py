@@ -15,10 +15,6 @@
 # Lint as: python2, python3
 """Uniform distribution with various random types."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import tensorflow as tf
 
 from tf_quant_finance.math.random_ops import halton
@@ -131,6 +127,8 @@ def _quasi_uniform(
     low_discrepancy_seq = sobol.sample(
         dim=dim, num_results=num_samples, skip=skip,
         dtype=dtype)
+    # TODO(b/148005344): Remove after tf.reshape after the bug is fixed
+    low_discrepancy_seq = tf.reshape(low_discrepancy_seq, [num_samples, dim])
   else:  # HALTON or HALTON_RANDOMIZED random_dtype
     if 'randomization_params' in kwargs:
       randomization_params = kwargs['randomization_params']
