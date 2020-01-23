@@ -152,7 +152,7 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
     expected_means = x0 + (2.0 / 3.0) * mu * np.power(times, 1.5)
     self.assertAllClose(means, expected_means, rtol=1e-2, atol=1e-2)
 
-  def test_sobol_sample_paths_2d(self):
+  def test_halton_sample_paths_2d(self):
     """Tests path properties for 2-dimentional Ito process.
 
     We construct the following Ito processes.
@@ -176,8 +176,8 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
       del x
       return (a * t + b) * tf.ones([2, 2], dtype=t.dtype)
 
-    num_samples = 10000
-    times = np.array([0.1, 0.21, 0.32, 0.43, 0.55])
+    num_samples = 50000
+    times = np.array([0.1, 0.21, 0.32])
     x0 = np.array([0.1, -1.1])
     paths = self.evaluate(
         euler_sampling.sample(
@@ -186,11 +186,13 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
             times=times,
             num_samples=num_samples,
             initial_state=x0,
-            random_type=tff.math.random.RandomType.SOBOL,
+            random_type=tff.math.random.RandomType.HALTON,
             time_step=0.01,
-            seed=12134))
+            seed=12134,
+            skip=100,
+            dtype=tf.float32))
 
-    self.assertAllClose(paths.shape, (num_samples, 5, 2), atol=0)
+    self.assertAllClose(paths.shape, (num_samples, 3, 2), atol=0)
     means = np.mean(paths, axis=0)
     times = np.reshape(times, [-1, 1])
     expected_means = x0 + (2.0 / 3.0) * mu * np.power(times, 1.5)

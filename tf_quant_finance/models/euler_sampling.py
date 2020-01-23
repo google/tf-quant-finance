@@ -27,6 +27,7 @@ def sample(dim,
            time_step=None,
            seed=None,
            swap_memory=True,
+           skip=0,
            dtype=None,
            name=None):
   """Returns a sample paths from the process using Euler method.
@@ -85,6 +86,10 @@ def sample(dim,
       details. Useful when computing a gradient of the op since `tf.while_loop`
       is used to propagate stochastic process in time.
       Default value: True.
+    skip: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
+      Halton sequence to skip. Used only when `random_type` is 'SOBOL',
+      'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
+      Default value: `0`.
     dtype: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
       Default value: None which means that the dtype implied by `times` is
       used.
@@ -94,9 +99,12 @@ def sample(dim,
   Returns:
    A real `Tensor` of shape [num_samples, k, n] where `k` is the size of the
       `times`, `n` is the dimension of the process.
+
+  Raises:
+    ValueError: If `time_step` or `times` have a non-constant value (e.g.,
+      values are random), and `random_type` is `SOBOL`. This will be fixed with
+      the release of TensorFlow 2.2.
   """
-  if drift_fn is None or volatility_fn is None:
-    raise ValueError('Drift and volatility must be supplied')
   with tf.compat.v1.name_scope(
       name, default_name='euler_sample', values=[times, initial_state]):
     times = tf.convert_to_tensor(times, dtype=dtype)
@@ -111,19 +119,46 @@ def sample(dim,
     return _sample(
         dim, drift_fn, volatility_fn,
         times, time_step, keep_mask, times_size, num_samples, initial_state,
-        random_type, seed, swap_memory, dtype)
+        random_type, seed, swap_memory, skip, dtype)
 
 
 def _sample(dim, drift_fn, volatility_fn, times, time_step, keep_mask,
             times_size, num_samples, initial_state, random_type, seed,
-            swap_memory, dtype):
+            swap_memory, skip, dtype):
   """Returns a sample of paths from the process using Euler method."""
   dt = times[1:] - times[:-1]
   sqrt_dt = tf.sqrt(dt)
   current_state = initial_state + tf.zeros([num_samples, dim],
                                            dtype=initial_state.dtype)
-  steps_num = tf.shape(dt)[-1]
-  wiener_mean = tf.zeros((dim, 1), dtype=dtype)
+  if dt.shape.is_fully_defined():
+    steps_num = dt.shape.as_list()[-1]
+  else:
+    steps_num = tf.shape(dt)[-1]
+    # TODO(b/148133811): Re-enable Sobol test when TF 2.2 is released.
+    if random_type == random.RandomType.SOBOL:
+      raise ValueError('Sobol sequence for Euler sampling is temporarily '
+                       'unsupported when `time_step` or `times` have a '
+                       'non-constant value')
+  # In order to use low-discrepancy random_type we need to generate the sequence
+  # of independent random normals upfront.
+  if random_type in (random.RandomType.SOBOL,
+                     random.RandomType.HALTON,
+                     random.RandomType.HALTON_RANDOMIZED):
+    # The number of iterations times the dimensionality of the process  is the
+    # dimension of the low-discrepancy sequence
+    qmc_dimension = tf.zeros([steps_num * dim], dtype=dtype)
+    normal_draws = random.mv_normal_sample(
+        [num_samples], mean=qmc_dimension,
+        random_type=random_type,
+        seed=seed, skip=skip)
+    # Reshape and transpose for XLA-compatibility
+    normal_draws = tf.reshape(normal_draws, [num_samples, steps_num, dim])
+    normal_draws = tf.transpose(normal_draws, [1, 0, 2])
+  else:
+    normal_draws = None
+  # If pseudo or anthithetic sampling is used, proceed with random sampling
+  # at each step
+  wiener_mean = tf.zeros((dim,), dtype=dtype)
 
   cond_fn = lambda i, *args: i < steps_num
   # Maximum number iterations is passed to the while loop below. It improves
@@ -133,7 +168,7 @@ def _sample(dim, drift_fn, volatility_fn, times, time_step, keep_mask,
     return _euler_step(i, written_count, current_state, result,
                        drift_fn, volatility_fn, wiener_mean,
                        num_samples, times, dt, sqrt_dt, keep_mask,
-                       random_type, seed)
+                       random_type, seed, normal_draws)
   maximum_iterations = (tf.cast(1. / time_step, dtype=tf.int32)
                         + tf.size(times))
   result = tf.TensorArray(dtype=dtype, size=times_size)
@@ -148,19 +183,18 @@ def _sample(dim, drift_fn, volatility_fn, times, time_step, keep_mask,
 def _euler_step(i, written_count, current_state, result,
                 drift_fn, volatility_fn, wiener_mean,
                 num_samples, times, dt, sqrt_dt, keep_mask,
-                random_type, seed):
+                random_type, seed, normal_draws):
   """Performs one step of Euler scheme."""
   current_time = times[i + 1]
-  # In order to use Halton or Sobol random_type we need to set the `skip`
-  # argument that enusres new points are sampled at every iteration
-  skip = i * num_samples
-  dw = random.mv_normal_sample(
-      (num_samples,), mean=wiener_mean, random_type=random_type,
-      seed=seed, skip=skip)
+  if normal_draws is not None:
+    dw = normal_draws[i]
+  else:
+    dw = random.mv_normal_sample(
+        (num_samples,), mean=wiener_mean, random_type=random_type,
+        seed=seed)
   dw = dw * sqrt_dt[i]
   dt_inc = dt[i] * drift_fn(current_time, current_state)  # pylint: disable=not-callable
-  dw_inc = tf.squeeze(
-      tf.matmul(volatility_fn(current_time, current_state), dw), -1)  # pylint: disable=not-callable
+  dw_inc = tf.linalg.matvec(volatility_fn(current_time, current_state), dw)  # pylint: disable=not-callable
   next_state = current_state + dt_inc + dw_inc
 
   # Keep only states for times, requested by user.
