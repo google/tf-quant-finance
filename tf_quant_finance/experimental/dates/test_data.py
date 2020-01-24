@@ -13,6 +13,8 @@
 # limitations under the License.
 """Test data for tests in this package."""
 
+from tf_quant_finance.experimental import dates
+
 test_dates = [
     (1901, 1, 1),
     (1901, 2, 15),
@@ -137,6 +139,12 @@ month_addition_data = [
     ((2019, 2, 15), 25, (2021, 3, 15)),
     ((2019, 1, 31), 3, (2019, 4, 30)),
     ((2019, 1, 31), 1, (2019, 2, 28)),
+    ((2018, 11, 15), 1, (2018, 12, 15)),
+    ((2018, 11, 15), 2, (2019, 1, 15)),
+    ((2018, 11, 15), 13, (2019, 12, 15)),
+    ((2018, 11, 15), 14, (2020, 1, 15)),
+    ((2018, 11, 15), 16, (2020, 3, 15)),
+    ((2018, 12, 15), 1, (2019, 1, 15)),
     ((2018, 12, 30), 2, (2019, 2, 28)),
     ((2018, 11, 29), 3, (2019, 2, 28)),
     ((2018, 11, 29), 15, (2020, 2, 29)),
@@ -497,4 +505,181 @@ days_between_data = [
         "date2": (2021, 12, 31),
         "days": 2,
     }
+]
+
+# Assumes calendar with only weekends and modified-following convention.
+schedule_with_fixed_range_test_cases = [
+    {
+        "testcase_name": "monthly_forward",
+        "start_dates": [(2020, 1, 1)],
+        "end_dates": [(2021, 3, 31)],
+        "period_type": dates.PeriodType.MONTH,
+        "period_quantities": 1,
+        "backward": False,
+        "expected_schedule": [[(2020, 1, 1), (2020, 2, 3), (2020, 3, 2),
+                               (2020, 4, 1), (2020, 5, 1), (2020, 6, 1),
+                               (2020, 7, 1), (2020, 8, 3), (2020, 9, 1),
+                               (2020, 10, 1), (2020, 11, 2), (2020, 12, 1),
+                               (2021, 1, 1), (2021, 2, 1), (2021, 3, 1),
+                               (2021, 3, 31)]]
+    },
+    {
+        "testcase_name": "monthly_backward",
+        "start_dates": [(2020, 1, 1)],
+        "end_dates": [(2021, 3, 31)],
+        "period_type": dates.PeriodType.MONTH,
+        "period_quantities": 1,
+        "backward": True,
+        "expected_schedule": [[(2020, 1, 1), (2020, 1, 31), (2020, 2, 28),
+                               (2020, 3, 31), (2020, 4, 30), (2020, 5, 29),
+                               (2020, 6, 30), (2020, 7, 31), (2020, 8, 31),
+                               (2020, 9, 30), (2020, 10, 30), (2020, 11, 30),
+                               (2020, 12, 31), (2021, 1, 29), (2021, 2, 26),
+                               (2021, 3, 31)]]
+    },
+    {
+        "testcase_name": "quarterly_forward",
+        "start_dates": [(2020, 1, 15)],
+        "end_dates": [(2021, 3, 31)],
+        "period_type": dates.PeriodType.MONTH,
+        "period_quantities": 3,
+        "backward": False,
+        "expected_schedule": [[(2020, 1, 15), (2020, 4, 15), (2020, 7, 15),
+                               (2020, 10, 15), (2021, 1, 15), (2021, 3, 31)]]
+    },
+    {
+        "testcase_name": "quarterly_backward",
+        "start_dates": [(2020, 1, 15)],
+        "end_dates": [(2021, 3, 25)],
+        "period_type": dates.PeriodType.MONTH,
+        "period_quantities": 3,
+        "backward": True,
+        "expected_schedule": [[(2020, 1, 15), (2020, 3, 25), (2020, 6, 25),
+                               (2020, 9, 25), (2020, 12, 25), (2021, 3, 25)]]
+    },
+    {
+        "testcase_name": "yearly",
+        "start_dates": [(2024, 2, 29)],
+        "end_dates": [(2028, 12, 31)],
+        "period_type": dates.PeriodType.YEAR,
+        "period_quantities": 1,
+        "backward": False,
+        "expected_schedule": [[(2024, 2, 29), (2025, 2, 28), (2026, 2, 27),
+                               (2027, 2, 26), (2028, 2, 29), (2028, 12, 29)]]
+    },
+    {
+        "testcase_name": "biweekly",
+        "start_dates": [(2020, 11, 20)],
+        "end_dates": [(2021, 1, 31)],
+        "period_type": dates.PeriodType.WEEK,
+        "period_quantities": 2,
+        "backward": False,
+        "expected_schedule": [[(2020, 11, 20), (2020, 12, 4), (2020, 12, 18),
+                               (2021, 1, 1), (2021, 1, 15), (2021, 1, 29),
+                               (2021, 1, 29)]]
+    },
+    {
+        "testcase_name": "every_10_days",
+        "start_dates": [(2020, 5, 1)],
+        "end_dates": [(2020, 7, 1)],
+        "period_type": dates.PeriodType.DAY,
+        "period_quantities": 10,
+        "backward": False,
+        "expected_schedule": [[(2020, 5, 1), (2020, 5, 11), (2020, 5, 21),
+                               (2020, 5, 29), (2020, 6, 10), (2020, 6, 22),
+                               (2020, 6, 30), (2020, 7, 1)]]
+    },
+    {
+        "testcase_name": "includes_end_date_if_on_schedule",
+        "start_dates": [(2020, 11, 20)],
+        "end_dates": [(2021, 1, 29)],
+        "period_type": dates.PeriodType.WEEK,
+        "period_quantities": 2,
+        "backward": False,
+        "expected_schedule": [[(2020, 11, 20), (2020, 12, 4), (2020, 12, 18),
+                               (2021, 1, 1), (2021, 1, 15), (2021, 1, 29)]]
+    },
+    {
+        "testcase_name": "includes_start_date_if_on_schedule",
+        "start_dates": [(2020, 3, 25)],
+        "end_dates": [(2021, 3, 25)],
+        "period_type": dates.PeriodType.MONTH,
+        "period_quantities": 3,
+        "backward": True,
+        "expected_schedule": [[(2020, 3, 25), (2020, 6, 25), (2020, 9, 25),
+                               (2020, 12, 25), (2021, 3, 25)]]
+    },
+    {
+        "testcase_name": "rolls_start_date_out_of_bounds",
+        "start_dates": [(2020, 2, 29)],
+        "end_dates": [(2024, 12, 31)],
+        "period_type": dates.PeriodType.YEAR,
+        "period_quantities": 1,
+        "backward": False,
+        "expected_schedule": [[(2020, 2, 28), (2021, 2, 26), (2022, 2, 28),
+                               (2023, 2, 28), (2024, 2, 29), (2024, 12, 31)]]
+    },
+    {
+        "testcase_name": "rolls_end_date_out_of_bounds",
+        "start_dates": [(2020, 1, 1)],
+        "end_dates": [(2020, 2, 2)],
+        "period_type": dates.PeriodType.MONTH,
+        "period_quantities": 1,
+        "backward": False,
+        "expected_schedule": [[(2020, 1, 1), (2020, 2, 3), (2020, 2, 3)]]
+    },
+    {
+        "testcase_name": "batch_with_same_period",
+        "start_dates": [(2020, 1, 15), (2020, 4, 15)],
+        "end_dates": [(2021, 3, 31), (2021, 1, 1)],
+        "period_type": dates.PeriodType.MONTH,
+        "period_quantities": 3,
+        "backward": False,
+        "expected_schedule": [[(2020, 1, 15), (2020, 4, 15), (2020, 7, 15),
+                               (2020, 10, 15), (2021, 1, 15), (2021, 3, 31)],
+                              [(2020, 4, 15), (2020, 7, 15), (2020, 10, 15),
+                               (2021, 1, 1), (2021, 1, 1), (2021, 1, 1)]]
+    },
+    {
+        "testcase_name": "batch_with_different_periods",
+        "start_dates": [(2020, 1, 15), (2020, 4, 15)],
+        "end_dates": [(2021, 3, 31), (2021, 1, 1)],
+        "period_type": dates.PeriodType.MONTH,
+        "period_quantities": [4, 6],
+        "backward": False,
+        "expected_schedule": [[(2020, 1, 15), (2020, 5, 15), (2020, 9, 15),
+                               (2021, 1, 15), (2021, 3, 31)],
+                              [(2020, 4, 15), (2020, 10, 15), (2021, 1, 1),
+                               (2021, 1, 1), (2021, 1, 1)]]
+    },
+    {
+        "testcase_name": "batch_backward",
+        "start_dates": [(2020, 1, 15), (2020, 4, 15)],
+        "end_dates": [(2021, 3, 31), (2021, 1, 1)],
+        "period_type": dates.PeriodType.MONTH,
+        "period_quantities": [4, 6],
+        "backward": True,
+        "expected_schedule": [[(2020, 1, 15), (2020, 3, 31), (2020, 7, 31),
+                               (2020, 11, 30), (2021, 3, 31)],
+                              [(2020, 4, 15), (2020, 4, 15), (2020, 4, 15),
+                               (2020, 7, 1), (2021, 1, 1)]]
+    },
+    {
+        "testcase_name": "rank_2_batch",
+        "start_dates": [[(2020, 1, 15), (2020, 4, 15)],
+                        [(2020, 1, 17), (2020, 5, 12)]],
+        "end_dates": [[(2020, 12, 31), (2020, 11, 30)],
+                      [(2020, 10, 31), (2020, 9, 30)]],
+        "period_type": dates.PeriodType.MONTH,
+        "period_quantities": [[4, 3], [3, 2]],
+        "backward": False,
+        "expected_schedule": [[[(2020, 1, 15), (2020, 5, 15), (2020, 9, 15),
+                                (2020, 12, 31), (2020, 12, 31)],
+                               [(2020, 4, 15), (2020, 7, 15), (2020, 10, 15),
+                                (2020, 11, 30), (2020, 11, 30)]],
+                              [[(2020, 1, 17), (2020, 4, 17), (2020, 7, 17),
+                                (2020, 10, 19), (2020, 10, 30)],
+                               [(2020, 5, 12), (2020, 7, 13), (2020, 9, 14),
+                                (2020, 9, 30), (2020, 9, 30)]]]
+    },
 ]

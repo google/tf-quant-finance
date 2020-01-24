@@ -403,18 +403,19 @@ class DateTensor(TensorWrapper):
       return tf.math.minimum(day, max_days)
 
     if period_type == PeriodType.MONTH:
-      m = self._months + period_tensor.quantity()
+      m = self._months - 1 + period_tensor.quantity()
       y = self._years + m // 12
-      m = m % 12
+      m = m % 12 + 1
       d = adjust_day(y, m, self._days)
       return DateTensor.from_year_month_day_tensors(
           y, m, d, validate=False)
 
     if period_type == PeriodType.YEAR:
       y = self._years + period_tensor.quantity()
-      d = adjust_day(y, self._months, self._days)
+      m = tf.broadcast_to(self._months, y.shape)
+      d = adjust_day(y, m, self._days)
       return DateTensor.from_year_month_day_tensors(
-          y, self._months, d, validate=False)
+          y, m, d, validate=False)
 
     raise ValueError("Unrecognized period type: {}".format(period_type))
 

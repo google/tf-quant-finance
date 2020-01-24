@@ -334,12 +334,15 @@ class HolidayCalendar(object):
       return already_computed
 
     roll_convention_np = _to_np_roll_convention(roll_convention)
+    holidays_arg = self._holidays_np
+    if holidays_arg is None:
+      holidays_arg = []  # np.busday_offset doesn't accept None
     adjusted_np = np.busday_offset(
         dates=self._dates_np,
         offsets=0,
         roll=roll_convention_np,
         weekmask=1 - self._weekend_mask,
-        holidays=self._holidays_np)
+        holidays=holidays_arg)
     rolled_date_table = adjusted_np.astype(np.int32) + _ORDINAL_OF_1_1_1970
     rolled_date_table = tf.convert_to_tensor(rolled_date_table,
                                              name="rolled_date_table")

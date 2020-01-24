@@ -69,6 +69,14 @@ class TensorWrapper(metaclass=abc.ABCMeta):
         lambda ts: tf.stack(ts, axis), tensor_wrappers)
 
   @classmethod
+  def where(cls, condition, tensor_wrapper_1, tensor_wrapper_2):
+    """See tf.where. Only three-argument version is supported here."""
+    tensor_wrappers = [tensor_wrapper_1, tensor_wrapper_2]
+    cls._validate_tensor_types(tensor_wrappers, "where")
+    return cls._apply_sequence_to_tensor_op(
+        lambda ts: tf.compat.v2.where(condition, ts[0], ts[1]), tensor_wrappers)
+
+  @classmethod
   def _validate_tensor_types(cls, tensor_wrappers, function_name):
     for tensor in tensor_wrappers:
       if not type(tensor) == cls:

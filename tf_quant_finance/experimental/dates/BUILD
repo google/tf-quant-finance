@@ -11,6 +11,7 @@ py_library(
         "date_utils.py",
         "holiday_calendar.py",
         "periods.py",
+        "schedules.py",
         "tensor_wrapper.py",
     ],
     srcs_version = "PY3",
@@ -64,11 +65,28 @@ py_test(
     ],
 )
 
+py_test(
+    name = "schedules_test",
+    size = "small",
+    timeout = "moderate",
+    srcs = ["schedules_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":dates",
+        ":test_data",
+        # absl/testing:parameterized dep,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
 py_library(
     name = "test_data",
     srcs = [
         "test_data.py",
     ],
     srcs_version = "PY3",
-    deps = [],
+    deps = [
+        ":dates",
+    ],
 )
