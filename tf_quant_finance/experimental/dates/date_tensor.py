@@ -13,6 +13,7 @@
 # limitations under the License.
 """DateTensor definition."""
 
+import collections
 import numpy as np
 import tensorflow as tf
 
@@ -27,6 +28,61 @@ _ORDINAL_OF_1_1_1970 = 719163
 _days_in_months = [0,  # For easier indexing
                    31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
                    31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+
+def convert_to_date_tensor(date_inputs):
+  """Converts supplied data to a `DateTensor` if possible.
+
+  Args:
+    date_inputs: One of the supported types that can be converted to a
+      DateTensor. The following input formats are supported. 1. Sequence of
+      `datetime.datetime`, `datetime.date`, or any other structure with
+      data attributes called 'year', 'month' and 'day'. 2. A numpy array of
+      `datetime64` type. 3. Sequence of (year, month, day) Tuples.
+      Months are 1-based (with January as 1) and constants.Months enum may be
+      used instead of ints. Days are also 1-based. 4. A tuple of three
+      int32 `Tensor`s containing year,
+      month and date as positive integers in that order. 5. A single int32
+      `Tensor` containing ordinals (i.e. number of days since 31 Dec 0 with 1
+      being 1 Jan 1.)
+
+  Returns:
+    A `DateTensor` object representing the supplied dates.
+
+  Raises:
+    ValueError: If conversion fails for any reason.
+  """
+  if isinstance(date_inputs, DateTensor):
+    return date_inputs
+
+  if isinstance(date_inputs, np.ndarray):  # Case 2.
+    date_inputs = date_inputs.astype("datetime64[D]")
+    return DateTensor.from_np_datetimes(date_inputs)
+
+  if tf.is_tensor(date_inputs):  # Case 5
+    return DateTensor.from_ordinals(date_inputs)
+
+  if isinstance(date_inputs, collections.Sequence):
+    if not date_inputs:
+      return DateTensor.from_ordinals([])
+    test_element = date_inputs[0]
+    if hasattr(test_element, "year"):  # Case 1.
+      return DateTensor.from_datetimes(date_inputs)
+    # Case 3
+    if isinstance(test_element, collections.Sequence):
+      return DateTensor.from_tuples(date_inputs)
+    if len(date_inputs) == 3:  # Case 4.
+      return DateTensor.from_year_month_day_tensors(date_inputs[0],
+                                                    date_inputs[1],
+                                                    date_inputs[2])
+  # As a last ditch effort, try to convert the sequence to a Tensor to see if
+  # that can work
+  try:
+    as_ordinals = tf.convert_to_tensor(date_inputs, dtype=tf.int32)
+    return DateTensor.from_ordinals(as_ordinals)
+  except ValueError as e:
+    raise ValueError("Failed to convert inputs to DateTensor. "
+                     "Unrecognized format. Error: " + e)
 
 
 class DateTensor(TensorWrapper):

@@ -17,6 +17,7 @@ from tf_quant_finance.experimental.dates.constants import BusinessDayConvention
 from tf_quant_finance.experimental.dates.constants import Month
 from tf_quant_finance.experimental.dates.constants import PeriodType
 from tf_quant_finance.experimental.dates.constants import WeekDay
+from tf_quant_finance.experimental.dates.date_tensor import convert_to_date_tensor
 from tf_quant_finance.experimental.dates.date_tensor import DateTensor
 import tf_quant_finance.experimental.dates.date_utils
 from tf_quant_finance.experimental.dates.holiday_calendar import HolidayCalendar
@@ -27,6 +28,7 @@ from tensorflow.python.util.all_util import remove_undocumented  # pylint: disab
 
 
 _allowed_symbols = [
+    'convert_to_date_tensor',
     'DateTensor',
     'PeriodTensor',
     'PeriodType',

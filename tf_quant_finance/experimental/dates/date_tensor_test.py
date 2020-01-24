@@ -17,52 +17,98 @@ import datetime
 import numpy as np
 import tensorflow as tf
 
-from tf_quant_finance.experimental.dates import DateTensor
-from tf_quant_finance.experimental.dates import PeriodTensor
+from tf_quant_finance.experimental import dates as dateslib
 from tf_quant_finance.experimental.dates import test_data
-from tf_quant_finance.experimental.dates.constants import PeriodType
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
 @test_util.run_all_in_graph_and_eager_modes
 class DateTensorTest(tf.test.TestCase):
 
+  def test_convert_to_date_tensor_tuples(self):
+    inputs = [(2018, 5, 4), (2042, 11, 22), (1947, 8, 15)]
+    date_tensor = dateslib.convert_to_date_tensor(inputs)
+    y, m, d = zip(*inputs)
+    self.assert_date_tensor_equals(date_tensor, y, m, d, None)
+
+  def test_convert_to_date_tensor_datetimes(self):
+    inputs = [
+        datetime.date(2018, 5, 4),
+        datetime.date(2042, 11, 22),
+        datetime.date(1947, 8, 15)
+    ]
+    date_tensor = dateslib.convert_to_date_tensor(inputs)
+    y, m, d = [2018, 2042, 1947], [5, 11, 8], [4, 22, 15]
+    self.assert_date_tensor_equals(date_tensor, y, m, d, None)
+
+  def test_convert_to_date_tensor_ordinals(self):
+    inputs = [1, 2, 3, 4, 5]
+    inputs2 = tf.constant(inputs)
+    date_tensor = dateslib.convert_to_date_tensor(inputs)
+    date_tensor2 = dateslib.convert_to_date_tensor(inputs2)
+    self.assert_date_tensor_equals(date_tensor, [1, 1, 1, 1, 1],
+                                   [1, 1, 1, 1, 1], [1, 2, 3, 4, 5], inputs)
+
+    self.assert_date_tensor_equals(date_tensor2, [1, 1, 1, 1, 1],
+                                   [1, 1, 1, 1, 1], [1, 2, 3, 4, 5], inputs)
+
+  def test_convert_to_date_tensor_tensor_tuples(self):
+    inputs = [
+        tf.constant([2018, 2042, 1947]),
+        tf.constant([5, 11, 8]),
+        tf.constant([4, 22, 15])
+    ]
+    date_tensor = dateslib.convert_to_date_tensor(inputs)
+    y, m, d = [2018, 2042, 1947], [5, 11, 8], [4, 22, 15]
+    self.assert_date_tensor_equals(date_tensor, y, m, d, None)
+
+  def test_convert_to_date_tensor_npdatetime(self):
+    inputs = np.array([
+        datetime.date(2018, 5, 4),
+        datetime.date(2042, 11, 22),
+        datetime.date(1947, 8, 15)
+    ],
+                      dtype='datetime64')
+    date_tensor = dateslib.convert_to_date_tensor(inputs)
+    y, m, d = [2018, 2042, 1947], [5, 11, 8], [4, 22, 15]
+    self.assert_date_tensor_equals(date_tensor, y, m, d, None)
+
   def test_create_from_date_time_list(self):
     dates = test_data.test_dates
     y, m, d, o, datetimes = unpack_test_dates(dates)
-    date_tensor = DateTensor.from_datetimes(datetimes)
+    date_tensor = dateslib.DateTensor.from_datetimes(datetimes)
     self.assert_date_tensor_equals(date_tensor, y, m, d, o)
 
   def test_create_from_np_datetimes(self):
     dates = test_data.test_dates
     y, m, d, o, datetimes = unpack_test_dates(dates)
     np_datetimes = np.array(datetimes, dtype=np.datetime64)
-    date_tensor = DateTensor.from_np_datetimes(np_datetimes)
+    date_tensor = dateslib.DateTensor.from_np_datetimes(np_datetimes)
     self.assert_date_tensor_equals(date_tensor, y, m, d, o)
 
   def test_create_from_tuples(self):
     dates = test_data.test_dates
     y, m, d, o, _ = unpack_test_dates(dates)
-    date_tensor = DateTensor.from_tuples(dates)
+    date_tensor = dateslib.DateTensor.from_tuples(dates)
     self.assert_date_tensor_equals(date_tensor, y, m, d, o)
 
   def test_create_from_year_month_day_tensors(self):
     dates = test_data.test_dates
     y, m, d, o, _ = unpack_test_dates(dates)
-    date_tensor = DateTensor.from_year_month_day_tensors(y, m, d)
+    date_tensor = dateslib.DateTensor.from_year_month_day_tensors(y, m, d)
     self.assert_date_tensor_equals(date_tensor, y, m, d, o)
 
   def test_create_from_ordinals(self):
     dates = test_data.test_dates
     y, m, d, o, _ = unpack_test_dates(dates)
-    date_tensor = DateTensor.from_ordinals(o)
+    date_tensor = dateslib.DateTensor.from_ordinals(o)
     self.assert_date_tensor_equals(date_tensor, y, m, d, o)
 
   def test_validation(self):
     not_raised = []
     for y, m, d in test_data.invalid_dates:
       try:
-        self.evaluate(DateTensor.from_tuples([(y, m, d)]).months())
+        self.evaluate(dateslib.DateTensor.from_tuples([(y, m, d)]).months())
         not_raised.append((y, m, d))
       except tf.errors.InvalidArgumentError:
         pass
@@ -70,12 +116,13 @@ class DateTensorTest(tf.test.TestCase):
 
     for invalid_ordinal in [-5, 0]:
       with self.assertRaises(tf.errors.InvalidArgumentError):
-        self.evaluate(DateTensor.from_ordinals([invalid_ordinal]).months())
+        self.evaluate(
+            dateslib.DateTensor.from_ordinals([invalid_ordinal]).months())
 
   def test_days_of_week(self):
     dates = test_data.test_dates
     datetimes = unpack_test_dates(dates)[-1]
-    date_tensor = DateTensor.from_datetimes(datetimes)
+    date_tensor = dateslib.DateTensor.from_datetimes(datetimes)
     expected_days_of_week = np.array([dt.weekday() for dt in datetimes])
     self.assertAllEqual(expected_days_of_week, date_tensor.days_of_week())
 
@@ -83,24 +130,28 @@ class DateTensorTest(tf.test.TestCase):
     dates = test_data.test_dates
     diffs = np.arange(0, len(dates))
     _, _, _, o, datetimes = unpack_test_dates(dates)
-    date_tensor = DateTensor.from_datetimes(datetimes)
+    date_tensor = dateslib.DateTensor.from_datetimes(datetimes)
 
     target_ordinals = o + diffs
     target_datetimes = [datetime.date.fromordinal(o) for o in target_ordinals]
-    target_date_tensor = DateTensor.from_datetimes(target_datetimes)
+    target_date_tensor = dateslib.DateTensor.from_datetimes(target_datetimes)
     self.assertAllEqual(diffs, date_tensor.days_until(target_date_tensor))
 
   def test_days_addition(self):
-    self.perform_addition_test(test_data.day_addition_data, PeriodType.DAY)
+    self.perform_addition_test(test_data.day_addition_data,
+                               dateslib.PeriodType.DAY)
 
   def test_week_addition(self):
-    self.perform_addition_test(test_data.week_addition_data, PeriodType.WEEK)
+    self.perform_addition_test(test_data.week_addition_data,
+                               dateslib.PeriodType.WEEK)
 
   def test_month_addition(self):
-    self.perform_addition_test(test_data.month_addition_data, PeriodType.MONTH)
+    self.perform_addition_test(test_data.month_addition_data,
+                               dateslib.PeriodType.MONTH)
 
   def test_year_addition(self):
-    self.perform_addition_test(test_data.year_addition_data, PeriodType.YEAR)
+    self.perform_addition_test(test_data.year_addition_data,
+                               dateslib.PeriodType.YEAR)
 
   def perform_addition_test(self, data, period_type):
     dates_from, quantities, expected_dates = [], [], []
@@ -110,8 +161,8 @@ class DateTensorTest(tf.test.TestCase):
       expected_dates.append(expected_date)
 
     datetimes = unpack_test_dates(dates_from)[-1]
-    date_tensor = DateTensor.from_datetimes(datetimes)
-    period_tensor = PeriodTensor(quantities, period_type)
+    date_tensor = dateslib.DateTensor.from_datetimes(datetimes)
+    period_tensor = dateslib.PeriodTensor(quantities, period_type)
     result_date_tensor = date_tensor + period_tensor
 
     y, m, d, o, _ = unpack_test_dates(expected_dates)
@@ -120,26 +171,25 @@ class DateTensorTest(tf.test.TestCase):
   def test_date_subtraction(self):
     # Subtraction trivially transforms to addition, so we don't test
     # extensively.
-    dates_from = DateTensor.from_tuples([(2020, 3, 15), (2020, 3, 31)])
-    period = PeriodTensor([2, 1], PeriodType.MONTH)
+    dates_from = dateslib.DateTensor.from_tuples([(2020, 3, 15), (2020, 3, 31)])
+    period = dateslib.PeriodTensor([2, 1], dateslib.PeriodType.MONTH)
     expected_ordinals = np.array([datetime.date(2020, 1, 15).toordinal(),
                                   datetime.date(2020, 2, 29).toordinal()])
     self.assertAllEqual(expected_ordinals, (dates_from - period).ordinals())
 
   def assert_date_tensor_equals(self, date_tensor, years_np, months_np, days_np,
-                                ordinal_np):
+                                ordinals_np):
     self.assertAllEqual(years_np, date_tensor.years())
     self.assertAllEqual(months_np, date_tensor.months())
     self.assertAllEqual(days_np, date_tensor.days())
-    self.assertAllEqual(ordinal_np, date_tensor.ordinals())
+    if ordinals_np is not None:
+      self.assertAllEqual(ordinals_np, date_tensor.ordinals())
 
   def test_comparisons(self):
-    dates1 = DateTensor.from_tuples([(2020, 3, 15),
-                                     (2020, 3, 31),
-                                     (2021, 2, 28)])
-    dates2 = DateTensor.from_tuples([(2020, 3, 18),
-                                     (2020, 3, 31),
-                                     (2019, 2, 28)])
+    dates1 = dateslib.DateTensor.from_tuples([(2020, 3, 15), (2020, 3, 31),
+                                              (2021, 2, 28)])
+    dates2 = dateslib.DateTensor.from_tuples([(2020, 3, 18), (2020, 3, 31),
+                                              (2019, 2, 28)])
     self.assertAllEqual(np.array([False, True, False]), dates1 == dates2)
     self.assertAllEqual(np.array([True, False, True]), dates1 != dates2)
     self.assertAllEqual(np.array([False, False, True]), dates1 > dates2)
@@ -148,9 +198,11 @@ class DateTensorTest(tf.test.TestCase):
     self.assertAllEqual(np.array([True, True, False]), dates1 <= dates2)
 
   def test_tensor_wrapper_ops(self):
-    dates1 = DateTensor.from_tuples([(2019, 3, 25), (2020, 1, 2), (2019, 1, 2)])
-    dates2 = DateTensor.from_tuples([(2019, 4, 25), (2020, 5, 2), (2018, 1, 2)])
-    dates = DateTensor.stack((dates1, dates2), axis=-1)
+    dates1 = dateslib.DateTensor.from_tuples([(2019, 3, 25), (2020, 1, 2),
+                                              (2019, 1, 2)])
+    dates2 = dateslib.DateTensor.from_tuples([(2019, 4, 25), (2020, 5, 2),
+                                              (2018, 1, 2)])
+    dates = dateslib.DateTensor.stack((dates1, dates2), axis=-1)
     self.assertEqual((3, 2), dates.shape)
     self.assertEqual((2,), dates[0].shape)
     self.assertEqual((2, 2), dates[1:].shape)
