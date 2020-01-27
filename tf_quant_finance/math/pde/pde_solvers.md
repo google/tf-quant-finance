@@ -307,19 +307,52 @@ final_value_grid = tf.nn.relu(s - strikes)
 ```
 
 `tf.meshgrid` broadcasts the two tensors into a rectangular grid, and then we
-can combine them with any algebraic operations.
-Make sure that the batch dimension is the first one in the resulting Tensor.
+can combine them with any algebraic operations. In this example `s` has shape
+`(300,)`, `strikes` has shape `(3,)`. After applying `tf.meshgrid`, both
+`strikes` and `s` have shape `(3, 300)`, and so does `final_value_grid`.
+
+A more efficient way to obtain the shape `(3, 300)` is to use
+[broadcasting](https://docs.scipy.org/doc/numpy/user/basics.broadcasting.html).
+The shapes `(3, )` and `(300, )` are not compatible, but `(3, 1)` and `(300, )`
+are, and when combined lead to the desired shape `(3, 300)`. So we need to add
+an extra dimension to `strikes`. Here are a few ways of doing that:
+
+```python
+strikes = tf.constant([0.1, 0.3, 0.5])
+strikes = tf.reshape(strikes, (-1, 1))  # "-1" will automatically resolve to 3.
+s = grid[0]
+final_value_grid = tf.nn.relu(s - strikes)
+```
+
+```python
+strikes = tf.constant([0.1, 0.3, 0.5])
+# "axis=-1" means add a dimension to the end.
+strikes = tf.expand_dims(strikes, axis=-1)
+s = grid[0]
+final_value_grid = tf.nn.relu(s - strikes)
+```
+
+```python
+# Give strikes the desired shape right away.
+strikes = tf.constant([[0.1], [0.3], [0.5]])
+s = grid[0]
+final_value_grid = tf.nn.relu(s - strikes)
+```
 
 There can be arbitrary number of batching dimensions, which is convenient when
 there are multiple parameters:
 
 ```python
-param1 = tf.constant(...)
-param2 = tf.constant(...)
+param1 = tf.constant([...])
+param1 = tf.reshape(param1, (-1, 1, 1))
+param2 = tf.constant([...])
+param2 = tf.reshape(param2, (-1, 1))
 s = grid[0]
-param1, param2, s = tf.meshgrid(param1, param2, s, indexing='ij')
 final_value_grid = ...  # combine param1, param2 and s
 ```
+
+Always make sure that the batch dimensions go before the grid dimensions in the
+resulting Tensor.
 
 After constructing `final_value_grid`, we pass it to `fd_solvers` as usual, and
 the `result_value_grid` will contain the batch of solutions.
@@ -327,35 +360,30 @@ the `result_value_grid` will contain the batch of solutions.
 We may also have different models for each element of the batch, for example:
 
 ```python
-strikes = tf.constant([0.1, 0.3, 0.5])
-sigmas = tf.constant([1.0, 1.5, 2])
-rs = tf.constant([0.0, 1.0, 2.0])
+strikes = tf.constant([[0.1], [0.3], [0.5]])
+sigmas = tf.constant([[1.0], [1.5], [2]])
+rs = tf.constant([[0.0], [1.0], [2.0]])
 
 s = grid[0]
-strikes, s = tf.meshgrid(strikes, s, indexing='ij')
 final_value_grid = tf.nn.relu(s - strikes)
 
 def second_order_coeff_fn(t, grid):
   s = grid[0]
-  sigmas_mesh, s_mesh = tf.meshgrid(sigmas, s, indexing="ij")
-  return [[sigmas_mesh**2 * s_mesh**2 / 2]]
+  return [[sigmas**2 * s**2 / 2]]
 
 def first_order_coeff_fn(t, grid):
   s = grid[0]
-  rs_mesh, s_mesh = tf.meshgrid(rs, s, indexing="ij")
-  return [rs_mesh * s_mesh]
+  return [rs * s]
 
 def zeroth_order_coeff_fn(t, grid):
-  s = grid[0]
-  rs_mesh, s_mesh = tf.meshgrid(rs, s, indexing="ij")
-  return -rs_mesh
+  return -rs
 ```
 
 This way we construct three PDEs: `i`-th equation has strike `strikes[i]`
 and model parameters `sigmas[i]`, `rs[i]`.
 
 In the simplest case, the batch shapes of `final_value_grid` and PDE coefficient
-tensors match exactly, like in the last example. The precise requirement is as
+tensors match exactly. The general requirement is as
 follows. The shape of value grid is composed of `batch_shape` and `grid_shape`.
 Both are determined from the shape of `final_value_grid`. The dimensonality
 `dim` of the PDE, i.e. the the rank of `grid_shape`, is inferred from the `grid`
@@ -367,13 +395,11 @@ Recall that `grid` is a List of 1D Tensors; `grid_shape` is a concatenation of
 shapes of these tensors. The requirement is that 
 `second_order_coeff_fn(...)[i][j]`,
 `first_order_coeff_fn(...)[i]` and `zeroth_order_coeff_fn(...)` must be tensors
-whose shape is
-[broadcastable](https://docs.scipy.org/doc/numpy/user/basics.broadcasting.html)
-to the shape `batch_shape + grid_shape`.
+whose shape is broadcastable to the shape `batch_shape + grid_shape`.
 
-This explains why we can't return just `-rs` from `zeroth_order_coeff_fn` in the
-example: the shape of `rs` is `(3,)`, which is not broadcastable to the required
-shape `batch_shape + grid_shape = (3, 300)`.
+In the last example we return tensors of shapes `(3, 300)`, `(3, 300)`, and
+`(3, 1)` from `second_order_coeff_fn`, `first_order_coeff_fn`, and
+`zeroth_order_coeff_fn`, respectively, which satisfies the requirement.
 
 The boundary conditions (see below) can be also batched in a similar way.
 The coordinate grid and the temporal grid cannot be batched.
@@ -517,26 +543,16 @@ The initial values grid can be constructed, as usual, with the help of
 V(x, y, t_0) =  (2\pi\sigma)^{-1} e^{-\frac{x^2 + y^2}{2\sigma^2}}
 \end{equation}
 
-translates into[^tf_tensordot]
+translates into
 
 
 ```python
 sigma = 0.1
 ys, xs = grid
-y_mesh, x_mesh = tf.meshgrid(ys, xs, indexing="ij")
-initial_value_grid = (tf.math.exp(-(x_mesh**2 + y_mesh**2) / (2 * sigma))
+ys = tf.reshape(ys, (-1, 1))
+initial_value_grid = (tf.math.exp(-(xs**2 + ys**2) / (2 * sigma))
     / (2 * np.pi * sigma))
 ```
-
-[^tf_tensordot]: With multiplicatively separable functions, we can avoid
-  creating `x_mesh, y_mesh` with the help of `tf.tensordot`:
-    ```python
-    sigma = 0.1
-    ys, xs = grid
-    initial_value_grid = (tf.tensordot(tf.math.exp(-ys**2 / (2 * sigma)),
-                                     tf.math.exp(-xs**2 / (2 * sigma)), 
-                                     [[], []]) / (2 * np.pi * sigma))
-    ```
 
 Finally, call `fd_solvers.solve_forward` or `fd_solvers.solve_backward` as
 usual:
@@ -646,7 +662,9 @@ with boundary conditions
 
 ```python
 def second_order_coeff_fn(t, grid):
-  s, v, r = tf.meshgrid(grid[0], grid[1], grid[2], indexing='ij')
+  s, v, r = grid
+  s = tf.reshape(s, (-1, 1, 1))
+  v = tf.reshape(v, (-1, 1))
   coeff_ss = s**2 * v / 2
   coeff_vv = sigma1**2 * v / 2
   coeff_rr = sigma2**2 * v / 2
@@ -658,17 +676,12 @@ def second_order_coeff_fn(t, grid):
           [None, None, coeff_rr]]
 
 def first_order_coeff_fn(t, grid):
-  # Note how we avoid high-dimensional meshgrids and use tf.expand_dims to
-  # make the shapes broadcastable to (s_size, v_size, r_size).
   s, v, r = grid
-  s_mesh, r_mesh = tf.meshgrid(s, r, indexing='ij')
-  coeff_s = r_mesh * s_mesh  # shape is (s_size, r_size)
-  coeff_s = tf.expand_dims(coeff_s, axis=1)  # shape is (s_size, 1, r_size)
-
-  coeff_v = kappa * (eta - v)  # shape is (v_size,)
-  coeff_v = tf.expand_dims(coeff_v, axis=-1)  # shape is (v_size, 1)
-
-  coeff_r = a * (b * t - r)  # shape is (r_size,)
+  s = tf.reshape(s, (-1, 1, 1))
+  v = tf.reshape(v, (-1, 1))
+  coeff_s = r * s
+  coeff_v = kappa * (eta - v)
+  coeff_r = a * (b * t - r)
   return [coeff_s, coeff_v, coeff_r]
 
 def zeroth_order_coeff_fn(t, grid):
@@ -688,8 +701,11 @@ def boundary_v_min(t, grid):
 
 @boundary_conditions.dirichlet
 def boundary_v_max(t, grid):
-  s_mesh, r_mesh = tf.meshgrid(grid[0], grid[2], indexing='ij')
-  return s_mesh  # shape is (s_size, r_size)
+  s, r = grid[0], grid[2]
+  # Shape must be exactly the same as the shape of the boundary, which
+  # is (s_size, r_size). Broadcasting is not yet supported here.
+  s_mesh, r_mesh = tf.meshgrid(s, r, indexing='ij')
+  return s_mesh
 
 @boundary_conditions.neumann
 def boundary_r_min(t, grid):
