@@ -14,7 +14,7 @@ geometry: margin=3cm
 
 # Introduction
 
-The `pde` package provides ops to compute numerical solutions of
+The `math.pde` package provides ops to compute numerical solutions of
 linear parabolic second order partial differential equations.
 
 We currently support equations of the following form:
@@ -86,10 +86,14 @@ We're seeking $V(x, t_1)$ with $t_1 > t_0$.
 Let's prepare the necessary ingredients. First, the spatial grid:
 
 ```python
-grid = grids.uniform_grid(minimums=[-1],
-                          maximums=[1],
-                          sizes=[300],
-                          dtype=tf.float32)
+import tensorflow as tf
+import tf_quant_finance as tff
+pde = tff.math.pde
+
+grid = pde.grids.uniform_grid(minimums=[-1],
+                              maximums=[1],
+                              sizes=[300],
+                              dtype=tf.float32)
 ```
 
 This grid is uniform with 300 points between (and including) $x=-1$ and
@@ -148,8 +152,8 @@ current time and returns the size of the next time step.
 We now have all the ingredients to solve the PDE:
 
 ```python
-result_value_grid, final_grid, end_time, steps_performed =
-    fd_solvers.solve_forward(
+result_value_grid, final_grid, end_time, steps_performed = (
+    pde.fd_solvers.solve_forward(
         start_time=t_0,
         end_time=t_1,
         num_steps=num_time_steps,
@@ -157,7 +161,7 @@ result_value_grid, final_grid, end_time, steps_performed =
         values_grid=initial_value_grid,
         second_order_coeff_fn=second_order_coeff_fn,
         first_order_coeff_fn=first_order_coeff_fn,
-        zeroth_order_coeff_fn=zeroth_order_coeff_fn)
+        zeroth_order_coeff_fn=zeroth_order_coeff_fn))
 ```
 The resulting approximation of $V(x, t_1)$ is contained in
 `result_value_grid`. The solver also yields the final spatial grid (because the
@@ -246,10 +250,10 @@ def inner_first_order_coeff_fn(t, grid):
   s = grid[0]
   return [mu * s]
 
-result_value_grid, final_grid, end_time, steps_performed =
-    fd_solvers.solve(...,
+result_value_grid, final_grid, end_time, steps_performed = (
+    pde.fd_solvers.solve_forward(...,
         inner_second_order_coeff_fn=inner_second_order_coeff_fn,
-        inner_first_order_coeff_fn=inner_first_order_coeff_fn)
+        inner_first_order_coeff_fn=inner_first_order_coeff_fn))
 ```
 
 We may specify both "outer" and "inner" coefficients, so the following is
@@ -273,12 +277,12 @@ def inner_first_order_coeff_fn(t, grid):
   s = grid[0]
   return [s]
 
-result_value_grid, final_grid, end_time, steps_performed =
-    fd_solvers.solve(...,
+result_value_grid, final_grid, end_time, steps_performed = (
+    pde.fd_solvers.solve_forward(...,
         second_order_coeff_fn=second_order_coeff_fn,
         first_order_coeff_fn=first_order_coeff_fn,
         inner_second_order_coeff_fn=inner_second_order_coeff_fn,
-        inner_first_order_coeff_fn=inner_first_order_coeff_fn)
+        inner_first_order_coeff_fn=inner_first_order_coeff_fn))
 ```
 
  
@@ -464,9 +468,9 @@ def lower_boundary(t, grid):
 def upper_boundary(t, grid):
   return ...  # boundary condition at x = 1
 
-result_value_grid, final_grid, end_time, steps_performed =
-    fd_solvers.solve_forward(...,
-        boundary_conditions=[(lower_boundary, upper_boundary)])
+result_value_grid, final_grid, end_time, steps_performed = (
+    pde.fd_solvers.solve_forward(...,
+        boundary_conditions=[(lower_boundary, upper_boundary)]))
 ```
 
 ## Multidimensional PDEs; Hull-Heston-White equation.
@@ -491,10 +495,10 @@ x_min, x_max = -1.0, 1.0
 y_min, y_max = -2.0, 2.0
 x_size, y_size = 200, 300
 
-grid = grids.uniform_grid(minimums=[y_min, x_min],
-                          maximums=[y_max, x_max],
-                          sizes=[y_size, x_size],
-                          dtype=tf.float32)
+grid = pde.grids.uniform_grid(minimums=[y_min, x_min],
+                              maximums=[y_max, x_max],
+                              sizes=[y_size, x_size],
+                              dtype=tf.float32)
 ```
 
 The `grid` object is a list of two Tensors of shapes (300,) and (200,).
@@ -536,14 +540,13 @@ def second_order_coeff_fn(t, grid):
   `first_order_coeff_fn`. If both $\mu_x, \mu_y = 0$, we can return
   `[None, None]` or simply pass `first_order_coeff_fn=None` into the solver.
 
-The initial values grid can be constructed, as usual, with the help of
-`tf.meshgrid`. For example,
+Let's take the following initial values:
 
 \begin{equation}
-V(x, y, t_0) =  (2\pi\sigma)^{-1} e^{-\frac{x^2 + y^2}{2\sigma^2}}
+V(x, y, t_0) =  (2\pi\sigma)^{-1} e^{-\frac{x^2 + y^2}{2\sigma^2}},
 \end{equation}
 
-translates into
+which translates into
 
 
 ```python
@@ -562,8 +565,8 @@ t_0 = 0
 t_1 = 1
 num_time_steps = 100
 
-result_value_grid, final_grid, end_time, steps_performed =
-    fd_solvers.solve_forward(
+result_value_grid, final_grid, end_time, steps_performed = (
+    pde.fd_solvers.solve_forward(
         start_time=t_0,
         end_time=t_1,
         num_steps=num_time_steps,
@@ -571,7 +574,7 @@ result_value_grid, final_grid, end_time, steps_performed =
         values_grid=initial_value_grid,
         second_order_coeff_fn=second_order_coeff_fn,
         first_order_coeff_fn=first_order_coeff_fn,
-        zeroth_order_coeff_fn=zeroth_order_coeff_fn)
+        zeroth_order_coeff_fn=zeroth_order_coeff_fn)))
 ```
 
 One way to visualize the result is by creating a heatmap:
@@ -588,26 +591,26 @@ boundary condition (by default - Dirichlet with zero value). For example, let's
 "heat up" the right boundary and set zero flux across y-boundaries:
 
 ```python
-@boundary_conditions.dirichlet
+@pde.boundary_conditions.dirichlet
 def boundary_x_max(t, grid):
   return 1.0
 
-@boundary_conditions.dirichlet
+@pde.boundary_conditions.dirichlet
 def boundary_x_min(t, grid):
   return 0.0
 
-@boundary_conditions.neumann
+@pde.boundary_conditions.neumann
 def boundary_y_max(t, grid):
   return 0.0
 
-@boundary_conditions.neumann
+@pde.boundary_conditions.neumann
 def boundary_y_min(t, grid):
   return 0.0
 
-result_value_grid, final_grid, end_time, steps_performed =
-    fd_solvers.solve_forward(...,
+result_value_grid, final_grid, end_time, steps_performed = (
+    pde.fd_solvers.solve_forward(...,
          boundary_conditions=[(boundary_y_min, boundary_y_max),
-                              (boundary_x_min, boundary_x_max)])
+                              (boundary_x_min, boundary_x_max)]))
 ```
 
 The boundary conditions can be inhomogeneous. E.g. a "heat source" near
@@ -616,7 +619,7 @@ $x = x_{max}, y = 0$ may look like this:
 ```python
 sigma = 0.2
 
-@boundary_conditions.dirichlet
+@pde.boundary_conditions.dirichlet
 def boundary_x_max(t, grid):
   ys = grid[0]
   return tf.exp(-ys**2 / (2 * sigma**2))
@@ -687,19 +690,19 @@ def first_order_coeff_fn(t, grid):
 def zeroth_order_coeff_fn(t, grid):
   return -r
 
-@boundary_conditions.dirichlet
+@pde.boundary_conditions.dirichlet
 def boundary_s_min(t, grid):
   return 0.0
 
-@boundary_conditions.neumann
+@pde.boundary_conditions.neumann
 def boundary_s_max(t, grid):
   return 1.0
 
-@boundary_conditions.dirichlet
+@pde.boundary_conditions.dirichlet
 def boundary_v_min(t, grid):
   return 0.0
 
-@boundary_conditions.dirichlet
+@pde.boundary_conditions.dirichlet
 def boundary_v_max(t, grid):
   s, r = grid[0], grid[2]
   # Shape must be exactly the same as the shape of the boundary, which
@@ -707,11 +710,11 @@ def boundary_v_max(t, grid):
   s_mesh, r_mesh = tf.meshgrid(s, r, indexing='ij')
   return s_mesh
 
-@boundary_conditions.neumann
+@pde.boundary_conditions.neumann
 def boundary_r_min(t, grid):
   return 0.0
 
-@boundary_conditions.neumann
+@pde.boundary_conditions.neumann
 def boundary_r_max(t, grid):
   return 0.0
 ```
@@ -726,9 +729,9 @@ To use, for example, the explicit scheme, which is less accurate and stable but
 much faster than the default (Crank-Nicolson) scheme, we write:
 
 ```python
-result_value_grid, final_grid, end_time, steps_performed = 
-    fd_solvers.solve_forward(...
-        one_step_fn=steppers.explicit.explicit_step())
+result_value_grid, final_grid, end_time, steps_performed = (
+    pde.fd_solvers.solve_forward(...
+        one_step_fn=pde.steppers.explicit.explicit_step()))
 ```
 
 Currently the following schemes are supported for 1D:
