@@ -15,7 +15,6 @@
 
 import sys
 
-
 # We need to put some imports inside a function call below, and the function
 # call needs to come before the *actual* imports that populate the
 # tf_quant_finance namespace. Hence, we disable this lint check throughout
@@ -31,6 +30,7 @@ _REQUIRED_TENSORFLOW_VERSION = "2.1"  # pylint: disable=g-statement-before-impor
 def _check_py_version():
   if sys.version_info[0] < 3:
     raise Exception("Please use Python 3. Python 2 is not supported.")
+
 
 # Ensure TensorFlow is importable and its version is sufficiently recent. This
 # needs to happen before anything else, since the imports below will try to
