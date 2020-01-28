@@ -207,13 +207,13 @@ def _option_price(volatilities,
     N = 2 * cost_of_carries / volatilities ** 2
     K = 1 - tf.exp(- risk_free_rates * expiries)
     q2 = [(1 - N) + tf.sqrt((N - 1) ** 2 + 4 * M / K)] / 2
-
+    q1 = [(1 - N) - tf.sqrt((N - 1) ** 2 + 4 * M / K)] / 2
     def _calc_d1(s):
       return (tf.math.log(s/strikes) + (
           cost_of_carries + volatilities ** 2 / 2) * expiries) / (
           volatilities * tf.math.sqrt(expiries))
 
-    def _update(spot_crit, *_):
+    def _update_si(spot_crit, *_):
       LHS = spot_crit - strikes
       d1 = _calc_d1(spot_crit)
       RHS = tff.black_scholes.vanilla_prices.option_price(
@@ -224,6 +224,25 @@ def _option_price(volatilities,
             (cost_of_carries - risk_free_rates) * expiries) * _ncdf(
         d1)) * spot_crit / q2
 
+      bi = tf.exp(
+        (cost_of_carries - risk_free_rates) * expiries) * _ncdf(d1) * (
+          1 - 1 / q2) + (1 - tf.exp(
+        (cost_of_carries - risk_free_rates) * expiries) * _npdf(d1) / (
+          volatilities * tf.sqrt(expiries))) / q2
+      si = (strikes + RHS - bi * spot_crit) / (1 - bi)
+      return si, LHS, RHS
+
+    def _update_sii(spot_crit, *_):
+      LHS = spot_crit - strikes
+      d1 = _calc_d1(spot_crit)
+      RHS = tff.black_scholes.vanilla_prices.option_price(
+        volatilities=volatilities, strikes=strikes, expiries=expiries,
+        spots=spot_crit, risk_free_rates=risk_free_rates,
+        cost_of_carries=cost_of_carries, dtype=dtype, name=name) - (
+          1 - tf.exp(
+            (cost_of_carries - risk_free_rates) * expiries) * _ncdf(
+        - d1)) * spot_crit / q1
+      # TODO change bi below for put option
       bi = tf.exp(
         (cost_of_carries - risk_free_rates) * expiries) * _ncdf(d1) * (
           1 - 1 / q2) + (1 - tf.exp(
@@ -246,7 +265,7 @@ def _option_price(volatilities,
     spots_crit, LHS, RHS = tf.compat.v1.while_loop(
       loop_vars=[spots_crit, LHS, RHS],
       cond=lambda s, LHS, RHS: (tf.abs(LHS - RHS) / strikes) < 0.00001,
-      body=lambda s, LHS, RHS: _update(s, LHS, RHS))
+      body=lambda s, LHS, RHS: _update_si(s, LHS, RHS))
 
     A2 = (spots_crit / q2) * (
         1 - tf.exp(
@@ -331,6 +350,9 @@ def _option_price(volatilities,
     undiscounted_calls = forwards * _ncdf(d1) - strikes * _ncdf(d2)
     if is_call_options is None:
       return discount_factors * undiscounted_calls
+
+
+
     undiscounted_forward = forwards - strikes
     undiscounted_puts = undiscounted_calls - undiscounted_forward
     predicate = tf.broadcast_to(is_call_options, tf.shape(undiscounted_calls))
