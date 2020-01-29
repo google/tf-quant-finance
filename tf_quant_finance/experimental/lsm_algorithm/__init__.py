@@ -12,22 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Experimental modules."""
+"""LSM algorithm methods."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from tf_quant_finance.experimental.lsm_algorithm.lsm import least_square_mc
+from tf_quant_finance.experimental.lsm_algorithm.lsm import make_poly_basis
+from tf_quant_finance.experimental.lsm_algorithm.payoff import make_basket_put_payoff
 
-from tf_quant_finance.experimental import dates
-from tf_quant_finance.experimental import finite_difference
-from tf_quant_finance.experimental import lsm_algorithm
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
-
 _allowed_symbols = [
-    'dates',
-    'finite_difference',
-    'lsm_algorithm',
+    'least_square_mc',
+    'make_basket_put_payoff',
+    'make_poly_basis',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
