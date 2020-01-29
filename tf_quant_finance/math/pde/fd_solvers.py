@@ -81,63 +81,74 @@ def solve_backward(start_time,
 
   ### Example. European call option pricing.
   ```python
+  import tensorflow as tf
+  import tf_quant_finance as tff
+  pde = tff.math.pde
+
   num_equations = 2  # Number of PDE
   num_grid_points = 1024  # Number of grid points
-  dtype = np.float64
+  dtype = tf.float64
+
   # Build a log-uniform grid
   s_min = 0.01
   s_max = 300.
-  grid = uniform_grid(minimums=[s_min], maximums=[s_max],
-                      sizes=[num_grid_points],
-                      dtype=dtype)
+  grid = pde.grids.uniform_grid(minimums=[s_min],
+                                maximums=[s_max],
+                                sizes=[num_grid_points],
+                                dtype=dtype)
+
   # Specify volatilities and interest rates for the options
+  strike = tf.constant([[50], [100]], dtype)
   volatility = tf.constant([[0.3], [0.15]], dtype)
   rate = tf.constant([[0.01], [0.03]], dtype)
   expiry = 1.0
-  strike = tf.constant([[50], [100]], dtype)
+
+  # For batching multiple PDEs, we need to stack the grid values
+  # so that final_values[i] is the grid for the ith strike.
+  s = grid[0]
+  final_value_grid = tf.nn.relu(s - strike)
 
   # Define parabolic equation coefficients. In this case the coefficients
   # can be computed exactly but the same functions as below can be used to
   # get approximate values for general case.
+  # We again need to use `tf.meshgrid` to batch the coefficients.
   def second_order_coeff_fn(t, grid):
     del t
-    x = grid[0]
-    return [[tf.square(volatility) * tf.square(x) / 2]]
+    s = grid[0]
+    return [[volatility**2 * s**2 / 2]]
 
   def first_order_coeff_fn(t, grid):
     del t
-    x = grid[0]
-    return [rate * x]
+    s = grid[0]
+    return [rate * s]
 
   def zeroth_order_coeff_fn(t, grid):
     del t, grid
     return -rate
 
-  @boundary_conditions.dirichlet
-  def lower_boundary_fn(t, x):
-    del t, x
-    return dtype([0.0, 0.0])
+  @pde.boundary_conditions.dirichlet
+  def lower_boundary_fn(t, grid):
+    del t, grid
+    return tf.constant(0.0, dtype=dtype)
 
-  @boundary_conditions.dirichlet
-  def upper_boundary_fn(t, x):
-    return tf.squeeze(x - strike * tf.exp(-rate * (expiry - t)))
+  @pde.boundary_conditions.dirichlet
+  def upper_boundary_fn(t, grid):
+    del grid
+    return tf.squeeze(s_max - strike * tf.exp(-rate * (expiry - t)))
 
-  final_values = tf.nn.relu(grid - strike)
-  # Broadcast to the shape of value dimension, if necessary.
-  final_values += tf.zeros([num_equations, num_grid_points],
-                           dtype=dtype)
+
   # Estimate European call option price
-  estimate = fd_solvers.solve_backwards(
-      start_time=expiry,
-      end_time=0,
-      coord_grid=grid,
-      values_grid=final_values,
-      time_step=0.01,
-      boundary_conditions=[(lower_boundary_fn, upper_boundary_fn)],
-      second_order_coeff_fn=second_order_coeff_fn,
-      first_order_coeff_fn=first_order_coeff_fn,
-      zeroth_order_coeff_fn=zeroth_order_coeff_fn,
-      dtype=dtype)[0]
+  estimate = pde.fd_solvers.solve_backward(
+    start_time=expiry,
+    end_time=0,
+    coord_grid=grid,
+    values_grid=final_value_grid,
+    time_step=0.01,
+    boundary_conditions=[(lower_boundary_fn, upper_boundary_fn)],
+    second_order_coeff_fn=second_order_coeff_fn,
+    first_order_coeff_fn=first_order_coeff_fn,
+    zeroth_order_coeff_fn=zeroth_order_coeff_fn,
+    dtype=dtype)[0]
 
   # Extract estimates for some of the grid locations and compare to the
   # true option price

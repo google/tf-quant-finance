@@ -161,11 +161,11 @@ cd tf_quant_finance
 you can execute tests using the ```bazel test``` command. For example,
 
 ```sh
-bazel test tf_quant_finance/math/random/sobol:sobol_test
+bazel test tf_quant_finance/math/random_ops/sobol:sobol_test
 ```
 
 will run tests in
-[sobol_test.py](https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/random/sobol/sobol_test.py)
+[sobol_test.py](https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/random_ops/sobol/sobol_test.py)
 .
 
 Tests will be run using the Python version 3. Please make sure that you can
@@ -208,7 +208,7 @@ pip install --user --upgrade artifacts/*.whl
 ## Community
 1. [GitHub repository](https://github.com/google/tf-quant-finance): Report bugs or make feature requests.
 
-2. [TensorFlow Blog](https://medium.com/tensorflow): Stay up to date on content from the TensorFlow team and best articles from the community.
+2. [TensorFlow Blog](https://blog.tensorflow.org/): Stay up to date on content from the TensorFlow team and best articles from the community.
 
 3. tf-quant-finance@google.com: Open mailing list for discussion and questions of this library.
 
