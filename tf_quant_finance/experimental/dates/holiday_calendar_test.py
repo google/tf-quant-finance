@@ -97,15 +97,31 @@ class HolidayCalendarTest(tf.test.TestCase, parameterized.TestCase):
     self.assertAllEqual([True, False, True, False],
                         cal.is_business_day(date_tensor))
 
-  def test_skip_eager_reset(self):
-    cal = dates.HolidayCalendar(start_year=2020, end_year=2021)
-    cal.is_business_day(dates.DateTensor.from_tuples([]))  # Trigger caching.
-    tf.compat.v1.reset_default_graph()
-    cal.reset()
-    date_tensor = dates.DateTensor.from_tuples([(2020, 1, 3), (2020, 1, 4),
-                                                (2021, 12, 24), (2021, 12, 25)])
-    self.assertAllEqual([True, False, True, False],
-                        cal.is_business_day(date_tensor))
+  def test_tensor_caching(self):
+    cal = dates.HolidayCalendar(holidays=test_data.holidays)
+    conv = dates.BusinessDayConvention.FOLLOWING
+
+    @tf.function
+    def foo():
+      # Trigger caching of all tables.
+      date_tensor = dates.DateTensor.from_tuples([])
+      return (cal.is_business_day(date_tensor),
+              cal.roll_to_business_day(date_tensor, conv).ordinals(),
+              cal.business_days_between(date_tensor, date_tensor),
+              cal.add_business_days(date_tensor, 2, conv).ordinals())
+
+    @tf.function
+    def bar():
+      date_tensor = dates.DateTensor.from_tuples([(2020, 1, 3), (2020, 1, 4),
+                                                  (2021, 12, 24),
+                                                  (2021, 12, 25)])
+      return (cal.is_business_day(date_tensor),
+              cal.roll_to_business_day(date_tensor, conv).ordinals(),
+              cal.business_days_between(date_tensor, date_tensor),
+              cal.add_business_days(date_tensor, 2, conv).ordinals())
+
+    foo()
+    self.assertAllEqual([True, False, False, False], bar()[0])
 
   @parameterized.named_parameters(*rolling_test_parameters)
   def test_roll_to_business_days(self, rolling_enum_value, data_key):

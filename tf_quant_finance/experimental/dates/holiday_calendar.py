@@ -33,9 +33,6 @@ class HolidayCalendar(object):
 
   Provides methods for manipulating the dates taking into account the holidays,
   and the business day roll conventions. Weekends are treated as holidays.
-
-  The instances cache Tensors and are invalidated when the default Tensorflow
-  graph is reset or changed.
   """
 
   def __init__(
@@ -45,17 +42,6 @@ class HolidayCalendar(object):
       start_year=None,
       end_year=None):
     """Initializer.
-
-    The object caches Tensors and is invalidated when the default Tensorflow
-    graph is reset or changed. For example:
-
-    ```python
-    cal = HolidayCalendar(...)
-    # Work with cal.
-    tf.reset_default_graph()
-    # cal can no longer be used here. Call cal.reset() or create a new instance
-    # of HolidayCalendar.
-    ```
 
     Args:
       weekend_mask: Sequence of 7 elements, where "0" means work day and "1" -
@@ -311,22 +297,6 @@ class HolidayCalendar(object):
                                     ordinals_2 - self._ordinal_offset)
     return tf.math.maximum(cumul_bus_days_2 - cumul_bus_days_1, 0)
 
-  def reset(self):
-    """Resets the caches, so that the calendar can be used after graph reset.
-
-    Example:
-
-    ```python
-    cal = HolidayCalendar(...)
-    tf.reset_default_graph()
-    # cal can't be used.
-    cal.reset()
-    # Now cal can be used again.
-    ```
-
-    """
-    self._table_cache = _TableCache()
-
   def _compute_rolled_dates_table(self, roll_convention):
     """Computes and caches rolled dates table."""
     already_computed = self._table_cache.rolled_dates.get(roll_convention, None)
@@ -344,8 +314,13 @@ class HolidayCalendar(object):
         weekmask=1 - self._weekend_mask,
         holidays=holidays_arg)
     rolled_date_table = adjusted_np.astype(np.int32) + _ORDINAL_OF_1_1_1970
-    rolled_date_table = tf.convert_to_tensor(rolled_date_table,
-                                             name="rolled_date_table")
+
+    # To make tensor caching safe, lift the ops out of the current scope using
+    # tf.init_scope(). This allows e.g. to cache these tensors in one
+    # tf.function and reuse them in another tf.function.
+    with tf.init_scope():
+      rolled_date_table = tf.convert_to_tensor(rolled_date_table,
+                                               name="rolled_date_table")
     self._table_cache.rolled_dates[roll_convention] = rolled_date_table
     return rolled_date_table
 
@@ -368,8 +343,9 @@ class HolidayCalendar(object):
           np.array(self._holidays_np, dtype=np.int32) + _ORDINAL_OF_1_1_1970)
       is_bus_day_table[holiday_ordinals - self._ordinal_offset] = 0
 
-    is_bus_day_table = tf.convert_to_tensor(is_bus_day_table,
-                                            name="is_bus_day_table")
+    with tf.init_scope():
+      is_bus_day_table = tf.convert_to_tensor(is_bus_day_table,
+                                              name="is_bus_day_table")
     self._table_cache.is_bus_day = is_bus_day_table
     return is_bus_day_table
 
@@ -379,9 +355,10 @@ class HolidayCalendar(object):
       return self._table_cache.cumul_bus_days
 
     is_bus_day_table = self._compute_is_bus_day_table()
-    cumul_bus_days_table = tf.math.cumsum(is_bus_day_table, exclusive=True,
-                                          name="cumul_bus_days_table")
-    self._table_cache.cumul_bus_days = cumul_bus_days_table
+    with tf.init_scope():
+      cumul_bus_days_table = tf.math.cumsum(is_bus_day_table, exclusive=True,
+                                            name="cumul_bus_days_table")
+      self._table_cache.cumul_bus_days = cumul_bus_days_table
     return cumul_bus_days_table
 
   def _compute_bus_day_ordinals_table(self):
@@ -390,10 +367,11 @@ class HolidayCalendar(object):
       return self._table_cache.bus_day_ordinals
 
     is_bus_day_table = self._compute_is_bus_day_table()
-    bus_day_ordinals_table = tf.cast(
-        tf.compat.v2.where(is_bus_day_table)[:, 0] + self._ordinal_offset,
-        tf.int32, name="bus_day_ordinals_table")
-    self._table_cache.bus_day_ordinals = bus_day_ordinals_table
+    with tf.init_scope():
+      bus_day_ordinals_table = tf.cast(
+          tf.compat.v2.where(is_bus_day_table)[:, 0] + self._ordinal_offset,
+          tf.int32, name="bus_day_ordinals_table")
+      self._table_cache.bus_day_ordinals = bus_day_ordinals_table
     return bus_day_ordinals_table
 
   def _gather(self, table, indices):
