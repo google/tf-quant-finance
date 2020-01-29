@@ -77,6 +77,7 @@ def swap_curve_fit(float_leg_start_times,
                    fixed_leg_discount_rates=None,
                    fixed_leg_discount_times=None,
                    optimize=None,
+                   curve_interpolator=None,
                    initial_curve_rates=None,
                    instrument_weights=None,
                    curve_tolerance=1e-8,
@@ -99,7 +100,8 @@ def swap_curve_fit(float_leg_start_times,
   such that when these rates are interpolated to all other cashflow times,
   the computed value of the swaps matches the market value of the swaps
   (within some tolerance). Rates at intermediate times are interpolated using
-  linear interpolation.
+  the user specified interpolation method (the default interpolation method
+  is linear interpolation on rates).
 
   ### Example:
 
@@ -270,6 +272,15 @@ def swap_curve_fit(float_leg_start_times,
       the value of the objective function at the optimal value).
       The default value for `optimize` is None and conjugate gradient algorithm
       is used.
+    curve_interpolator: Optional Python callable used to interpolate the zero
+      swap rates at cashflow times. It should have the following interface:
+      yi = curve_interpolator(xi, x, y)
+      `x`, `y`, 'xi', 'yi' are all `Tensors` of real dtype. `x` and `y` are the
+      sample points and values (respectively) of the function to be
+      interpolated. `xi` are the points at which the interpolation is
+      desired and `yi` are the corresponding interpolated values returned by the
+      function. The default value for `curve_interpolator` is None in which
+      case linear interpolation is used.
     instrument_weights: Optional 'Tensor' of the same dtype and shape as
       `present_values`. This input contains the weight of each instrument in
       computing the objective function for the conjugate gradient optimization.
@@ -331,6 +342,10 @@ def swap_curve_fit(float_leg_start_times,
 
     if optimize is None:
       optimize = optimizer.conjugate_gradient_minimize
+
+    if curve_interpolator is None:
+      curve_interpolator = lambda xi, x, y: linear.interpolate(
+          xi, x, y, dtype=dtype)
 
     if instrument_weights is None:
       instrument_weights = _initialize_instrument_weights(float_leg_end_times,
@@ -419,6 +434,7 @@ def swap_curve_fit(float_leg_start_times,
                              present_values,
                              pv_settle_times,
                              optimize,
+                             curve_interpolator,
                              initial_rates,
                              instrument_weights,
                              curve_tolerance,
@@ -433,9 +449,9 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
                       float_leg_discount_times, fixed_leg_discount_rates,
                       fixed_leg_discount_times, self_discounting_float_leg,
                       self_discounting_fixed_leg, present_values,
-                      pv_settlement_times, optimize, initial_rates,
-                      instrument_weights, curve_tolerance, maximum_iterations,
-                      dtype):
+                      pv_settlement_times, optimize, curve_interpolator,
+                      initial_rates, instrument_weights, curve_tolerance,
+                      maximum_iterations, dtype):
   """Build the zero swap curve.
 
   The procedure uses optimization to estimate the swap curve as follows:
@@ -447,10 +463,13 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
     """
 
   curve_tensors = _create_curve_building_tensors(
-      float_leg_start_times, float_leg_end_times, fixed_leg_end_times)
-  expiry_times = curve_tensors[0]
-  calc_groups_float = curve_tensors[1]
-  calc_groups_fixed = curve_tensors[2]
+      float_leg_start_times, float_leg_end_times, fixed_leg_end_times,
+      pv_settlement_times)
+  expiry_times = curve_tensors.expiry_times
+  calc_groups_float = curve_tensors.calc_groups_float
+  calc_groups_fixed = curve_tensors.calc_groups_fixed
+  settle_times_float = curve_tensors.settle_times_float
+  settle_times_fixed = curve_tensors.settle_times_fixed
 
   calc_float_leg_daycount = tf.concat(float_leg_daycount_fractions, axis=0)
   float_leg_calc_times_start = tf.concat(float_leg_start_times, axis=0)
@@ -460,7 +479,7 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
   fixed_leg_calc_times = tf.concat(fixed_leg_end_times, axis=0)
 
   def _interpolate(x1, x_data, y_data):
-    return linear.interpolate(x1, x_data, y_data, dtype=dtype)
+    return curve_interpolator(x1, x_data, y_data)
 
   @make_val_and_grad_fn
   def loss_function(x):
@@ -488,21 +507,33 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
 
     if self_discounting_float_leg:
       float_discount_rates = rates_end
+      float_settle_rates = _interpolate(settle_times_float, expiry_times, x)
     else:
       float_discount_rates = _interpolate(float_leg_calc_times_end,
                                           float_leg_discount_times,
                                           float_leg_discount_rates)
+      float_settle_rates = _interpolate(settle_times_float,
+                                        float_leg_discount_times,
+                                        float_leg_discount_rates)
     if self_discounting_fixed_leg:
       fixed_discount_rates = _interpolate(fixed_leg_calc_times, expiry_times, x)
+      fixed_settle_rates = _interpolate(settle_times_fixed, expiry_times, x)
     else:
       fixed_discount_rates = _interpolate(fixed_leg_calc_times,
                                           fixed_leg_discount_times,
                                           fixed_leg_discount_rates)
+      fixed_settle_rates = _interpolate(settle_times_fixed,
+                                        fixed_leg_discount_times,
+                                        fixed_leg_discount_rates)
 
-    calc_discounts_float_leg = tf.math.exp(-float_discount_rates *
-                                           float_leg_calc_times_end)
-    calc_discounts_fixed_leg = tf.math.exp(-fixed_discount_rates *
-                                           fixed_leg_calc_times)
+    # exp(-r(t) * t) / exp(-r(t_s) * t_s)
+    calc_discounts_float_leg = (
+        tf.math.exp(-float_discount_rates * float_leg_calc_times_end +
+                    float_settle_rates * settle_times_float))
+
+    calc_discounts_fixed_leg = (
+        tf.math.exp(-fixed_discount_rates * fixed_leg_calc_times +
+                    fixed_settle_rates * settle_times_fixed))
 
     float_pv = tf.math.segment_sum(float_cashflows * calc_discounts_float_leg,
                                    calc_groups_float)
@@ -557,13 +588,33 @@ def _initialize_instrument_weights(float_times, fixed_times, dtype):
   return weights
 
 
+CurveFittingVars = collections.namedtuple(
+    'CurveFittingVars',
+    [
+        # The `Tensor` of maturities at which the curve will be built.
+        # Coorspond to maturities on the underlying instruments
+        'expiry_times',
+        # `Tensor` containing the instrument index of each floating cashflow
+        'calc_groups_float',
+        # `Tensor` containing the instrument index of each fixed cashflow
+        'calc_groups_fixed',
+        # `Tensor` containing the settlement time of each floating cashflow
+        'settle_times_float',
+        # `Tensor` containing the settlement time of each fixed cashflow
+        'settle_times_fixed'
+    ])
+
+
 def _create_curve_building_tensors(float_leg_start_times,
                                    float_leg_end_times,
-                                   fixed_leg_end_times):
+                                   fixed_leg_end_times,
+                                   pv_settlement_times):
   """Helper function to create tensors needed for curve construction."""
   calc_groups_float = []
   calc_groups_fixed = []
   expiry_times = []
+  settle_times_float = []
+  settle_times_fixed = []
   num_instruments = len(float_leg_start_times)
   for i in range(num_instruments):
     expiry_times.append(
@@ -572,8 +623,19 @@ def _create_curve_building_tensors(float_leg_start_times,
     calc_groups_float.append(
         tf.fill(tf.shape(float_leg_start_times[i]), i))
     calc_groups_fixed.append(tf.fill(tf.shape(fixed_leg_end_times[i]), i))
+    settle_times_float.append(tf.fill(tf.shape(float_leg_start_times[i]),
+                                      pv_settlement_times[i]))
+    settle_times_fixed.append(tf.fill(tf.shape(fixed_leg_end_times[i]),
+                                      pv_settlement_times[i]))
 
   expiry_times = tf.stack(expiry_times, axis=0)
   calc_groups_float = tf.concat(calc_groups_float, axis=0)
   calc_groups_fixed = tf.concat(calc_groups_fixed, axis=0)
-  return expiry_times, calc_groups_float, calc_groups_fixed
+  settle_times_float = tf.concat(settle_times_float, axis=0)
+  settle_times_fixed = tf.concat(settle_times_fixed, axis=0)
+
+  return CurveFittingVars(expiry_times=expiry_times,
+                          calc_groups_float=calc_groups_float,
+                          calc_groups_fixed=calc_groups_fixed,
+                          settle_times_float=settle_times_float,
+                          settle_times_fixed=settle_times_fixed)
