@@ -193,6 +193,10 @@ def _option_price(volatilities,
         spots, strikes, volatilities, expiries, risk_free_rates,
         cost_of_carries, is_call_options
       ]):
+    where_call = tf.constant(
+      True) if is_call_options is None else is_call_options
+    call_indices = tf.compat.v1.where_v2(where_call)
+
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name="strikes")
     volatilities = tf.convert_to_tensor(volatilities, dtype=dtype, name="volatilities")
     if forwards is not None:
@@ -202,6 +206,13 @@ def _option_price(volatilities,
         name="spots")
     else:
       spots = tf.convert_to_tensor(spots, dtype=dtype, name="spots")
+
+    strikes_call = strikes if is_call_options is None \
+      else tf.gather_nd(strikes, call_indices)
+    volatilities_call = volatilities if is_call_options is None \
+      else tf.gather_nd(volatilities, call_indices)
+    spots_call = spots if is_call_options is None \
+      else tf.gather_nd(spots, call_indices)
 
     M = 2 * risk_free_rates / volatilities ** 2
     N = 2 * cost_of_carries / volatilities ** 2
@@ -251,28 +262,30 @@ def _option_price(volatilities,
       si = (strikes + RHS - bi * spot_crit) / (1 - bi)
       return si, LHS, RHS
 
+
     # Below is estimate starting point for S*; in future will calculate
-    spots_crit = tf.identity(strikes, name="S*")
-    LHS = spots_crit - strikes
+    spots_crit_call = tf.identity(spots_call, name="S*")
+    LHS = spots_crit_call - strikes_call
     RHS = tff.black_scholes.vanilla_prices.option_price(
-      volatilities=volatilities, strikes=strikes, expiries=expiries,
-      spots=spots_crit, risk_free_rates=risk_free_rates,
-      cost_of_carries=cost_of_carries, dtype=dtype, name=name) + (
+      volatilities=volatilities_call, strikes=strikes_call,
+      expiries=expiries_call, spots=spots_crit_call, 
+      risk_free_rates=risk_free_rates_call,
+      cost_of_carries=cost_of_carries_call, dtype=dtype, name=name) + (
           1 - tf.exp(
             (cost_of_carries - risk_free_rates) * expiries) * _ncdf(
-      _calc_d1(spots_crit))) * spots_crit / q2
+      _calc_d1(spots_crit_call))) * spots_crit_call / q2
 
-    spots_crit, LHS, RHS = tf.compat.v1.while_loop(
-      loop_vars=[spots_crit, LHS, RHS],
+    spots_crit_call, LHS, RHS = tf.compat.v1.while_loop(
+      loop_vars=[spots_crit_call, LHS, RHS],
       cond=lambda s, LHS, RHS: (tf.abs(LHS - RHS) / strikes) < 0.00001,
       body=lambda s, LHS, RHS: _update_si(s, LHS, RHS))
 
-    A2 = (spots_crit / q2) * (
+    A2 = (spots_crit_call / q2) * (
         1 - tf.exp(
-      (cost_of_carries-risk_free_rates) * expiries)) * _ncdf(_calc_d1(spots_crit))
+      (cost_of_carries-risk_free_rates) * expiries)) * _ncdf(_calc_d1(spots_crit_call))
 
     if is_call_options is None:
-      is_less_than_s = spots < spots_crit
+      is_less_than_s = spots < spots_crit_call
       indices = tf.compat.v1.where_v2(is_less_than_s)
       less_than_s_spots = tf.gather_nd(spots, indices)
       less_than_s_expiries = tf.gather_nd(expiries, indices)
@@ -288,8 +301,29 @@ def _option_price(volatilities,
 
       return tf.compat.v1.where_v2(
         is_less_than_s,
-        eu_call_prices + A2 * (spots / spots_crit) ** q2,
+        eu_call_prices + A2 * (spots / spots_crit_call) ** q2,
         spots - strikes)
+
+    # Put option
+    spots_crit_put = tf.identity(strikes, name="S**")
+    LHS_2 = spots_crit_put - strikes
+    RHS_2 = tff.black_scholes.vanilla_prices.option_price(
+      volatilities=volatilities, strikes=strikes, expiries=expiries,
+      spots=spots_crit_put, risk_free_rates=risk_free_rates,
+      cost_of_carries=cost_of_carries, is_call_options=is_call_options,
+      dtype=dtype, name=name) + (1 - tf.exp(
+            (cost_of_carries - risk_free_rates) * expiries) * _ncdf(
+            _calc_d1(spots_crit_put))) * spots_crit_put / q2
+
+    spots_crit_put, LHS, RHS = tf.compat.v1.while_loop(
+      loop_vars=[spots_crit_put, LHS, RHS],
+      cond=lambda s, LHS, RHS: (tf.abs(LHS - RHS) / strikes) < 0.00001,
+      body=lambda s, LHS, RHS: _update_si(s, LHS, RHS))
+
+    A1 = (spots_crit_put / q2) * (
+        1 - tf.exp(
+      (cost_of_carries - risk_free_rates) * expiries)) * _ncdf(
+      _calc_d1(spots_crit_put))
 
     # Evaluate q2 for call
     # q2 = [- (N - 1) + sqrt((N - 1) ^ 2 + 4M/K)] / 2
