@@ -38,7 +38,8 @@ class UniformTest(tf.test.TestCase):
     dim = 10
     sample = self.evaluate(
         tff_rnd.uniform(dim=dim,
-                        sample_shape=sample_shape))
+                        sample_shape=sample_shape,
+                        seed=101))
     np.testing.assert_array_equal(sample.shape, sample_shape + [dim])
     expected_mean = 0.5 * np.ones(sample_shape[:-1] + [dim])
     np.testing.assert_array_almost_equal(
