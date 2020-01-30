@@ -39,19 +39,3 @@ py_test(
         # tensorflow_probability dep,
     ],
 )
-
-py_test(
-    name = "halton_long_test",
-    size = "medium",
-    timeout = "eternal",
-    srcs = ["halton_long_test.py"],
-    python_version = "PY3",
-    shard_count = 5,
-    deps = [
-        "//tf_quant_finance",
-        # numpy dep,
-        # six dep,
-        # tensorflow dep,
-        # tensorflow_probability dep,
-    ],
-)
