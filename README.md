@@ -120,14 +120,14 @@ This section is meant for developers who want to contribute code to the
 library. If you are only interested in using the library, please follow the
 instructions in the [Installation](#installation) section.
 
-### Dependencies
+### Development dependencies
 
 This library has the following dependencies:
 
 1.  Bazel
 2.  Python 3 (Bazel uses Python 3 by default)
-3.  TensorFlow version 2.1 or higher
-4.  TensorFlow Probability version 0.8 or higher
+3.  TensorFlow nightly build (most functions should work with TensorFLow 2.1)
+4.  TensorFlow Probability nightly build
 5.  Numpy version 1.16 or higher
 6.  Attrs
 
@@ -141,7 +141,7 @@ You can install TensorFlow and related dependencies using the ```pip3 install```
 command:
 
 ```sh
-pip3 install --upgrade tensorflow tensorflow-probability numpy attrs
+pip3 install --upgrade tf-nightly tfp-nightly numpy==1.16.0 attrs
 ```
 
 ### Commonly used commands
