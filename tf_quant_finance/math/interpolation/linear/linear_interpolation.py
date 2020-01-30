@@ -22,8 +22,8 @@ import tensorflow as tf
 def interpolate(x,
                 x_data,
                 y_data,
-                left_slope=0.0,
-                right_slope=0.0,
+                left_slope=None,
+                right_slope=None,
                 validate_args=False,
                 dtype=None,
                 name=None):
@@ -57,22 +57,25 @@ def interpolate(x,
       compatible shape as `x_data`. First N-1 dimensions represent batching
       dimensions.
     left_slope: The slope to use for extrapolation with x-coordinate smaller
-      than the min `x_data`. It's a 0-D or N-D `Tensor`. If not supplied, the
-      default will be 0, meaning constant extrapolation, i.e. extrapolated value
-      will be the leftmost `y_data`.
+      than the min `x_data`. It's a 0-D or N-D `Tensor`.
+      Default value: `None`, which maps to `0.0` meaning constant extrapolation,
+      i.e. extrapolated value will be the leftmost `y_data`.
     right_slope: The slope to use for extrapolation with x-coordinate greater
-      than the max `x_data`. It's a 0-D or N-D `Tensor`. If not supplied, the
-      default will be 0, meaning constant extrapolation, i.e. extrapolated value
-      will be the rightmost `y_data`.
+      than the max `x_data`. It's a 0-D or N-D `Tensor`.
+      Default value: `None` which maps to `0.0` meaning constant extrapolation,
+      i.e. extrapolated value will be the rightmost `y_data`.
     validate_args: Python `bool` that indicates whether the function performs
       the check if the shapes of `x_data` and `y_data` are equal and that the
       elements in `x_data` are non decreasing. If this value is set to `False`
-      and the elements in x_data are not increasing, the result of linear
+      and the elements in `x_data` are not increasing, the result of linear
       interpolation may be wrong.
+      Default value: `False`.
     dtype: Optional tf.dtype for `x`, x_data`, `y_data`, `left_slope` and
-      `right_slope`. If not specified, the dtype of the inputs will be used.
-    name: Python str. The name prefixed to the ops created by this function. If
-      not supplied, the default name 'linear_interpolation' is used.
+      `right_slope`.
+      Default value: `None` which means that the `dtype` inferred by TensorFlow
+      is used.
+    name: Python str. The name prefixed to the ops created by this function.
+      Default value: `None` which maps to 'linear_interpolation'.
 
   Returns:
     A N-D `Tensor` of real dtype corresponding to the x-values in `x`.
@@ -81,17 +84,25 @@ def interpolate(x,
       name,
       default_name='linear_interpolation',
       values=[x, x_data, y_data, left_slope, right_slope]):
-    x = tf.convert_to_tensor(x, dtype=dtype)
-    x_data = tf.convert_to_tensor(x_data, dtype=dtype)
-    y_data = tf.convert_to_tensor(y_data, dtype=dtype)
+    x = tf.convert_to_tensor(x, dtype=dtype, name='x')
+    x_data = tf.convert_to_tensor(x_data, dtype=dtype, name='x_data')
+    y_data = tf.convert_to_tensor(y_data, dtype=dtype, name='y_data')
     batch_shape = x.shape.as_list()[:-1]
     if not batch_shape:
       x = tf.expand_dims(x, 0)
       x_data = tf.expand_dims(x_data, 0)
       y_data = tf.expand_dims(y_data, 0)
 
-    left_slope = tf.convert_to_tensor(left_slope, dtype=dtype)
-    right_slope = tf.convert_to_tensor(right_slope, dtype=dtype)
+    if left_slope is None:
+      left_slope = tf.constant(0.0, dtype=x.dtype, name='left_slope')
+    else:
+      left_slope = tf.convert_to_tensor(left_slope, dtype=dtype,
+                                        name='left_slope')
+    if right_slope is None:
+      right_slope = tf.constant(0.0, dtype=x.dtype, name='right_slope')
+    else:
+      right_slope = tf.convert_to_tensor(right_slope, dtype=dtype,
+                                         name='right_slope')
     control_deps = []
     if validate_args:
       # Check that `x_data` elements is non-decreasing

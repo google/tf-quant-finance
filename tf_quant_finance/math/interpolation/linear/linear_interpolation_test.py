@@ -20,7 +20,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
@@ -125,13 +125,15 @@ class LinearInterpolation(tf.test.TestCase):
 
   def test_linear_interpolation_multiple_batching_dimensions(self):
     """Tests linear interpolation with multiple batching dimensions."""
-    x = [[[1.5], [3.5]]]
-    x_data = [[[1, 2], [3, 4]]]
-    y_data = [[[0, 1], [2, 3]]]
-    result = self.evaluate(
-        tff.math.interpolation.linear.interpolate(
-            x, x_data, y_data, dtype=tf.float32))
-    self.assertAllClose(result, np.array([[[0.5], [2.5]]]), 1e-8)
+    for dtype in (np.float32, np.float64):
+      x = np.array([[[1.5], [3.5]]], dtype=dtype)
+      x_data = np.array([[[1, 2], [3, 4]]], dtype=dtype)
+      y_data = np.array([[[0, 1], [2, 3]]], dtype=dtype)
+      result = self.evaluate(
+          tff.math.interpolation.linear.interpolate(
+              x, x_data, y_data))
+      self.assertEqual(result.dtype, dtype)
+      self.assertAllClose(result, np.array([[[0.5], [2.5]]]), 1e-8)
 
   def test_linear_interpolation_non_const_extrapolation_batching(self):
     """Tests linear interpolation with non-const extrapolation and batching."""
