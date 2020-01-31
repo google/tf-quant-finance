@@ -15,8 +15,8 @@
 
 import tensorflow as tf
 
-from tf_quant_finance.experimental.dates.constants import PeriodType
-from tf_quant_finance.experimental.dates.tensor_wrapper import TensorWrapper
+from tf_quant_finance.experimental.dates import constants
+from tf_quant_finance.experimental.dates import tensor_wrapper
 
 
 def day():
@@ -24,7 +24,7 @@ def day():
 
 
 def days(n):
-  return PeriodTensor(n, PeriodType.DAY)
+  return PeriodTensor(n, constants.PeriodType.DAY)
 
 
 def week():
@@ -32,7 +32,7 @@ def week():
 
 
 def weeks(n):
-  return PeriodTensor(n, PeriodType.WEEK)
+  return PeriodTensor(n, constants.PeriodType.WEEK)
 
 
 def month():
@@ -40,7 +40,7 @@ def month():
 
 
 def months(n):
-  return PeriodTensor(n, PeriodType.MONTH)
+  return PeriodTensor(n, constants.PeriodType.MONTH)
 
 
 def year():
@@ -48,20 +48,20 @@ def year():
 
 
 def years(n):
-  return PeriodTensor(n, PeriodType.YEAR)
+  return PeriodTensor(n, constants.PeriodType.YEAR)
 
 
-class PeriodTensor(TensorWrapper):
+class PeriodTensor(tensor_wrapper.TensorWrapper):
   """Represents a tensor of time periods."""
 
   def __init__(self, quantity, period_type):
     """Initializer.
 
     Args:
-      quantity: a Tensor of type tf.int32, representing the quantities
+      quantity: A Tensor of type tf.int32, representing the quantities
         of period types (e.g. how many months). Can be both positive and
         negative.
-      period_type: a PeriodType (a day, a month, etc). Currently only one
+      period_type: A PeriodType (a day, a month, etc). Currently only one
         PeriodType per instance of PeriodTensor is supported.
 
     Example:

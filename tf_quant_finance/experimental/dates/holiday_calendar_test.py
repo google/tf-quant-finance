@@ -63,10 +63,10 @@ class HolidayCalendarTest(tf.test.TestCase, parameterized.TestCase):
                            dtype=np.datetime64),
   })
   def test_providing_holidays(self, holidays):
-    cal = dates.HolidayCalendar(holidays=holidays)
-    date_tensor = dates.DateTensor.from_tuples([(2020, 1, 1), (2020, 5, 1),
-                                                (2020, 12, 25), (2021, 3, 8),
-                                                (2021, 1, 1)])
+    cal = dates.HolidayCalendar(
+        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY, holidays=holidays)
+    date_tensor = dates.from_tuples([(2020, 1, 1), (2020, 5, 1), (2020, 12, 25),
+                                     (2021, 3, 8), (2021, 1, 1)])
     self.assertAllEqual([False, True, False, True, False],
                         cal.is_business_day(date_tensor))
 
@@ -75,50 +75,54 @@ class HolidayCalendarTest(tf.test.TestCase, parameterized.TestCase):
     cal = dates.HolidayCalendar(start_year=2020,
                                 end_year=2021,
                                 weekend_mask=weekend_mask)
-    date_tensor = dates.DateTensor.from_tuples([(2020, 1, 2), (2020, 1, 3),
-                                                (2020, 1, 4), (2020, 1, 5),
-                                                (2020, 1, 6), (2020, 5, 1),
-                                                (2020, 5, 2)])
+    date_tensor = dates.from_tuples([(2020, 1, 2), (2020, 1, 3), (2020, 1, 4),
+                                     (2020, 1, 5), (2020, 1, 6), (2020, 5, 1),
+                                     (2020, 5, 2)])
     self.assertAllEqual([True, False, True, False, True, False, True],
                         cal.is_business_day(date_tensor))
 
   def test_holidays_intersect_with_weekends(self):
     holidays = [(2020, 1, 4)]  # Saturday.
-    cal = dates.HolidayCalendar(holidays=holidays)
-    date_tensor = dates.DateTensor.from_tuples([(2020, 1, 3), (2020, 1, 4),
-                                                (2020, 1, 5), (2020, 1, 6)])
+    cal = dates.HolidayCalendar(
+        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY, holidays=holidays)
+    date_tensor = dates.from_tuples([(2020, 1, 3), (2020, 1, 4), (2020, 1, 5),
+                                     (2020, 1, 6)])
     self.assertAllEqual([True, False, False, True],
                         cal.is_business_day(date_tensor))
 
   def test_no_holidays_specified(self):
-    cal = dates.HolidayCalendar(start_year=2020, end_year=2021)
-    date_tensor = dates.DateTensor.from_tuples([(2020, 1, 3), (2020, 1, 4),
-                                                (2021, 12, 24), (2021, 12, 25)])
+    cal = dates.HolidayCalendar(
+        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
+        start_year=2020,
+        end_year=2021)
+    date_tensor = dates.from_tuples([(2020, 1, 3), (2020, 1, 4), (2021, 12, 24),
+                                     (2021, 12, 25)])
     self.assertAllEqual([True, False, True, False],
                         cal.is_business_day(date_tensor))
 
   def test_tensor_caching(self):
-    cal = dates.HolidayCalendar(holidays=test_data.holidays)
+    cal = dates.HolidayCalendar(
+        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
+        holidays=test_data.holidays)
     conv = dates.BusinessDayConvention.FOLLOWING
 
     @tf.function
     def foo():
       # Trigger caching of all tables.
-      date_tensor = dates.DateTensor.from_tuples([])
+      date_tensor = dates.from_tuples([])
       return (cal.is_business_day(date_tensor),
-              cal.roll_to_business_day(date_tensor, conv).ordinals(),
+              cal.roll_to_business_day(date_tensor, conv).ordinal(),
               cal.business_days_between(date_tensor, date_tensor),
-              cal.add_business_days(date_tensor, 2, conv).ordinals())
+              cal.add_business_days(date_tensor, 2, conv).ordinal())
 
     @tf.function
     def bar():
-      date_tensor = dates.DateTensor.from_tuples([(2020, 1, 3), (2020, 1, 4),
-                                                  (2021, 12, 24),
-                                                  (2021, 12, 25)])
+      date_tensor = dates.from_tuples([(2020, 1, 3), (2020, 1, 4),
+                                       (2021, 12, 24), (2021, 12, 25)])
       return (cal.is_business_day(date_tensor),
-              cal.roll_to_business_day(date_tensor, conv).ordinals(),
+              cal.roll_to_business_day(date_tensor, conv).ordinal(),
               cal.business_days_between(date_tensor, date_tensor),
-              cal.add_business_days(date_tensor, 2, conv).ordinals())
+              cal.add_business_days(date_tensor, 2, conv).ordinal())
 
     foo()
     self.assertAllEqual([True, False, False, False], bar()[0])
@@ -126,67 +130,74 @@ class HolidayCalendarTest(tf.test.TestCase, parameterized.TestCase):
   @parameterized.named_parameters(*rolling_test_parameters)
   def test_roll_to_business_days(self, rolling_enum_value, data_key):
     data = test_data.adjusted_dates_data
-    date_tensor = dates.DateTensor.from_tuples([item["date"] for item in data])
-    expected_dates = dates.DateTensor.from_tuples(
-        [item[data_key] for item in data])
+    date_tensor = dates.from_tuples([item["date"] for item in data])
+    expected_dates = dates.from_tuples([item[data_key] for item in data])
 
-    cal = dates.HolidayCalendar(holidays=test_data.holidays)
+    cal = dates.HolidayCalendar(
+        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
+        holidays=test_data.holidays)
     actual_dates = cal.roll_to_business_day(date_tensor,
                                             roll_convention=rolling_enum_value)
-    self.assertAllEqual(expected_dates.ordinals(), actual_dates.ordinals())
+    self.assertAllEqual(expected_dates.ordinal(), actual_dates.ordinal())
 
   @parameterized.named_parameters(*rolling_test_parameters)
   def test_add_months_and_roll(self, rolling_enum_value, data_key):
     data = test_data.add_months_data
-    date_tensor = dates.DateTensor.from_tuples([item["date"] for item in data])
-    periods = dates.PeriodTensor([item["months"] for item in data],
-                                 dates.PeriodType.MONTH)
-    expected_dates = dates.DateTensor.from_tuples(
-        [item[data_key] for item in data])
-    cal = dates.HolidayCalendar(holidays=test_data.holidays)
+    date_tensor = dates.from_tuples([item["date"] for item in data])
+    periods = dates.periods.PeriodTensor([item["months"] for item in data],
+                                         dates.PeriodType.MONTH)
+    expected_dates = dates.from_tuples([item[data_key] for item in data])
+    cal = dates.HolidayCalendar(
+        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
+        holidays=test_data.holidays)
     actual_dates = cal.add_period_and_roll(date_tensor, periods,
                                            roll_convention=rolling_enum_value)
-    self.assertAllEqual(expected_dates.ordinals(), actual_dates.ordinals())
+    self.assertAllEqual(expected_dates.ordinal(), actual_dates.ordinal())
 
   def test_add_business_days(self):
     data = test_data.add_days_data
-    date_tensor = dates.DateTensor.from_tuples([item["date"] for item in data])
+    date_tensor = dates.from_tuples([item["date"] for item in data])
     days = tf.constant([item["days"] for item in data])
-    expected_dates = dates.DateTensor.from_tuples(
-        [item["shifted_date"] for item in data])
-    cal = dates.HolidayCalendar(holidays=test_data.holidays)
+    expected_dates = dates.from_tuples([item["shifted_date"] for item in data])
+    cal = dates.HolidayCalendar(
+        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
+        holidays=test_data.holidays)
     actual_dates = cal.add_business_days(
         date_tensor, days,
         roll_convention=dates.BusinessDayConvention.MODIFIED_FOLLOWING)
-    self.assertAllEqual(expected_dates.ordinals(), actual_dates.ordinals())
+    self.assertAllEqual(expected_dates.ordinal(), actual_dates.ordinal())
 
   def test_add_business_days_raises_on_invalid_input(self):
     data = test_data.add_days_data  # Contains some holidays.
-    date_tensor = dates.DateTensor.from_tuples([item["date"] for item in data])
+    date_tensor = dates.from_tuples([item["date"] for item in data])
     days = tf.constant([item["days"] for item in data])
-    cal = dates.HolidayCalendar(holidays=test_data.holidays)
+    cal = dates.HolidayCalendar(
+        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
+        holidays=test_data.holidays)
     with self.assertRaises(tf.errors.InvalidArgumentError):
       new_dates = cal.add_business_days(
           date_tensor, days,
           roll_convention=dates.BusinessDayConvention.NONE)
-      self.evaluate(new_dates.ordinals())
+      self.evaluate(new_dates.ordinal())
 
   def test_business_days_between(self):
     data = test_data.days_between_data
-    date_tensor1 = dates.DateTensor.from_tuples(
-        [item["date1"] for item in data])
-    date_tensor2 = dates.DateTensor.from_tuples(
-        [item["date2"] for item in data])
+    date_tensor1 = dates.from_tuples([item["date1"] for item in data])
+    date_tensor2 = dates.from_tuples([item["date2"] for item in data])
     expected_days_between = [item["days"] for item in data]
-    cal = dates.HolidayCalendar(holidays=test_data.holidays)
+    cal = dates.HolidayCalendar(
+        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
+        holidays=test_data.holidays)
     actual_days_between = cal.business_days_between(date_tensor1, date_tensor2)
     self.assertAllEqual(expected_days_between, actual_days_between)
 
   def test_is_business_day(self):
     data = test_data.is_business_day_data
-    date_tensor = dates.DateTensor.from_tuples([item[0] for item in data])
+    date_tensor = dates.from_tuples([item[0] for item in data])
     expected = [item[1] for item in data]
-    cal = dates.HolidayCalendar(holidays=test_data.holidays)
+    cal = dates.HolidayCalendar(
+        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
+        holidays=test_data.holidays)
     actual = cal.is_business_day(date_tensor)
     self.assertEqual(tf.bool, actual.dtype)
     self.assertAllEqual(expected, actual)

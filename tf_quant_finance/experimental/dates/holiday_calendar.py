@@ -24,7 +24,7 @@ from tf_quant_finance.experimental.dates import constants
 from tf_quant_finance.experimental.dates import date_tensor as dt
 from tf_quant_finance.experimental.dates import periods
 
-_SATURDAY_AND_SUNDAY_MASK = [0, 0, 0, 0, 0, 1, 1]
+
 _ORDINAL_OF_1_1_1970 = 719163
 
 
@@ -45,8 +45,10 @@ class HolidayCalendar(object):
 
     Args:
       weekend_mask: Sequence of 7 elements, where "0" means work day and "1" -
-        day off. The first element is Monday. By default, Saturday and Sunday
-        are the weekend, i.e. `weekend_mask = [0, 0, 0, 0, 0, 1, 1]`.
+        day off. The first element is Monday. By default, no weekends are
+        applied. Some of the common weekend patterns are defined in
+        `dates.WeekendMask`.
+        Default value: None which maps to no weekend days.
       holidays: Defines the holidays that are added to the weekends defined by
         `weekend_mask`. Can be provided in following forms:
         - Iterable of tuples containing dates in (year, month, day) format:
@@ -98,7 +100,7 @@ class HolidayCalendar(object):
         and the boundaries are derived from `holidays`. If `holidays` is `None`,
         both `start_year` and `end_year` must be specified.
     """
-    self._weekend_mask = np.array(weekend_mask or _SATURDAY_AND_SUNDAY_MASK)
+    self._weekend_mask = np.array(weekend_mask or constants.WeekendMask.NONE)
     self._holidays_np = _to_np_holidays_array(holidays)
     start_year, end_year = _resolve_calendar_boundaries(self._holidays_np,
                                                         start_year, end_year)
@@ -117,7 +119,8 @@ class HolidayCalendar(object):
     """Returns a tensor of bools for whether given dates are business days."""
     is_bus_day_table = self._compute_is_bus_day_table()
     is_bus_day_int32 = self._gather(
-        is_bus_day_table, date_tensor.ordinals() - self._ordinal_offset)
+        is_bus_day_table,
+        date_tensor.ordinal() - self._ordinal_offset)
     return tf.cast(is_bus_day_int32, dtype=tf.bool)
 
   def roll_to_business_day(self, date_tensor, roll_convention):
@@ -134,10 +137,10 @@ class HolidayCalendar(object):
     if roll_convention == constants.BusinessDayConvention.NONE:
       return date_tensor
     adjusted_ordinals_table = self._compute_rolled_dates_table(roll_convention)
-    ordinals_with_offset = date_tensor.ordinals() - self._ordinal_offset
+    ordinals_with_offset = date_tensor.ordinal() - self._ordinal_offset
     adjusted_ordinals = self._gather(adjusted_ordinals_table,
                                      ordinals_with_offset)
-    return dt.DateTensor.from_ordinals(adjusted_ordinals, validate=False)
+    return dt.from_ordinals(adjusted_ordinals, validate=False)
 
   def add_period_and_roll(self,
                           date_tensor,
@@ -197,12 +200,13 @@ class HolidayCalendar(object):
     with tf.compat.v1.control_dependencies(control_deps):
       cumul_bus_days_table = self._compute_cumul_bus_days_table()
       cumul_bus_days = self._gather(
-          cumul_bus_days_table, date_tensor.ordinals() - self._ordinal_offset)
+          cumul_bus_days_table,
+          date_tensor.ordinal() - self._ordinal_offset)
       target_cumul_bus_days = cumul_bus_days + num_days
 
       bus_day_ordinals_table = self._compute_bus_day_ordinals_table()
       ordinals = self._gather(bus_day_ordinals_table, target_cumul_bus_days)
-      return dt.DateTensor.from_ordinals(ordinals, validate=False)
+      return dt.from_ordinals(ordinals, validate=False)
 
   def subtract_period_and_roll(
       self,
@@ -289,7 +293,7 @@ class HolidayCalendar(object):
        corresponding pairs of dates.
     """
     cumul_bus_days_table = self._compute_cumul_bus_days_table()
-    ordinals_1, ordinals_2 = from_dates.ordinals(), to_dates.ordinals()
+    ordinals_1, ordinals_2 = from_dates.ordinal(), to_dates.ordinal()
     ordinals_2 = tf.broadcast_to(ordinals_2, ordinals_1.shape)
     cumul_bus_days_1 = self._gather(cumul_bus_days_table,
                                     ordinals_1 - self._ordinal_offset)

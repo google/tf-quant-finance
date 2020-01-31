@@ -33,7 +33,7 @@ class Month(Enum):
 
 
 class WeekDay(Enum):
-  """Weeks. Values are zero-based."""
+  """Named days of the week. Values are zero-based with Monday = 0."""
   # We follow Python datetime convention of starting from 0.
   MONDAY = 0
   TUESDAY = 1
@@ -74,3 +74,19 @@ class BusinessDayConvention(Enum):
   MODIFIED_PRECEDING = 4
 
 # TODO(b/148011715): add NEAREST convention.
+
+
+class WeekendMask(object):
+  """Provides weekend masks for some of the common weekend patterns."""
+
+  # E.g. US/UK/Europe etc.
+  SATURDAY_SUNDAY = (0, 0, 0, 0, 0, 1, 1)
+
+  # E.g. Most countries in the Middle East.
+  FRIDAY_SATURDAY = (0, 0, 0, 0, 1, 1, 0)
+
+  # E.g. India, Nepal.
+  SUNDAY_ONLY = (0, 0, 0, 0, 0, 0, 1)
+
+  # Default value.
+  NONE = (0, 0, 0, 0, 0, 0, 0)

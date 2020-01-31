@@ -32,22 +32,23 @@ class SchedulesTest(tf.test.TestCase, parameterized.TestCase):
   def test_schedule_on_fixed_interval(self, start_dates, end_dates,
                                       period_quantities, period_type, backward,
                                       expected_schedule):
-    start_dates = dates.DateTensor.from_np_datetimes(
-        _to_np_datetimes(start_dates))
-    end_dates = dates.DateTensor.from_np_datetimes(_to_np_datetimes(end_dates))
-    tenors = dates.PeriodTensor(period_quantities, period_type)
+    start_dates = dates.from_np_datetimes(_to_np_datetimes(start_dates))
+    end_dates = dates.from_np_datetimes(_to_np_datetimes(end_dates))
+    tenors = dates.periods.PeriodTensor(period_quantities, period_type)
     backward = backward
-    expected_schedule = dates.DateTensor.from_np_datetimes(
+    expected_schedule = dates.from_np_datetimes(
         _to_np_datetimes(expected_schedule))
-    actual_schedule = dates.make_schedule_on_fixed_range(
+    actual_schedule = dates.schedule(
         start_dates,
         end_dates,
         tenors,
-        dates.HolidayCalendar(start_year=2020, end_year=2028),
+        dates.HolidayCalendar(
+            weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
+            start_year=2020,
+            end_year=2028),
         roll_convention=dates.BusinessDayConvention.MODIFIED_FOLLOWING,
         backward=backward)
-    self.assertAllEqual(expected_schedule.ordinals(),
-                        actual_schedule.ordinals())
+    self.assertAllEqual(expected_schedule.ordinal(), actual_schedule.ordinal())
 
 
 def _to_np_datetimes(nested_date_tuples):

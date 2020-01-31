@@ -13,32 +13,42 @@
 # limitations under the License.
 """Date-related utilities."""
 
+from tf_quant_finance.experimental.dates import date_utils
+from tf_quant_finance.experimental.dates import periods
 from tf_quant_finance.experimental.dates.constants import BusinessDayConvention
 from tf_quant_finance.experimental.dates.constants import Month
 from tf_quant_finance.experimental.dates.constants import PeriodType
 from tf_quant_finance.experimental.dates.constants import WeekDay
+from tf_quant_finance.experimental.dates.constants import WeekendMask
 from tf_quant_finance.experimental.dates.date_tensor import convert_to_date_tensor
 from tf_quant_finance.experimental.dates.date_tensor import DateTensor
-import tf_quant_finance.experimental.dates.date_utils
+from tf_quant_finance.experimental.dates.date_tensor import from_datetimes
+from tf_quant_finance.experimental.dates.date_tensor import from_np_datetimes
+from tf_quant_finance.experimental.dates.date_tensor import from_ordinals
+from tf_quant_finance.experimental.dates.date_tensor import from_tuples
+from tf_quant_finance.experimental.dates.date_tensor import from_year_month_day
 from tf_quant_finance.experimental.dates.holiday_calendar import HolidayCalendar
-import tf_quant_finance.experimental.dates.periods
-from tf_quant_finance.experimental.dates.periods import PeriodTensor
-from tf_quant_finance.experimental.dates.schedules import make_schedule_on_fixed_range
+from tf_quant_finance.experimental.dates.schedules import schedule
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 
 _allowed_symbols = [
-    'convert_to_date_tensor',
-    'DateTensor',
-    'PeriodTensor',
-    'PeriodType',
-    'periods',
-    'make_schedule_on_fixed_range',
-    'Month',
-    'WeekDay',
-    'HolidayCalendar',
     'BusinessDayConvention',
+    'DateTensor',
+    'HolidayCalendar',
+    'Month',
+    'PeriodType',
+    'WeekDay',
+    'WeekendMask',
+    'convert_to_date_tensor',
+    'from_datetimes',
+    'from_np_datetimes',
+    'from_ordinals',
+    'from_tuples',
+    'from_year_month_day',
     'date_utils',
+    'schedule',
+    'periods',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

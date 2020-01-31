@@ -27,14 +27,16 @@ _MIN_DAYS_IN_PERIOD = {
 }
 
 
-def make_schedule_on_fixed_range(
-    start_date,
-    end_date,
-    tenor,
-    holiday_calendar=None,
-    roll_convention=constants.BusinessDayConvention.NONE,
-    backward=False):
-  """Makes a schedule according to given tenor and date range.
+def schedule(start_date,
+             end_date,
+             tenor,
+             holiday_calendar=None,
+             roll_convention=constants.BusinessDayConvention.NONE,
+             backward=False):
+  """Makes a schedule with a given tenor, date range and holiday calendar.
+
+  A schedule is an increasing sequence of dates at a regular interval subject to
+  holiday adjustments.
 
   The rules for schedule generation are as follows.
 
@@ -61,7 +63,7 @@ def make_schedule_on_fixed_range(
     end_date = dates.DateTensor.from_tuples([(2021, 3, 25)])
     tenor = dates.months(3)
     backward = False
-    schedule = dates.make_schedule_on_fixed_range(
+    schedule = dates.schedule(
         start_dates,
         end_dates,
         tenors,
@@ -93,7 +95,7 @@ def make_schedule_on_fixed_range(
     start_date = dates.DateTensor.from_tuples([(2020, 1, 15), (2020, 4, 15)])
     end_date = dates.DateTensor.from_tuples([(2021, 3, 31), (2021, 1, 1)])
     tenor = dates.months([4, 3])
-    actual_schedule = dates.make_schedule_on_fixed_range(
+    actual_schedule = dates.schedule(
         start_dates,
         end_dates,
         tenors,
@@ -108,11 +110,11 @@ def make_schedule_on_fixed_range(
   ```
 
   Args:
-    start_date: DateTensor. Defines the lower boundary of schedule.
-      If `backward=True` must be broadcastable to `end_date`, otherwise has
+    start_date: DateTensor. Defines the lower boundary of schedule. If
+      `backward=True` must be broadcastable to `end_date`, otherwise has
       arbitrary shape.
     end_date: DateTensor. Defines the upper boundary of the schedule. If
-     `backward=False` must be broadcastable to `start_date`, otherwise has
+      `backward=False` must be broadcastable to `start_date`, otherwise has
       arbitrary shape.
     tenor: PeriodTensor. Defines the step of the schedule. Must be broadcastable
       to `start_date` if `backward=False`, and to `end_date` if `backward=True`.
@@ -131,8 +133,8 @@ def make_schedule_on_fixed_range(
 
   # Validate inputs.
   control_deps = [
-      tf.debugging.assert_greater_equal(end_date.ordinals(),
-                                        start_date.ordinals()),
+      tf.debugging.assert_greater_equal(end_date.ordinal(),
+                                        start_date.ordinal()),
       tf.debugging.assert_positive(tenor.quantity())
   ]
 
@@ -150,7 +152,7 @@ def make_schedule_on_fixed_range(
 
     # Figure out the upper bound of the schedule length.
     min_days_in_period = _MIN_DAYS_IN_PERIOD[tenor.period_type()]
-    days_between = end_date.ordinals() - start_date.ordinals() + 1
+    days_between = end_date.ordinal() - start_date.ordinal() + 1
     schedule_len_upper_bound = tf.math.ceil(tf.math.reduce_max(
         days_between / (tenor.quantity() * min_days_in_period)))
 
@@ -163,14 +165,14 @@ def make_schedule_on_fixed_range(
       # Prepend start_date to ensure we always include it.
       schedules = date_tensor.DateTensor.concat((start_date, schedules),
                                                 axis=-1)
-      in_bounds = schedules.ordinals() >= start_date.ordinals()
+      in_bounds = schedules.ordinal() >= start_date.ordinal()
 
       # Pad with start_date.
       schedules = date_tensor.DateTensor.where(in_bounds, schedules, start_date)
 
       # Find how much we overestimated max schedule length and trim the extras.
-      not_start_date = tf.math.not_equal(schedules.ordinals(),
-                                         start_date.ordinals())
+      not_start_date = tf.math.not_equal(schedules.ordinal(),
+                                         start_date.ordinal())
       max_schedule_len_error = (
           tf.math.reduce_min(tf.where(not_start_date)[..., -1]) - 1)
       schedules = schedules[..., max_schedule_len_error:]
@@ -182,14 +184,13 @@ def make_schedule_on_fixed_range(
       # Append end_date to ensure we always include it.
       schedules = date_tensor.DateTensor.concat((schedules, end_date), axis=-1)
 
-      in_bounds = schedules.ordinals() <= end_date.ordinals()
+      in_bounds = schedules.ordinal() <= end_date.ordinal()
 
       # Pad with end_date.
       schedules = date_tensor.DateTensor.where(in_bounds, schedules, end_date)
 
       # Find the actual schedule length and trim the extras.
-      not_end_date = tf.math.not_equal(schedules.ordinals(),
-                                       end_date.ordinals())
+      not_end_date = tf.math.not_equal(schedules.ordinal(), end_date.ordinal())
       max_schedule_len = tf.math.reduce_max(tf.where(not_end_date)[..., -1]) + 2
       schedules = schedules[..., :max_schedule_len]
 
