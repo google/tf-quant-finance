@@ -139,6 +139,10 @@ def _option_price(volatilities,
     # [ 0.          2.          2.04806848  1.00020297  2.07303131]
     ```
 
+    The naming convention will align variables with the variables named in
+    reference [1], but made lower case, and differentiating between put and
+    call option values with the suffix _put and _call.
+
     ## References:
     [1] Baron-Adesi, Whaley, Efficient Analytic Approximation of American Option
       Values, The Journal of Finance, Vol XLII, No. 2, June 1987
@@ -196,6 +200,7 @@ def _option_price(volatilities,
     where_call = tf.constant(
       True) if is_call_options is None else is_call_options
     call_indices = tf.compat.v1.where_v2(where_call)
+    put_indices = tf.compat.v1.where_v2(tf.logical_not(where_call))
 
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name="strikes")
     volatilities = tf.convert_to_tensor(volatilities, dtype=dtype, name="volatilities")
@@ -207,195 +212,150 @@ def _option_price(volatilities,
     else:
       spots = tf.convert_to_tensor(spots, dtype=dtype, name="spots")
 
-    strikes_call = strikes if is_call_options is None \
-      else tf.gather_nd(strikes, call_indices)
-    volatilities_call = volatilities if is_call_options is None \
-      else tf.gather_nd(volatilities, call_indices)
-    spots_call = spots if is_call_options is None \
-      else tf.gather_nd(spots, call_indices)
+    if is_call_options is None:
+      x_call = strikes
+      sigma_call = volatilities
+      s_call = spots
+      t_call = expiries
+      r_call = risk_free_rates
+      b_call = cost_of_carries
 
-    M = 2 * risk_free_rates / volatilities ** 2
-    N = 2 * cost_of_carries / volatilities ** 2
-    K = 1 - tf.exp(- risk_free_rates * expiries)
-    q2 = [(1 - N) + tf.sqrt((N - 1) ** 2 + 4 * M / K)] / 2
-    q1 = [(1 - N) - tf.sqrt((N - 1) ** 2 + 4 * M / K)] / 2
-    def _calc_d1(s):
-      return (tf.math.log(s/strikes) + (
-          cost_of_carries + volatilities ** 2 / 2) * expiries) / (
-          volatilities * tf.math.sqrt(expiries))
+      x_put, sigma_put, s_put, t_put, r_put, b_put = None, None, None, None, \
+                                                     None, None
 
-    def _update_si(spot_crit, *_):
-      LHS = spot_crit - strikes
-      d1 = _calc_d1(spot_crit)
-      RHS = tff.black_scholes.vanilla_prices.option_price(
-        volatilities=volatilities, strikes=strikes, expiries=expiries,
-        spots=spot_crit, risk_free_rates=risk_free_rates,
-        cost_of_carries=cost_of_carries, dtype=dtype, name=name) + (
-          1 - tf.exp(
-            (cost_of_carries - risk_free_rates) * expiries) * _ncdf(
-        d1)) * spot_crit / q2
+    else:
+      x_call = tf.gather_nd(strikes, call_indices)
+      sigma_call = tf.gather_nd(volatilities, call_indices)
+      s_call = tf.gather_nd(spots, call_indices)
+      t_call = tf.gather_nd(expiries, call_indices)
+      r_call = tf.gather_nd(risk_free_rates, call_indices)
+      b_call = tf.gather_nd(cost_of_carries, call_indices)
 
-      bi = tf.exp(
-        (cost_of_carries - risk_free_rates) * expiries) * _ncdf(d1) * (
-          1 - 1 / q2) + (1 - tf.exp(
-        (cost_of_carries - risk_free_rates) * expiries) * _npdf(d1) / (
-          volatilities * tf.sqrt(expiries))) / q2
-      si = (strikes + RHS - bi * spot_crit) / (1 - bi)
-      return si, LHS, RHS
+      x_put = tf.gather_nd(strikes, put_indices)
+      sigma_put = tf.gather_nd(volatilities, put_indices)
+      s_put = tf.gather_nd(spots, put_indices)
+      t_put = tf.gather_nd(expiries, put_indices)
+      r_put = tf.gather_nd(risk_free_rates, put_indices)
+      b_put = tf.gather_nd(cost_of_carries, put_indices)
 
-    def _update_sii(spot_crit, *_):
-      LHS = spot_crit - strikes
-      d1 = _calc_d1(spot_crit)
-      RHS = tff.black_scholes.vanilla_prices.option_price(
-        volatilities=volatilities, strikes=strikes, expiries=expiries,
-        spots=spot_crit, risk_free_rates=risk_free_rates,
-        cost_of_carries=cost_of_carries, dtype=dtype, name=name) - (
-          1 - tf.exp(
-            (cost_of_carries - risk_free_rates) * expiries) * _ncdf(
-        - d1)) * spot_crit / q1
-      # TODO change bi below for put option
-      bi = tf.exp(
-        (cost_of_carries - risk_free_rates) * expiries) * _ncdf(d1) * (
-          1 - 1 / q2) + (1 - tf.exp(
-        (cost_of_carries - risk_free_rates) * expiries) * _npdf(d1) / (
-          volatilities * tf.sqrt(expiries))) / q2
-      si = (strikes + RHS - bi * spot_crit) / (1 - bi)
-      return si, LHS, RHS
+    q2, a2, s_crit_call = _option_price_put_or_call(
+      sigma_call, x_call, t_call, r_call, b_call, s_call, True, dtype)
 
+    # Calculate eu_call_prices only for spot prices that are less than s_crit
+    is_less_than_s_crit = s_call < s_crit_call
+    shape = tf.shape(s_call)
+    indices = tf.compat.v1.where_v2(is_less_than_s_crit)
+    s_crit_s_call = tf.gather_nd(s_call, indices)
+    s_crit_t_call = tf.gather_nd(t_call, indices)
+    s_crit_sigma_call = tf.gather_nd(sigma_call, indices)
+    s_crit_x_call = tf.gather_nd(x_call, indices)
+    s_crit_r_call = tf.gather_nd(r_call, indices)
+    s_crit_b_call = tf.gather_nd(b_call, indices)
 
-    # Below is estimate starting point for S*; in future will calculate
-    spots_crit_call = tf.identity(spots_call, name="S*")
-    LHS = spots_crit_call - strikes_call
-    RHS = tff.black_scholes.vanilla_prices.option_price(
-      volatilities=volatilities_call, strikes=strikes_call,
-      expiries=expiries_call, spots=spots_crit_call, 
-      risk_free_rates=risk_free_rates_call,
-      cost_of_carries=cost_of_carries_call, dtype=dtype, name=name) + (
-          1 - tf.exp(
-            (cost_of_carries - risk_free_rates) * expiries) * _ncdf(
-      _calc_d1(spots_crit_call))) * spots_crit_call / q2
+    eu_call_prices = tff.black_scholes.vanilla_prices.option_price(
+      volatilities=s_crit_sigma_call, strikes=s_crit_x_call,
+      expiries=s_crit_t_call, spots=s_crit_s_call,
+      risk_free_rates=s_crit_r_call, cost_of_carries=s_crit_b_call,
+      dtype=dtype, name=name)
+    eu_call_prices_or_zero = tf.scatter_nd(indices, eu_call_prices, shape)
 
-    spots_crit_call, LHS, RHS = tf.compat.v1.while_loop(
-      loop_vars=[spots_crit_call, LHS, RHS],
-      cond=lambda s, LHS, RHS: (tf.abs(LHS - RHS) / strikes) < 0.00001,
-      body=lambda s, LHS, RHS: _update_si(s, LHS, RHS))
-
-    A2 = (spots_crit_call / q2) * (
-        1 - tf.exp(
-      (cost_of_carries-risk_free_rates) * expiries)) * _ncdf(_calc_d1(spots_crit_call))
+    american_call_prices = tf.compat.v1.where_v2(
+      is_less_than_s_crit,
+      eu_call_prices_or_zero + a2 * (s_call / s_crit_call) ** q2,
+      s_call - x_call)
 
     if is_call_options is None:
-      is_less_than_s = spots < spots_crit_call
-      indices = tf.compat.v1.where_v2(is_less_than_s)
-      less_than_s_spots = tf.gather_nd(spots, indices)
-      less_than_s_expiries = tf.gather_nd(expiries, indices)
-      less_than_s_volatilities = tf.gather_nd(volatilities, indices)
-      less_than_s_strikes = tf.gather_nd(strikes, indices)
-      less_than_s_risk_free_rates = tf.gather_nd(risk_free_rates, indices)
-      less_than_s_cost_of_carries = tf.gather_nd(cost_of_carries, indices)
-      eu_call_prices = tff.black_scholes.vanilla_prices.option_price(
-        volatilities=less_than_s_volatilities, strikes=less_than_s_strikes,
-        expiries=less_than_s_expiries, spots=less_than_s_spots,
-        risk_free_rates=less_than_s_risk_free_rates,
-        cost_of_carries=less_than_s_cost_of_carries, dtype=dtype, name=name)
-
-      return tf.compat.v1.where_v2(
-        is_less_than_s,
-        eu_call_prices + A2 * (spots / spots_crit_call) ** q2,
-        spots - strikes)
+      return american_call_prices
 
     # Put option
-    spots_crit_put = tf.identity(strikes, name="S**")
-    LHS_2 = spots_crit_put - strikes
-    RHS_2 = tff.black_scholes.vanilla_prices.option_price(
-      volatilities=volatilities, strikes=strikes, expiries=expiries,
-      spots=spots_crit_put, risk_free_rates=risk_free_rates,
-      cost_of_carries=cost_of_carries, is_call_options=is_call_options,
-      dtype=dtype, name=name) + (1 - tf.exp(
-            (cost_of_carries - risk_free_rates) * expiries) * _ncdf(
-            _calc_d1(spots_crit_put))) * spots_crit_put / q2
+    q1, a1, s_crit_put = _option_price_put_or_call(
+      sigma_put, x_put, t_put, r_put, b_put, s_put, False, dtype)
 
-    spots_crit_put, LHS, RHS = tf.compat.v1.while_loop(
-      loop_vars=[spots_crit_put, LHS, RHS],
-      cond=lambda s, LHS, RHS: (tf.abs(LHS - RHS) / strikes) < 0.00001,
-      body=lambda s, LHS, RHS: _update_si(s, LHS, RHS))
+    is_more_than_s_crit = s_put > s_crit_put
+    shape = tf.shape(s_put)
+    indices = tf.compat.v1.where_v2(is_more_than_s_crit)
+    s_crit_s_put = tf.gather_nd(s_put, indices)
+    s_crit_t_put = tf.gather_nd(t_put, indices)
+    s_crit_sigma_put = tf.gather_nd(sigma_put, indices)
+    s_crit_x_put = tf.gather_nd(x_put, indices)
+    s_crit_r_put = tf.gather_nd(r_put, indices)
+    s_crit_b_put = tf.gather_nd(b_put, indices)
 
-    A1 = (spots_crit_put / q2) * (
-        1 - tf.exp(
-      (cost_of_carries - risk_free_rates) * expiries)) * _ncdf(
-      _calc_d1(spots_crit_put))
+    eu_put_prices = tff.black_scholes.vanilla_prices.option_price(
+      volatilities=s_crit_sigma_put, strikes=s_crit_x_put,
+      expiries=s_crit_t_put, spots=s_crit_s_put,
+      risk_free_rates=s_crit_r_put, cost_of_carries=s_crit_b_put,
+      is_call_options=tf.constant(False), dtype=dtype, name=name)
+    eu_put_prices_or_zero = tf.scatter_nd(indices, eu_put_prices, shape)
 
-    # Evaluate q2 for call
-    # q2 = [- (N - 1) + sqrt((N - 1) ^ 2 + 4M/K)] / 2
-    # M = 2r / sigma^2
-    # N = 2b / sigma^2
-    # K = 1 - e^(-rT)
-    # Evaluate S* for call
-    # - Evaluate S* seed for call
-    #     - estimate X
-    # - Evaluate S* for call
-    #     - LHS = S* - X
-    #     - RHS = european(S, T)+ (1 - e^(b-r)T * N(d1(S)))S* / q2
-    #     - bi = e^(b-r)TN(d1(S*))(1 - 1/q2) + [1 - e^(b-r)Tn(d1(S*)/(sigma * sqrt(T))] / q2
-    #     - S*+1 = [X + RHS - biSsi]/(1 - bi)
-    # Evaluate A2
-    # Evaluate european (S, T)
-    # call_adjustment = where S < S*: european (S, T) + A2 * (S/S*) ** q2,
-    # where S >= S*: S - X
-    # is_call_options is None: ----> Evaluate european (S, T) with True
-    #   for is_call_options, return price
-    # Evaluate q1 for put
-    # q2 = [- (N - 1) - sqrt((N - 1) ^ 2 + 4M / K)] / 2
-    # Evaluate S** for put
-    # - Evaluate S** seed for put
-    # - Evaluate S** for put
-    # Evaluate A1
-    # price_put = where S > S**: european (S, T) + A1 * (S/S**) ** q1,
-    # where S <= S**: X - X
-    # return where is_call_options(price_call, price_put)
-    # TODO: can caluclate S* and S** fewer times if underlying is the same!
-    #   (scale by X)
-    # Check if can caluclate q1, q2, A1, A2 more efficiently together for
-    #   put & call
-    # Check if logical where's & tensorflow smart enough to minimise calculation
-    #   when e.g. all put/ only calculate put field for fields where
-    #   is_call_options is false
+    american_put_prices = tf.compat.v1.where_v2(
+      is_more_than_s_crit,
+      eu_put_prices_or_zero + a1 * (s_put / s_crit_put) ** q1,
+      x_put - s_put)
 
-    strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
-    volatilities = tf.convert_to_tensor(
-      volatilities, dtype=dtype, name='volatilities')
-    expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')
-    risk_free_rates = tf.convert_to_tensor(
-      risk_free_rates, dtype=dtype, name='risk_free_rates')
-    cost_of_carries = tf.convert_to_tensor(
-      cost_of_carries, dtype=dtype, name='cost_of_carries')
-    discount_factors = tf.exp(-risk_free_rates * expiries)
+    shape = tf.shape(spots)
 
-    if forwards is not None:
-      forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
-    else:
-      spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
-      forwards = spots * tf.exp(cost_of_carries * expiries)
-
-    sqrt_var = volatilities * tf.math.sqrt(expiries)
-    d1 = (tf.math.log(
-      forwards / strikes) + cost_of_carries * expiries + sqrt_var * sqrt_var / 2) / sqrt_var
-    d2 = d1 - sqrt_var
-    undiscounted_calls = forwards * _ncdf(d1) - strikes * _ncdf(d2)
-    if is_call_options is None:
-      return discount_factors * undiscounted_calls
+    call_or_zero = tf.scatter_nd(call_indices, american_call_prices, shape)
+    put_or_zero = tf.scatter_nd(put_indices, american_put_prices, shape)
+    return tf.where_v2(is_call_options, call_or_zero, put_or_zero)
 
 
+def _option_price_put_or_call(sigma, x, t, r, b, s, call, dtype):
+  is_call_options = None if call else tf.constant(False)
+  sign = 1 if call else -1
 
-    undiscounted_forward = forwards - strikes
-    undiscounted_puts = undiscounted_calls - undiscounted_forward
-    predicate = tf.broadcast_to(is_call_options, tf.shape(undiscounted_calls))
-    return discount_factors * tf.where(predicate, undiscounted_calls,
-                                       undiscounted_puts)
+  M = 2 * r / sigma ** 2
+  N = 2 * b / sigma ** 2
+  K = 1 - tf.exp(- r * t)
+  q_ = [(1 - N) + sign * tf.sqrt((N - 1) ** 2 + 4 * M / K)] / 2
+
+  # Below is estimate starting point for S*; in future will calculate
+  s_crit = tf.identity(s, name="S*" if call else "S**")
+  LHS = s_crit - x
+  RHS = tff.black_scholes.vanilla_prices.option_price(
+    volatilities=sigma, strikes=x, expiries=t, spots=s_crit,
+    risk_free_rates=r, cost_of_carries=b,
+    is_call_options=is_call_options, dtype=dtype) + sign * (
+      1 - tf.exp((b - r) * t) * _ncdf(
+    sign * _calc_d1(s_crit, x, sigma, b, t))) * s_crit / q_
+
+  s_crit, LHS, RHS = tf.compat.v1.while_loop(
+    loop_vars=[s_crit, LHS, RHS],
+    cond=lambda s, LHS, RHS: (tf.abs(LHS - RHS) / x) < 0.00001,
+    body=lambda s, LHS, RHS: _update_s_crit(
+      s, q_, sigma, x, t, r, b, is_call_options, dtype))
+
+  a_ = (sign * s_crit / q_) * (1 - tf.exp((b - r) * t)) * _ncdf(
+    sign * _calc_d1(s_crit, x, sigma, b, t))
+
+  return q_, a_, s_crit
+
+
+def _calc_d1(s, x, sigma, b, t):
+  return (tf.math.log(s / x) + (b + sigma ** 2 / 2) * t) / (
+      sigma * tf.math.sqrt(t))
+
+
+def _update_s_crit(s_crit, q, sigma, x, t, r, b, is_call_options, dtype):
+  sign = 1 if is_call_options is None else -1
+  LHS = s_crit - x
+  d1 = _calc_d1(s_crit, x, sigma, b, t)
+  RHS = tff.black_scholes.vanilla_prices.option_price(
+    volatilities=sigma, strikes=x, expiries=t, spots=s_crit, risk_free_rates=r,
+    cost_of_carries=b, is_call_options=is_call_options, dtype=dtype) + sign * (
+            1 - tf.exp((b - r) * t) * _ncdf(sign * d1)) * s_crit / q
+
+  # TODO change bi below for put option
+  bi = tf.exp((b - r) * t) * _ncdf(d1) * (1 - 1 / q) + (
+      1 - tf.exp((b - r) * t) * _npdf(d1) / (sigma * tf.sqrt(t))) / q
+
+  s_crit = (x + RHS - bi * s_crit) / (1 - bi)
+  return s_crit, LHS, RHS
 
 
 def _ncdf(x):
   return (tf.math.erf(x / _SQRT_2) + 1) / 2
+
 
 def _npdf(x):
   return tf.exp(-0.5 * x ** 2) / tf.math.sqrt(2 * np.pi)
