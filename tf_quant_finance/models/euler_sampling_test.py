@@ -99,9 +99,6 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
           'testcase_name': 'SOBOL',
           'random_type': tff.math.random.RandomType.SOBOL,
       }, {
-          'testcase_name': 'HALTON',
-          'random_type': tff.math.random.RandomType.HALTON,
-      }, {
           'testcase_name': 'HALTON_RANDOMIZED',
           'random_type': tff.math.random.RandomType.HALTON_RANDOMIZED,
       })
@@ -144,6 +141,7 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
             num_samples=num_samples,
             initial_state=x0,
             time_step=0.01,
+            random_type=random_type,
             seed=12134))
 
     self.assertAllClose(paths.shape, (num_samples, 5, 2), atol=0)

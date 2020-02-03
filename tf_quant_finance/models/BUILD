@@ -49,6 +49,7 @@ py_library(
     name = "euler_sampling",
     srcs = ["euler_sampling.py"],
     deps = [
+        ":utils",
         "//tf_quant_finance/math/random_ops",
         # tensorflow dep,
     ],
@@ -91,6 +92,27 @@ py_test(
         ":heston_model",
         "//tf_quant_finance",
         # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "utils",
+    srcs = ["utils.py"],
+    deps = [
+        "//tf_quant_finance/math/random_ops",
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "utils_test",
+    size = "small",
+    srcs = ["utils_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":utils",
+        "//tf_quant_finance",
         # tensorflow dep,
     ],
 )

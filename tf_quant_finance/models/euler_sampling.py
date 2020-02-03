@@ -15,16 +15,17 @@
 
 import tensorflow as tf
 from tf_quant_finance.math import random_ops as random
+from tf_quant_finance.models import utils
 
 
 def sample(dim,
            drift_fn,
            volatility_fn,
            times,
+           time_step,
            num_samples=1,
            initial_state=None,
            random_type=None,
-           time_step=None,
            seed=None,
            swap_memory=True,
            skip=0,
@@ -69,6 +70,8 @@ def sample(dim,
       arguments and of shape `batch_shape + [dim, dim]`.
     times: Rank 1 `Tensor` of increasing positive real values. The times at
       which the path points are to be evaluated.
+    time_step: Scalar real `Tensor` - maximal distance between points
+        in grid in Euler schema.
     num_samples: Positive scalar `int`. The number of paths to draw.
       Default value: 1.
     initial_state: `Tensor` of shape `[dim]`. The initial state of the
@@ -77,8 +80,6 @@ def sample(dim,
     random_type: Enum value of `RandomType`. The type of (quasi)-random
       number generator to use to generate the paths.
       Default value: None which maps to the standard pseudo-random numbers.
-    time_step: Scalar real `Tensor` - maximal distance between points
-        in grid in Euler schema.
     seed: Python `int`. The random seed to use.
       Default value: None, which  means no seed is set.
     swap_memory: A Python bool. Whether GPU-CPU memory swap is enabled for this
@@ -123,8 +124,8 @@ def sample(dim,
 
 
 def _sample(dim, drift_fn, volatility_fn, times, time_step, keep_mask,
-            times_size, num_samples, initial_state, random_type, seed,
-            swap_memory, skip, dtype):
+            times_size, num_samples, initial_state, random_type,
+            seed, swap_memory, skip, dtype):
   """Returns a sample of paths from the process using Euler method."""
   dt = times[1:] - times[:-1]
   sqrt_dt = tf.sqrt(dt)
@@ -144,26 +145,20 @@ def _sample(dim, drift_fn, volatility_fn, times, time_step, keep_mask,
   if random_type in (random.RandomType.SOBOL,
                      random.RandomType.HALTON,
                      random.RandomType.HALTON_RANDOMIZED):
-    # The number of iterations times the dimensionality of the process  is the
-    # dimension of the low-discrepancy sequence
-    qmc_dimension = tf.zeros([steps_num * dim], dtype=dtype)
-    normal_draws = random.mv_normal_sample(
-        [num_samples], mean=qmc_dimension,
-        random_type=random_type,
-        seed=seed, skip=skip)
-    # Reshape and transpose for XLA-compatibility
-    normal_draws = tf.reshape(normal_draws, [num_samples, steps_num, dim])
-    normal_draws = tf.transpose(normal_draws, [1, 0, 2])
+    normal_draws = utils.generate_mc_normal_draws(
+        num_normal_draws=dim, num_time_steps=steps_num,
+        num_sample_paths=num_samples, random_type=random_type,
+        dtype=dtype, skip=skip)
+    wiener_mean = None
   else:
+    # If pseudo or anthithetic sampling is used, proceed with random sampling
+    # at each step.
+    wiener_mean = tf.zeros((dim,), dtype=dtype, name='wiener_mean')
     normal_draws = None
-  # If pseudo or anthithetic sampling is used, proceed with random sampling
-  # at each step
-  wiener_mean = tf.zeros((dim,), dtype=dtype)
-
   cond_fn = lambda i, *args: i < steps_num
   # Maximum number iterations is passed to the while loop below. It improves
   # performance of the while loop on a GPU and is needed for XLA-compilation
-  # comptatiblity
+  # comptatiblity.
   def step_fn(i, written_count, current_state, result):
     return _euler_step(i, written_count, current_state, result,
                        drift_fn, volatility_fn, wiener_mean,
