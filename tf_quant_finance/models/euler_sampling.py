@@ -13,7 +13,7 @@
 # limitations under the License.
 """The Euler sampling method for ito processes."""
 
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 from tf_quant_finance.math import random_ops as random
 from tf_quant_finance.models import utils
 
@@ -115,16 +115,17 @@ def sample(dim,
       initial_state = tf.zeros(dim, dtype=dtype)
     initial_state = tf.convert_to_tensor(initial_state, dtype=dtype,
                                          name='initial_state')
-    times_size = tf.shape(times)[-1]
+    times_shape = times.shape
+    # Create a time grid for the Euler scheme.
     times, keep_mask = _prepare_grid(times, time_step, dtype)
     return _sample(
         dim, drift_fn, volatility_fn,
-        times, time_step, keep_mask, times_size, num_samples, initial_state,
+        times, time_step, keep_mask, times_shape, num_samples, initial_state,
         random_type, seed, swap_memory, skip, dtype)
 
 
 def _sample(dim, drift_fn, volatility_fn, times, time_step, keep_mask,
-            times_size, num_samples, initial_state, random_type,
+            times_shape, num_samples, initial_state, random_type,
             seed, swap_memory, skip, dtype):
   """Returns a sample of paths from the process using Euler method."""
   dt = times[1:] - times[:-1]
@@ -166,13 +167,18 @@ def _sample(dim, drift_fn, volatility_fn, times, time_step, keep_mask,
                        random_type, seed, normal_draws)
   maximum_iterations = (tf.cast(1. / time_step, dtype=tf.int32)
                         + tf.size(times))
-  result = tf.TensorArray(dtype=dtype, size=times_size)
+  result = tf.TensorArray(dtype=dtype, size=times_shape[-1])
   _, _, _, result = tf.compat.v1.while_loop(
       cond_fn, step_fn, (0, 0, current_state, result),
       maximum_iterations=maximum_iterations,
       swap_memory=swap_memory)
-
-  return tf.transpose(result.stack(), (1, 0, 2))
+  result = tf.transpose(result.stack(), (1, 0, 2))
+  # Shape of `rate_paths` is dynamic in `times` dimension because of
+  # `TensorArray`. In order to make the shape static, use `set_shape` method.
+  # TODO(b/148854825): Consider removing TensorArray to make all shapes static.
+  result.set_shape(current_state.shape[:1] + times_shape
+                   + current_state.shape[-1:])
+  return result
 
 
 def _euler_step(i, written_count, current_state, result,

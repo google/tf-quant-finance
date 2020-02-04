@@ -41,12 +41,11 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
     times = np.array([0.1, 0.2, 0.3])
     num_samples = 10000
 
-    paths = self.evaluate(
-        euler_sampling.sample(
-            dim=1,
-            drift_fn=drift_fn, volatility_fn=vol_fn,
-            times=times, num_samples=num_samples, seed=42, time_step=0.005))
-
+    paths = euler_sampling.sample(
+        dim=1, drift_fn=drift_fn, volatility_fn=vol_fn,
+        times=times, num_samples=num_samples, seed=42, time_step=0.005)
+    self.assertAllEqual(paths.shape.as_list(), [num_samples, 3, 1])
+    paths = self.evaluate(paths)
     means = np.mean(paths, axis=0).reshape([-1])
     covars = np.cov(paths.reshape([num_samples, -1]), rowvar=False)
     expected_means = np.zeros((3,))
