@@ -28,6 +28,7 @@ from tf_quant_finance.experimental.dates.date_tensor import from_ordinals
 from tf_quant_finance.experimental.dates.date_tensor import from_tuples
 from tf_quant_finance.experimental.dates.date_tensor import from_year_month_day
 from tf_quant_finance.experimental.dates.holiday_calendar import HolidayCalendar
+from tf_quant_finance.experimental.dates.holiday_calendar_v2 import HolidayCalendar as HolidayCalendar2
 from tf_quant_finance.experimental.dates.schedules import schedule
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
@@ -36,6 +37,7 @@ _allowed_symbols = [
     'BusinessDayConvention',
     'DateTensor',
     'HolidayCalendar',
+    'HolidayCalendar2',
     'Month',
     'PeriodType',
     'WeekDay',

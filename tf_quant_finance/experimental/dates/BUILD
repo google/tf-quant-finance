@@ -10,12 +10,14 @@ py_library(
         "date_tensor.py",
         "date_utils.py",
         "holiday_calendar.py",
+        "holiday_calendar_v2.py",
         "periods.py",
         "schedules.py",
         "tensor_wrapper.py",
     ],
     srcs_version = "PY3",
     deps = [
+        ":holiday_utils",
         # attr dep,
         # numpy dep,
         # tensorflow dep,
@@ -66,6 +68,21 @@ py_test(
 )
 
 py_test(
+    name = "holiday_calendar_v2_test",
+    size = "small",
+    timeout = "moderate",
+    srcs = ["holiday_calendar_v2_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":dates",
+        ":test_data",
+        # absl/testing:parameterized dep,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
     name = "schedules_test",
     size = "small",
     timeout = "moderate",
@@ -88,5 +105,17 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":dates",
+    ],
+)
+
+py_library(
+    name = "holiday_utils",
+    srcs = ["holiday_utils.py"],
+    srcs_version = "PY3",
+    deps = [
+        "//tf_quant_finance/math/interpolation/linear",
+        # attr dep,
+        # numpy dep,
+        # tensorflow dep,
     ],
 )
