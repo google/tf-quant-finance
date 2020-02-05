@@ -22,13 +22,13 @@ from tf_quant_finance.black_scholes.implied_vol_approximation import implied_vol
 from tf_quant_finance.black_scholes.implied_vol_lib import implied_vol
 from tf_quant_finance.black_scholes.implied_vol_lib import ImpliedVolMethod
 from tf_quant_finance.black_scholes.implied_vol_newton_root import implied_vol as implied_vol_newton
-from tf_quant_finance.black_scholes import american_option
+from tf_quant_finance.black_scholes import american_prices
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 binary_price = vanilla_prices.binary_price
 option_price = vanilla_prices.option_price
-american_price = american_option.option_price
+american_option_price = american_prices.option_price
 
 _allowed_symbols = [
     'binary_price',
@@ -37,7 +37,7 @@ _allowed_symbols = [
     'implied_vol_newton',
     'option_price',
     'ImpliedVolMethod',
-    'american_price'
+    'american_option_price',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

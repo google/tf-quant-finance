@@ -123,17 +123,18 @@ py_test(
 
 
 py_library(
-    name = "american_option",
-    srcs = ["american_option.py"],
+    name = "american_prices",
+    srcs = ["american_prices.py"],
     srcs_version = "PY3",
     deps = [
+        "//tf_quant_finance",
         # tensorflow dep,
     ],
 )
 
 py_test(
-    name = "american_option_test",
-    srcs = ["american_option_test.py"],
+    name = "american_prices_test",
+    srcs = ["american_prices_test.py"],
     python_version = "PY3",
     deps = [
         "//tf_quant_finance",
