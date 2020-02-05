@@ -152,6 +152,7 @@ def _option_price(volatilities,
       expiry of the options to price.
     strikes: A real `Tensor` of the same dtype and compatible shape as
       `volatilities`. The strikes of the options to be priced.
+    # TODO What are expiries? Have used them as 'time to expiry'
     expiries: A real `Tensor` of same dtype and compatible shape as
       `volatilities`. The expiry of each option. The units should be such that
       `expiry * volatility**2` is dimensionless.
@@ -220,9 +221,6 @@ def _option_price(volatilities,
       r_call = risk_free_rates
       b_call = cost_of_carries
 
-      x_put, sigma_put, s_put, t_put, r_put, b_put = None, None, None, None, \
-                                                     None, None
-
     else:
       x_call = tf.gather_nd(strikes, call_indices)
       sigma_call = tf.gather_nd(volatilities, call_indices)
@@ -230,13 +228,6 @@ def _option_price(volatilities,
       t_call = tf.gather_nd(expiries, call_indices)
       r_call = tf.gather_nd(risk_free_rates, call_indices)
       b_call = tf.gather_nd(cost_of_carries, call_indices)
-
-      x_put = tf.gather_nd(strikes, put_indices)
-      sigma_put = tf.gather_nd(volatilities, put_indices)
-      s_put = tf.gather_nd(spots, put_indices)
-      t_put = tf.gather_nd(expiries, put_indices)
-      r_put = tf.gather_nd(risk_free_rates, put_indices)
-      b_put = tf.gather_nd(cost_of_carries, put_indices)
 
     q2, a2, s_crit_call = _option_price_put_or_call(
       sigma_call, x_call, t_call, r_call, b_call, s_call, True, dtype)
@@ -268,6 +259,13 @@ def _option_price(volatilities,
       return american_call_prices
 
     # Put option
+    x_put = tf.gather_nd(strikes, put_indices)
+    sigma_put = tf.gather_nd(volatilities, put_indices)
+    s_put = tf.gather_nd(spots, put_indices)
+    t_put = tf.gather_nd(expiries, put_indices)
+    r_put = tf.gather_nd(risk_free_rates, put_indices)
+    b_put = tf.gather_nd(cost_of_carries, put_indices)
+
     q1, a1, s_crit_put = _option_price_put_or_call(
       sigma_put, x_put, t_put, r_put, b_put, s_put, False, dtype)
 
