@@ -153,8 +153,10 @@ def schedule(start_date,
     # Figure out the upper bound of the schedule length.
     min_days_in_period = _MIN_DAYS_IN_PERIOD[tenor.period_type()]
     days_between = end_date.ordinal() - start_date.ordinal() + 1
-    schedule_len_upper_bound = tf.math.ceil(tf.math.reduce_max(
-        days_between / (tenor.quantity() * min_days_in_period)))
+    schedule_len_upper_bound = tf.cast(
+        tf.math.ceil(tf.math.reduce_max(
+            days_between / (tenor.quantity() * min_days_in_period))),
+        dtype=tf.int32)
 
     # Add the periods.
     if backward:
