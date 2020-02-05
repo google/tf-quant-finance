@@ -99,7 +99,7 @@ def option_price(volatilities,
   return tf.compat.v1.cond(
       # Is this needed, or do is a simple if statement enough?
       tf.reduce_all(cost_of_carries >= risk_free_rates),
-      lambda: tff.black_scholes.vanilla_prices.option_price(
+      lambda: tff.black_scholes.option_price(
           volatilities, strikes, expiries, spots=spots, forwards=forwards,
           risk_free_rates=risk_free_rates, cost_of_carries=cost_of_carries,
           is_call_options=is_call_options, dtype=dtype, name=name),
@@ -243,7 +243,7 @@ def _option_price(volatilities,
     s_crit_r_call = tf.gather_nd(r_call, indices)
     s_crit_b_call = tf.gather_nd(b_call, indices)
 
-    eu_call_prices = tff.black_scholes.vanilla_prices.option_price(
+    eu_call_prices = tff.black_scholes.option_price(
       volatilities=s_crit_sigma_call, strikes=s_crit_x_call,
       expiries=s_crit_t_call, spots=s_crit_s_call,
       risk_free_rates=s_crit_r_call, cost_of_carries=s_crit_b_call,
@@ -279,7 +279,7 @@ def _option_price(volatilities,
     s_crit_r_put = tf.gather_nd(r_put, indices)
     s_crit_b_put = tf.gather_nd(b_put, indices)
 
-    eu_put_prices = tff.black_scholes.vanilla_prices.option_price(
+    eu_put_prices = tff.black_scholes.option_price(
       volatilities=s_crit_sigma_put, strikes=s_crit_x_put,
       expiries=s_crit_t_put, spots=s_crit_s_put,
       risk_free_rates=s_crit_r_put, cost_of_carries=s_crit_b_put,
@@ -310,7 +310,7 @@ def _option_price_put_or_call(sigma, x, t, r, b, s, call, dtype):
   # Below is estimate starting point for S*; in future will calculate
   s_crit = tf.identity(s, name="S*" if call else "S**")
   LHS = s_crit - x
-  RHS = tff.black_scholes.vanilla_prices.option_price(
+  RHS = tff.black_scholes.option_price(
     volatilities=sigma, strikes=x, expiries=t, spots=s_crit,
     risk_free_rates=r, cost_of_carries=b,
     is_call_options=is_call_options, dtype=dtype) + sign * (
@@ -338,7 +338,7 @@ def _update_s_crit(s_crit, q, sigma, x, t, r, b, is_call_options, dtype):
   sign = 1 if is_call_options is None else -1
   LHS = s_crit - x
   d1 = _calc_d1(s_crit, x, sigma, b, t)
-  RHS = tff.black_scholes.vanilla_prices.option_price(
+  RHS = tff.black_scholes.option_price(
     volatilities=sigma, strikes=x, expiries=t, spots=s_crit, risk_free_rates=r,
     cost_of_carries=b, is_call_options=is_call_options, dtype=dtype) + sign * (
             1 - tf.exp((b - r) * t) * _ncdf(sign * d1)) * s_crit / q
