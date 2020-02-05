@@ -149,7 +149,7 @@ def _sample(dim, drift_fn, volatility_fn, times, time_step, keep_mask,
     normal_draws = utils.generate_mc_normal_draws(
         num_normal_draws=dim, num_time_steps=steps_num,
         num_sample_paths=num_samples, random_type=random_type,
-        dtype=dtype, skip=skip)
+        dtype=dtype, seed=seed, skip=skip)
     wiener_mean = None
   else:
     # If pseudo or anthithetic sampling is used, proceed with random sampling

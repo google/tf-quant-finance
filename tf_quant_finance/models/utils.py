@@ -22,6 +22,7 @@ def generate_mc_normal_draws(num_normal_draws,
                              num_sample_paths,
                              random_type,
                              skip=0,
+                             seed=None,
                              dtype=None,
                              name=None):
   """Generates normal random samples to be consumed by a Monte Carlo algorithm.
@@ -55,6 +56,8 @@ def generate_mc_normal_draws(num_normal_draws,
       Halton sequence to skip. Used only when `random_type` is 'SOBOL',
       'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
       Default value: `0`.
+    seed: Seed for the random number generator. The seed is only relevant if
+      `random_type` is one of `[PSEUDO, PSEUDO_ANTITHETIC, HALTON_RANDOMIZED]`.
     dtype: The `dtype` of the output `Tensor`.
       Default value: `None` which maps to `float32`.
     name: Python string. The name to give this op.
@@ -77,6 +80,7 @@ def generate_mc_normal_draws(num_normal_draws,
     normal_draws = random.mv_normal_sample(
         [num_sample_paths], mean=total_dimension,
         random_type=random_type,
+        seed=seed,
         skip=skip)
     # Reshape and transpose
     normal_draws = tf.reshape(
