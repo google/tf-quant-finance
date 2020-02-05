@@ -5,6 +5,16 @@ licenses(["notice"])
 package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 
 py_library(
+    name = "lsm_algorithm",
+    srcs = ["__init__.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":lsm",
+        ":payoff",
+    ],
+)
+
+py_library(
     name = "lsm",
     srcs = ["lsm.py"],
     srcs_version = "PY3",

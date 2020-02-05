@@ -69,16 +69,18 @@ _check_py_version()
 _ensure_tf_install()
 
 from tf_quant_finance import black_scholes
+from tf_quant_finance import experimental
 from tf_quant_finance import math
 from tf_quant_finance import models
 from tf_quant_finance import rates
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
+    "black_scholes",
+    "experimental",
     "math",
     "models",
     "rates",
-    "black_scholes",
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

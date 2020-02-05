@@ -46,7 +46,7 @@ def make_polynomial_basis(degree):
 
   ## Example
   ```python
-  basis = make_poly_basis(2)
+  basis = make_polynomial_basis(2)
   x = [1.0, 2.0, 3.0, 4.0]
   x = tf.expand_dims(x, -1)
   basis(x)
@@ -135,7 +135,7 @@ def least_square_mc(sample_paths,
   exercise_times = tf.range(times.shape[-1])
   discount_factors = tf.exp(-rate * times)
   payoff_fn = make_basket_put_payoff(strike)
-  basis_fn = make_poly_basis(10)
+  basis_fn = make_polynomial_basis(10)
   lsm_price(paths, exercise_times, payoff_fn, basis_fn,
             discount_factors=discount_factors)
   # Expected value: [0.397]

@@ -15,7 +15,7 @@
 """LSM algorithm methods."""
 
 from tf_quant_finance.experimental.lsm_algorithm.lsm import least_square_mc
-from tf_quant_finance.experimental.lsm_algorithm.lsm import make_poly_basis
+from tf_quant_finance.experimental.lsm_algorithm.lsm import make_polynomial_basis
 from tf_quant_finance.experimental.lsm_algorithm.payoff import make_basket_put_payoff
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
@@ -23,7 +23,7 @@ from tensorflow.python.util.all_util import remove_undocumented  # pylint: disab
 _allowed_symbols = [
     'least_square_mc',
     'make_basket_put_payoff',
-    'make_poly_basis',
+    'make_polynomial_basis',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
