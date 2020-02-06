@@ -1,4 +1,4 @@
-# Copyright 2019 Google LLC
+# Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,22 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""TensorFlow Quantitative Finance tools to build Diffusion Models."""
+"""TensorFlow Quantitative Finance tools to build Hull White type models."""
 
-from tf_quant_finance.models import euler_sampling
-from tf_quant_finance.models import heston_model
-from tf_quant_finance.models import hull_white
-from tf_quant_finance.models.generic_ito_process import GenericItoProcess
-from tf_quant_finance.models.ito_process import ItoProcess
+from tf_quant_finance.models.hull_white.one_factor import HullWhiteModel1F
+from tf_quant_finance.models.hull_white.vector_hull_white import VectorHullWhiteModel
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
-    'euler_sampling',
-    'heston_model',
-    'hull_white',
-    'GenericItoProcess',
-    'ItoProcess',
+    'HullWhiteModel1F',
+    'VectorHullWhiteModel',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

@@ -19,9 +19,9 @@ Feynman-Kac equation.
 
 import tensorflow as tf
 
+from tf_quant_finance.math.pde import fd_solvers
 from tf_quant_finance.models import euler_sampling
 from tf_quant_finance.models import ito_process
-from tf_quant_finance.math.pde import fd_solvers
 
 
 class GenericItoProcess(ito_process.ItoProcess):
@@ -301,6 +301,7 @@ class GenericItoProcess(ito_process.ItoProcess):
         zeroth_order_coeff_fn=zeroth_order_coeff_fn,
         dtype=dtype,
         name=name)
+
 
 def _backward_pde_coeffs(drift_fn, volatility_fn, discounting):
   """Returns coeffs of the backward PDE."""

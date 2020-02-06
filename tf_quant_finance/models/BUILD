@@ -12,6 +12,7 @@ py_library(
         ":generic_ito_process",
         ":heston_model",
         ":ito_process",
+        "//tf_quant_finance/models/hull_white",
     ],
 )
 
