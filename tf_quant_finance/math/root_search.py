@@ -22,7 +22,7 @@ from __future__ import print_function
 import collections
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 BrentResults = collections.namedtuple(
     "BrentResults",

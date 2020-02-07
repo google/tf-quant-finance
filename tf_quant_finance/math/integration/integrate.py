@@ -20,7 +20,7 @@ from __future__ import division
 from __future__ import print_function
 
 import enum
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.math.integration.simpson import simpson
 

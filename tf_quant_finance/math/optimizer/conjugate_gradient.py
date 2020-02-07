@@ -33,7 +33,7 @@ from __future__ import print_function
 import collections
 
 import attr
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 from tensorflow_probability.python.optimizer import converged_all
 from tensorflow_probability.python.optimizer import linesearch
@@ -428,7 +428,7 @@ def minimize(value_and_gradients_function,
           prev_step=a_k)
       return (new_state,)
 
-    final_state = tf.compat.v1.while_loop(
+    final_state = tf.while_loop(
         _cond, _body, (initial_state,),
         parallel_iterations=parallel_iterations)[0]
     return OptimizerResult(

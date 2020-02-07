@@ -17,7 +17,7 @@
 
 import enum
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
 from tf_quant_finance.math.random_ops import halton
 from tf_quant_finance.math.random_ops import sobol

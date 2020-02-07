@@ -19,7 +19,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 
 def pv_from_yields(cashflows,
@@ -248,7 +248,7 @@ def yields_from_pv(cashflows,
       return (next_should_stop, yields + delta_yields)
 
     loop_vars = (tf.convert_to_tensor(False), yields0)
-    _, estimated_yields = tf.compat.v1.while_loop(
+    _, estimated_yields = tf.while_loop(
         _cond,
         _body,
         loop_vars,

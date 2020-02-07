@@ -13,7 +13,7 @@
 # limitations under the License.
 """Functions for solving linear parabolic PDEs."""
 
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 from tf_quant_finance.math.pde.steppers.douglas_adi import douglas_adi_step
 from tf_quant_finance.math.pde.steppers.oscillation_damped_crank_nicolson import oscillation_damped_crank_nicolson_step
 
@@ -678,7 +678,7 @@ def _solve(
     initial_args = (should_already_stop, start_time, coord_grid, values_grid,
                     start_step_count)
     (_, final_time, final_coords, final_values,
-     steps_performed) = tf.compat.v1.while_loop(
+     steps_performed) = tf.while_loop(
          loop_cond,
          loop_body,
          initial_args,

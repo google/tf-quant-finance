@@ -15,7 +15,7 @@
 # Lint as: python2, python3
 """Uniform distribution with various random types."""
 
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.math.random_ops import halton
 from tf_quant_finance.math.random_ops import sobol

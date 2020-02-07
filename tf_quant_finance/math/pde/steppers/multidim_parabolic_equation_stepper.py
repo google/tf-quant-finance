@@ -14,7 +14,7 @@
 """Stepper for multidimensional parabolic PDE solving."""
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 
 def multidim_parabolic_equation_step(

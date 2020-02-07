@@ -14,7 +14,7 @@
 """Douglas ADI method for solving multidimensional parabolic PDEs."""
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 from tf_quant_finance.math.pde.steppers.multidim_parabolic_equation_stepper import multidim_parabolic_equation_step
 
 

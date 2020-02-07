@@ -43,7 +43,7 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.rates import cashflows
 from tf_quant_finance.rates.hagan_west import monotone_convex
@@ -462,7 +462,7 @@ def _build_discount_curve(bond_cashflows, bond_cashflow_times, present_values,
 
   initial_discount_factors = tf.math.exp(-initial_discount_rates * expiry_times)
   initial_vals = (False, False, 0, initial_discount_factors)
-  loop_result = tf.compat.v1.while_loop(
+  loop_result = tf.while_loop(
       cond, one_step, initial_vals, maximum_iterations=maximum_iterations)
   discount_factors = loop_result[-1]
   discount_rates = -tf.math.log(discount_factors) / expiry_times
@@ -534,7 +534,6 @@ def _validate_args_control_deps(bond_cashflows, bond_cashflow_times,
   cashflow_after_settlement = []
   final_cashflow_is_the_largest = []
   for bond_index, bond_cashflow in enumerate(bond_cashflows):
-    cashflow = bond_cashflows[bond_index]
     times = bond_cashflow_times[bond_index]
     time_difference = times[1:] - times[:-1]
     cashflows_are_strictly_increasing.append(
@@ -543,7 +542,8 @@ def _validate_args_control_deps(bond_cashflows, bond_cashflow_times,
         tf.debugging.assert_greater(times[0], pv_settle_times[bond_index]))
     final_cashflow_is_the_largest.append(
         tf.debugging.assert_greater(
-            tf.fill(tf.shape(cashflow[:-1]), cashflow[-1]), cashflow[:-1]))
+            tf.fill(tf.shape(bond_cashflow[:-1]),
+                    bond_cashflow[-1]), bond_cashflow[:-1]))
   return (cashflow_after_settlement + cashflows_are_strictly_increasing +
           final_cashflow_is_the_largest)
 

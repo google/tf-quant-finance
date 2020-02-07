@@ -29,10 +29,10 @@ instruments and the present values computed using the constructed swap curve.
       Volume I: Foundations and Vanilla Models. Chapter 6. 2010.
 """
 
-import numpy as np
 import collections
+import numpy as np
 
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.math import make_val_and_grad_fn
 from tf_quant_finance.math import optimizer
@@ -452,16 +452,13 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
                       pv_settlement_times, optimize, curve_interpolator,
                       initial_rates, instrument_weights, curve_tolerance,
                       maximum_iterations, dtype):
-  """Build the zero swap curve.
-
-  The procedure uses optimization to estimate the swap curve as follows:
-  1. Start with an initial state of the swap curve.
-  2. Define a loss function which measures the deviations between model prices
-    of the IR swaps and their present values specified as input.
-  3. Use numerical optimization (currently conjugate gradient optimization) to
-    to build the swap curve such that the loss function is minimized.
-    """
-
+  """Build the zero swap curve."""
+  # The procedure uses optimization to estimate the swap curve as follows:
+  # 1. Start with an initial state of the swap curve.
+  # 2. Define a loss function which measures the deviations between model prices
+  #   of the IR swaps and their present values specified as input.
+  # 3. Use numerical optimization (currently conjugate gradient optimization) to
+  #   to build the swap curve such that the loss function is minimized.
   curve_tensors = _create_curve_building_tensors(
       float_leg_start_times, float_leg_end_times, fixed_leg_end_times,
       pv_settlement_times)
@@ -483,21 +480,19 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
 
   @make_val_and_grad_fn
   def loss_function(x):
-    """Loss function for the optimization.
+    """Loss function for the optimization."""
+    # Currently the loss function is a weighted root mean squared difference
+    # between the model PV and market PV. The model PV is interest rate swaps is
+    # computed as follows:
 
-    Currently the loss function is a weighted root mean squared difference
-    between the model PV and market PV. The model PV is interest rate swaps is
-    computed as follows:
-
-    1. Interpolate the swap curve at intermediate times required to compute
-      forward rates for the computation of floating cashflows.
-    2. Interpolate swap curve or the discount curve (if a separate discount
-      curve is specified) at intermediate cashflow times.
-    3. Compute the PV of the swap as the aggregate of floating and fixed legs.
-    4. Compute the loss (which is being minized) as the weighted root mean
-      squared difference between the model PV (computed above )and the market PV
-      (specified as input).
-    """
+    # 1. Interpolate the swap curve at intermediate times required to compute
+    #   forward rates for the computation of floating cashflows.
+    # 2. Interpolate swap curve or the discount curve (if a separate discount
+    #   curve is specified) at intermediate cashflow times.
+    # 3. Compute the PV of the swap as the aggregate of floating and fixed legs.
+    # 4. Compute the loss (which is being minized) as the weighted root mean
+    #   squared difference between the model PV (computed above) and the market
+    #   PV (specified as input).
 
     rates_start = _interpolate(float_leg_calc_times_start, expiry_times, x)
     rates_end = _interpolate(float_leg_calc_times_end, expiry_times, x)

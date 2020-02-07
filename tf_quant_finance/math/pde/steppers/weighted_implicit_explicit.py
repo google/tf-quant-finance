@@ -13,7 +13,7 @@
 # limitations under the License.
 """Weighted implicit-explicit time marching scheme for parabolic PDEs."""
 
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.math.pde.steppers.parabolic_equation_stepper import parabolic_equation_step
 

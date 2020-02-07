@@ -14,7 +14,7 @@
 """Time marching schemes for finite difference methods for parabolic PDEs."""
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import

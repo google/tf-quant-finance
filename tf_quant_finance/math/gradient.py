@@ -20,7 +20,7 @@ from __future__ import print_function
 
 import functools
 
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 from tensorflow_probability.python.math import value_and_gradient
 
 

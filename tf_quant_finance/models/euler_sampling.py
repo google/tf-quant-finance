@@ -168,7 +168,7 @@ def _sample(dim, drift_fn, volatility_fn, times, time_step, keep_mask,
   maximum_iterations = (tf.cast(1. / time_step, dtype=tf.int32)
                         + tf.size(times))
   result = tf.TensorArray(dtype=dtype, size=times_shape[-1])
-  _, _, _, result = tf.compat.v1.while_loop(
+  _, _, _, result = tf.while_loop(
       cond_fn, step_fn, (0, 0, current_state, result),
       maximum_iterations=maximum_iterations,
       swap_memory=swap_memory)

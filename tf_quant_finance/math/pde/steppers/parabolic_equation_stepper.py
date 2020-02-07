@@ -13,7 +13,7 @@
 # limitations under the License.
 """Stepper for parabolic PDEs solving."""
 
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 
 def parabolic_equation_step(

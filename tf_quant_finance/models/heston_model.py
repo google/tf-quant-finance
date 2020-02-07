@@ -11,13 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# Lint as: python3
 """Heston model with piecewise constant parameters."""
 
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.models import generic_ito_process
 from tf_quant_finance.math import piecewise
 from tf_quant_finance.math import random_ops
+from tf_quant_finance.models import generic_ito_process
 
 
 class HestonModel(generic_ito_process.GenericItoProcess):
@@ -122,6 +124,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
               rho, dtype=self._dtype, name='rho')
 
     def _vol_fn(t, x):
+      """Volatility function of the Heston Process."""
       # For correlated brownian motions W_{X} and W_{V} with correlation
       # `rho(t)`, one can write
       # W_{V}(t) = rho(t) * W_{X}(t) + sqrt(1 - rho(t)**2) * W_{Z}(t)
@@ -132,7 +135,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       vol = tf.sqrt(tf.abs(x[..., 1]))
       zeros = tf.zeros_like(vol)
       # Get parameter values at time `t`
-      rho, epsilon = _get_parameters([t], self._rho, self._epsilon)
+      rho, epsilon = _get_parameters([t], self._rho, self._epsilon)  # pylint: disable=unbalanced-tuple-unpacking
       rho, epsilon = rho[0], epsilon[0]
       # First column of the volatility matrix
       vol_matrix_1 = tf.stack([vol, epsilon * rho * vol], -1)
@@ -144,14 +147,14 @@ class HestonModel(generic_ito_process.GenericItoProcess):
     def _drift_fn(t, x):
       var = x[..., 1]
       # Get parameter values at time `t`
-      kappa, theta = _get_parameters([t], self._kappa, self._theta)
+      kappa, theta = _get_parameters([t], self._kappa, self._theta)  # pylint: disable=unbalanced-tuple-unpacking
       kappa, theta = kappa[0], theta[0]
       log_spot_drift = -var / 2
       var_drift = kappa * (theta - var)
       drift = tf.stack([log_spot_drift, var_drift], -1)
       return drift
 
-    super().__init__(2, _drift_fn, _vol_fn, dtype, name)
+    super(HestonModel, self).__init__(2, _drift_fn, _vol_fn, dtype, name)
 
   def sample_paths(self,
                    times,
@@ -235,7 +238,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
 
     # Add zeros as a starting location
     dt = times[1:] - times[:-1]
-    kappa, theta, epsilon, rho = _get_parameters(
+    kappa, theta, epsilon, rho = _get_parameters(  # pylint: disable=unbalanced-tuple-unpacking
         times + tf.reduce_min(dt) / 2,
         self._kappa, self._theta, self._epsilon, self._rho)
     cond_fn = lambda i, *args: i < tf.size(dt)
@@ -276,7 +279,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
                                     size=times_size)
     vol_paths = tf.TensorArray(dtype=self._dtype,
                                size=times_size)
-    _, _, _, _, vol_paths, log_spot_paths = tf.while_loop(
+    _, _, _, _, vol_paths, log_spot_paths = tf.compat.v2.while_loop(
         cond_fn, body_fn, (0, 0, current_var, current_log_spot,
                            vol_paths, log_spot_paths))
     return tf.stack([tf.transpose(log_spot_paths.stack()),
