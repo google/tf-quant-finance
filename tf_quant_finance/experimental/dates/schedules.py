@@ -13,7 +13,7 @@
 # limitations under the License.
 """Functions for creating schedules."""
 
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.experimental.dates import constants
 from tf_quant_finance.experimental.dates import date_tensor

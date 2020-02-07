@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import abc
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 
 class TensorWrapper(metaclass=abc.ABCMeta):

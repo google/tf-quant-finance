@@ -13,7 +13,7 @@
 # limitations under the License.
 """Utilities for working with dates."""
 
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 _DAYS_IN_ERA = 146097  # Era is 400 years.
 _YEARS_IN_ERA = 400

@@ -15,7 +15,7 @@
 """Implementation of the regression MC algorithm of Longstaff and Schwartz."""
 
 import collections
-import tensorflow.compat.v1 as tf
+import tensorflow.compat.v2 as tf
 
 
 LsmLoopVars = collections.namedtuple(
@@ -219,7 +219,7 @@ def least_square_mc(sample_paths,
                             payoff_fn, basis_fn,
                             num_times, exercise_index, cashflow)
 
-    loop_value = tf.compat.v1.while_loop(lsm_loop_cond, loop_body,
+    loop_value = tf.while_loop(lsm_loop_cond, loop_body,
                                          lsm_loop_vars)
     present_values = continuation_value_fn(
         loop_value.cashflow, discount_factors, 0)

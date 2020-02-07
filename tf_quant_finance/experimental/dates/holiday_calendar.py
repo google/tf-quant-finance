@@ -18,7 +18,7 @@ import datetime
 
 import attr
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.experimental.dates import constants
 from tf_quant_finance.experimental.dates import date_tensor as dt
