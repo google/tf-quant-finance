@@ -11,6 +11,7 @@ py_library(
     deps = [
         ":cashflows",
         ":forwards",
+        ":swap_curve_bootstrap",
         ":swap_curve_fit",
         "//tf_quant_finance/rates/constant_fwd",
         "//tf_quant_finance/rates/hagan_west",
@@ -70,6 +71,19 @@ py_library(
         "//tf_quant_finance/math:gradient",
         "//tf_quant_finance/math/interpolation/linear:linear_interpolation",
         "//tf_quant_finance/math/optimizer:conjugate_gradient",
+        # attr dep,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "swap_curve_bootstrap",
+    srcs = ["swap_curve_bootstrap.py"],
+    srcs_version = "PY2AND3",
+    deps = [
+        ":swap_curve_fit",
+        "//tf_quant_finance/math/interpolation/linear:linear_interpolation",
         # attr dep,
         # numpy dep,
         # tensorflow dep,

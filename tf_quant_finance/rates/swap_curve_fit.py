@@ -44,14 +44,14 @@ SwapCurveBuilderResult = collections.namedtuple(
         # Rank 1 real `Tensor`. Times for the computed discount rates.
         'times',
         # Rank 1 `Tensor` of the same dtype as `times`.
-        # The inferred discount rates.
-        'discount_rates',
+        # The inferred zero rates.
+        'rates',
         # Rank 1 `Tensor` of the same dtype as `times`.
         # The inferred discount factors.
         'discount_factors',
         # Rank 1 `Tensor` of the same dtype as `times`. The
-        # initial guess for the discount rates.
-        'initial_discount_rates',
+        # initial guess for the rates.
+        'initial_rates',
         # Scalar boolean `Tensor`. Whether the procedure converged.
         'converged',
         # Scalar boolean `Tensor`. Whether the procedure failed.
@@ -555,9 +555,9 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
   discount_factors = tf.math.exp(-discount_rates * expiry_times)
   results = SwapCurveBuilderResult(
       times=expiry_times,
-      discount_rates=discount_rates,
+      rates=discount_rates,
       discount_factors=discount_factors,
-      initial_discount_rates=initial_rates,
+      initial_rates=initial_rates,
       converged=optimization_result.converged,
       failed=optimization_result.failed,
       iterations=optimization_result.num_iterations,

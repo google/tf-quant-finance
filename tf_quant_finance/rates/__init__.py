@@ -24,10 +24,12 @@ from tf_quant_finance.rates import forwards
 from tf_quant_finance.rates import hagan_west
 from tf_quant_finance.rates import constant_fwd
 from tf_quant_finance.rates import swap_curve_fit as swap_curve_fit_lib
+from tf_quant_finance.rates import swap_curve_bootstrap as swap_curve_boot_lib
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 swap_curve_fit = swap_curve_fit_lib.swap_curve_fit
+swap_curve_bootstrap = swap_curve_boot_lib.swap_curve_bootstrap
 SwapCurveBuilderResult = swap_curve_fit_lib.SwapCurveBuilderResult
 
 _allowed_symbols = [
@@ -36,6 +38,7 @@ _allowed_symbols = [
     'hagan_west',
     'constant_fwd',
     'swap_curve_fit',
+    'swap_curve_bootstrap',
     'SwapCurveBuilderResult',
 ]
 
