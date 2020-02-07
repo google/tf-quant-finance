@@ -161,11 +161,12 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         Default value: `None` which maps to the default name `hull_white_model`.
 
     Raises:
-      ValueError: If either `mean_reversion`, `volatility`, or `corr_matrix` is
-        a piecewise constant function where `jump_locations` have batch shape of
-        rank > 1.
-       tf.errors.InvalidArgumentError: If batch rank of the `jump_locations` is
-         `[n]` with `n` different from `dim`.
+      ValueError:
+        (a) If either `mean_reversion`, `volatility`, or `corr_matrix` is
+          a piecewise constant function where `jump_locations` have batch shape
+          of rank > 1.
+        (b): If batch rank of the `jump_locations` is `[n]` with `n` different
+          from `dim`.
     """
     self._name = name or 'hull_white_model'
     with tf.name_scope(self._name):
@@ -508,10 +509,10 @@ def _input_type(param, dim, dtype, name):
             'Batch rank of `jump_locations` should be `1` for all piecewise '
             'constant arguments but {} instead'.format(len(jumps_shape[:-1])))
       if len(jumps_shape) == 2:
-        tf.debugging.assert_equal(
-            dim, jumps_shape[0],
-            message='Batch shape of `jump_locations` should be either empty or '
-            '`[{0}]` but `[{1}]` instead'.format(dim, jumps_shape[0]))
+        if dim != jumps_shape[0]:
+          raise ValueError(
+              'Batch shape of `jump_locations` should be either empty or '
+              '`[{0}]` but `[{1}]` instead'.format(dim, jumps_shape[0]))
       return param, sample_with_generic
     else:
       sample_with_generic = True

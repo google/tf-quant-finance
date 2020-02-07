@@ -207,7 +207,7 @@ class HullWhiteTest(tf.test.TestCase):
         [[0.1, 2.0]], values=[3 * [self.mean_reversion]], dtype=dtype)
     # Volatility with batch dimesnion
     volatility = self.volatility
-    with self.assertRaises(tf.errors.InvalidArgumentError):
+    with self.assertRaises(ValueError):
       tff.models.hull_white.VectorHullWhiteModel(
           dim=2,
           mean_reversion=mean_reversion,
