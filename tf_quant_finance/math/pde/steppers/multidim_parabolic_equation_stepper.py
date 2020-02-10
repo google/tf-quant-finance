@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -253,7 +254,8 @@ def multidim_parabolic_equation_step(
         n_dims=n_dims)
 
     updated_value_grid = _apply_boundary_conditions_after_step(
-        inner_grid_out, coord_grid, boundary_conditions, batch_rank, next_time)
+        value_grid, inner_grid_out, coord_grid, boundary_conditions, batch_rank,
+        next_time)
 
     return coord_grid, updated_value_grid
 
@@ -300,7 +302,7 @@ def _construct_discretized_equation_params(
     # yields a contribution to the inhomogeneous term
     (superdiag, diag, subdiag), inhomog_term_contribution = (
         _apply_boundary_conditions_to_tridiagonal_and_inhomog_terms(
-            dim, batch_rank, boundary_conditions, coord_grid,
+            value_grid, dim, batch_rank, boundary_conditions, coord_grid,
             superdiag, diag, subdiag, delta, t))
 
     # 3. Evenly distribute shift term among tridiagonal matrices of each
@@ -461,8 +463,8 @@ def _construct_contribution_of_mixed_term(outer_coeff, inner_coeff, coord_grid,
 
 
 def _apply_boundary_conditions_to_tridiagonal_and_inhomog_terms(
-    dim, batch_rank, boundary_conditions, coord_grid, superdiag, diag, subdiag,
-    delta, t):
+    value_grid, dim, batch_rank, boundary_conditions, coord_grid, superdiag,
+    diag, subdiag, delta, t):
   """Updates contributions according to boundary conditions."""
   # This is analogous to _apply_boundary_conditions_to_discretized_equation in
   # pde_kernels.py. The difference is that we work with the given spatial
@@ -473,6 +475,10 @@ def _apply_boundary_conditions_to_tridiagonal_and_inhomog_terms(
 
   alpha_l, beta_l, gamma_l = boundary_conditions[dim][0](t, coord_grid)
   alpha_u, beta_u, gamma_u = boundary_conditions[dim][1](t, coord_grid)
+
+  alpha_l, beta_l, gamma_l, alpha_u, beta_u, gamma_u = (
+      _prepare_boundary_conditions(b, value_grid, batch_rank, dim)
+      for b in (alpha_l, beta_l, gamma_l, alpha_u, beta_u, gamma_u))
 
   def reshape_fn(bound_coeff):
     """Reshapes boundary coefficient."""
@@ -538,8 +544,8 @@ def _apply_boundary_conditions_to_tridiagonal_and_inhomog_terms(
   return (superdiag, diag, subdiag), inhomog_term
 
 
-def _apply_boundary_conditions_after_step(inner_grid_out, coord_grid,
-                                          boundary_conditions,
+def _apply_boundary_conditions_after_step(value_grid_in, inner_grid_out,
+                                          coord_grid, boundary_conditions,
                                           batch_rank, t):
   """Calculates and appends boundary values after making a step."""
   # After we've updated the values in the inner part of the grid according to
@@ -553,24 +559,32 @@ def _apply_boundary_conditions_after_step(inner_grid_out, coord_grid,
   # (b, ny-2, nx-2), which then becomes (b, ny, nx-2) and finally (b, ny, nx).
   grid = inner_grid_out
   for dim in range(len(coord_grid)):
-    grid = _apply_boundary_conditions_after_step_to_dim(
-        dim, batch_rank, boundary_conditions, coord_grid, grid, t)
+    grid = _apply_boundary_conditions_after_step_to_dim(dim, batch_rank,
+                                                        boundary_conditions,
+                                                        coord_grid,
+                                                        value_grid_in, grid, t)
 
   return grid
 
 
-def _apply_boundary_conditions_after_step_to_dim(
-    dim, batch_rank, boundary_conditions, coord_grid, value_grid, t):
+def _apply_boundary_conditions_after_step_to_dim(dim, batch_rank,
+                                                 boundary_conditions,
+                                                 coord_grid, value_grid_in,
+                                                 current_value_grid_out, t):
   """Calculates and appends boundaries orthogonal to `dim`."""
   # E.g. for n_dims = 3, and dim = 1, the expected input grid shape is
   # (b, nx, ny-2, nz-2), and the output shape is (b, nx, ny, nz-2).
-  lower_value_first = _slice(value_grid, batch_rank + dim, 0, 1)
-  lower_value_second = _slice(value_grid, batch_rank + dim, 1, 2)
-  upper_value_first = _slice(value_grid, batch_rank + dim, -1, 0)
-  upper_value_second = _slice(value_grid, batch_rank + dim, -2, -1)
+  lower_value_first = _slice(current_value_grid_out, batch_rank + dim, 0, 1)
+  lower_value_second = _slice(current_value_grid_out, batch_rank + dim, 1, 2)
+  upper_value_first = _slice(current_value_grid_out, batch_rank + dim, -1, 0)
+  upper_value_second = _slice(current_value_grid_out, batch_rank + dim, -2, -1)
 
   alpha_l, beta_l, gamma_l = boundary_conditions[dim][0](t, coord_grid)
   alpha_u, beta_u, gamma_u = boundary_conditions[dim][1](t, coord_grid)
+
+  alpha_l, beta_l, gamma_l, alpha_u, beta_u, gamma_u = (
+      _prepare_boundary_conditions(b, value_grid_in, batch_rank, dim)
+      for b in (alpha_l, beta_l, gamma_l, alpha_u, beta_u, gamma_u))
 
   def reshape_fn(bound_coeff):
     # Say the grid shape is (b, nz, ny-2, nx-2), and dim = 1: we have already
@@ -580,7 +594,7 @@ def _apply_boundary_conditions_after_step_to_dim(
     # - Trim the boundaries which we haven't yet restored: nx -> nx-2.
     # - Expand dimension batch_rank+dim=2, because broadcasting won't always
     # do this correctly in subsequent computations.
-    # Thus this functions turns (b, nz, nx) into (b, nz, 1, nx-2).
+    # Thus this function turns (b, nz, nx) into (b, nz, 1, nx-2).
     return _reshape_boundary_conds(
         bound_coeff,
         trim_from=batch_rank + dim,
@@ -596,7 +610,8 @@ def _apply_boundary_conditions_after_step_to_dim(
   xi1, xi2, eta = _discretize_boundary_conditions(delta, delta, alpha_u,
                                                   beta_u, gamma_u)
   last_value = (xi1 * upper_value_first + xi2 * upper_value_second + eta)
-  return tf.concat((first_value, value_grid, last_value), batch_rank + dim)
+  return tf.concat((first_value, current_value_grid_out, last_value),
+                   batch_rank + dim)
 
 
 def _get_grid_delta(coord_grid, dim):
@@ -613,6 +628,22 @@ def _prepare_pde_coeff(raw_coeff, value_grid):
   coeff = tf.convert_to_tensor(raw_coeff, dtype=dtype)
   coeff = tf.broadcast_to(coeff, tf.shape(value_grid))
   return coeff
+
+
+def _prepare_boundary_conditions(boundary_tensor, value_grid, batch_rank, dim):
+  """Prepares values received from boundary_condition callables."""
+  if boundary_tensor is None:
+    return None
+  boundary_tensor = tf.convert_to_tensor(boundary_tensor, value_grid.dtype)
+  # Broadcast to the shape of the boundary: it is the shape of value grid with
+  # one dimension removed.
+  dim_to_remove = batch_rank + dim
+  broadcast_shape = []
+  # Shape slicing+concatenation seems error-prone, so let's do it simply.
+  for i, size in enumerate(value_grid.shape):
+    if i != dim_to_remove:
+      broadcast_shape.append(size)
+  return tf.broadcast_to(boundary_tensor, broadcast_shape)
 
 
 def _discretize_boundary_conditions(dx0, dx1, alpha, beta, gamma):

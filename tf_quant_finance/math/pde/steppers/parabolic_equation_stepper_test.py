@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +19,7 @@ import math
 from absl.testing import parameterized
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
 
@@ -337,12 +338,12 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     @dirichlet
     def lower_boundary_fn(t, x):
       del t, x
-      return 0.0
+      return 0
 
     @dirichlet
     def upper_boundary_fn(t, x):
       del t, x
-      return 1.0
+      return 1
 
     grid = grids.uniform_grid(
         minimums=[x_min], maximums=[x_max], sizes=[1000], dtype=dtype)
@@ -427,7 +428,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     @dirichlet
     def lower_boundary_fn(t, location_grid):
       del t, location_grid
-      return dtype([0.0, 0.0])
+      return 0
 
     @dirichlet
     def upper_boundary_fn(t, location_grid):
@@ -492,7 +493,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     @dirichlet
     def lower_boundary_fn(t, location_grid):
       del t, location_grid
-      return dtype([0.0])
+      return 0
 
     @dirichlet
     def upper_boundary_fn(t, location_grid):

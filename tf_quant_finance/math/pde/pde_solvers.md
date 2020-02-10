@@ -593,19 +593,19 @@ boundary condition (by default - Dirichlet with zero value). For example, let's
 ```python
 @pde.boundary_conditions.dirichlet
 def boundary_x_max(t, grid):
-  return 1.0
+  return 1
 
 @pde.boundary_conditions.dirichlet
 def boundary_x_min(t, grid):
-  return 0.0
+  return 0
 
 @pde.boundary_conditions.neumann
 def boundary_y_max(t, grid):
-  return 0.0
+  return 0
 
 @pde.boundary_conditions.neumann
 def boundary_y_min(t, grid):
-  return 0.0
+  return 0
 
 result_value_grid, final_grid, end_time, steps_performed = (
     pde.fd_solvers.solve_forward(...,
@@ -626,12 +626,16 @@ def boundary_x_max(t, grid):
 ```
 
 The general requirement for the shape of the boundary condition tensors is that
-they must be either scalars or tensors of shape
-`batch_shape + grid_shape'`, where `grid_shape'` is `grid_shape`
-excluding the axis orthogonal to the boundary. For example, in 3D the value
-grid shape is `batch_shape + (z_size, y_size, x_size)`, and the boundary tensors
-on the planes $y=y_{min}$ and $y=y_{max}$ should be either scalars or
-have shape `batch_shape + (z_size, x_size)`.
+their shape must be broadcastable to
+`batch_shape + grid_shape'`, where `grid_shape'` is the `grid_shape`
+excluding the axis orthogonal to the boundary. In the simplest case of 1D
+problem with no batching, the boundary callables must return either a scalar or
+a rank-0 tensor. With batching, shapes that are broadcastable to the shape of
+the batch are also acceptable. Thus, items in a batch can have different
+boundary conditions. As another example, in a 3D problem the value
+grid shape is `batch_shape + (z_size, y_size, x_size)`, so the boundary tensors
+on the planes $y=y_{min}$ and $y=y_{max}$ should be broadcastable to
+`batch_shape + (z_size, x_size)`.
 
 As a more elaborate example, let's translate into code the Heston-Hull-White
 PDE, as defined in [1]:
@@ -692,31 +696,31 @@ def zeroth_order_coeff_fn(t, grid):
 
 @pde.boundary_conditions.dirichlet
 def boundary_s_min(t, grid):
-  return 0.0
+  return 0
 
 @pde.boundary_conditions.neumann
 def boundary_s_max(t, grid):
-  return 1.0
+  return 1
 
 @pde.boundary_conditions.dirichlet
 def boundary_v_min(t, grid):
-  return 0.0
+  return 0
 
 @pde.boundary_conditions.dirichlet
 def boundary_v_max(t, grid):
-  s, r = grid[0], grid[2]
-  # Shape must be exactly the same as the shape of the boundary, which
-  # is (s_size, r_size). Broadcasting is not yet supported here.
-  s_mesh, r_mesh = tf.meshgrid(s, r, indexing='ij')
-  return s_mesh
+  s = grid[0]
+  # Shape must be broadcastable to the shape of the boundary, which
+  # is (s_size, r_size). By using expand_dims we obtain an acceptable shape
+  # (s_size, 1).
+  return tf.expand_dims(s, -1)
 
 @pde.boundary_conditions.neumann
 def boundary_r_min(t, grid):
-  return 0.0
+  return 0
 
 @pde.boundary_conditions.neumann
 def boundary_r_max(t, grid):
-  return 0.0
+  return 0
 ```
 
 ## Customizing the time marching scheme

@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -338,26 +339,22 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
     @dirichlet
     def lower_bound_x(t, location_grid):
       del location_grid
-      f = tf.exp(t) * np.sin(x_min / _SQRT2) * tf.sin(ys / 2)
-      return tf.expand_dims(f, 0)
+      return tf.exp(t) * np.sin(x_min / _SQRT2) * tf.sin(ys / 2)
 
     @dirichlet
     def upper_bound_x(t, location_grid):
       del location_grid
-      f = tf.exp(t) * np.sin(x_max / _SQRT2) * tf.sin(ys / 2)
-      return tf.expand_dims(f, 0)
+      return tf.exp(t) * np.sin(x_max / _SQRT2) * tf.sin(ys / 2)
 
     @dirichlet
     def lower_bound_y(t, location_grid):
       del location_grid
-      f = tf.exp(t) * tf.sin(xs / _SQRT2) * np.sin(y_min / 2)
-      return tf.expand_dims(f, 0)
+      return tf.exp(t) * tf.sin(xs / _SQRT2) * np.sin(y_min / 2)
 
     @dirichlet
     def upper_bound_y(t, location_grid):
       del location_grid
-      f = tf.exp(t) * tf.sin(xs / _SQRT2) * np.sin(y_max / 2)
-      return tf.expand_dims(f, 0)
+      return tf.exp(t) * tf.sin(xs / _SQRT2) * np.sin(y_max / 2)
 
     expected = np.outer(np.sin(ys / 2), np.sin(xs / _SQRT2))
 
@@ -406,26 +403,22 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
     @neumann
     def lower_bound_x(t, location_grid):
       del location_grid
-      f = -tf.exp(t) * np.cos(x_min / _SQRT2) * tf.sin(ys / 2) / _SQRT2
-      return tf.expand_dims(f, 0)
+      return -tf.exp(t) * np.cos(x_min / _SQRT2) * tf.sin(ys / 2) / _SQRT2
 
     @neumann
     def upper_bound_x(t, location_grid):
       del location_grid
-      f = tf.exp(t) * np.cos(x_max / _SQRT2) * tf.sin(ys / 2) / _SQRT2
-      return tf.expand_dims(f, 0)
+      return tf.exp(t) * np.cos(x_max / _SQRT2) * tf.sin(ys / 2) / _SQRT2
 
     @neumann
     def lower_bound_y(t, location_grid):
       del location_grid
-      f = -tf.exp(t) * tf.sin(xs / _SQRT2) * np.cos(y_min / 2) / 2
-      return tf.expand_dims(f, 0)
+      return -tf.exp(t) * tf.sin(xs / _SQRT2) * np.cos(y_min / 2) / 2
 
     @neumann
     def upper_bound_y(t, location_grid):
       del location_grid
-      f = tf.exp(t) * tf.sin(xs / _SQRT2) * np.cos(y_max / 2) / 2
-      return tf.expand_dims(f, 0)
+      return tf.exp(t) * tf.sin(xs / _SQRT2) * np.cos(y_max / 2) / 2
 
     expected = np.outer(np.sin(ys / 2), np.sin(xs / _SQRT2))
 
@@ -474,26 +467,22 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
     @dirichlet
     def lower_bound_x(t, location_grid):
       del location_grid
-      f = tf.exp(t) * np.sin(x_min / _SQRT2) * tf.sin(ys / 2)
-      return tf.expand_dims(f, 0)
+      return tf.exp(t) * np.sin(x_min / _SQRT2) * tf.sin(ys / 2)
 
     @neumann
     def upper_bound_x(t, location_grid):
       del location_grid
-      f = tf.exp(t) * np.cos(x_max / _SQRT2) * tf.sin(ys / 2) / _SQRT2
-      return tf.expand_dims(f, 0)
+      return tf.exp(t) * np.cos(x_max / _SQRT2) * tf.sin(ys / 2) / _SQRT2
 
     @neumann
     def lower_bound_y(t, location_grid):
       del location_grid
-      f = -tf.exp(t) * tf.sin(xs / _SQRT2) * np.cos(y_min / 2) / 2
-      return tf.expand_dims(f, 0)
+      return -tf.exp(t) * tf.sin(xs / _SQRT2) * np.cos(y_min / 2) / 2
 
     @dirichlet
     def upper_bound_y(t, location_grid):
       del location_grid
-      f = tf.exp(t) * tf.sin(xs / _SQRT2) * np.sin(y_max / 2)
-      return tf.expand_dims(f, 0)
+      return tf.exp(t) * tf.sin(xs / _SQRT2) * np.sin(y_max / 2)
 
     expected = np.outer(np.sin(ys / 2), np.sin(xs / _SQRT2))
 
@@ -543,25 +532,25 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
       del location_grid
       f = tf.exp(t) * tf.sin(ys / 2) * (
           np.sin(x_min / _SQRT2) - np.cos(x_min / _SQRT2) / _SQRT2)
-      return 1, 1, tf.expand_dims(f, 0)
+      return 1, 1, f
 
     def upper_bound_x(t, location_grid):
       del location_grid
       f = tf.exp(t) * tf.sin(ys / 2) * (
           np.sin(x_max / _SQRT2) + 2 * np.cos(x_max / _SQRT2) / _SQRT2)
-      return 1, 2, tf.expand_dims(f, 0)
+      return 1, 2, f
 
     def lower_bound_y(t, location_grid):
       del location_grid
       f = tf.exp(t) * tf.sin(xs / _SQRT2) * (
           np.sin(y_min / 2) - 3 * np.cos(y_min / 2) / 2)
-      return 1, 3, tf.expand_dims(f, 0)
+      return 1, 3, f
 
     def upper_bound_y(t, location_grid):
       del location_grid
       f = tf.exp(t) * tf.sin(
           xs / _SQRT2) * (2 * np.sin(y_max / 2) + 3 * np.cos(y_max / 2) / 2)
-      return 2, 3, tf.expand_dims(f, 0)
+      return 2, 3, f
 
     expected = np.outer(np.sin(ys / 2), np.sin(xs / _SQRT2))
 
@@ -1020,7 +1009,7 @@ def _gaussian(xs, variance):
 @dirichlet
 def _zero_boundary(t, locations):
   del t, locations
-  return 0.0
+  return 0
 
 
 def _reference_2d_pde_initial_cond(xs, ys):

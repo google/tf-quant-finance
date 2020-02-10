@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -270,12 +271,12 @@ def _construct_space_discretized_eqn_params(
   diag = diag_zeroth_order + diag_first_order + diag_second_order
 
   return _apply_boundary_conditions_to_discretized_equation(
-      boundary_conditions, coord_grid, coord_grid_deltas, diag, superdiag,
-      subdiag, t)
+      value_grid, boundary_conditions, coord_grid, coord_grid_deltas, diag,
+      superdiag, subdiag, t)
 
 
 def _apply_boundary_conditions_to_discretized_equation(
-    boundary_conditions,
+    value_grid, boundary_conditions,
     coord_grid, coord_grid_deltas, diagonal, upper_diagonal, lower_diagonal, t):
   """Updates space-discretized equation according to boundary conditions."""
   # Without taking into account the boundary conditions, the space-discretized
@@ -289,6 +290,10 @@ def _apply_boundary_conditions_to_discretized_equation(
   # Retrieve the boundary conditions in the form alpha V + beta V' = gamma.
   alpha_l, beta_l, gamma_l = boundary_conditions[0][0](t, coord_grid)
   alpha_u, beta_u, gamma_u = boundary_conditions[0][1](t, coord_grid)
+
+  alpha_l, beta_l, gamma_l, alpha_u, beta_u, gamma_u = (
+      _prepare_boundary_conditions(b, value_grid)
+      for b in (alpha_l, beta_l, gamma_l, alpha_u, beta_u, gamma_u))
 
   if beta_l is None and beta_u is None:
     # Dirichlet conditions on both boundaries. In this case there are no
@@ -343,6 +348,9 @@ def _apply_boundary_conditions_after_step(
 
   alpha, beta, gamma = boundary_conditions[0][0](time_after_step,
                                                  coord_grid)
+  alpha, beta, gamma = (
+      _prepare_boundary_conditions(b, inner_grid_out)
+      for b in (alpha, beta, gamma))
   xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[0],
                                                   coord_grid_deltas[1],
                                                   alpha, beta, gamma)
@@ -350,6 +358,9 @@ def _apply_boundary_conditions_after_step(
       xi1 * inner_grid_out[..., 0] + xi2 * inner_grid_out[..., 1] + eta)
   alpha, beta, gamma = boundary_conditions[0][1](time_after_step,
                                                  coord_grid)
+  alpha, beta, gamma = (
+      _prepare_boundary_conditions(b, inner_grid_out)
+      for b in (alpha, beta, gamma))
   xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[-1],
                                                   coord_grid_deltas[-2],
                                                   alpha, beta, gamma)
@@ -368,6 +379,16 @@ def _prepare_pde_coeffs(raw_coeffs, value_grid):
   broadcast_shape = tf.shape(value_grid)
   coeffs = tf.broadcast_to(coeffs, broadcast_shape)
   return coeffs
+
+
+def _prepare_boundary_conditions(boundary_tensor, value_grid):
+  """Prepares values received from boundary_condition callables."""
+  if boundary_tensor is None:
+    return None
+  boundary_tensor = tf.convert_to_tensor(boundary_tensor, value_grid.dtype)
+  # Broadcast to batch dimensions.
+  broadcast_shape = tf.shape(value_grid)[:-1]
+  return tf.broadcast_to(boundary_tensor, broadcast_shape)
 
 
 def _discretize_boundary_conditions(dx0, dx1, alpha, beta, gamma):

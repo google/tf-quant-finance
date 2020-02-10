@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -129,7 +130,7 @@ def solve_backward(start_time,
   @pde.boundary_conditions.dirichlet
   def lower_boundary_fn(t, grid):
     del t, grid
-    return tf.constant(0.0, dtype=dtype)
+    return 0
 
   @pde.boundary_conditions.dirichlet
   def upper_boundary_fn(t, grid):
