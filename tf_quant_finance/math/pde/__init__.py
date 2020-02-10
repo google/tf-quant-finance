@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,10 +14,10 @@
 # limitations under the License.
 """PDE solver methods."""
 
+from tf_quant_finance.math.pde import boundary_conditions
+from tf_quant_finance.math.pde import fd_solvers
 from tf_quant_finance.math.pde import grids
 from tf_quant_finance.math.pde import steppers
-from tf_quant_finance.math.pde import fd_solvers
-from tf_quant_finance.math.pde import boundary_conditions
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 

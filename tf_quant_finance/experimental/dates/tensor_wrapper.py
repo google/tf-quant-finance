@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Base class for Tensor wrappers."""
 
 import abc
 import tensorflow.compat.v2 as tf
@@ -79,7 +81,7 @@ class TensorWrapper(metaclass=abc.ABCMeta):
   @classmethod
   def _validate_tensor_types(cls, tensor_wrappers, function_name):
     for tensor in tensor_wrappers:
-      if not type(tensor) == cls:
+      if not isinstance(tensor, cls):
         raise ValueError("{}.{} cannot be applied to {}".format(
             cls.__name__, function_name,
             type(tensor).__name__))
@@ -94,11 +96,7 @@ class TensorWrapper(metaclass=abc.ABCMeta):
 
   def identity(self):
     """See tf.identity."""
-    return self._apply_op(lambda t: tf.identity(t))
-
-  def expand_dims(self, axis=None):
-    """See tf.expand_dims."""
-    return self._apply_op(lambda t: tf.expand_dims(t, axis))
+    return self._apply_op(tf.identity)
 
   def broadcast_to(self, shape):
     """See tf.broadcast_to."""

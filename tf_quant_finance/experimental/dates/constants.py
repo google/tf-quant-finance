@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,10 +14,10 @@
 # limitations under the License.
 """Date-related constants and enums."""
 
-from enum import Enum
+import enum
 
 
-class Month(Enum):
+class Month(enum.Enum):
   """Months. Values are one-based."""
   JANUARY = 1
   FEBUARY = 2
@@ -32,7 +33,7 @@ class Month(Enum):
   DECEMBER = 12
 
 
-class WeekDay(Enum):
+class WeekDay(enum.Enum):
   """Named days of the week. Values are zero-based with Monday = 0."""
   # We follow Python datetime convention of starting from 0.
   MONDAY = 0
@@ -44,7 +45,7 @@ class WeekDay(Enum):
   SUNDAY = 6
 
 
-class PeriodType(Enum):
+class PeriodType(enum.Enum):
   """Periods that can be added or subtracted from DateTensors."""
   DAY = 0
   WEEK = 1
@@ -52,7 +53,7 @@ class PeriodType(Enum):
   YEAR = 3
 
 
-class BusinessDayConvention(Enum):
+class BusinessDayConvention(enum.Enum):
   """Conventions that determine how to roll dates that fall on holidays."""
   # No adjustment.
   NONE = 0

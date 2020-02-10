@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +16,7 @@
 
 import datetime
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.experimental import dates as dateslib
 from tf_quant_finance.experimental.dates import test_data

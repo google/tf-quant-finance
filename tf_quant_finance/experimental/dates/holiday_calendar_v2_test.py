@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,11 +18,11 @@ import datetime
 
 from absl.testing import parameterized
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.experimental import dates
-from tf_quant_finance.experimental.dates import test_data
 from tf_quant_finance.experimental.dates import periods
+from tf_quant_finance.experimental.dates import test_data
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 _SATURDAY_SUNDAY_MASK = [0, 0, 0, 0, 0, 1, 1]
@@ -121,7 +122,7 @@ class HolidayCalendar2Test(tf.test.TestCase, parameterized.TestCase):
     data = test_data.add_months_data
     date_tensor = dates.from_tuples([item["date"] for item in data])
     durations = periods.PeriodTensor([item["months"] for item in data],
-                                 dates.PeriodType.MONTH)
+                                     dates.PeriodType.MONTH)
     expected_dates = dates.from_tuples([item[data_key] for item in data])
     cal = dates.HolidayCalendar2(
         weekend_mask=_SATURDAY_SUNDAY_MASK, holidays=test_data.holidays)
