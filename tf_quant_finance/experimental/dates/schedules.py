@@ -28,12 +28,184 @@ _MIN_DAYS_IN_PERIOD = {
 }
 
 
-def schedule(start_date,
-             end_date,
-             tenor,
-             holiday_calendar=None,
-             roll_convention=constants.BusinessDayConvention.NONE,
-             backward=False):
+class PeriodicSchedule():
+  """Defines an array of dates specified by a regular schedule."""
+
+  def __init__(self,
+               start_date=None,
+               end_date=None,
+               tenor=None,
+               holiday_calendar=None,
+               roll_convention=constants.BusinessDayConvention.NONE,
+               backward=False):
+    """Initializes the schedule.
+
+    Initializes a schedule with a given tenor, date range and holiday calendar.
+
+    A schedule is an increasing sequence of dates at a regular interval subject
+    to holiday adjustments.
+
+    The rules for schedule generation (accessed via the `dates()` method)
+    are as follows.
+
+    (a) If `backward=False`, take `start_date` and add `tenor` multiplied by
+      0, 1, 2, etc. until the resulting date is greater than `end_date`.
+    (b) If `backward=True`, take `end_date` and subtract `tenor` multiplied by
+      0, 1, 2, etc. until the resulting date is smaller than `start_date`.
+      Ensure that the result is in ascending order.
+    (c) Both `start_date` and `end_date` are included, even if the distance
+      between then is not an integer number of tenor periods.
+    (d) If `holiday_calendar` is specified, roll all the dates according to
+      `roll_convention`. The rolling includes `start_date` and `end_date` when
+      they are part of resulting schedule. Thus if `start_date` or `end_date`
+      fall on holidays, they will change and may go out of the
+      [`start_date`, `end_date`] interval.
+
+    Note that `tenor = PeriodType.DAY` is treated as an actual day, not as
+    a business day. So a schedule with `tenor = periods.days(7)` is the same
+    as one with `tenor = periods.week()`.
+
+    The `dates()` can create multiple schedules simultaneously.
+    The start and end dates may have any (compatible) shape.
+    The `DateTensor` returned by `dates()` has the shape
+    `start_date.shape + (n,)`, where `n` is the maximum length of schedules in
+    the batch. If schedules have different lengths, the extra elements will be
+    padded with extra `end_date` elements at the end, if `backward=False`
+    and with extra `start_date` elements in the beginning if
+    `backward=True`. In all cases each schedule in the batch is monotonic.
+
+    The following examples demonstrate the batch and non-batch usage.
+
+    ## Example Usage (Non-batch)
+
+    ```python
+      start_date = dates.from_tuples([(2020, 1, 18)])
+      end_date = dates.from_tuples([(2021, 3, 25)])
+      tenor = dates.periods.months(3)
+      backward = False
+      holiday_calendar = dates.HolidayCalendar(start_year=2020, end_year=2021)
+      roll_convention = dates.BusinessDayConvention.FOLLOWING
+      schedule = dates.PeriodicSchedule(
+          start_date=start_dates,
+          end_date=end_dates,
+          tenor=tenors,
+          holiday_calendar=holiday_calendar,
+          roll_convention=dates.BusinessDayConvention.FOLLOWING,
+          backward=backward).dates()
+      # schedule is a DateTensor of
+      # [[(2020, 1, 18), (2020, 4, 20), (2020, 7, 20), (2020, 10, 19),
+      #   (2021, 1, 18), (2021, 3, 25)]] for backward = False and
+      # [[(2020, 1, 18), (2020, 3, 25), (2020, 6, 25), (2020, 9, 25),
+      #   (2020, 12, 25), (2021, 3, 25)]] for backward = True.
+    ```
+
+    The following example demonstrates this batching property.
+
+    ## Example Usage (Batch)
+
+    ```python
+      start_date = dates.DateTensor.from_tuples([(2020, 1, 15), (2020, 4, 15)])
+      end_date = dates.DateTensor.from_tuples([(2021, 3, 31), (2021, 1, 1)])
+      tenor = dates.months([4, 3])
+      actual_schedule = dates.schedule(
+          start_dates,
+          end_dates,
+          tenors,
+          dates.HolidayCalendar(start_year=2020, end_year=2021),
+          roll_convention=dates.BusinessDayConvention.FOLLOWING,
+          backward=False).dates()
+      # Returns DateTensor of
+      # [[(2020, 1, 15), (2020, 5, 15), (2020, 9, 15), (2021, 1, 15),
+      #   (2021, 3, 31)],
+      # [(2020, 4, 15), (2020, 7, 15), (2020, 10, 15), (2021, 1, 1),
+      #  (2021, 1, 1)]].
+    ```
+
+    Args:
+      start_date: `dates.DateTensor`. Defines the lower boundary of schedule. If
+        `backward=True` must be broadcastable to `end_date`, otherwise has
+        arbitrary shape.
+      end_date: `dates.DateTensor`. Defines the upper boundary of the schedule.
+        If `backward=False` must be broadcastable to `start_date`, otherwise has
+        arbitrary shape.
+      tenor: `periods.PeriodTensor`. Defines the frequency of the schedule. Must
+        be broadcastable to `start_date` if `backward=False`, and to `end_date`
+        if `backward=True`.
+      holiday_calendar: `dates.HolidayCalendar`. If `None`, the dates in the
+        schedule will not be rolled to business days.
+      roll_convention: BusinessDayConvention. Defines how dates in the schedule
+        should be rolled to business days if they fall on holidays. Ignored if
+        `holiday_calendar = None`.
+        Default value: BusinessDayConvention.NONE (i.e. no rolling).
+      backward: Python `bool`. Whether to build the schedule from the
+        `start_date` moving forwards or from the `end_date` and moving
+        backwards.
+
+    Raises:
+      ValueError: If any one of (start_date, end_date, tenor) are not supplied.
+    """
+
+    if start_date is None or end_date is None or tenor is None:
+      raise ValueError("Start date, end date and tenor must be specified.")
+
+    self._start_date = start_date
+    self._end_date = end_date
+    self._tenor = tenor
+    self._holiday_calendar = holiday_calendar
+    self._roll_convention = roll_convention
+    self._backward = backward
+
+  def dates(self):
+    """Returns the dates as computed from the schedule as a DateTensor.
+
+    Constructs the date schedule from the supplied data. For more details see
+    the initializer docstring.
+
+    Returns:
+      `DateTensor` of rank one more than `start_date` or `end_date`
+      (depending on `backwards`), representing schedules for each element
+      of the input.
+    """
+    return _gen_schedule(
+        self._start_date,
+        self._end_date,
+        self._tenor,
+        holiday_calendar=self._holiday_calendar,
+        roll_convention=self._roll_convention,
+        backward=self._backward)
+
+  @property
+  def start_date(self):
+    return self._start_date
+
+  @property
+  def end_date(self):
+    return self._end_date
+
+  @property
+  def tenor(self):
+    return self._tenor
+
+  @property
+  def holiday_calendar(self):
+    return self._holiday_calendar
+
+  @property
+  def roll_convention(self):
+    return self._roll_convention
+
+  @property
+  def generate_backwards(self):
+    """Returns whether the schedule is generated from the end date."""
+    return self._backward
+
+
+def _gen_schedule(start_date,
+                  end_date,
+                  tenor,
+                  holiday_calendar=None,
+                  roll_convention=constants.BusinessDayConvention.NONE,
+                  backward=False):
   """Makes a schedule with a given tenor, date range and holiday calendar.
 
   A schedule is an increasing sequence of dates at a regular interval subject to
@@ -57,27 +229,6 @@ def schedule(start_date,
   holidays, they will change and may go out of [`start_date`, `end_date`]
   interval.
 
-  Example:
-
-  ```python
-    start_date = dates.DateTensor.from_tuples([(2020, 1, 18)])
-    end_date = dates.DateTensor.from_tuples([(2021, 3, 25)])
-    tenor = dates.months(3)
-    backward = False
-    schedule = dates.schedule(
-        start_dates,
-        end_dates,
-        tenors,
-        dates.HolidayCalendar(start_year=2020, end_year=2021),
-        roll_convention=dates.BusinessDayConvention.FOLLOWING,
-        backward=backward)
-    # schedule is a DateTensor of
-    # [[(2020, 1, 18), (2020, 4, 20), (2020, 7, 20), (2020, 10, 19),
-    #   (2021, 1, 18), (2021, 3, 25)]] for backward = False and
-    # [[(2020, 1, 18), (2020, 3, 25), (2020, 6, 25), (2020, 9, 25),
-    #   (2020, 12, 25), (2021, 3, 25)]] for backward = True.
-  ```
-
   Note that PeriodType.DAY is treated as actual day, not as business day.
   So schedule with `tenor = dates.days(7)` is the same as one with `tenor =
   dates.week()`.
@@ -89,26 +240,6 @@ def schedule(start_date,
   extra elements will be padded with extra `end_date` elements at the end, if
   `backward=False`, or extra `start_date` elements in the beginning if
   `backward=True`. In all cases each schedule in the batch is monotonic.
-
-  Example:
-
-  ```python
-    start_date = dates.DateTensor.from_tuples([(2020, 1, 15), (2020, 4, 15)])
-    end_date = dates.DateTensor.from_tuples([(2021, 3, 31), (2021, 1, 1)])
-    tenor = dates.months([4, 3])
-    actual_schedule = dates.schedule(
-        start_dates,
-        end_dates,
-        tenors,
-        dates.HolidayCalendar(start_year=2020, end_year=2021),
-        roll_convention=dates.BusinessDayConvention.FOLLOWING,
-        backward=False)
-    # Returns DateTensor of
-    # [[(2020, 1, 15), (2020, 5, 15), (2020, 9, 15), (2021, 1, 15),
-    #   (2021, 3, 31)],
-    # [(2020, 4, 15), (2020, 7, 15), (2020, 10, 15), (2021, 1, 1),
-    #  (2021, 1, 1)]].
-  ```
 
   Args:
     start_date: DateTensor. Defines the lower boundary of schedule. If

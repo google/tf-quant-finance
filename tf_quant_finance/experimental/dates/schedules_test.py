@@ -39,7 +39,7 @@ class SchedulesTest(tf.test.TestCase, parameterized.TestCase):
     backward = backward
     expected_schedule = dates.from_np_datetimes(
         _to_np_datetimes(expected_schedule))
-    actual_schedule = dates.schedule(
+    actual_schedule = dates.PeriodicSchedule(
         start_dates,
         end_dates,
         tenors,
@@ -48,7 +48,7 @@ class SchedulesTest(tf.test.TestCase, parameterized.TestCase):
             start_year=2020,
             end_year=2028),
         roll_convention=dates.BusinessDayConvention.MODIFIED_FOLLOWING,
-        backward=backward)
+        backward=backward).dates()
     self.assertAllEqual(expected_schedule.ordinal(), actual_schedule.ordinal())
 
 

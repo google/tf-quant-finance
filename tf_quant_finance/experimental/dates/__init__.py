@@ -30,7 +30,7 @@ from tf_quant_finance.experimental.dates.date_tensor import from_tuples
 from tf_quant_finance.experimental.dates.date_tensor import from_year_month_day
 from tf_quant_finance.experimental.dates.holiday_calendar import HolidayCalendar
 from tf_quant_finance.experimental.dates.holiday_calendar_v2 import HolidayCalendar as HolidayCalendar2
-from tf_quant_finance.experimental.dates.schedules import schedule
+from tf_quant_finance.experimental.dates.schedules import PeriodicSchedule
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -50,7 +50,7 @@ _allowed_symbols = [
     'from_tuples',
     'from_year_month_day',
     'date_utils',
-    'schedule',
+    'PeriodicSchedule',
     'periods',
 ]
 
