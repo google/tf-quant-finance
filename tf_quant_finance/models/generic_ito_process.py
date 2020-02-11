@@ -204,10 +204,15 @@ class GenericItoProcess(ito_process.ItoProcess):
     Returns:
      A real `Tensor` of shape `[num_samples, k, n]` where `k` is the size of the
      `times`, and `n` is the dimension of the process.
+
+    Raises:
+      ValueError: If `time_step` is not supplied.
     """
-    default_name = self._name + '_sample_path'
-    with tf.compat.v1.name_scope(
-        name, default_name=default_name, values=[times, initial_state]):
+    if time_step is None:
+      raise ValueError('`time_step` can not be `None` when calling '
+                       'sample_paths of GenericItoProcess.')
+    name = name or (self._name + '_sample_path')
+    with tf.name_scope(name):
       return euler_sampling.sample(
           self._dim,
           self._drift_fn,
