@@ -6,20 +6,112 @@ py_library(
     name = "dates",
     srcs = [
         "__init__.py",
-        "constants.py",
-        "date_tensor.py",
-        "date_utils.py",
-        "holiday_calendar.py",
-        "holiday_calendar_v2.py",
-        "periods.py",
-        "schedules.py",
-        "tensor_wrapper.py",
     ],
     srcs_version = "PY3",
     deps = [
-        ":holiday_utils",
+        ":constants",
+        ":date_tensor",
+        ":date_utils",
+        ":holiday_calendar",
+        ":holiday_calendar_v2",
+        ":periods",
+        ":schedules",
+    ],
+)
+
+py_library(
+    name = "constants",
+    srcs = ["constants.py"],
+    srcs_version = "PY3",
+)
+
+py_library(
+    name = "date_utils",
+    srcs = ["date_utils.py"],
+    srcs_version = "PY3",
+    deps = [
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "tensor_wrapper",
+    srcs = ["tensor_wrapper.py"],
+    srcs_version = "PY3",
+    deps = [
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "periods",
+    srcs = ["periods.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":constants",
+        ":tensor_wrapper",
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "date_tensor",
+    srcs = ["date_tensor.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":constants",
+        ":date_utils",
+        ":periods",
+        ":tensor_wrapper",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "holiday_calendar",
+    srcs = ["holiday_calendar.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":constants",
+        ":date_tensor",
+        ":periods",
         # attr dep,
         # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "holiday_utils",
+    srcs = ["holiday_utils.py"],
+    srcs_version = "PY3",
+    deps = [
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "holiday_calendar_v2",
+    srcs = ["holiday_calendar_v2.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":constants",
+        ":date_tensor",
+        ":date_utils",
+        ":holiday_utils",
+        ":periods",
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "schedules",
+    srcs = ["schedules.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":constants",
+        ":date_tensor",
         # tensorflow dep,
     ],
 )
@@ -105,17 +197,5 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":dates",
-    ],
-)
-
-py_library(
-    name = "holiday_utils",
-    srcs = ["holiday_utils.py"],
-    srcs_version = "PY3",
-    deps = [
-        "//tf_quant_finance/math/interpolation/linear",
-        # attr dep,
-        # numpy dep,
-        # tensorflow dep,
     ],
 )
