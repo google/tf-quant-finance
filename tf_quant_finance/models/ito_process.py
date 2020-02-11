@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -107,8 +108,6 @@ class ItoProcess(object):
                    initial_state=None,
                    random_type=None,
                    seed=None,
-                   swap_memory=True,
-                   name=None,
                    **kwargs):
     """Returns a sample of paths from the process.
 
@@ -124,14 +123,7 @@ class ItoProcess(object):
         Default value: None which maps to the standard pseudo-random numbers.
       seed: Python `int`. The random seed to use. If not supplied, no seed is
         set.
-      swap_memory: Whether GPU-CPU memory swap is enabled for this op. See
-        equivalent flag in `tf.while_loop` documentation for more details.
-        Useful when computing a gradient of the op since `tf.while_loop` is used
-        to propagate stochastic process in time.
-      name: str. The name to give this op. If not supplied, default name of
-        `sample_paths` is used.
-      **kwargs: parameters, specific to Euler schema: `grid_step` is rank 0 real
-        `Tensor` - maximal distance between points in grid in Euler schema.
+      **kwargs: Any other keyword args needed by an implementation.
 
     Returns:
      A real `Tensor` of shape [num_samples, k, n] where `k` is the size of the
@@ -153,7 +145,6 @@ class ItoProcess(object):
                          time_step=None,
                          values_transform_fn=None,
                          dtype=None,
-                         name=None,
                          **kwargs):
     """Returns a solver for Feynman-Kac PDE associated to the process.
 
@@ -287,8 +278,6 @@ class ItoProcess(object):
         grid, the coordinate grid and the values grid and should return the
         values grid. All input arguments to be passed by keyword.
       dtype: The dtype to use.
-      name: The name to give to the ops.
-        Default value: None which means `step_back` is used.
       **kwargs: Any other keyword args needed by an implementation.
 
     Returns:
@@ -317,7 +306,6 @@ class ItoProcess(object):
                         time_step=None,
                         values_transform_fn=None,
                         dtype=None,
-                        name=None,
                         **kwargs):
     r"""Returns a solver for the Fokker Plank equation of this process.
 
@@ -434,8 +422,6 @@ class ItoProcess(object):
         grid, the coordinate grid and the values grid and should return the
         values grid. All input arguments to be passed by keyword.
       dtype: The dtype to use.
-      name: The name to give to the ops.
-        Default value: None which means `step_back` is used.
       **kwargs: Any other keyword args needed by an implementation.
 
     Returns:
