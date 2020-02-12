@@ -12,6 +12,7 @@ py_library(
         ":constants",
         ":date_tensor",
         ":date_utils",
+        ":daycounts",
         ":holiday_calendar",
         ":holiday_calendar_v2",
         ":periods",
@@ -197,5 +198,28 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":dates",
+    ],
+)
+
+py_library(
+    name = "daycounts",
+    srcs = ["daycounts.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":date_tensor",
+        ":date_utils",
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "daycounts_test",
+    size = "small",
+    srcs = ["daycounts_test.py"],
+    python_version = "PY3",
+    deps = [
+        "//tf_quant_finance",
+        # numpy dep,
+        # tensorflow dep,
     ],
 )

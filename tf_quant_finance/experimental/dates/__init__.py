@@ -15,6 +15,7 @@
 """Date-related utilities."""
 
 from tf_quant_finance.experimental.dates import date_utils
+from tf_quant_finance.experimental.dates import daycounts
 from tf_quant_finance.experimental.dates import periods
 from tf_quant_finance.experimental.dates.constants import BusinessDayConvention
 from tf_quant_finance.experimental.dates.constants import Month
@@ -50,6 +51,7 @@ _allowed_symbols = [
     'from_tuples',
     'from_year_month_day',
     'date_utils',
+    'daycounts',
     'PeriodicSchedule',
     'periods',
 ]
