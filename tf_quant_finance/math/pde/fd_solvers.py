@@ -244,9 +244,8 @@ def solve_backward(start_time,
     values_transform_fn: An optional callable applied to transform the solution
       values at each time step. The callable is invoked after the time step has
       been performed. The callable should accept the time of the grid, the
-      coordinate grid and the values grid and should return the values grid. All
-      input arguments to be passed by keyword.
-      It returns the updated value grid and the coordinate grid.
+      coordinate grid, and the values grid and should return a tuple of the
+      the coordinate grid and updated value grid.
     second_order_coeff_fn: Callable returning the coefficients of the second
       order terms of the PDE (i.e. `a_{ij}(t, x)` above) at given time `t`.
       The callable accepts the following arguments:
