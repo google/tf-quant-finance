@@ -1,5 +1,5 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Black Scholes prices of a batch of European options."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import tensorflow.compat.v2 as tf
 
@@ -94,14 +90,9 @@ def option_price(volatilities,
   if (spots is None) == (forwards is None):
     raise ValueError('Either spots or forwards must be supplied but not both.')
 
-  with tf.compat.v1.name_scope(
-      name,
-      default_name='option_price',
-      values=[
-          forwards, strikes, volatilities, expiries, discount_factors,
-          is_call_options
-      ]):
+  with tf.name_scope(name or 'option_price'):
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
+    dtype = strikes.dtype
     volatilities = tf.convert_to_tensor(
         volatilities, dtype=dtype, name='volatilities')
     expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')
@@ -200,7 +191,7 @@ def binary_price(volatilities,
       Default value: None which maps to the default dtype inferred by TensorFlow
         (float32).
     name: str. The name for the ops created by this function.
-      Default value: None which is mapped to the default name `option_price`.
+      Default value: None which is mapped to the default name `binary_price`.
 
   Returns:
     binary_prices: A `Tensor` of the same shape as `forwards`. The Black
@@ -213,14 +204,9 @@ def binary_price(volatilities,
   if (spots is None) == (forwards is None):
     raise ValueError('Either spots or forwards must be supplied but not both.')
 
-  with tf.compat.v1.name_scope(
-      name,
-      default_name='option_price',
-      values=[
-          forwards, strikes, volatilities, expiries, discount_factors,
-          is_call_options
-      ]):
+  with tf.name_scope(name or 'binary_price'):
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
+    dtype = strikes.dtype
     volatilities = tf.convert_to_tensor(
         volatilities, dtype=dtype, name='volatilities')
     expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')

@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,12 +16,8 @@
 # Lint as: python2, python3
 """Tests for vanilla_price."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
 
 import tf_quant_finance as tff
@@ -45,8 +42,7 @@ class VanillaPrice(tf.test.TestCase):
             volatilities,
             strikes,
             expiries,
-            forwards=forwards,
-            dtype=tf.float64))
+            forwards=forwards))
     expected_prices = np.array(
         [0.0, 2.0, 2.0480684764112578, 1.0002029716043364, 2.0730313058959933])
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
@@ -66,8 +62,7 @@ class VanillaPrice(tf.test.TestCase):
             strikes,
             expiries,
             forwards=forwards,
-            is_call_options=is_call_options,
-            dtype=tf.float64))
+            is_call_options=is_call_options))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
 
   def test_price_zero_expiry(self):
@@ -85,8 +80,7 @@ class VanillaPrice(tf.test.TestCase):
             strikes,
             expiries,
             forwards=forwards,
-            is_call_options=is_call_options,
-            dtype=tf.float64))
+            is_call_options=is_call_options))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
 
   def test_price_long_expiry_calls(self):
@@ -101,8 +95,7 @@ class VanillaPrice(tf.test.TestCase):
             volatilities,
             strikes,
             expiries,
-            forwards=forwards,
-            dtype=tf.float64))
+            forwards=forwards))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
 
   def test_price_long_expiry_puts(self):
@@ -118,8 +111,7 @@ class VanillaPrice(tf.test.TestCase):
             strikes,
             expiries,
             forwards=forwards,
-            is_call_options=False,
-            dtype=tf.float64))
+            is_call_options=False))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
 
   def test_price_vol_and_expiry_scaling(self):
@@ -136,15 +128,13 @@ class VanillaPrice(tf.test.TestCase):
             volatilities,
             strikes,
             expiries,
-            forwards=forwards,
-            dtype=tf.float64))
+            forwards=forwards))
     scaled_prices = self.evaluate(
         tff.black_scholes.option_price(
             volatilities * scaling,
             strikes,
             expiries / scaling / scaling,
-            forwards=forwards,
-            dtype=tf.float64))
+            forwards=forwards))
     self.assertArrayNear(base_prices, scaled_prices, 1e-10)
 
   def test_binary_prices(self):
@@ -158,8 +148,7 @@ class VanillaPrice(tf.test.TestCase):
             volatilities,
             strikes,
             expiries,
-            forwards=forwards,
-            dtype=tf.float64))
+            forwards=forwards))
     expected_prices = np.array([0.0, 0.0, 0.15865525, 0.99764937, 0.85927418])
     self.assertArrayNear(expected_prices, computed_prices, 1e-8)
 
@@ -251,8 +240,7 @@ class VanillaPrice(tf.test.TestCase):
             strikes_0,
             expiries,
             forwards=forwards,
-            is_call_options=is_call_options,
-            dtype=tf.float64))
+            is_call_options=is_call_options))
 
     option_prices_1 = self.evaluate(
         tff.black_scholes.option_price(
@@ -260,8 +248,7 @@ class VanillaPrice(tf.test.TestCase):
             strikes_1,
             expiries,
             forwards=forwards,
-            is_call_options=is_call_options,
-            dtype=tf.float64))
+            is_call_options=is_call_options))
 
     binary_approximation = (-1.0)**call_options * (option_prices_1 -
                                                    option_prices_0) / epsilon
