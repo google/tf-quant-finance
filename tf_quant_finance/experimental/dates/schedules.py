@@ -104,10 +104,10 @@ class PeriodicSchedule():
     ## Example Usage (Batch)
 
     ```python
-      start_date = dates.DateTensor.from_tuples([(2020, 1, 15), (2020, 4, 15)])
-      end_date = dates.DateTensor.from_tuples([(2021, 3, 31), (2021, 1, 1)])
+      start_date = dates.from_tuples([(2020, 1, 15), (2020, 4, 15)])
+      end_date = dates.from_tuples([(2021, 3, 31), (2021, 1, 1)])
       tenor = dates.months([4, 3])
-      actual_schedule = dates.schedule(
+      actual_schedule = dates.PeriodicSchedule(
           start_dates,
           end_dates,
           tenors,
