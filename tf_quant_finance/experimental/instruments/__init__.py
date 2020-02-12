@@ -1,4 +1,5 @@
-# Copyright 2019 Google LLC
+# Lint as: python3
+# Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,23 +12,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Instruments."""
 
-"""Experimental modules."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-from tf_quant_finance.experimental import dates
-from tf_quant_finance.experimental import instruments
-from tf_quant_finance.experimental import lsm_algorithm
+from tf_quant_finance.experimental.instruments import forward_rate_agreement
+from tf_quant_finance.experimental.instruments import rate_curve
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
+ForwardRateAgreement = forward_rate_agreement.ForwardRateAgreement
+RateCurve = rate_curve.RateCurve
+InterestRateMarket = forward_rate_agreement.InterestRateMarket
 
 _allowed_symbols = [
-    'dates',
-    'instruments',
-    'lsm_algorithm',
+    'ForwardRateAgreement',
+    'RateCurve',
+    'InterestRateMarket',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
