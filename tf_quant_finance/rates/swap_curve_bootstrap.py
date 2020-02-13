@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python2, python3
 """Methods to construct a swap curve.
 
 Building swap curves is a core problem in mathematical finance. Swap
@@ -293,8 +293,9 @@ def swap_curve_bootstrap(float_leg_start_times,
   with tf.name_scope(name):
 
     if curve_interpolator is None:
-      curve_interpolator = lambda xi, x, y: linear.interpolate(
-          xi, x, y, dtype=dtype)
+      def default_interpolator(xi, x, y):
+        return linear.interpolate(xi, x, y, dtype=dtype)
+      curve_interpolator = default_interpolator
 
     if present_values_settlement_times is None:
       pv_settle_times = [tf.zeros_like(pv) for pv in present_values]
@@ -404,48 +405,49 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
                       pv_settlement_times, curve_interpolator,
                       initial_rates, curve_tolerance, maximum_iterations,
                       dtype):
-  """Build the zero swap curve using the bootstrap method.
+  """Build the zero swap curve using the bootstrap method."""
 
-  The procedure is recursive and as follows:
-  1. Start with an initial state of the swap curve. Set this as the current
-    swap curve.
-  2. From the current swap curve, compute the relevant forward rates and
-    discount factors (if cashflows are discounted using the swap curve). Use
-    the specified interpolation method to compute rates at intermediate times
-    as needed to calculate either the forward rate or the discount factors.
-  3. Using the above and the input present values of bootstarpping instruments,
-    compute the zero swap rate at expiry by inverting the swap pricing formula.
-    The following illustrates the procedure:
+  # The procedure is recursive and as follows:
+  # 1. Start with an initial state of the swap curve. Set this as the current
+  #   swap curve.
+  # 2. From the current swap curve, compute the relevant forward rates and
+  #   discount factors (if cashflows are discounted using the swap curve). Use
+  #   the specified interpolation method to compute rates at intermediate times
+  #   as needed to calculate either the forward rate or the discount factors.
+  # 3. Using the above and the input present values of bootstarpping
+  #   instruments,compute the zero swap rate at expiry by inverting the swap
+  #   pricing formula. The following illustrates the procedure:
 
-    Assuming that a swap pays fixed payments c_i at times t_i (i=[1,...,n]) and
-    receives floating payments at times t_j (j=[1,...,m]), then the present
-    value of the swap is given by
+  #   Assuming that a swap pays fixed payments c_i at times t_i (i=[1,...,n])
+  #   and receives floating payments at times t_j (j=[1,...,m]), then the
+  #   present value of the swap is given by
 
-    ```None
-    PV = sum_{j=1}^m (P_{j-1}/P_j - 1.) * P_j - sum_{i=1}^n a_i * c_i * P_i (A)
+  #   ```None
+  #   PV = sum_{j=1}^m (P_{j-1}/P_j - 1.) * P_j - sum_{i=1}^n a_i * c_i * P_i
+  #                                                                        (A)
+  #
+  #   ```
+  #   where P_i = exp(-r(t_i) * t_i) and a_i are the daycount fractions. We
+  #   update the current estimate of the rate at curve node t_k = t_n = t_m
+  #   by inverting the above equation:
 
-    ```
-    where P_i = exp(-r(t_i) * t_i) and a_i are the daycount fractions. We
-    update the current estimate of the rate at curve node t_k = t_n = t_m
-    by inverting the above equation:
+  #   ```None
+  #   P_k * (1 + a_i * c_i) = sum_{j=1}^{m - 1} (P_{j-1}/P_j - 1.) * P_j -
+  #                           sum_{i=1}^{n - 1} a_i * c_i * P_i - PV       (B)
 
-    ```None
-    P_k * (1 + a_i * c_i) = sum_{j=1}^{m - 1} (P_{j-1}/P_j - 1.) * P_j -
-                            sum_{i=1}^{n - 1} a_i * c_i * P_i - PV          (B)
+  #   ```
+  #   From Eq. (B), we get r(t_k) = -log(P_k) / t_k.
+  #   Using this as the next guess for the discount rates and we repeat the
+  #   procedure from Step (2) until convergence.
 
-    ```
-    From Eq. (B), we get r(t_k) = -log(P_k) / t_k.
-    Using this as the next guess for the discount rates and we repeat the
-    procedure from Step (2) until convergence.
-  """
-
+  del fixed_leg_start_times, pv_settlement_times
   curve_tensors = _create_curve_building_tensors(float_leg_start_times,
                                                  float_leg_end_times,
                                                  float_leg_daycount_fractions,
                                                  fixed_leg_end_times,
                                                  fixed_leg_cashflows,
                                                  fixed_leg_daycount_fractions)
-  calc_float_leg_daycount = curve_tensors.float_leg_daycount
+
   float_leg_calc_times_start = curve_tensors.float_leg_times_start
   float_leg_calc_times_end = curve_tensors.float_leg_times_end
   calc_fixed_leg_cashflows = curve_tensors.fixed_leg_cashflows
@@ -455,7 +457,6 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
   calc_groups_fixed = curve_tensors.calc_groups_fixed
   last_float_leg_start_time = curve_tensors.last_float_leg_start_time
   last_float_leg_end_time = curve_tensors.last_float_leg_end_time
-  last_float_leg_daycount = curve_tensors.last_float_leg_daycount
   last_fixed_leg_end_time = curve_tensors.last_fixed_leg_calc_time
   last_fixed_leg_daycount = curve_tensors.last_fixed_leg_daycount
   last_fixed_leg_cashflows = curve_tensors.last_fixed_leg_cashflows
@@ -470,8 +471,7 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
     rates_end = curve_interpolator(float_leg_calc_times_end, expiry_times, x)
     rates_start_last = curve_interpolator(last_float_leg_start_time,
                                           expiry_times, x)
-    rates_end_last = curve_interpolator(last_float_leg_end_time, expiry_times,
-                                        x)
+
     float_cashflows = (
         tf.math.exp(float_leg_calc_times_end * rates_end) /
         tf.math.exp(float_leg_calc_times_start * rates_start) - 1.)
@@ -539,6 +539,7 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
     # Note we do not need to check iteration count here because that
     # termination mode is imposed by the maximum_iterations parameter in the
     # while loop.
+    del iteration, x
     return ~tf.math.logical_or(converged, failed)
 
   initial_vals = (False, False, 0, tf.math.exp(-initial_rates * expiry_times))

@@ -100,6 +100,7 @@ py_test(
     deps = [
         ":swap_curve_fit",
         "//tf_quant_finance",
+        # test util dependency,
         "//tf_quant_finance/math/interpolation/linear",
         "//tf_quant_finance/rates/constant_fwd",
         # numpy dep,

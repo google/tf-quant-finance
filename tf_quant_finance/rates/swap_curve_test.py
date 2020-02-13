@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,15 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python2, python3
 """Tests for swap_curve."""
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
 
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import  # pylint: disable=g-direct-tensorflow-import
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -31,29 +31,30 @@ class SwapCurveTest(tf.test.TestCase):
     mats = [1., 2., 3., 5., 7., 10., 30.]
     par_swap_rates = [2.855, 3.097, 3.134, 3.152, 3.181, 3.23, 3.27]
     for dtype in dtypes:
-      float_leg_start_times = list(
-          map(lambda x: np.arange(0., x, 0.25, dtype), mats))
+      float_leg_start_times = [np.arange(0., x, 0.25, dtype) for x in mats]
 
-      float_leg_end_times = list(
-          map(lambda x: np.arange(0.25, x + 0.1, 0.25, dtype), mats))
+      float_leg_end_times = [
+          np.arange(0.25, x + 0.1, 0.25, dtype) for x in mats
+      ]
 
-      float_leg_dc = list(
-          map(lambda x: np.array(np.repeat(0.25, len(x)), dtype=dtype),
-              float_leg_start_times))
+      float_leg_dc = [
+          np.array(np.repeat(0.25, len(x)), dtype=dtype)
+          for x in float_leg_start_times
+      ]
 
-      fixed_leg_start_times = list(
-          map(lambda x: np.arange(0., x, 0.5, dtype), mats))
+      fixed_leg_start_times = [np.arange(0., x, 0.5, dtype) for x in mats]
 
-      fixed_leg_end_times = list(
-          map(lambda x: np.arange(0.5, x + 0.1, 0.5, dtype), mats))
+      fixed_leg_end_times = [np.arange(0.5, x + 0.1, 0.5, dtype) for x in mats]
 
-      fixed_leg_dc = list(
-          map(lambda x: np.array(np.repeat(0.5, len(x)), dtype=dtype),
-              fixed_leg_start_times))
+      fixed_leg_dc = [
+          np.array(np.repeat(0.5, len(x)), dtype=dtype)
+          for x in fixed_leg_start_times
+      ]
 
-      fixed_leg_cashflows = list(
-          map(lambda x, y: np.array(np.repeat(-y / 100., len(x)), dtype=dtype),
-              fixed_leg_start_times, par_swap_rates))
+      fixed_leg_cashflows = [
+          np.array(np.repeat(-y / 100., len(x)), dtype=dtype)
+          for x, y in zip(fixed_leg_start_times, par_swap_rates)
+      ]
 
       pvs = np.array(np.repeat(0., len(mats)), dtype=dtype)
 
@@ -97,29 +98,30 @@ class SwapCurveTest(tf.test.TestCase):
                                        dtype=np.float64)
 
     for dtype in dtypes:
-      float_leg_start_times = list(
-          map(lambda x: np.arange(0., x, 0.25, dtype), mats))
+      float_leg_start_times = [np.arange(0., x, 0.25, dtype) for x in mats]
 
-      float_leg_end_times = list(
-          map(lambda x: np.arange(0.25, x + 0.1, 0.25, dtype), mats))
+      float_leg_end_times = [
+          np.arange(0.25, x + 0.1, 0.25, dtype) for x in mats
+      ]
 
-      float_leg_dc = list(
-          map(lambda x: np.array(np.repeat(0.25, len(x)), dtype=dtype),
-              float_leg_start_times))
+      float_leg_dc = [
+          np.array(np.repeat(0.25, len(x)), dtype=dtype)
+          for x in float_leg_start_times
+      ]
 
-      fixed_leg_start_times = list(
-          map(lambda x: np.arange(0., x, 0.5, dtype), mats))
+      fixed_leg_start_times = [np.arange(0., x, 0.5, dtype) for x in mats]
 
-      fixed_leg_end_times = list(
-          map(lambda x: np.arange(0.5, x + 0.1, 0.5, dtype), mats))
+      fixed_leg_end_times = [np.arange(0.5, x + 0.1, 0.5, dtype) for x in mats]
 
-      fixed_leg_dc = list(
-          map(lambda x: np.array(np.repeat(0.5, len(x)), dtype=dtype),
-              fixed_leg_start_times))
+      fixed_leg_dc = [
+          np.array(np.repeat(0.5, len(x)), dtype=dtype)
+          for x in fixed_leg_start_times
+      ]
 
-      fixed_leg_cashflows = list(
-          map(lambda x, y: np.array(np.repeat(-y / 100., len(x)), dtype=dtype),
-              fixed_leg_start_times, par_swap_rates))
+      fixed_leg_cashflows = [
+          np.array(np.repeat(-y / 100., len(x)), dtype=dtype)
+          for x, y in zip(fixed_leg_start_times, par_swap_rates)
+      ]
 
       pvs = np.array(np.repeat(0., len(mats)), dtype=dtype)
 
@@ -155,29 +157,30 @@ class SwapCurveTest(tf.test.TestCase):
     mats = [1., 2., 3., 5., 7., 10., 30.]
     par_swap_rates = [2.855, 3.097, 3.134, 3.152, 3.181, 3.23, 3.27]
     for dtype in dtypes:
-      float_leg_start_times = list(
-          map(lambda x: np.arange(0., x, 0.25, dtype), mats))
+      float_leg_start_times = [np.arange(0., x, 0.25, dtype) for x in mats]
 
-      float_leg_end_times = list(
-          map(lambda x: np.arange(0.25, x + 0.1, 0.25, dtype), mats))
+      float_leg_end_times = [
+          np.arange(0.25, x + 0.1, 0.25, dtype) for x in mats
+      ]
 
-      float_leg_dc = list(
-          map(lambda x: np.array(np.repeat(0.25, len(x)), dtype=dtype),
-              float_leg_start_times))
+      float_leg_dc = [
+          np.array(np.repeat(0.25, len(x)), dtype=dtype)
+          for x in float_leg_start_times
+      ]
 
-      fixed_leg_start_times = list(
-          map(lambda x: np.arange(0., x, 0.5, dtype), mats))
+      fixed_leg_start_times = [np.arange(0., x, 0.5, dtype) for x in mats]
 
-      fixed_leg_end_times = list(
-          map(lambda x: np.arange(0.5, x + 0.1, 0.5, dtype), mats))
+      fixed_leg_end_times = [np.arange(0.5, x + 0.1, 0.5, dtype) for x in mats]
 
-      fixed_leg_dc = list(
-          map(lambda x: np.array(np.repeat(0.5, len(x)), dtype=dtype),
-              fixed_leg_start_times))
+      fixed_leg_dc = [
+          np.array(np.repeat(0.5, len(x)), dtype=dtype)
+          for x in fixed_leg_start_times
+      ]
 
-      fixed_leg_cashflows = list(
-          map(lambda x, y: np.array(np.repeat(-y / 100., len(x)), dtype=dtype),
-              fixed_leg_start_times, par_swap_rates))
+      fixed_leg_cashflows = [
+          np.array(np.repeat(-y / 100., len(x)), dtype=dtype)
+          for x, y in zip(fixed_leg_start_times, par_swap_rates)
+      ]
 
       pvs = np.array(np.repeat(0., len(mats)), dtype=dtype)
 
@@ -204,8 +207,8 @@ class SwapCurveTest(tf.test.TestCase):
 
       self.assertFalse(results.failed)
       expected_discount_rates = np.array([
-          0.02834814, 0.03076991, 0.03113377, 0.03130508, 0.03160601,0.03213445,
-          0.0325467
+          0.02834814, 0.03076991, 0.03113377, 0.03130508, 0.03160601,
+          0.03213445, 0.0325467
       ],
                                          dtype=dtype)
 
@@ -217,29 +220,30 @@ class SwapCurveTest(tf.test.TestCase):
     mats = [1., 2., 3., 5., 7., 10., 30.]
     par_swap_rates = [2.855, 3.097, 3.134, 3.152, 3.181, 3.23, 3.27]
     for dtype in dtypes:
-      float_leg_start_times = list(
-          map(lambda x: np.arange(0., x, 0.25, dtype), mats))
+      float_leg_start_times = [np.arange(0., x, 0.25, dtype) for x in mats]
 
-      float_leg_end_times = list(
-          map(lambda x: np.arange(0.25, x + 0.1, 0.25, dtype), mats))
+      float_leg_end_times = [
+          np.arange(0.25, x + 0.1, 0.25, dtype) for x in mats
+      ]
 
-      float_leg_dc = list(
-          map(lambda x: np.array(np.repeat(0.25, len(x)), dtype=dtype),
-              float_leg_start_times))
+      float_leg_dc = [
+          np.array(np.repeat(0.25, len(x)), dtype=dtype)
+          for x in float_leg_start_times
+      ]
 
-      fixed_leg_start_times = list(
-          map(lambda x: np.arange(0., x, 0.5, dtype), mats))
+      fixed_leg_start_times = [np.arange(0., x, 0.5, dtype) for x in mats]
 
-      fixed_leg_end_times = list(
-          map(lambda x: np.arange(0.5, x + 0.1, 0.5, dtype), mats))
+      fixed_leg_end_times = [np.arange(0.5, x + 0.1, 0.5, dtype) for x in mats]
 
-      fixed_leg_dc = list(
-          map(lambda x: np.array(np.repeat(0.5, len(x)), dtype=dtype),
-              fixed_leg_start_times))
+      fixed_leg_dc = [
+          np.array(np.repeat(0.5, len(x)), dtype=dtype)
+          for x in fixed_leg_start_times
+      ]
 
-      fixed_leg_cashflows = list(
-          map(lambda x, y: np.array(np.repeat(-y / 100., len(x)), dtype=dtype),
-              fixed_leg_start_times, par_swap_rates))
+      fixed_leg_cashflows = [
+          np.array(np.repeat(-y / 100., len(x)), dtype=dtype)
+          for x, y in zip(fixed_leg_start_times, par_swap_rates)
+      ]
 
       discount_rates_float = np.array([0.01, 0.01, 0.01, 0.01], dtype=dtype)
       discount_times_float = np.array([1.0, 5.0, 10.0, 30.0], dtype=dtype)
@@ -288,29 +292,30 @@ class SwapCurveTest(tf.test.TestCase):
     mats = [1., 2., 3., 5., 7., 10., 30.]
     par_swap_rates = [2.855, 3.097, 3.134, 3.152, 3.181, 3.23, 3.27]
     for dtype in dtypes:
-      float_leg_start_times = list(
-          map(lambda x: np.arange(0., x, 0.25, dtype), mats))
+      float_leg_start_times = [np.arange(0., x, 0.25, dtype) for x in mats]
 
-      float_leg_end_times = list(
-          map(lambda x: np.arange(0.25, x + 0.1, 0.25, dtype), mats))
+      float_leg_end_times = [
+          np.arange(0.25, x + 0.1, 0.25, dtype) for x in mats
+      ]
 
-      float_leg_dc = list(
-          map(lambda x: np.array(np.repeat(0.25, len(x)), dtype=dtype),
-              float_leg_start_times))
+      float_leg_dc = [
+          np.array(np.repeat(0.25, len(x)), dtype=dtype)
+          for x in float_leg_start_times
+      ]
 
-      fixed_leg_start_times = list(
-          map(lambda x: np.arange(0., x, 0.5, dtype), mats))
+      fixed_leg_start_times = [np.arange(0., x, 0.5, dtype) for x in mats]
 
-      fixed_leg_end_times = list(
-          map(lambda x: np.arange(0.5, x + 0.1, 0.5, dtype), mats))
+      fixed_leg_end_times = [np.arange(0.5, x + 0.1, 0.5, dtype) for x in mats]
 
-      fixed_leg_dc = list(
-          map(lambda x: np.array(np.repeat(0.5, len(x)), dtype=dtype),
-              fixed_leg_start_times))
+      fixed_leg_dc = [
+          np.array(np.repeat(0.5, len(x)), dtype=dtype)
+          for x in fixed_leg_start_times
+      ]
 
-      fixed_leg_cashflows = list(
-          map(lambda x, y: np.array(np.repeat(-y / 100., len(x)), dtype=dtype),
-              fixed_leg_start_times, par_swap_rates))
+      fixed_leg_cashflows = [
+          np.array(np.repeat(-y / 100., len(x)), dtype=dtype)
+          for x, y in zip(fixed_leg_start_times, par_swap_rates)
+      ]
 
       pvs = np.array(np.repeat(0., len(mats)), dtype=dtype)
 
@@ -350,33 +355,33 @@ class SwapCurveTest(tf.test.TestCase):
     expected_discount_rates = np.array([
         0.02844861, 0.03084989, 0.03121727, 0.0313961, 0.0316839, 0.03217002,
         0.03256696
-    ],
-                                       dtype=np.float64)
+    ], dtype=np.float64)
 
     for dtype in dtypes:
-      float_leg_start_times = list(
-          map(lambda x: np.arange(0., x, 0.25, dtype), mats))
+      float_leg_start_times = [np.arange(0., x, 0.25, dtype) for x in mats]
 
-      float_leg_end_times = list(
-          map(lambda x: np.arange(0.25, x + 0.1, 0.25, dtype), mats))
+      float_leg_end_times = [
+          np.arange(0.25, x + 0.1, 0.25, dtype) for x in mats
+      ]
 
-      float_leg_dc = list(
-          map(lambda x: np.array(np.repeat(0.25, len(x)), dtype=dtype),
-              float_leg_start_times))
+      float_leg_dc = [
+          np.array(np.repeat(0.25, len(x)), dtype=dtype)
+          for x in float_leg_start_times
+      ]
 
-      fixed_leg_start_times = list(
-          map(lambda x: np.arange(0., x, 0.5, dtype), mats))
+      fixed_leg_start_times = [np.arange(0., x, 0.5, dtype) for x in mats]
 
-      fixed_leg_end_times = list(
-          map(lambda x: np.arange(0.5, x + 0.1, 0.5, dtype), mats))
+      fixed_leg_end_times = [np.arange(0.5, x + 0.1, 0.5, dtype) for x in mats]
 
-      fixed_leg_dc = list(
-          map(lambda x: np.array(np.repeat(0.5, len(x)), dtype=dtype),
-              fixed_leg_start_times))
+      fixed_leg_dc = [
+          np.array(np.repeat(0.5, len(x)), dtype=dtype)
+          for x in fixed_leg_start_times
+      ]
 
-      fixed_leg_cashflows = list(
-          map(lambda x, y: np.array(np.repeat(-y / 100., len(x)), dtype=dtype),
-              fixed_leg_start_times, par_swap_rates))
+      fixed_leg_cashflows = [
+          np.array(np.repeat(-y / 100., len(x)), dtype=dtype)
+          for x, y in zip(fixed_leg_start_times, par_swap_rates)
+      ]
 
       pvs = np.array(np.repeat(0., len(mats)), dtype=dtype)
 
@@ -412,21 +417,20 @@ class SwapCurveTest(tf.test.TestCase):
     mats = [1., 2., 3., 5., 7., 10., 30.]
     par_swap_rates = [2.855, 3.097, 3.134, 3.152, 3.181, 3.23, 3.27]
     for dtype in dtypes:
-      float_leg_start_times = list(
-          map(lambda x: np.arange(0., x, 0.25, dtype), mats))
+      float_leg_start_times = [np.arange(0., x, 0.25, dtype) for x in mats]
 
-      float_leg_end_times = list(
-          map(lambda x: np.arange(0.25, x + 0.1, 0.25, dtype), mats))
+      float_leg_end_times = [
+          np.arange(0.25, x + 0.1, 0.25, dtype) for x in mats
+      ]
 
-      fixed_leg_start_times = list(
-          map(lambda x: np.arange(0., x, 0.5, dtype), mats))
+      fixed_leg_start_times = [np.arange(0., x, 0.5, dtype) for x in mats]
 
-      fixed_leg_end_times = list(
-          map(lambda x: np.arange(0.5, x + 0.1, 0.5, dtype), mats))
+      fixed_leg_end_times = [np.arange(0.5, x + 0.1, 0.5, dtype) for x in mats]
 
-      fixed_leg_cashflows = list(
-          map(lambda x, y: np.array(np.repeat(-y / 100., len(x)), dtype=dtype),
-              fixed_leg_start_times, par_swap_rates))
+      fixed_leg_cashflows = [
+          np.array(np.repeat(-y / 100., len(x)), dtype=dtype)
+          for x, y in zip(fixed_leg_start_times, par_swap_rates)
+      ]
 
       pvs = np.array(np.repeat(0., len(mats)), dtype=dtype)
 

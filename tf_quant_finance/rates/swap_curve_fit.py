@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python2, python3
 """Methods to construct a swap curve.
 
 Building swap curves is a core problem in mathematical finance. Swap
@@ -229,11 +229,6 @@ def swap_curve_fit(float_leg_start_times,
       time that the purchase price is actually delivered. If not supplied, then
       it is assumed that the settlement times are zero for every bond.
       Default value: `None` which is equivalent to zero settlement times.
-    initial_discount_rates: Optional `Tensor` of the same dtype and shape as
-      `present_values`. The starting guess for the discount rates used to
-      initialize the iterative procedure.
-      Default value: `None`. If not supplied, the yields to maturity for the
-        bonds is used as the initial value.
     float_leg_discount_rates: Optional `Tensor` of the same dtype as
       `initial_discount_rates`. This input contains the continuously compounded
       discount rates the will be used to discount the floating cashflows. This
@@ -281,6 +276,11 @@ def swap_curve_fit(float_leg_start_times,
       desired and `yi` are the corresponding interpolated values returned by the
       function. The default value for `curve_interpolator` is None in which
       case linear interpolation is used.
+    initial_curve_rates: Optional `Tensor` of the same dtype and shape as
+      `present_values`. The starting guess for the discount rates used to
+      initialize the iterative procedure.
+      Default value: `None`. If not supplied, the yields to maturity for the
+        bonds is used as the initial value.
     instrument_weights: Optional 'Tensor' of the same dtype and shape as
       `present_values`. This input contains the weight of each instrument in
       computing the objective function for the conjugate gradient optimization.
@@ -344,8 +344,9 @@ def swap_curve_fit(float_leg_start_times,
       optimize = optimizer.conjugate_gradient_minimize
 
     if curve_interpolator is None:
-      curve_interpolator = lambda xi, x, y: linear.interpolate(
-          xi, x, y, dtype=dtype)
+      def default_interpolator(xi, x, y):
+        return linear.interpolate(xi, x, y, dtype=dtype)
+      curve_interpolator = default_interpolator
 
     if instrument_weights is None:
       instrument_weights = _initialize_instrument_weights(float_leg_end_times,
@@ -438,8 +439,7 @@ def swap_curve_fit(float_leg_start_times,
                              initial_rates,
                              instrument_weights,
                              curve_tolerance,
-                             maximum_iterations,
-                             dtype)
+                             maximum_iterations)
 
 
 def _build_swap_curve(float_leg_start_times, float_leg_end_times,
@@ -451,7 +451,7 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
                       self_discounting_fixed_leg, present_values,
                       pv_settlement_times, optimize, curve_interpolator,
                       initial_rates, instrument_weights, curve_tolerance,
-                      maximum_iterations, dtype):
+                      maximum_iterations):
   """Build the zero swap curve."""
   # The procedure uses optimization to estimate the swap curve as follows:
   # 1. Start with an initial state of the swap curve.
@@ -459,6 +459,7 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
   #   of the IR swaps and their present values specified as input.
   # 3. Use numerical optimization (currently conjugate gradient optimization) to
   #   to build the swap curve such that the loss function is minimized.
+  del fixed_leg_start_times, float_leg_daycount_fractions
   curve_tensors = _create_curve_building_tensors(
       float_leg_start_times, float_leg_end_times, fixed_leg_end_times,
       pv_settlement_times)
@@ -468,7 +469,6 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
   settle_times_float = curve_tensors.settle_times_float
   settle_times_fixed = curve_tensors.settle_times_fixed
 
-  calc_float_leg_daycount = tf.concat(float_leg_daycount_fractions, axis=0)
   float_leg_calc_times_start = tf.concat(float_leg_start_times, axis=0)
   float_leg_calc_times_end = tf.concat(float_leg_end_times, axis=0)
   calc_fixed_leg_cashflows = tf.concat(fixed_leg_cashflows, axis=0)
