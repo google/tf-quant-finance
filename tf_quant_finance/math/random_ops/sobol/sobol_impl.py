@@ -191,17 +191,13 @@ def _get_sobol_data_path():
   filename = 'new-joe-kuo-6.21201'
   path1 = os.path.join('third_party', 'sobol_data', filename)
   path2 = os.path.abspath(
-    os.path.join(
-      os.path.dirname(__file__), '..', '..', '..',
-      'third_party', 'sobol_data', filename
-    )
-  )
+      os.path.join(
+          os.path.dirname(__file__), '..', '..', '..',
+          'third_party', 'sobol_data', filename))
   path3 = os.path.abspath(
-    os.path.join(
-      os.path.dirname(__file__), '..', '..', '..', '..',
-      'third_party', 'sobol_data', filename
-    )
-  )
+      os.path.join(
+          os.path.dirname(__file__), '..', '..', '..', '..',
+          'third_party', 'sobol_data', filename))
 
   paths = [path1, path2, path3]
   for path in paths:
