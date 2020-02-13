@@ -183,16 +183,27 @@ def _get_sobol_data_path():
      However, this doesn't work in the pip package. In pip package the directory
      'third_party' is a subdirectory of directory 'tf_quant_finance' and in
      this case we construct a file path relative to the __file__ file path.
+
+     If this library is installed in editable mode with `pip install -e .`, then
+     the directory 'third_party` will be at the top level of the repository
+     and need to search a level further up relative to __file__.
   """
-
-  path1 = 'third_party/sobol_data/new-joe-kuo-6.21201'
+  filename = 'new-joe-kuo-6.21201'
+  path1 = os.path.join('third_party', 'sobol_data', filename)
   path2 = os.path.abspath(
-      os.path.join(
-          os.path.dirname(__file__), '..', '..', '..', 'third_party',
-          'sobol_data', 'new-joe-kuo-6.21201'))
+    os.path.join(
+      os.path.dirname(__file__), '..', '..', '..',
+      'third_party', 'sobol_data', filename
+    )
+  )
+  path3 = os.path.abspath(
+    os.path.join(
+      os.path.dirname(__file__), '..', '..', '..', '..',
+      'third_party', 'sobol_data', filename
+    )
+  )
 
-  paths = [path1, path2]
-
+  paths = [path1, path2, path3]
   for path in paths:
     if os.path.exists(path):
       return path
