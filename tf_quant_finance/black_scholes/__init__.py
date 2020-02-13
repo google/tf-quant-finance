@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,10 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """TensorFlow Quantitative Finance volatility surfaces and vanilla options."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 from tf_quant_finance.black_scholes import vanilla_prices
 from tf_quant_finance.black_scholes.implied_vol_approximation import implied_vol as implied_vol_approx
