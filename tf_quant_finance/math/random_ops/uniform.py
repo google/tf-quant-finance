@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python2, python3
 """Uniform distribution with various random types."""
 
 import tensorflow.compat.v2 as tf
@@ -144,4 +144,3 @@ def _quasi_uniform(
         seed=seed,
         dtype=dtype)
   return  tf.reshape(low_discrepancy_seq, output_shape)
-

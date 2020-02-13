@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,9 +14,6 @@
 # limitations under the License.
 """Sobol sampling."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 from tf_quant_finance.math.random_ops.sobol.sobol_impl import sample
 

@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,12 +14,9 @@
 # limitations under the License.
 """Tests for random.stateless."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import,g-import-not-at-top
@@ -95,13 +93,13 @@ class StatelessRandomOpsTest(tf.test.TestCase):
     for dtype in (tf.int32, tf.int64, tf.float32, tf.float64):
       random_permutation = tff_rnd.stateless_random_shuffle(
           tf.range(10, dtype=dtype), seed=tf.constant((100, 42), tf.int64))
-      with tf.Session() as sess:
+      with tf.compat.v1.Session() as sess:
         random_permutation_first_call = sess.run(random_permutation)
       if random_permutation_next_call is not None:
         # Checks that the values are the same across different dtypes
         np.testing.assert_array_equal(random_permutation_first_call,
                                       random_permutation_next_call)
-      with tf.Session() as sess:
+      with tf.compat.v1.Session() as sess:
         random_permutation_next_call = sess.run(random_permutation)
       np.testing.assert_array_equal(random_permutation_first_call,
                                     random_permutation_next_call)

@@ -82,7 +82,7 @@ def solve_backward(start_time,
 
   ### Example. European call option pricing.
   ```python
-  import tensorflow as tf
+  import tensorflow.compat.v2 as tf
   import tf_quant_finance as tff
   pde = tff.math.pde
 

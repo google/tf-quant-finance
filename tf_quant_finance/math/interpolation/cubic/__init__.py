@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,9 +14,6 @@
 # limitations under the License.
 """Cubic spline interpolation methods."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 from tf_quant_finance.math.interpolation.cubic.cubic_interpolation import build as build_spline
 from tf_quant_finance.math.interpolation.cubic.cubic_interpolation import interpolate

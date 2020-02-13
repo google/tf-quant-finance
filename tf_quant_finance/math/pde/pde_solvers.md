@@ -86,7 +86,7 @@ We're seeking $V(x, t_1)$ with $t_1 > t_0$.
 Let's prepare the necessary ingredients. First, the spatial grid:
 
 ```python
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 import tf_quant_finance as tff
 pde = tff.math.pde
 

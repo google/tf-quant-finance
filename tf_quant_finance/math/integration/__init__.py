@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,12 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python2, python3
 """Numerical integration methods."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 from tf_quant_finance.math.integration.integrate import integrate
 from tf_quant_finance.math.integration.integrate import IntegrationMethod

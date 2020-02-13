@@ -7,7 +7,7 @@ package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 py_library(
     name = "random_ops",
     srcs = ["__init__.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         ":multivariate_normal",
         ":stateless",
@@ -20,7 +20,7 @@ py_library(
 py_library(
     name = "multivariate_normal",
     srcs = ["multivariate_normal.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/math/random_ops/halton",
         "//tf_quant_finance/math/random_ops/sobol",
@@ -34,7 +34,7 @@ py_library(
 py_library(
     name = "uniform",
     srcs = ["uniform.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         ":multivariate_normal",
         "//tf_quant_finance/math/random_ops/halton",
@@ -48,7 +48,7 @@ py_library(
     srcs = [
         "stateless.py",
     ],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         # numpy dep,
         # tensorflow dep,

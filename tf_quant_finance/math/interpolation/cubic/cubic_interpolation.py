@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,14 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-# Lint as: python2, python3
 """Cubic Spline interpolation framework."""
 
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import collections
 import numpy as np
@@ -59,7 +54,7 @@ def build(x_data, y_data, validate_args=False, dtype=None, name=None):
   Typical Usage Example:
 
   ```python
-  import tensorflow as tf
+  import tensorflow.compat.v2 as tf
   import numpy as np
 
   x_data = np.linspace(-5.0, 5.0,  num=11)
