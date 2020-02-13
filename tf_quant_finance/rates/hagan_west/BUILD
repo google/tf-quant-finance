@@ -7,7 +7,7 @@ package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 py_library(
     name = "hagan_west",
     srcs = ["__init__.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         ":bond_curve",
         ":monotone_convex",
@@ -17,7 +17,7 @@ py_library(
 py_library(
     name = "monotone_convex",
     srcs = ["monotone_convex.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/math:diff_ops",
         "//tf_quant_finance/math:piecewise",
@@ -43,7 +43,7 @@ py_test(
 py_library(
     name = "bond_curve",
     srcs = ["bond_curve.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         ":monotone_convex",
         "//tf_quant_finance/rates:cashflows",

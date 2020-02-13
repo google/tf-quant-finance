@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python2, python3
 """Methods to construct a discount curve from bonds.
 
 Building discount curves is a core problem in mathematical finance. Discount
@@ -37,10 +37,6 @@ method described by Hagan and West in Ref [1, 2].
 [2]: Patrick Hagan & Graeme West. Methods for Constructing a Yield Curve.
   Wilmott Magazine, pp. 70-81. May 2008.
 """
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import collections
 import tensorflow.compat.v2 as tf

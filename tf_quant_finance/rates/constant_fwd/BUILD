@@ -7,6 +7,7 @@ package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 py_library(
     name = "constant_fwd",
     srcs = ["__init__.py"],
+    srcs_version = "PY3",
     deps = [
         ":constant_fwd_interpolation",
         # tensorflow dep,
@@ -16,6 +17,7 @@ py_library(
 py_library(
     name = "constant_fwd_interpolation",
     srcs = ["constant_fwd_interpolation.py"],
+    srcs_version = "PY3",
     deps = [
         # numpy dep,
         # tensorflow dep,

@@ -1,12 +1,8 @@
 # Lint as: python3
 """Tests for Constant Fwd Interpolation."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.rates.constant_fwd import constant_fwd_interpolation
 
