@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,15 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python2, python3
 """Tests for `sample_paths` of `ItoProcess`."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.models.legacy import brownian_motion_utils as bm_utils
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
@@ -172,19 +168,10 @@ class BrownianMotionUtilsTest(tf.test.TestCase):
   def test_construct_vol_defaults(self):
     # Check the None, None
     dtype = np.float64
-    vol_fn, covar_fn = bm_utils.construct_vol_data(None, None, 2, dtype)
+    vol_fn, _ = bm_utils.construct_vol_data(None, None, 2, dtype)
     times = tf.constant([0.5, 1.0, 2.0, 3.0], dtype=dtype)
-    times2 = times + 0.31415
     vols = self.evaluate(vol_fn(times))
     np.testing.assert_array_equal(vols.shape, [4, 2, 2])
-#     identity = np.eye(2).astype(dtype)
-#     for i in range(4):
-#       np.testing.assert_allclose(vols[i], identity)
-#
-#     covars = self.evaluate(covar_fn(times, times2))
-#     np.testing.assert_array_equal(covars.shape, [4, 2, 2])
-#     for i in range(4):
-#       np.testing.assert_allclose(covars[i], identity * 0.31415)
 
   def test_construct_vol_covar_and_no_vol(self):
     # Check the None, None

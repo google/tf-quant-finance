@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python2, python3
 """N-dimensional Brownian Motion.
 
 Implements the Ito process defined by:
@@ -31,11 +31,7 @@ For more details, see Ref [1].
     Applications. Springer. 2010.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.math.random_ops import multivariate_normal as mvn
 from tf_quant_finance.models.legacy import brownian_motion_utils as bmu

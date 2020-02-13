@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,13 +33,9 @@ including the regularity conditions that must be imposed on the coefficients
     Applications. Springer. 2010.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import abc
 import six
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.math import random
 
@@ -160,14 +157,14 @@ class ItoProcess(object):
     pass
 
   def sample_paths(self,
-      times,
-      num_samples=1,
-      initial_state=None,
-      random_type=None,
-      seed=None,
-      swap_memory=True,
-      name=None,
-      **kwargs):
+                   times,
+                   num_samples=1,
+                   initial_state=None,
+                   random_type=None,
+                   seed=None,
+                   swap_memory=True,
+                   name=None,
+                   **kwargs):
     """Returns a sample of paths from the process.
 
     The default implementation uses Euler schema. However, for particular types
@@ -180,20 +177,19 @@ class ItoProcess(object):
       initial_state: `Tensor` of shape `[dim]`. The initial state of the
         process.
         Default value: None which maps to a zero initial state.
-      random_type: Enum value of `RandomType`. The type of (quasi)-random
-        number generator to use to generate the paths.
+      random_type: Enum value of `RandomType`. The type of (quasi)-random number
+        generator to use to generate the paths.
         Default value: None which maps to the standard pseudo-random numbers.
       seed: Python `int`. The random seed to use. If not supplied, no seed is
         set.
       swap_memory: Whether GPU-CPU memory swap is enabled for this op. See
         equivalent flag in `tf.while_loop` documentation for more details.
-        Useful when computing a gradient of the op since `tf.while_loop` is
-        used to propagate stochastic process in time.
+        Useful when computing a gradient of the op since `tf.while_loop` is used
+        to propagate stochastic process in time.
       name: str. The name to give this op. If not supplied, default name of
         `sample_paths` is used.
-      **kwargs: parameters, specific to Euler schema:
-        `grid_step` is rank 0 real `Tensor` - maximal distance between points
-          in grid in Euler schema.
+      **kwargs: parameters, specific to Euler schema: `grid_step` is rank 0 real
+        `Tensor` - maximal distance between points in grid in Euler schema.
 
     Returns:
      A real `Tensor` of shape [num_samples, k, n] where `k` is the size of the
@@ -209,24 +205,24 @@ class ItoProcess(object):
       if initial_state is None:
         initial_state = tf.zeros(self._dim, dtype=self._dtype)
       times = tf.convert_to_tensor(times, dtype=self._dtype)
-      initial_state = tf.convert_to_tensor(initial_state, dtype=self._dtype,
-                                           name='initial_state')
+      initial_state = tf.convert_to_tensor(
+          initial_state, dtype=self._dtype, name='initial_state')
       times_size = tf.shape(times)[-1]
       grid_step = kwargs['grid_step']
       times, keep_mask = self._prepare_grid(times, grid_step)
-      return self._sample_paths(
-          times, grid_step, keep_mask, times_size, num_samples, initial_state,
-          random_type, seed, swap_memory)
+      return self._sample_paths(times, grid_step, keep_mask, times_size,
+                                num_samples, initial_state, random_type, seed,
+                                swap_memory)
 
   def fd_solver_backward(self,
-      final_time,
-      discounting_fn=None,
-      grid_spec=None,
-      time_step=None,
-      time_step_fn=None,
-      values_batch_size=1,
-      name=None,
-      **kwargs):
+                         final_time,
+                         discounting_fn=None,
+                         grid_spec=None,
+                         time_step=None,
+                         time_step_fn=None,
+                         values_batch_size=1,
+                         name=None,
+                         **kwargs):
     """Returns a solver for solving Feynman-Kac PDE associated to the process.
 
     Constructs a finite differences grid solver for solving the final value
@@ -315,12 +311,12 @@ class ItoProcess(object):
                               'implemented for ItoProcess.')
 
   def _sample_paths(self, times, grid_step, keep_mask, times_size, num_samples,
-      initial_state, random_type, seed, swap_memory):
+                    initial_state, random_type, seed, swap_memory):
     """Returns a sample of paths from the process."""
     dt = times[1:] - times[:-1]
     sqrt_dt = tf.sqrt(dt)
-    current_state = initial_state + tf.zeros([num_samples, self.dim()],
-                                             dtype=initial_state.dtype)
+    current_state = initial_state + tf.zeros(
+        [num_samples, self.dim()], dtype=initial_state.dtype)
     steps_num = tf.shape(dt)[-1]
     wiener_mean = tf.zeros((self.dim(), 1), dtype=self._dtype)
 
@@ -329,9 +325,10 @@ class ItoProcess(object):
     def step_fn(i, written_count, current_state, result):
       """Performs one step of Euler scheme."""
       current_time = times[i + 1]
-      dw = random.mv_normal_sample(
-          (num_samples,), mean=wiener_mean, random_type=random_type,
-          seed=seed)
+      dw = random.mv_normal_sample((num_samples,),
+                                   mean=wiener_mean,
+                                   random_type=random_type,
+                                   seed=seed)
       dw = dw * sqrt_dt[i]
       dt_inc = dt[i] * self.drift_fn()(current_time, current_state)  # pylint: disable=not-callable
       dw_inc = tf.squeeze(
@@ -348,11 +345,12 @@ class ItoProcess(object):
     # Maximum number iterations is passed to the while loop below. It improves
     # performance of the while loop on a GPU and is needed for XLA-compilation
     # comptatiblity
-    maximum_iterations = (tf.cast(1. / grid_step, dtype=tf.int32)
-                          + tf.size(times))
+    maximum_iterations = (
+        tf.cast(1. / grid_step, dtype=tf.int32) + tf.size(times))
     result = tf.TensorArray(dtype=self._dtype, size=times_size)
     _, _, _, result = tf.compat.v1.while_loop(
-        cond_fn, step_fn, (0, 0, current_state, result),
+        cond_fn,
+        step_fn, (0, 0, current_state, result),
         maximum_iterations=maximum_iterations,
         swap_memory=swap_memory)
 
@@ -382,7 +380,7 @@ class ItoProcess(object):
         tf.zeros_like(grid, dtype=tf.bool),
         tf.ones_like(times, dtype=tf.bool)
     ],
-        axis=0)
+                     axis=0)
     perm = tf.argsort(all_times, stable=True)
     all_times = tf.gather(all_times, perm)
     mask = tf.gather(mask, perm)

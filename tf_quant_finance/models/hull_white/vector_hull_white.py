@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Vector of correlated Hull-White models with time-dependent parameters."""
 
 import tensorflow.compat.v2 as tf
@@ -61,7 +61,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
 
   ```python
   import numpy as np
-  import tensorflow as tf
+  import tensorflow.compat.v2 as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64
