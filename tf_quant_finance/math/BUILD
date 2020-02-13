@@ -7,7 +7,7 @@ package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 py_library(
     name = "math",
     srcs = ["__init__.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         ":diff_ops",
         ":gradient",
@@ -25,7 +25,7 @@ py_library(
 py_library(
     name = "root_search",
     srcs = ["root_search.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         # numpy dep,
         # tensorflow dep,
@@ -48,7 +48,7 @@ py_test(
 py_library(
     name = "diff_ops",
     srcs = ["diff_ops.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         # numpy dep,
         # tensorflow dep,
@@ -62,6 +62,7 @@ py_test(
     python_version = "PY3",
     deps = [
         "//tf_quant_finance",
+        # test util dependency,
         # numpy dep,
         # tensorflow dep,
     ],
@@ -70,7 +71,7 @@ py_test(
 py_library(
     name = "gradient",
     srcs = ["gradient.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         # tensorflow_probability dep,
     ],
@@ -91,7 +92,7 @@ py_test(
 py_library(
     name = "segment_ops",
     srcs = ["segment_ops.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         ":diff_ops",
         # numpy dep,
@@ -114,7 +115,7 @@ py_test(
 py_library(
     name = "piecewise",
     srcs = ["piecewise.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         # numpy dep,
         # tensorflow dep,
