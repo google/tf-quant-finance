@@ -129,12 +129,15 @@ class HestonModelTest(tf.test.TestCase):
     heston = heston_model.HestonModel(kappa=kappa, theta=theta, epsilon=epsilon,
                                       rho=rho, dtype=dtype)
     initial_state = np.array([initial_log_spot, initial_vol])
-    samples = heston.sample_paths(times=[maturity_time],
-                                  initial_state=initial_state,
-                                  time_step=0.01,
-                                  num_samples=1000,
-                                  seed=42)
-    log_spots = samples[..., 0]
+    samples = heston.sample_paths(
+        times=[maturity_time / 2, maturity_time],
+        initial_state=initial_state,
+        time_step=0.01,
+        num_samples=1000,
+        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
+        seed=42)
+    self.assertEqual(samples.shape, [1000, 2, 2])
+    log_spots = samples[:, -1, 0]
     monte_carlo_price = (
         tf.constant(np.exp(-discounting * maturity_time), dtype=dtype) *
         tf.math.reduce_mean(tf.nn.relu(tf.math.exp(log_spots) - strike)))

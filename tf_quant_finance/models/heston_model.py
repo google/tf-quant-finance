@@ -15,11 +15,16 @@
 
 """Heston model with piecewise constant parameters."""
 
+import numpy as np
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.math import piecewise
-from tf_quant_finance.math import random_ops
+from tf_quant_finance.math import random_ops as random
 from tf_quant_finance.models import generic_ito_process
+from tf_quant_finance.models import utils
+
+
+_SQRT_2 = np.sqrt(2., dtype=np.float64)
 
 
 class HestonModel(generic_ito_process.GenericItoProcess):
@@ -46,18 +51,20 @@ class HestonModel(generic_ito_process.GenericItoProcess):
   ## Example
 
   ```python
+  import tf_quant_finance as tff
+  import numpy as np
   epsilon = PiecewiseConstantFunc(
       jump_locations=[0.5], values=[1, 1.1], dtype=np.float64)
-  process = HestonModel(kappa=0.5, theta=0.04, epsilon=epsilon, rho=-0.9,
+  process = HestonModel(kappa=0.5, theta=0.04, epsilon=epsilon, rho=0.1,
                         dtype=np.float64)
   times = np.linspace(0.0, 1.0, 1000)
-  num_samples = 1000  # number of trajectories
-  variance_trace, state_trace = process.sample_paths(
+  num_samples = 10000  # number of trajectories
+  sample_paths = process.sample_paths(
       times,
       time_step=0.01,
       num_samples=num_samples,
-      initial_state=np.array([0.04, 100]),
-      seed=1234)
+      initial_state=np.array([1.0, 0.04]),
+      random_type=random.RandomType.SOBOL)
   ```
 
   ### References:
@@ -159,17 +166,18 @@ class HestonModel(generic_ito_process.GenericItoProcess):
   def sample_paths(self,
                    times,
                    initial_state,
-                   time_step,
                    num_samples=1,
                    random_type=None,
                    seed=None,
+                   time_step=None,
+                   skip=0,
                    tolerance=1e-6,
                    name=None):
     """Returns a sample of paths from the process.
 
     Using Quadratic-Exponential (QE) method described in [1] generates samples
-    paths started at time zero `0.0` and returns paths values at the specified
-    time points.
+    paths started at time zero and returns paths values at the specified time
+    points.
 
     Args:
       times: Rank 1 `Tensor` of positive real values. The times at which the
@@ -177,13 +185,16 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       initial_state: A rank 1 `Tensor` with two elements where the first element
         corresponds to the initial value of the log spot `X(0)` and the second
         to the starting variance value `V(0)`.
-      time_step: Positive Python float to denote time discretization parameter.
       num_samples: Positive scalar `int`. The number of paths to draw.
       random_type: Enum value of `RandomType`. The type of (quasi)-random
         number generator to use to generate the paths.
         Default value: None which maps to the standard pseudo-random numbers.
       seed: Python `int`. The random seed to use.
         Default value: None, i.e., no seed is set.
+      time_step: Positive Python float to denote time discretization parameter.
+      skip: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
+        Halton sequence to skip. Used only when `random_type` is 'SOBOL',
+        'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
       tolerance: Scalar positive real `Tensor`. Specifies minimum time tolerance
         for which the stochastic process `X(t) != X(t + tolerance)`.
       Default value: 1e-6.
@@ -197,73 +208,103 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       of the spot price `X(t)`, whereas the second one represents the simulated
       variance trajectories `V(t)`.
 
+    Raises:
+      ValueError: If `time_step` is not supplied.
+
     ### References:
       [1]: Leif Andersen. Efficient Simulation of the Heston Stochastic
         Volatility Models. 2006.
     """
+    if time_step is None:
+      raise ValueError('`time_step` can not be `None` when calling '
+                       'sample_paths of HestonModel.')
     # Note: all the notations below are the same as in [1].
-    default_name = self._name + '_sample_path'
-    with tf.compat.v1.name_scope(name,
-                                 default_name=default_name,
-                                 values=[times]):
+    name = name or (self._name + '_sample_path')
+    with tf.name_scope(name):
       time_step = tf.convert_to_tensor(time_step, self._dtype)
       times = tf.convert_to_tensor(times, self._dtype)
       current_log_spot = (
           tf.convert_to_tensor(initial_state[..., 0], dtype=self._dtype)
           + tf.zeros([num_samples], dtype=self._dtype))
-      current_var = (
+      current_vol = (
           tf.convert_to_tensor(initial_state[..., 1], dtype=self._dtype)
           + tf.zeros([num_samples], dtype=self._dtype))
-      times_size = tf.shape(times)[-1]
+      times_shape = times.shape
       times, keep_mask = _prepare_grid(
           times, time_step, times.dtype,
           self._kappa, self._theta, self._epsilon, self._rho)
       return self._sample_paths(
-          times, times_size,
-          current_log_spot, current_var,
-          num_samples, random_type, keep_mask, seed, tolerance)
+          times, times_shape,
+          current_log_spot, current_vol,
+          num_samples, random_type, keep_mask, seed, skip, tolerance)
 
   def _sample_paths(self,
                     times,
-                    times_size,
+                    times_shape,
                     current_log_spot,
-                    current_var,
+                    current_vol,
                     num_samples,
                     random_type,
                     keep_mask,
                     seed,
+                    skip,
                     tolerance):
     """Returns a sample of paths from the process."""
     # Note: all the notations below are the same as in [1].
-
-    # Add zeros as a starting location
     dt = times[1:] - times[:-1]
+    # Compute the parameters at `times`. Here + tf.reduce_min(dt) / 2 ensures
+    # that the value is constant between `times`.
     kappa, theta, epsilon, rho = _get_parameters(  # pylint: disable=unbalanced-tuple-unpacking
         times + tf.reduce_min(dt) / 2,
         self._kappa, self._theta, self._epsilon, self._rho)
-    cond_fn = lambda i, *args: i < tf.size(dt)
-    def body_fn(i, written_count, current_var, current_log_spot, vol_paths,
+    # In order random_type which is not PSEUDO,  sequence of independent random
+    # normals should be generated upfront.
+    if dt.shape.is_fully_defined():
+      steps_num = dt.shape.as_list()[-1]
+    else:
+      steps_num = tf.shape(dt)[-1]
+      # TODO(b/148133811): Re-enable Sobol test when TF 2.2 is released.
+      if random_type == random.RandomType.SOBOL:
+        raise ValueError('Sobol sequence for Euler sampling is temporarily '
+                         'unsupported when `time_step` or `times` have a '
+                         'non-constant value')
+    if random_type != random.RandomType.PSEUDO:
+      # Note that at each iteration we need 3 random draws.
+      normal_draws = utils.generate_mc_normal_draws(
+          num_normal_draws=3, num_time_steps=steps_num,
+          num_sample_paths=num_samples, random_type=random_type,
+          seed=seed,
+          dtype=self.dtype(), skip=skip)
+    else:
+      normal_draws = None
+    cond_fn = lambda i, *args: i < steps_num
+    def body_fn(i, written_count, current_vol, current_log_spot, vol_paths,
                 log_spot_paths):
       """Simulate Heston process to the next time point."""
       time_step = dt[i]
+      if normal_draws is None:
+        normals = random.mv_normal_sample(
+            (num_samples,),
+            mean=tf.zeros([3], dtype=kappa.dtype), seed=seed)
+      else:
+        normals = normal_draws[i]
       def _next_vol_fn():
         return _update_variance(
-            i, kappa[i], theta[i], epsilon[i], rho[i],
-            current_var, time_step, num_samples, random_type, seed)
+            kappa[i], theta[i], epsilon[i], rho[i],
+            current_vol, time_step, normals[..., :2])
       # Do not update variance if `time_step > tolerance`
       next_vol = tf.cond(time_step > tolerance,
-                         lambda: _next_vol_fn(),  # pylint: disable=unnecessary-lambda
-                         lambda: current_var)
+                         _next_vol_fn,
+                         lambda: current_vol)
       def _next_log_spot_fn():
         return _update_log_spot(
-            i, kappa[i], theta[i], epsilon[i], rho[i],
-            current_var, next_vol, current_log_spot, time_step, num_samples,
-            random_type, seed)
+            kappa[i], theta[i], epsilon[i], rho[i],
+            current_vol, next_vol, current_log_spot, time_step,
+            normals[..., -1])
       # Do not update state if `time_step > tolerance`
       next_log_spot = tf.cond(time_step > tolerance,
-                              lambda: _next_log_spot_fn(),  # pylint: disable=unnecessary-lambda
+                              _next_log_spot_fn,
                               lambda: current_log_spot)
-
       vol_paths = tf.cond(keep_mask[i + 1],
                           lambda: vol_paths.write(written_count, next_vol),
                           lambda: vol_paths)
@@ -276,14 +317,20 @@ class HestonModel(generic_ito_process.GenericItoProcess):
               next_vol, next_log_spot, vol_paths, log_spot_paths)
 
     log_spot_paths = tf.TensorArray(dtype=self._dtype,
-                                    size=times_size)
+                                    size=times_shape[-1])
     vol_paths = tf.TensorArray(dtype=self._dtype,
-                               size=times_size)
-    _, _, _, _, vol_paths, log_spot_paths = tf.compat.v2.while_loop(
-        cond_fn, body_fn, (0, 0, current_var, current_log_spot,
-                           vol_paths, log_spot_paths))
-    return tf.stack([tf.transpose(log_spot_paths.stack()),
-                     tf.transpose(vol_paths.stack())], -1)
+                               size=times_shape[-1])
+    _, _, _, _, vol_paths, log_spot_paths = tf.while_loop(
+        cond_fn, body_fn, (0, 0, current_vol, current_log_spot,
+                           vol_paths, log_spot_paths),
+        maximum_iterations=steps_num)
+    # TensorArray.stack() produces tensors of unknown shapes
+    log_spot_paths = log_spot_paths.stack()
+    log_spot_paths.set_shape(times_shape + current_log_spot.shape)
+    vol_paths = vol_paths.stack()
+    vol_paths.set_shape(times_shape + current_vol.shape)
+    return tf.stack([tf.transpose(log_spot_paths),
+                     tf.transpose(vol_paths)], -1)
 
 
 def _get_parameters(times, *params):
@@ -298,35 +345,27 @@ def _get_parameters(times, *params):
 
 
 def _update_variance(
-    i, kappa, theta, epsilon, rho,
-    current_var, time_step, num_samples, random_type, seed, psi_c=1.5):
+    kappa, theta, epsilon, rho,
+    current_vol, time_step, normals, psi_c=1.5):
   """Updates variance value."""
   del rho
   psi_c = tf.convert_to_tensor(psi_c, dtype=kappa.dtype)
   scaled_time = tf.exp(-kappa * time_step)
   epsilon_squared = epsilon**2
-  m = theta + (current_var - theta) * scaled_time
+  m = theta + (current_vol - theta) * scaled_time
   s_squared = (
-      current_var * epsilon_squared * scaled_time / kappa
+      current_vol * epsilon_squared * scaled_time / kappa
       * (1 - scaled_time) + theta * epsilon_squared / 2 / kappa
       * (1 - scaled_time)**2)
   psi = s_squared / m**2
-  skip = 3 * i * num_samples
-  normals = random_ops.mv_normal_sample(
-      (num_samples,),
-      mean=tf.constant([0.0], dtype=kappa.dtype),
-      random_type=random_type, seed=seed, skip=skip)
-  skip = (3 * i + 1) * num_samples
-  uniforms = tf.squeeze(random_ops.uniform(
-      dim=1, sample_shape=[num_samples], dtype=kappa.dtype,
-      random_type=random_type, seed=seed, skip=skip))
+  uniforms = 0.5 * (1 + tf.math.erf(normals[..., 0] / _SQRT_2))
   cond = psi < psi_c
   # Result where `cond` is true
   psi_inv = 2 / psi
   b_squared = psi_inv - 1 + tf.sqrt(psi_inv * (psi_inv - 1))
 
   a = m / (1 + b_squared)
-  next_var_true = a * (tf.sqrt(b_squared) + tf.squeeze(normals))**2
+  next_var_true = a * (tf.sqrt(b_squared) + tf.squeeze(normals[..., 1]))**2
   # Result where `cond` is false
   p = (psi - 1) / (psi + 1)
   beta = (1 - p) / m
@@ -338,15 +377,10 @@ def _update_variance(
 
 
 def _update_log_spot(
-    i, kappa, theta, epsilon, rho,
-    current_var, next_var, current_log_spot, time_step, num_samples,
-    random_type, seed, gamma_1=0.5, gamma_2=0.5):
+    kappa, theta, epsilon, rho,
+    current_vol, next_vol, current_log_spot, time_step, normals,
+    gamma_1=0.5, gamma_2=0.5):
   """Updates log-spot value."""
-  skip = (3 * i + 2) * num_samples
-  normals = random_ops.mv_normal_sample(
-      (num_samples,),
-      mean=tf.constant([0.0], dtype=current_var.dtype),
-      random_type=random_type, seed=seed, skip=skip)
   k_0 = - rho * kappa * theta / epsilon * time_step
   k_1 = (gamma_1 * time_step
          * (kappa * rho / epsilon - 0.5)
@@ -358,8 +392,8 @@ def _update_log_spot(
   k_4 = gamma_2 * time_step * (1 - rho**2)
 
   next_log_spot = (
-      current_log_spot + k_0 + k_1 * current_var + k_2 * next_var
-      + tf.sqrt(k_3 * current_var + k_4 * next_var) * tf.squeeze(normals))
+      current_log_spot + k_0 + k_1 * current_vol + k_2 * next_vol
+      + tf.sqrt(k_3 * current_vol + k_4 * next_vol) * normals)
   return next_log_spot
 
 

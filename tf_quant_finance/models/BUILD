@@ -76,6 +76,7 @@ py_library(
     srcs = ["heston_model.py"],
     deps = [
         ":generic_ito_process",
+        ":utils",
         "//tf_quant_finance/math:piecewise",
         "//tf_quant_finance/math/random_ops",
         # tensorflow dep,
@@ -92,6 +93,7 @@ py_test(
     deps = [
         ":heston_model",
         "//tf_quant_finance",
+        # test util dependency,
         # numpy dep,
         # tensorflow dep,
     ],
