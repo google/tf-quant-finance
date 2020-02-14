@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,7 +44,7 @@ def _ensure_tf_install():  # pylint: disable=g-statement-before-imports
     inadequate.
   """
   try:
-    import tensorflow as tf
+    import tensorflow.compat.v2 as tf
   except ImportError:
     # Print more informative error message, then reraise.
     print("\n\nFailed to import TensorFlow. Please note that TensorFlow is not "

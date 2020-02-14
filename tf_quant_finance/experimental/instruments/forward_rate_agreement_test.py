@@ -1,3 +1,4 @@
+# Lint as: python3
 # Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +15,7 @@
 """Tests for forward_rate_agreement.py."""
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
