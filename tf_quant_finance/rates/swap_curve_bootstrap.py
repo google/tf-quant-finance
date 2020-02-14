@@ -38,7 +38,7 @@ import tensorflow.compat.v2 as tf
 from tf_quant_finance.math.interpolation import linear
 # TODO(b/148945638): Move common functionality for swap curve construction to a
 # separate python module.
-from tf_quant_finance.rates import swap_curve_fit as scf
+from tf_quant_finance.rates import swap_curve_common as scc
 
 
 def swap_curve_bootstrap(float_leg_start_times,
@@ -548,7 +548,7 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
 
   discount_factors = bootstrap_result[-1]
   discount_rates = -tf.math.log(discount_factors) / expiry_times
-  results = scf.SwapCurveBuilderResult(
+  results = scc.SwapCurveBuilderResult(
       times=expiry_times,
       rates=discount_rates,
       discount_factors=discount_factors,

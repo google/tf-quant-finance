@@ -9,6 +9,7 @@ py_library(
     srcs = ["__init__.py"],
     srcs_version = "PY3",
     deps = [
+        "swap_curve_common",
         ":cashflows",
         ":forwards",
         ":swap_curve_bootstrap",
@@ -88,6 +89,13 @@ py_library(
         # numpy dep,
         # tensorflow dep,
     ],
+)
+
+py_library(
+    name = "swap_curve_common",
+    srcs = ["swap_curve_common.py"],
+    srcs_version = "PY3",
+    deps = [],
 )
 
 py_test(

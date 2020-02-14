@@ -37,30 +37,7 @@ import tensorflow.compat.v2 as tf
 from tf_quant_finance.math import make_val_and_grad_fn
 from tf_quant_finance.math import optimizer
 from tf_quant_finance.math.interpolation import linear
-
-SwapCurveBuilderResult = collections.namedtuple(
-    'SwapCurveBuilderResult',
-    [
-        # Rank 1 real `Tensor`. Times for the computed discount rates.
-        'times',
-        # Rank 1 `Tensor` of the same dtype as `times`.
-        # The inferred zero rates.
-        'rates',
-        # Rank 1 `Tensor` of the same dtype as `times`.
-        # The inferred discount factors.
-        'discount_factors',
-        # Rank 1 `Tensor` of the same dtype as `times`. The
-        # initial guess for the rates.
-        'initial_rates',
-        # Scalar boolean `Tensor`. Whether the procedure converged.
-        'converged',
-        # Scalar boolean `Tensor`. Whether the procedure failed.
-        'failed',
-        # Scalar int32 `Tensor`. Number of iterations performed.
-        'iterations',
-        # Scalar real `Tensor`. The objective function at the optimal soultion.
-        'objective_value'
-    ])
+from tf_quant_finance.rates import swap_curve_common as scc
 
 
 def swap_curve_fit(float_leg_start_times,
@@ -548,7 +525,7 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
 
   discount_rates = optimization_result.position
   discount_factors = tf.math.exp(-discount_rates * expiry_times)
-  results = SwapCurveBuilderResult(
+  results = scc.SwapCurveBuilderResult(
       times=expiry_times,
       rates=discount_rates,
       discount_factors=discount_factors,
