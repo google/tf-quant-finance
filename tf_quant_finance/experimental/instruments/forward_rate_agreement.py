@@ -32,6 +32,7 @@ InterestRateMarket = collections.namedtuple(
     ])
 
 
+# TODO(b/149644030): Use daycounts.py for this.
 class DayCountBasis(enum.Enum):
   """Day count basis for accrual."""
   # Actual/360 day count basis
@@ -78,23 +79,26 @@ class ForwardRateAgreement:
   import numpy as np
   import tensorflow as tf
   import tf_quant_finance as tff
+  dates = tff.experimental.dates
+
   dtype = np.float64
   notional = 1.
-  settlement_date = tff.experimental.dates.convert_to_date_tensor([(2021, 2,
+  settlement_date = dates.convert_to_date_tensor([(2021, 2,
                                                                       8)])
-  fixing_date = tff.experimental.dates.convert_to_date_tensor([(2021, 2, 8)])
-  valuation_date = tff.experimental.dates.convert_to_date_tensor([(2020, 2, 8)
+  fixing_date = dates.convert_to_date_tensor([(2021, 2, 8)])
+  valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)
                                                                    ])
   fixed_rate = 0.02
-  rate_term = rate_term = tff.experimental.dates.periods.PeriodTensor(
-        3, tff.experimental.dates.PeriodType.MONTH)
+  rate_term = rate_term = dates.periods.PeriodTensor(
+        3, dates.PeriodType.MONTH)
 
   fra = tff.experimental.instruments.ForwardRateAgreement(
         notional, settlement_date, fixing_date, fixed_rate,
         rate_term=rate_term, dtype=dtype)
-
+  curve_dates = valuation_date + dates.periods.PeriodTensor(
+        [1, 2, 3, 12, 24, 60], dates.PeriodType.MONTH)
   reference_curve = tff.experimental.instruments.RateCurve(
-      np.array([1./12, 2./12, 0.25, 1., 2., 5.], dtype=dtype),
+      curve_dates,
       np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),
       dtype=dtype)
   market = tff.experimental.instruments.InterestRateMarket(
@@ -153,11 +157,12 @@ class ForwardRateAgreement:
       ValueError: If both `maturity_date` and `rate_term` are unspecified.
     """
     self._name = name or 'forward_rate_agreement'
-    with tf.compat.v1.name_scope(self._name,
-                                 values=[notional, settlement_date,
-                                         fixing_date, maturity_date,
-                                         daycount_basis, fixed_rate,
-                                         rate_term]):
+
+    if rate_term is None and maturity_date is None:
+      raise ValueError(
+          'Error creating FRA. Either rate_term or maturity_date is required.')
+
+    with tf.name_scope(self._name):
       self._dtype = dtype
       self._notional = tf.convert_to_tensor(notional, dtype=self._dtype)
       self._fixing_date = dates.convert_to_date_tensor(fixing_date)
@@ -190,21 +195,15 @@ class ForwardRateAgreement:
       based on the input market data.
     """
 
-    del model
-    valuation_date = dates.convert_to_date_tensor(valuation_date)
-    settlement_t = elapsed_time(valuation_date, self._settlement_date,
-                                self._dtype)
-    accrual_start_t = elapsed_time(valuation_date, self._accrual_start_date,
-                                   self._dtype)
-    accrual_end_t = elapsed_time(valuation_date, self._accrual_end_date,
-                                 self._dtype)
+    del model, valuation_date
 
     reference_curve = market.reference_curve
     discount_curve = market.discount_curve
 
-    fwd_rate = reference_curve.get_forward_rate(accrual_start_t, accrual_end_t,
+    fwd_rate = reference_curve.get_forward_rate(self._accrual_start_date,
+                                                self._accrual_end_date,
                                                 self._daycount_fraction)
-    discount_at_settlement = discount_curve.get_discount(settlement_t)
+    discount_at_settlement = discount_curve.get_discount(self._settlement_date)
 
     return discount_at_settlement * self._notional * (
         fwd_rate - self._fixed_rate) * self._daycount_fraction / (

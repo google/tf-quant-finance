@@ -14,7 +14,8 @@
 # limitations under the License.
 
 """Interest rate curve defintion."""
-import tensorflow.compat.v1 as tf
+import tensorflow.compat.v2 as tf
+from tf_quant_finance.experimental import dates
 from tf_quant_finance.math.interpolation import linear
 
 
@@ -22,8 +23,9 @@ class RateCurve(object):
   """Represents an interest rate curve."""
 
   def __init__(self,
-               maturity,
-               rate,
+               maturity_dates,
+               rates,
+               valuation_date,
                compounding=None,
                interpolator=None,
                dtype=None,
@@ -31,11 +33,13 @@ class RateCurve(object):
     """Initializes the interest rate curve.
 
     Args:
-      maturity: A `Tensor` of real dtype specifying the time to maturities of
-        the curve in years.
-      rate: A `Tensor` of real dtype specifying the rates (or yields)
+      maturity_dates: A `DateTensor` containing the maturity dates on which the
+        curve is specified.
+      rates: A `Tensor` of real dtype specifying the rates (or yields)
         corresponding to the input maturities. The shape of this input should
-        match the shape of `maturity`.
+        match the shape of `maturity_dates`.
+      valuation_date: A scalar `DateTensor` specifying the valuation (or
+        settlement) date for the curve.
       compounding: Optional scalar `Tensor` of dtype int32 specifying the
         componding frequency of the input rates. Use compounding=0 for
         continuously compounded rates. If compounding is different than 0, then
@@ -50,15 +54,13 @@ class RateCurve(object):
         interpolation is desired and `yi` are the corresponding interpolated
         values returned by the function.
         Default value: None in which case linear interpolation is used.
-      dtype: `tf.Dtype`. Optional input specifying the dtype of the input
-        `Tensors`.
+      dtype: `tf.Dtype`. Optional input specifying the dtype of the `rates`
+        input.
       name: Python str. The name to give to the ops created by this function.
         Default value: `None` which maps to 'rate_curve'.
     """
     self._name = name or 'rate_curve'
-    with tf.compat.v1.name_scope(self._name,
-                                 values=[maturity, rate, compounding,
-                                         interpolator]):
+    with tf.compat.v1.name_scope(self._name):
       self._dtype = dtype
       if interpolator is None:
         def default_interpolator(xi, x, y):
@@ -68,8 +70,13 @@ class RateCurve(object):
       if compounding is None:
         compounding = 0
 
-      self._times = tf.convert_to_tensor(maturity, dtype, 'curve_times')
-      self._rates = tf.convert_to_tensor(rate, dtype, 'curve_rates')
+      self._dates = dates.convert_to_date_tensor(maturity_dates)
+      self._valuation_date = dates.convert_to_date_tensor(
+          valuation_date)
+
+      self._times = self._get_time(self._dates)
+      self._rates = tf.convert_to_tensor(rates, dtype=self._dtype,
+                                         name='curve_rates')
 
       if compounding > 0:
         self._rates = tf.where(
@@ -79,37 +86,51 @@ class RateCurve(object):
             self._times, self._rates)
       self._interpolator = interpolator
 
-  def get_rates(self, times):
-    """Returns interpolated rates at input `times`."""
+  def get_rates(self, interpolation_dates):
+    """Returns interpolated rates at `interpolation_dates`."""
 
-    times = tf.convert_to_tensor(times, self._dtype)
+    idates = dates.convert_to_date_tensor(interpolation_dates)
+    times = self._get_time(idates)
     return self._interpolator(times, self._times, self._rates)
 
-  def get_discount(self, times):
-    """Returns discount factors at input `times`."""
+  def get_discount(self, interpolation_dates):
+    """Returns discount factors at `interpolation_dates`."""
 
-    times = tf.convert_to_tensor(times, self._dtype)
-    return tf.math.exp(-self.get_rates(times) * times)
+    idates = dates.convert_to_date_tensor(interpolation_dates)
+    times = self._get_time(idates)
+    return tf.math.exp(-self.get_rates(idates) * times)
 
-  def get_forward_rate(self, t_start, t_maturity, daycount_fraction):
-    """Returns the simply accrued forward rate with span [t_start, t_maturity].
+  def get_forward_rate(self, start_date, maturity_date, daycount_fraction):
+    """Returns the simply accrued forward rate between [start_dt, maturity_dt].
 
     Args:
-      t_start: A `Tensor` of real dtype specifying the start of the accrual
-        period for the forward rate.
-      t_maturity: A `Tensor` of real dtype specifying the end of the accrual
-        period for the forward rate. The shape of `t_maturity` must be the same
-        as the shape of the `Tensor` `t_start`.
+      start_date: A `DateTensor` specifying the start of the accrual period
+        for the forward rate.
+      maturity_date: A `DateTensor` specifying the end of the accrual period
+        for the forward rate. The shape of `maturity_date` must be the same
+        as the shape of the `DateTensor` `start_date`.
       daycount_fraction: A `Tensor` of real dtype specifying the a time between
-        `t_start` and `t_maturity` in years computed using the forward rate's
-        day count basis. The shape of the input should be the same as that if
-        `t_start` and `t_maturity`.
+        `start_date` and `maturity_date` in years computed using the forward
+        rate's day count basis. The shape of the input should be the same as
+        that if `start_date` and `maturity_date`.
 
     Returns:
       A real tensor of same shape as the inputs containing the simply compounded
       forward rate.
     """
 
-    dfstart = self.get_discount(t_start)
-    dfmaturity = self.get_discount(t_maturity)
+    dfstart = self.get_discount(start_date)
+    dfmaturity = self.get_discount(maturity_date)
     return (dfstart / dfmaturity - 1.) / daycount_fraction
+
+  @property
+  def valuation_date(self):
+    return self._valuation_date
+
+  def _get_time(self, desired_dates):
+    """Computes the year fraction from the curve's valuation date."""
+
+    return dates.daycounts.actual_365_fixed(
+        start_date=self._valuation_date,
+        end_date=desired_dates,
+        dtype=self._dtype)
