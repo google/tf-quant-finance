@@ -93,7 +93,7 @@ py_test(
     deps = [
         ":heston_model",
         "//tf_quant_finance",
-        # test util dependency,
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],
