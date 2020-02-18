@@ -20,8 +20,6 @@ import tensorflow.compat.v2 as tf
 from tf_quant_finance import math
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
-# from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
-
 
 class DiffOpsTest(tf.test.TestCase):
 
