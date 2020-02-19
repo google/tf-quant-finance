@@ -18,6 +18,7 @@ import datetime
 import numpy as np
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance.experimental import dates
 from tf_quant_finance.experimental.dates import date_utils
 from tf_quant_finance.experimental.dates import test_data
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
@@ -27,20 +28,20 @@ from tensorflow.python.framework import test_util  # pylint: disable=g-direct-te
 class DateUtilsTest(tf.test.TestCase):
 
   def test_ordinal_to_year_month_day(self):
-    dates = test_data.test_dates
+    date_tuples = test_data.test_dates
     ordinals = np.array(
-        [datetime.date(y, m, d).toordinal() for y, m, d in dates],
+        [datetime.date(y, m, d).toordinal() for y, m, d in date_tuples],
         dtype=np.int32)
     y, m, d = date_utils.ordinal_to_year_month_day(ordinals)
     result = tf.stack((y, m, d), axis=1)
-    self.assertAllEqual(dates, result)
+    self.assertAllEqual(date_tuples, result)
 
   def test_year_month_day_to_ordinal(self):
-    dates = test_data.test_dates
+    date_tuples = test_data.test_dates
     expected = np.array(
-        [datetime.date(y, m, d).toordinal() for y, m, d in dates],
+        [datetime.date(y, m, d).toordinal() for y, m, d in date_tuples],
         dtype=np.int32)
-    dates_np = np.array(dates)
+    dates_np = np.array(date_tuples)
     years, months, days = dates_np[:, 0], dates_np[:, 1], dates_np[:, 2]
     actual = date_utils.year_month_day_to_ordinal(years, months, days)
     self.assertAllEqual(expected, actual)
@@ -56,6 +57,30 @@ class DateUtilsTest(tf.test.TestCase):
     self.assertAllEqual(
         expected, date_utils.is_leap_year(years))
 
+  def test_days_in_leap_years_between(self):
+    test_cases = test_data.days_in_leap_years_test_cases
+    date_tuples1, date_tuples2, expected_num_days = [], [], []
+    for case in test_cases:
+      date_tuples1.append(case["date1"])
+      date_tuples2.append(case["date2"])
+      expected_num_days.append(case["expected"])
+    dates1 = dates.from_tuples(date_tuples1)
+    dates2 = dates.from_tuples(date_tuples2)
+    actual_num_days = date_utils.days_in_leap_years_between(dates1, dates2)
+    self.assertAllEqual(expected_num_days, actual_num_days)
 
-if __name__ == '__main__':
+  def test_leap_days_between(self):
+    test_cases = test_data.leap_days_between_dates_test_cases
+    date_tuples1, date_tuples2, expected_num_days = [], [], []
+    for case in test_cases:
+      date_tuples1.append(case["date1"])
+      date_tuples2.append(case["date2"])
+      expected_num_days.append(case["expected"])
+    dates1 = dates.from_tuples(date_tuples1)
+    dates2 = dates.from_tuples(date_tuples2)
+    actual_num_days = date_utils.leap_days_between(dates1, dates2)
+    self.assertAllEqual(expected_num_days, actual_num_days)
+
+
+if __name__ == "__main__":
   tf.test.main()

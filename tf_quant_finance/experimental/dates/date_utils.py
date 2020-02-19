@@ -126,3 +126,88 @@ def is_leap_year(years):
     return tf.math.equal(years % n, 0)
   return tf.math.logical_and(
       divides_by(4), tf.math.logical_or(~divides_by(100), divides_by(400)))
+
+
+def days_in_leap_years_between(start_date, end_date):
+  """Calculates number of days between two dates that fall on leap years.
+
+  'start_date' is included and 'end_date' is excluded from the period.
+
+  For example, for dates '(2019, 12, 24)' and '(2024, 2, 10)' the result is
+  406: 366 days in 2020, 31 in Jan 2024 and 9 in Feb 2024.
+
+  If `end_date` is earlier than `start_date`, the result will be negative or
+  zero.
+
+  Args:
+    start_date: DateTensor.
+    end_date: DateTensor compatible with `start_date`.
+
+  Returns:
+    Tensor of type 'int32'.
+  """
+  def days_in_leap_years_since_1jan0001(date):
+    prev_year = date.year() - 1
+    leap_years_before = prev_year // 4 - prev_year // 100 + prev_year // 400
+    n_leap_days = leap_years_before * 366
+
+    days_in_cur_year = date.day_of_year() - 1  # exclude current day.
+    n_leap_days += tf.where(is_leap_year(date.year()), days_in_cur_year, 0)
+    return n_leap_days
+
+  return (days_in_leap_years_since_1jan0001(end_date) -
+          days_in_leap_years_since_1jan0001(start_date))
+
+
+def days_in_leap_and_nonleap_years_between(start_date, end_date):
+  """Calculates number of days that fall on leap and non-leap years.
+
+  Calculates a tuple '(days_in_leap_years, days_in_nonleap_years)'.
+  'start_date' is included and 'end_date' is excluded from the period.
+
+  For example, for dates '(2019, 12, 24)' and '(2024, 2, 10)' the result is
+  (406, 1103):
+  406 = 366 days in 2020 + 31 in Jan 2024 + 9 in Feb 2024,
+  1103 = 8 in 2019 + 365 in 2021 + 365 in 2022 + 365 in 2023.
+
+  If `end_date` is earlier than `start_date`, the result will be negative or
+  zero.
+
+  Args:
+    start_date: DateTensor.
+    end_date: DateTensor compatible with `start_date`.
+
+  Returns:
+    Tuple of two Tensors of type 'int32'.
+  """
+  days_between = end_date.ordinal() - start_date.ordinal()
+  days_in_leap_years = days_in_leap_years_between(start_date, end_date)
+  return days_in_leap_years, days_between - days_in_leap_years
+
+
+def leap_days_between(start_date, end_date):
+  """Calculates number of leap days (29 Feb) between two dates.
+
+  'start_date' is included and 'end_date' is excluded from the period.
+
+  For example, for dates '(2019, 12, 24)' and '(2024, 3, 10))' the result is
+  2: there is 29 Feb 2020 and 29 Feb 2024 between 24 Dec 2019 (inclusive) and
+  10 Mar 2024 (exclusive).
+
+  If `end_date` is earlier than `start_date`, the result will be negative or
+  zero.
+
+  Args:
+    start_date: DateTensor.
+    end_date: DateTensor compatible with `start_date`.
+
+  Returns:
+    Tensor of type 'int32'.
+  """
+  def leap_days_since_year_0(date_tensor):
+    year = date_tensor.year()
+    month = date_tensor.month()
+    leap_years_since_0 = year // 4 - year // 100 + year // 400
+    needs_adjustment = (is_leap_year(year) & (month <= 2))
+    return leap_years_since_0 - tf.where(needs_adjustment, 1, 0)
+  return leap_days_since_year_0(end_date) - leap_days_since_year_0(start_date)

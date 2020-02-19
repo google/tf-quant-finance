@@ -22,15 +22,10 @@ from tf_quant_finance.experimental.dates import date_utils
 from tf_quant_finance.experimental.dates import periods
 from tf_quant_finance.experimental.dates import tensor_wrapper
 
-# Days in each month. A sentinel value of 0 is added to the top of the array
-# so indexing is easier. Note that both leap and non-leap year values are
-# stored.
-_DAYS_IN_MONTHS = (
-    0,  # For easier indexing
-
-    # Non-leap Years.
+# Days in each month of a non-leap year.
+_DAYS_IN_MONTHS_NON_LEAP = [
     31,  # January.
-    28,  # February (Non-leap year).
+    28,  # February.
     31,  # March.
     30,  # April.
     31,  # May.
@@ -41,10 +36,12 @@ _DAYS_IN_MONTHS = (
     31,  # October.
     30,  # November.
     31,  # December.
+]
 
-    # Leap Years
+# Days in each month of a leap year.
+_DAYS_IN_MONTHS_LEAP = [
     31,  # January.
-    29,  # February (Leap year).
+    29,  # February.
     31,  # March.
     30,  # April.
     31,  # May.
@@ -54,7 +51,12 @@ _DAYS_IN_MONTHS = (
     30,  # September.
     31,  # October.
     30,  # November.
-    31)  # December.
+    31,  # December.
+]
+
+# Combined list of days per month. A sentinel value of 0 is added to the top of
+# the array so indexing is easier.
+_DAYS_IN_MONTHS_COMBINED = [0] + _DAYS_IN_MONTHS_NON_LEAP + _DAYS_IN_MONTHS_LEAP
 
 _ORDINAL_OF_1_1_1970 = 719163
 
@@ -104,6 +106,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     self._months = tf.convert_to_tensor(
         months, dtype=tf.int32, name="dt_months")
     self._days = tf.convert_to_tensor(days, dtype=tf.int32, name="dt_days")
+    self._day_of_year = None  # Computed lazily.
 
   def day(self):
     """Returns an int32 tensor of days since the beginning the month.
@@ -169,6 +172,34 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     ```
     """
     return self._ordinals
+
+  def day_of_year(self):
+    """Calculates the number of days since the beginning of the year.
+
+    Returns:
+      Tensor of int32 type with elements in range [1, 366]. January 1st yields
+      "1".
+
+    ## Example
+    ```python
+    dt = dates.from_tuples([(2019, 1, 25), (2020, 3, 2)])
+    dt.day_of_year()  # [25, 62]
+    ```
+    """
+    if self._day_of_year is None:
+      cumul_days_in_month_nonleap = tf.math.cumsum(
+          _DAYS_IN_MONTHS_NON_LEAP, exclusive=True)
+      cumul_days_in_month_leap = tf.math.cumsum(
+          _DAYS_IN_MONTHS_LEAP, exclusive=True)
+      days_before_month_non_leap = tf.gather(cumul_days_in_month_nonleap,
+                                             self.month() - 1)
+      days_before_month_leap = tf.gather(cumul_days_in_month_leap,
+                                         self.month() - 1)
+      days_before_month = tf.where(date_utils.is_leap_year(self.year()),
+                                   days_before_month_leap,
+                                   days_before_month_non_leap)
+      self._day_of_year = days_before_month + self.day()
+    return self._day_of_year
 
   def days_until(self, target_date_tensor):
     """Returns an int32 tensor with numbers of days until the target dates.
@@ -251,7 +282,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     def adjust_day(year, month, day):
       is_leap = date_utils.is_leap_year(year)
-      days_in_months = tf.constant(_DAYS_IN_MONTHS, tf.int32)
+      days_in_months = tf.constant(_DAYS_IN_MONTHS_COMBINED, tf.int32)
       max_days = tf.gather(days_in_months,
                            month + 12 * tf.dtypes.cast(is_leap, np.int32))
       return tf.math.minimum(day, max_days)
@@ -511,7 +542,7 @@ def from_year_month_day(year, month, day, validate=True):
         tf.debugging.assert_less_equal(month, constants.Month.DECEMBER.value))
     control_deps.append(tf.debugging.assert_positive(day))
     is_leap = date_utils.is_leap_year(year)
-    days_in_months = tf.constant(_DAYS_IN_MONTHS, tf.int32)
+    days_in_months = tf.constant(_DAYS_IN_MONTHS_COMBINED, tf.int32)
     max_days = tf.gather(days_in_months,
                          month + 12 * tf.dtypes.cast(is_leap, np.int32))
     control_deps.append(tf.debugging.assert_less_equal(day, max_days))

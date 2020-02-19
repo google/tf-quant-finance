@@ -49,6 +49,7 @@ payment schedule to be specified (e.g. Actual/Actual ISMA as in Ref [3] below.).
 import tensorflow.compat.v2 as tf
 from tf_quant_finance.experimental.dates import date_tensor as dt
 from tf_quant_finance.experimental.dates import date_utils as du
+from tf_quant_finance.experimental.dates import periods
 
 
 def actual_360(*,
@@ -143,6 +144,9 @@ def actual_365_actual(*,
   start and end date as the actual number of days between the two dates divided
   365 if no leap day is contained in the date range and 366 otherwise.
 
+  When determining whether a leap day is contained in the date range,
+  'start_date' is excluded and 'end_date' is included.
+
   Note that the schedule info is not needed for this convention and is ignored
   if supplied.
 
@@ -166,25 +170,11 @@ def actual_365_actual(*,
     start_date = dt.convert_to_date_tensor(start_date)
     dtype = dtype or tf.constant(0.).dtype
     actual_days = tf.cast(start_date.days_until(end_date), dtype=dtype)
-    leap_days_between = _leap_days_between(
-        start_date=start_date, end_date=end_date)
+    # Add a day to start_date and end_date so that start_date is excluded and
+    # end_date is included.
+    day = periods.day()
+    leap_days_between = du.leap_days_between(
+        start_date=start_date + day, end_date=end_date + day)
     denominator = tf.cast(tf.where(leap_days_between > 0, 366, 365),
                           dtype=dtype)
     return actual_days / denominator
-
-
-def _leap_days_since_start(date_tensor):
-  """Calculates the number of leap days until the supplied dates."""
-  year = date_tensor.year()
-  month = date_tensor.month()
-  day = date_tensor.day()
-  leap_years_since_0 = year // 4 - year // 100 + year // 400
-  is_leap_year = du.is_leap_year(year)
-  needs_adjustment = (
-      is_leap_year & ((month < 2) | (tf.equal(month, 2) & (day < 29))))
-  return leap_years_since_0 - tf.where(needs_adjustment, 1, 0)
-
-
-def _leap_days_between(*, start_date, end_date):
-  return _leap_days_since_start(end_date) - _leap_days_since_start(start_date)
-

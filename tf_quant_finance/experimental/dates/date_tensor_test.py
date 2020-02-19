@@ -206,6 +206,12 @@ class DateTensorTest(tf.test.TestCase):
     self.assertEqual((3, 1, 2), dates.expand_dims(axis=1).shape)
     self.assertEqual((3, 3, 2), dates.broadcast_to((3, 3, 2)).shape)
 
+  def test_day_of_year(self):
+    data = test_data.day_of_year_data
+    date_tuples, expected_days_of_year = zip(*data)
+    dates = dateslib.from_tuples(date_tuples)
+    self.assertAllEqual(expected_days_of_year, dates.day_of_year())
+
 
 def unpack_test_dates(dates):
   y, m, d = (np.array([d[i] for d in dates], dtype=np.int32) for i in range(3))

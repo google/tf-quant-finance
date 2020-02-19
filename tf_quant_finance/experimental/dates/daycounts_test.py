@@ -56,6 +56,22 @@ class DayCountsTest(tf.test.TestCase):
             start_date=start_date, end_date=end_date))
     self.assertAllClose(yf, [0.923288], atol=1e-5)
 
+  def test_actual_365_actual_with_leap_day_on_start(self):
+    start_date = dateslib.from_tuples([(2020, 2, 29)])
+    end_date = dateslib.from_tuples([(2021, 2, 11)])
+    yf = self.evaluate(
+        dateslib.daycounts.actual_365_actual(
+            start_date=start_date, end_date=end_date))
+    self.assertAllClose(yf, [0.953424], atol=1e-5)
+
+  def test_actual_365_actual_with_leap_day_on_end(self):
+    start_date = dateslib.from_tuples([(2019, 2, 11)])
+    end_date = dateslib.from_tuples([(2020, 2, 29)])
+    yf = self.evaluate(
+        dateslib.daycounts.actual_365_actual(
+            start_date=start_date, end_date=end_date))
+    self.assertAllClose(yf, [1.046448], atol=1e-5)
+
 
 if __name__ == '__main__':
   tf.test.main()
