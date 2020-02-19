@@ -17,8 +17,8 @@
 import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
-from tf_quant_finance.models import utils
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance.models import utils
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -50,6 +50,19 @@ class UtilsTest(tf.test.TestCase):
                            [0.8871465, -1.5341204]]]
       self.assertAllClose(samples, expected_samples, rtol=1e-5, atol=1e-5)
 
+  def test_block_diagonal_to_dense(self):
+    matrices = [[[1.0, 0.1], [0.1, 1.0]],
+                [[1.0, 0.3, 0.2],
+                 [0.3, 1.0, 0.5],
+                 [0.2, 0.5, 1.0]], [[1.0]]]
+    dense = utils.block_diagonal_to_dense(*matrices)
+    expected_result = [[1.0, 0.1, 0.0, 0.0, 0.0, 0.0],
+                       [0.1, 1.0, 0.0, 0.0, 0.0, 0.0],
+                       [0.0, 0.0, 1.0, 0.3, 0.2, 0.0],
+                       [0.0, 0.0, 0.3, 1.0, 0.5, 0.0],
+                       [0.0, 0.0, 0.2, 0.5, 1.0, 0.0],
+                       [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]
+    self.assertAllClose(dense, expected_result, rtol=1e-5, atol=1e-5)
 
 if __name__ == '__main__':
   tf.test.main()

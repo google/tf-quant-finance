@@ -89,3 +89,9 @@ def generate_mc_normal_draws(num_normal_draws,
     # Shape [steps_num, num_samples, dim]
     normal_draws = tf.transpose(normal_draws, [1, 0, 2])
     return normal_draws
+
+
+def block_diagonal_to_dense(*matrices):
+  """Given a sequence of matrices, creates a block-diagonal dense matrix."""
+  operators = [tf.linalg.LinearOperatorFullMatrix(m) for m in matrices]
+  return tf.linalg.LinearOperatorBlockDiag(operators).to_dense()
