@@ -12,9 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Tests for numeric integration methods."""
-
 
 import collections
 import math
@@ -22,6 +20,7 @@ import numpy as np
 import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
+from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 tff_int = tff.math.integration
 
@@ -169,18 +168,17 @@ class IntegrationTest(tf.test.TestCase):
 
   def test_simpson_accuracy(self):
     for test_case in BASIC_TEST_CASES:
-      self._test_accuracy(tff_int.simpson, {}, test_case,
-                          1e-8)
+      self._test_accuracy(tff_int.simpson, {}, test_case, 1e-8)
 
   def test_simpson_rapid_change(self):
-    self._test_accuracy(tff_int.simpson,
-                        {'num_points': 1001}, TEST_CASE_RAPID_CHANGE, 2e-1)
-    self._test_accuracy(tff_int.simpson,
-                        {'num_points': 10001}, TEST_CASE_RAPID_CHANGE, 3e-2)
-    self._test_accuracy(tff_int.simpson,
-                        {'num_points': 100001}, TEST_CASE_RAPID_CHANGE, 5e-4)
-    self._test_accuracy(tff_int.simpson,
-                        {'num_points': 1000001}, TEST_CASE_RAPID_CHANGE, 3e-6)
+    self._test_accuracy(tff_int.simpson, {'num_points': 1001},
+                        TEST_CASE_RAPID_CHANGE, 2e-1)
+    self._test_accuracy(tff_int.simpson, {'num_points': 10001},
+                        TEST_CASE_RAPID_CHANGE, 3e-2)
+    self._test_accuracy(tff_int.simpson, {'num_points': 100001},
+                        TEST_CASE_RAPID_CHANGE, 5e-4)
+    self._test_accuracy(tff_int.simpson, {'num_points': 1000001},
+                        TEST_CASE_RAPID_CHANGE, 3e-6)
 
   def test_simpson_gradient(self):
     self._test_gradient(tff_int.simpson, {})

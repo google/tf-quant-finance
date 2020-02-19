@@ -126,6 +126,7 @@ py_test(
     deps = [
         ":dates",
         ":test_data",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],
@@ -138,8 +139,9 @@ py_test(
     srcs = ["date_utils_test.py"],
     python_version = "PY3",
     deps = [
-        ":dates",
+        ":date_utils",
         ":test_data",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],
@@ -154,6 +156,7 @@ py_test(
     deps = [
         ":dates",
         ":test_data",
+        # test util,
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
@@ -168,7 +171,9 @@ py_test(
     python_version = "PY3",
     deps = [
         ":dates",
+        ":periods",
         ":test_data",
+        # test util,
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
@@ -184,6 +189,7 @@ py_test(
     deps = [
         ":dates",
         ":test_data",
+        # test util,
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
@@ -219,7 +225,7 @@ py_test(
     python_version = "PY3",
     deps = [
         "//tf_quant_finance",
-        # numpy dep,
+        # test util,
         # tensorflow dep,
     ],
 )

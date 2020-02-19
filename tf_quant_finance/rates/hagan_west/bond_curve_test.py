@@ -17,11 +17,9 @@
 import math
 import numpy as np
 import tensorflow.compat.v2 as tf
-
+from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 from tf_quant_finance.rates.hagan_west import bond_curve
 from tf_quant_finance.rates.hagan_west import monotone_convex
-
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
 @test_util.run_all_in_graph_and_eager_modes

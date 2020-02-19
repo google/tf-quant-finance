@@ -41,6 +41,7 @@ py_test(
     shard_count = 4,
     deps = [
         "//tf_quant_finance",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],

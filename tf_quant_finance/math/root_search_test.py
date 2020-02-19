@@ -14,13 +14,12 @@
 # limitations under the License.
 """Tests for math.root_search."""
 
-
 import math
 
 import tensorflow.compat.v2 as tf
 
+from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 from tf_quant_finance.math import root_search
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import,g-import-not-at-top
 
 
 def polynomial5(x):

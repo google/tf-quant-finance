@@ -17,9 +17,8 @@
 
 import numpy as np
 import tensorflow.compat.v2 as tf
-
-from tf_quant_finance.math import piecewise
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance.math import piecewise
 
 
 @test_util.run_all_in_graph_and_eager_modes

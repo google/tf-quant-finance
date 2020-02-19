@@ -17,9 +17,8 @@
 
 import numpy as np
 import tensorflow.compat.v2 as tf
-
-from tf_quant_finance.rates.hagan_west import monotone_convex
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance.rates.hagan_west import monotone_convex
 
 
 class MonotoneConvexTest(tf.test.TestCase):

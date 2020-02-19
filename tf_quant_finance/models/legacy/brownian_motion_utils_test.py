@@ -17,9 +17,8 @@
 
 import numpy as np
 import tensorflow.compat.v2 as tf
-
-from tf_quant_finance.models.legacy import brownian_motion_utils as bm_utils
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance.models.legacy import brownian_motion_utils as bm_utils
 
 
 # Test classes and functions for testing callables.

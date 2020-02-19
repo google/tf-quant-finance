@@ -35,6 +35,7 @@ py_test(
     shard_count = 5,
     deps = [
         ":monotone_convex",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],
@@ -61,6 +62,7 @@ py_test(
     deps = [
         ":bond_curve",
         ":monotone_convex",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],

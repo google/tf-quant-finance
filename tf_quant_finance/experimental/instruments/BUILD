@@ -50,9 +50,9 @@ py_test(
     srcs = ["forward_rate_agreement_test.py"],
     python_version = "PY3",
     deps = [
-        ":instruments",
         "//tf_quant_finance",
-        "//tf_quant_finance/experimental/dates",
+        # test util,
+        # numpy dep,
         # tensorflow dep,
     ],
 )

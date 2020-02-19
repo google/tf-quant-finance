@@ -39,8 +39,8 @@ py_test(
     srcs = ["root_search_test.py"],
     python_version = "PY3",
     deps = [
-        "//tf_quant_finance",
-        # numpy dep,
+        ":root_search",
+        # test util,
         # tensorflow dep,
     ],
 )
@@ -83,7 +83,8 @@ py_test(
     srcs = ["gradient_test.py"],
     python_version = "PY3",
     deps = [
-        "//tf_quant_finance",
+        ":math",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],
@@ -106,7 +107,8 @@ py_test(
     srcs = ["segment_ops_test.py"],
     python_version = "PY3",
     deps = [
-        "//tf_quant_finance",
+        ":segment_ops",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],
@@ -129,7 +131,8 @@ py_test(
     python_version = "PY3",
     shard_count = 5,
     deps = [
-        "//tf_quant_finance",
+        ":piecewise",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],

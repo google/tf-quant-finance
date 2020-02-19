@@ -33,8 +33,10 @@ py_test(
     python_version = "PY3",
     deps = [
         "//tf_quant_finance",
+        # test util,
         # numpy dep,
         # tensorflow dep,
+        # tensorflow_probability dep,
     ],
 )
 
@@ -57,6 +59,7 @@ py_test(
     python_version = "PY3",
     deps = [
         "//tf_quant_finance",
+        # test util,
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
@@ -79,6 +82,7 @@ py_test(
     python_version = "PY3",
     deps = [
         "//tf_quant_finance",
+        # test util,
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
@@ -103,6 +107,7 @@ py_test(
     python_version = "PY3",
     deps = [
         "//tf_quant_finance",
+        # test util,
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
@@ -115,6 +120,7 @@ py_test(
     python_version = "PY3",
     deps = [
         ":implied_vol_newton_root",
+        # test util,
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,

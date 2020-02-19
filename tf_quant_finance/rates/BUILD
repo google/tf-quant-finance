@@ -37,6 +37,7 @@ py_test(
     python_version = "PY3",
     deps = [
         ":forwards",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],
@@ -59,6 +60,7 @@ py_test(
     python_version = "PY3",
     deps = [
         ":cashflows",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],

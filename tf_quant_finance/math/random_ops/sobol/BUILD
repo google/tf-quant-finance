@@ -31,7 +31,8 @@ py_test(
     srcs = ["sobol_test.py"],
     python_version = "PY3",
     deps = [
-        "//tf_quant_finance",
+        # test util,
+        "//tf_quant_finance/math",
         # numpy dep,
         # tensorflow dep,
         # tensorflow_probability dep,

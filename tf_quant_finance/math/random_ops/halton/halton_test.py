@@ -19,9 +19,8 @@ import numpy as np
 from six.moves import range
 import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
-
-from tf_quant_finance.math import random
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance.math import random
 
 tfd = tfp.distributions
 

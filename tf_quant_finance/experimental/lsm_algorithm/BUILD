@@ -33,6 +33,7 @@ py_test(
     deps = [
         ":lsm",
         ":payoff",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],
@@ -54,6 +55,7 @@ py_test(
     python_version = "PY3",
     deps = [
         ":payoff",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],

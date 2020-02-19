@@ -63,6 +63,7 @@ py_test(
     shard_count = 3,
     deps = [
         "//tf_quant_finance",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],
@@ -75,6 +76,7 @@ py_test(
     python_version = "PY3",
     deps = [
         "//tf_quant_finance",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],
@@ -88,6 +90,7 @@ py_test(
     shard_count = 3,
     deps = [
         "//tf_quant_finance",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],

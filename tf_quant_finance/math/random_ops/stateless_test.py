@@ -19,7 +19,7 @@ import numpy as np
 import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import,g-import-not-at-top
+from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 tff_rnd = tff.math.random
 

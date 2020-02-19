@@ -37,7 +37,7 @@ import abc
 import six
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.math import random
+from tf_quant_finance.math import random_ops
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -325,10 +325,10 @@ class ItoProcess(object):
     def step_fn(i, written_count, current_state, result):
       """Performs one step of Euler scheme."""
       current_time = times[i + 1]
-      dw = random.mv_normal_sample((num_samples,),
-                                   mean=wiener_mean,
-                                   random_type=random_type,
-                                   seed=seed)
+      dw = random_ops.mv_normal_sample((num_samples,),
+                                       mean=wiener_mean,
+                                       random_type=random_type,
+                                       seed=seed)
       dw = dw * sqrt_dt[i]
       dt_inc = dt[i] * self.drift_fn()(current_time, current_state)  # pylint: disable=not-callable
       dw_inc = tf.squeeze(

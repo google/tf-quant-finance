@@ -32,7 +32,8 @@ py_test(
     python_version = "PY3",
     shard_count = 2,
     deps = [
-        "//tf_quant_finance",
+        # test util,
+        "//tf_quant_finance/math",
         # numpy dep,
         # six dep,
         # tensorflow dep,

@@ -34,6 +34,7 @@ py_test(
     shard_count = 10,
     deps = [
         "//tf_quant_finance",
+        # test util,
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
@@ -48,6 +49,7 @@ py_test(
     shard_count = 1,
     deps = [
         "//tf_quant_finance",
+        # test util,
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
@@ -63,6 +65,7 @@ py_test(
     shard_count = 10,
     deps = [
         "//tf_quant_finance",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],
@@ -76,6 +79,7 @@ py_test(
     shard_count = 1,
     deps = [
         "//tf_quant_finance",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],

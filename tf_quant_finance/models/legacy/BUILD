@@ -44,6 +44,7 @@ py_test(
     python_version = "PY3",
     deps = [
         ":brownian_motion_utils",  # This dependency is deliberate. The bm utils will not be exported to top level TFF.
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],
@@ -70,7 +71,7 @@ py_test(
     python_version = "PY3",
     deps = [
         ":brownian_motion",
-        "//tf_quant_finance",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],
