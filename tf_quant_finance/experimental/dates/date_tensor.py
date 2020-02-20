@@ -590,3 +590,76 @@ def from_ordinals(ordinals, validate=True):
   with tf.compat.v1.control_dependencies(control_deps):
     years, months, days = date_utils.ordinal_to_year_month_day(ordinals)
     return DateTensor(ordinals, years, months, days)
+
+
+# TODO(b/149829315): Move this to a better location once dates module has
+# graduated out of experimental.
+def random_dates(*, start_date, end_date, size=1, seed=None, name=None):
+  """Generates random dates between the supplied start and end dates.
+
+  Generates specified number of random dates between the given start and end
+  dates. The start and end dates are supplied as `DateTensor` objects. The dates
+  uniformly distributed between the start date (inclusive) and end date
+  (exclusive). Note that the dates are uniformly distributed over the calendar
+  range, i.e. no holiday calendar is taken into account.
+
+  ## Example
+  ```python
+  # Import TFF.
+  import tf_quant_finance as tff
+  dates = tff.experimental.dates
+
+  # Note that the start and end dates need to be of broadcastable shape (though
+  # not necessarily the same shape).
+  # In this example, the start dates are of shape [2] and the end dates are
+  # of a compatible but non-identical shape [1].
+  start_dates = dates.from_tuples([
+    (2020, 5, 16),
+    (2020, 6, 13)
+  ])
+  end_dates = dates.from_tuples([(2021, 5, 21)])
+  size = 3  # Generate 3 dates for each pair of (start, end date).
+  sample = dates.random_dates(start_date=start_dates, end_date=end_dates,
+                              size=size)
+  # sample is a DateTensor of shape [3, 2]. The [3] is from the size and [2] is
+  # the common broadcast shape of start and end date.
+  ```
+
+  Args:
+    start_date: DateTensor of arbitrary shape. The start dates of the range from
+      which to sample. The start dates are themselves included in the range.
+    end_date: DateTensor of shape compatible with the `start_date`. The end date
+      of the range from which to sample. The end dates are excluded from the
+      range.
+    size: Positive scalar int32 Tensor. The number of dates to draw between the
+      start and end date.
+      Default value: 1.
+    seed: Optional seed for the random generation.
+    name: Optional str. The name to give to the ops created by this function.
+      Default value: 'random_dates'.
+
+  Returns:
+    A DateTensor of shape [size] + dates_shape where dates_shape is the common
+    broadcast shape for (start_date, end_date).
+  """
+  with tf.name_scope(name or "random_dates"):
+    size = tf.reshape(
+        tf.convert_to_tensor(size, dtype=tf.int32, name="size"), [-1])
+    start_date = convert_to_date_tensor(start_date)
+    end_date = convert_to_date_tensor(end_date)
+    # Note that tf.random.uniform cannot deal with non scalar max value with
+    # int dtypes. So we do this in float64 space and then floor. This incurs
+    # some non-uniformity of the distribution but for practical purposes this
+    # will be negligible.
+    ordinal_range = tf.cast(
+        end_date.ordinal() - start_date.ordinal(), dtype=tf.float64)
+    sample_shape = tf.concat((size, tf.shape(ordinal_range)), axis=0)
+    ordinal_sample = tf.cast(
+        tf.random.uniform(
+            sample_shape,
+            maxval=ordinal_range,
+            seed=seed,
+            name="ordinal_sample",
+            dtype=tf.float64),
+        dtype=tf.int32)
+    return from_ordinals(start_date.ordinal() + ordinal_sample, validate=False)

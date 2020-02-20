@@ -17,11 +17,13 @@
 from tf_quant_finance.experimental.dates import date_utils
 from tf_quant_finance.experimental.dates import daycounts
 from tf_quant_finance.experimental.dates import periods
+
 from tf_quant_finance.experimental.dates.constants import BusinessDayConvention
 from tf_quant_finance.experimental.dates.constants import Month
 from tf_quant_finance.experimental.dates.constants import PeriodType
 from tf_quant_finance.experimental.dates.constants import WeekDay
 from tf_quant_finance.experimental.dates.constants import WeekendMask
+
 from tf_quant_finance.experimental.dates.date_tensor import convert_to_date_tensor
 from tf_quant_finance.experimental.dates.date_tensor import DateTensor
 from tf_quant_finance.experimental.dates.date_tensor import from_datetimes
@@ -29,9 +31,13 @@ from tf_quant_finance.experimental.dates.date_tensor import from_np_datetimes
 from tf_quant_finance.experimental.dates.date_tensor import from_ordinals
 from tf_quant_finance.experimental.dates.date_tensor import from_tuples
 from tf_quant_finance.experimental.dates.date_tensor import from_year_month_day
+from tf_quant_finance.experimental.dates.date_tensor import random_dates
+
 from tf_quant_finance.experimental.dates.holiday_calendar import HolidayCalendar
 from tf_quant_finance.experimental.dates.holiday_calendar_v2 import HolidayCalendar as HolidayCalendar2
+
 from tf_quant_finance.experimental.dates.schedules import PeriodicSchedule
+
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 
@@ -54,6 +60,7 @@ _allowed_symbols = [
     'daycounts',
     'PeriodicSchedule',
     'periods',
+    'random_dates',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

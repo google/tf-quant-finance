@@ -212,6 +212,16 @@ class DateTensorTest(tf.test.TestCase):
     dates = dateslib.from_tuples(date_tuples)
     self.assertAllEqual(expected_days_of_year, dates.day_of_year())
 
+  def test_random_dates(self):
+    start_dates = dateslib.from_tuples([(2020, 5, 16), (2020, 6, 13)])
+    end_dates = dateslib.from_tuples([(2021, 5, 21)])
+    size = 3  # Generate 3 dates for each pair of (start, end date).
+    sample = dateslib.random_dates(
+        start_date=start_dates, end_date=end_dates, size=size, seed=42)
+    self.assertEqual(sample.shape, (3, 2))
+    self.assertTrue(self.evaluate(tf.reduce_all(sample < end_dates)))
+    self.assertTrue(self.evaluate(tf.reduce_all(sample >= start_dates)))
+
 
 def unpack_test_dates(dates):
   y, m, d = (np.array([d[i] for d in dates], dtype=np.int32) for i in range(3))
