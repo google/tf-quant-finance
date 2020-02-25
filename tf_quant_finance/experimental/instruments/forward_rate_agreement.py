@@ -17,6 +17,7 @@
 
 import collections
 import enum
+import numpy as np
 import tensorflow.compat.v2 as tf
 from tf_quant_finance.experimental import dates
 
@@ -51,18 +52,25 @@ def elapsed_time(date_1, date_2, dtype):
 
 def get_daycount_fraction(date_start, date_end, basis, dtype):
   """Return the dat count fraction between two dates using the input basis."""
-  if basis == DayCountBasis.ACTUAL_365:
-    return tf.cast(
-        date_start.days_until(date_end), dtype=dtype) / 365.
-  elif basis == DayCountBasis.ACTUAL_360:
-    return tf.cast(
-        date_start.days_until(date_end), dtype=dtype) / 360.
-  else:
-    raise ValueError('Daycount Basis %s is not available' % basis)
+  default_values = tf.zeros(date_start.shape, dtype=dtype)
+  basis_as_int = tf.constant([x.value for x in basis], dtype=tf.int16)
+  year_fractions = tf.where(
+      tf.math.equal(basis_as_int,
+                    tf.constant(DayCountBasis.ACTUAL_365.value,
+                                dtype=tf.int16)),
+      dates.daycounts.actual_365_fixed(
+          start_date=date_start, end_date=date_end, dtype=dtype),
+      tf.where(
+          tf.math.equal(basis_as_int, tf.constant(
+              DayCountBasis.ACTUAL_360.value, dtype=tf.int16)),
+          dates.daycounts.actual_360(
+              start_date=date_start, end_date=date_end, dtype=dtype),
+          default_values))
+  return year_fractions
 
 
 class ForwardRateAgreement:
-  """Represents a Forward Rate Agreement (FRA) instrument.
+  """Represents a batch of Forward Rate Agreements (FRA).
 
   An FRA is a contract for the period [T, T+tau] where the holder exchanges a
   fixed rate (agreed at the start of the contract) against a floating payment
@@ -70,6 +78,10 @@ class ForwardRateAgreement:
   cashflows are exchanged at the settlement time T_s, which is either equal to T
   or close to T. The FRA are structured so that the payments are made in T+tau
   dollars (ref [1]).
+
+  The ForwardRateAgreement class can be used to create and price multiple FRAs
+  simultaneously. However all FRAs within a FRA object must be priced using
+  a common reference and discount curve.
 
   ### Example:
   The following example illustrates the construction of a FRA instrument and
@@ -83,11 +95,9 @@ class ForwardRateAgreement:
 
   dtype = np.float64
   notional = 1.
-  settlement_date = dates.convert_to_date_tensor([(2021, 2,
-                                                                      8)])
+  settlement_date = dates.convert_to_date_tensor([(2021, 2, 8)])
   fixing_date = dates.convert_to_date_tensor([(2021, 2, 8)])
-  valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)
-                                                                   ])
+  valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
   fixed_rate = 0.02
   rate_term = rate_term = dates.periods.PeriodTensor(
         3, dates.PeriodType.MONTH)
@@ -118,33 +128,42 @@ class ForwardRateAgreement:
                fixing_date,
                fixed_rate,
                notional=1.,
-               daycount_basis=DayCountBasis.ACTUAL_360,
+               daycount_basis=None,
                rate_term=None,
                maturity_date=None,
                dtype=None,
                name=None):
-    """Initialize the forward rate agreement object.
+    """Initialize the batch of FRA contracts.
 
     Args:
-      settlement_date: A scalar `DateTensor` specifying the date on which
-        cashflows are settled.
-      fixing_date: A scalar `DateTensor` specifying the date on which forward
-        rate will be fixed.
-      fixed_rate: A scalar `Tensor` of real dtype specifying the fixed rate
-        payment agreed at the initiation of the contract.
-      notional: An optional scalar of real dtype specifying the notional amount
-        for the contract.
+      settlement_date: A rank 1 `DateTensor` specifying the dates on which
+        cashflows are settled. The shape of the input correspond to the number
+        of instruments being created.
+      fixing_date: A rank 1 `DateTensor` specifying the dates on which forward
+        rate will be fixed. The shape of the inout should be the same as that of
+        `settlement_date`.
+      fixed_rate: A rank 1 `Tensor` of real dtype specifying the fixed rate
+        payment agreed at the initiation of the individual contracts. The shape
+        should be the same as that of `settlement_date`.
+      notional: A scalar or a rank 1 `Tensor` of real dtype specifying the
+        notional amount for each contract. When the notional is specified as a
+        scalar, it is assumed that all contracts have the same notional. If the
+        notional is in the form of a `Tensor`, then the shape must be the same
+        as `settlement_date`.
         Default value: 1.0
-      daycount_basis: An optional scalar `DayCountBasis` to determine how
-        cashflows are accrued.
-        Default value: DayCountBasis.ACTUAL_360.
-      rate_term: An optional scalar `PeriodTensor` specifying the term (or
-        tenor) of the Libor rate that determines the floating cashflow.
+      daycount_basis: An optional list of `DayCountBasis` to determine how
+        cashflows are accrued for each contract. The length of the list must be
+        the same as the number of FRAs being created.
+        Default value: None in which case the daycount basis will default to
+        DayCountBasis.ACTUAL_360 for all contracts.
+      rate_term: An optional rank 1 `PeriodTensor` specifying the term (or the
+        tenor) of the Libor rate that determines the floating cashflow. The
+        shape of the input should be the same as `settlement_date`.
         Default value: `None` in which case the the forward rate is determined
         for the period [settlement_date, maturity_date].
-      maturity_date: An optional scalar `DateTensor` specifying the maturity of
-        the underlying forward rate. This input is only used if the input
-        `rate_term` is `None`.
+      maturity_date: An optional rank 1 `DateTensor` specifying the maturity of
+        the underlying forward rate for each contract. This input is only used
+        if the input `rate_term` is `None`.
         Default value: `None`
       dtype: `tf.Dtype`. If supplied the dtype for the real variables or ops
         either supplied to the FRA object or created by the FRA object.
@@ -172,6 +191,12 @@ class ForwardRateAgreement:
         self._accrual_end_date = dates.convert_to_date_tensor(maturity_date)
       else:
         self._accrual_end_date = self._accrual_start_date + rate_term
+
+      # TODO (b/150216422): Fix tf.repeat to work with python enums
+      if daycount_basis is None:
+        daycount_basis = np.repeat(DayCountBasis.ACTUAL_360,
+                                   settlement_date.shape)
+
       self._fixed_rate = tf.convert_to_tensor(fixed_rate, dtype=self._dtype,
                                               name='fixed_rate')
       self._daycount_basis = daycount_basis
@@ -191,8 +216,8 @@ class ForwardRateAgreement:
       model: Reserved for future use.
 
     Returns:
-      A scalar `Tensor` of real type containing the modeled price of the FRA
-      based on the input market data.
+      A Rank 1 `Tensor` of real type containing the modeled price of each FRA
+      contract based on the input market data.
     """
 
     del model, valuation_date

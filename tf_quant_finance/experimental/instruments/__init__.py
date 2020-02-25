@@ -21,11 +21,13 @@ from tensorflow.python.util.all_util import remove_undocumented  # pylint: disab
 ForwardRateAgreement = forward_rate_agreement.ForwardRateAgreement
 RateCurve = rate_curve.RateCurve
 InterestRateMarket = forward_rate_agreement.InterestRateMarket
+DayCountBasis = forward_rate_agreement.DayCountBasis
 
 _allowed_symbols = [
     'ForwardRateAgreement',
     'RateCurve',
     'InterestRateMarket',
+    'DayCountBasis',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
