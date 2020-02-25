@@ -16,7 +16,8 @@
 import tensorflow.compat.v2 as tf
 
 
-def option_price(volatilities,
+def option_price(*,
+                 volatilities,
                  strikes,
                  expiries,
                  spots=None,
@@ -123,7 +124,8 @@ def option_price(volatilities,
                                        undiscounted_puts)
 
 
-def binary_price(volatilities,
+def binary_price(*,
+                 volatilities,
                  strikes,
                  expiries,
                  spots=None,
@@ -230,6 +232,9 @@ def binary_price(volatilities,
     undiscounted_calls = _ncdf(d2)
     if is_call_options is None:
       return discount_factors * undiscounted_calls
+    is_call_options = tf.convert_to_tensor(is_call_options,
+                                           dtype=tf.bool,
+                                           name='is_call_options')
     undiscounted_puts = 1 - undiscounted_calls
     predicate = tf.broadcast_to(is_call_options, tf.shape(undiscounted_calls))
     return discount_factors * tf.where(predicate, undiscounted_calls,

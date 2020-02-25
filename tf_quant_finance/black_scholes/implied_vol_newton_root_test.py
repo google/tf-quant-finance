@@ -42,9 +42,9 @@ class ImpliedVolNewtonTest(parameterized.TestCase, tf.test.TestCase):
     ])
     implied_vols, converged, failed = self.evaluate(
         tff.black_scholes.implied_vol_newton(
-            prices,
-            strikes,
-            expiries,
+            prices=prices,
+            strikes=strikes,
+            expiries=expiries,
             forwards=forwards,
             discount_factors=discounts,
             is_call_options=is_call_options,
@@ -67,9 +67,9 @@ class ImpliedVolNewtonTest(parameterized.TestCase, tf.test.TestCase):
     ])
     implied_vols, converged, failed = self.evaluate(
         tff.black_scholes.implied_vol_newton(
-            prices,
-            strikes,
-            expiries,
+            prices=prices,
+            strikes=strikes,
+            expiries=expiries,
             forwards=forwards,
             discount_factors=discounts,
             is_call_options=is_call_options))
@@ -98,9 +98,9 @@ class ImpliedVolNewtonTest(parameterized.TestCase, tf.test.TestCase):
     with self.assertRaises(tf.errors.InvalidArgumentError):
       self.evaluate(
           tff.black_scholes.implied_vol_newton(
-              prices,
-              strikes,
-              expiries,
+              prices=prices,
+              strikes=strikes,
+              expiries=expiries,
               forwards=forwards,
               discount_factors=discounts,
               validate_args=True,
@@ -123,9 +123,9 @@ class ImpliedVolNewtonTest(parameterized.TestCase, tf.test.TestCase):
 
     prices = self.evaluate(
         tff.black_scholes.option_price(
-            volatilities,
-            strikes,
-            expiries,
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
             forwards=forwards,
             is_call_options=is_call_options,
             discount_factors=discount_factors,
@@ -133,9 +133,9 @@ class ImpliedVolNewtonTest(parameterized.TestCase, tf.test.TestCase):
 
     implied_vols = self.evaluate(
         tff.black_scholes.implied_vol_newton(
-            prices,
-            strikes,
-            expiries,
+            prices=prices,
+            strikes=strikes,
+            expiries=expiries,
             forwards=forwards,
             discount_factors=discount_factors,
             is_call_options=is_call_options,

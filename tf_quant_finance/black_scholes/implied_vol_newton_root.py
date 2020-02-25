@@ -20,7 +20,8 @@ import tensorflow_probability as tfp
 from tf_quant_finance.black_scholes import implied_vol_approximation as approx
 
 
-def implied_vol(prices,
+def implied_vol(*,
+                prices,
                 strikes,
                 expiries,
                 spots=None,
@@ -122,6 +123,7 @@ def implied_vol(prices,
           is_call_options, initial_volatilities
       ]):
     prices = tf.convert_to_tensor(prices, dtype=dtype, name='prices')
+    dtype = prices.dtype
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
     expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')
     if discount_factors is None:
@@ -139,9 +141,9 @@ def implied_vol(prices,
 
     if initial_volatilities is None:
       initial_volatilities = approx.implied_vol(
-          prices,
-          strikes,
-          expiries,
+          prices=prices,
+          strikes=strikes,
+          expiries=expiries,
           forwards=forwards,
           discount_factors=discount_factors,
           is_call_options=is_call_options,
@@ -357,7 +359,7 @@ def _make_black_objective_and_vega_func(prices, forwards, strikes, expiries,
     A function from volatilities to a Black Scholes objective and its
     derivative (which is coincident with Vega).
   """
-  dtype = prices.dtype.base_dtype
+  dtype = prices.dtype
   phi = tfp.distributions.Normal(
       loc=tf.zeros(1, dtype=dtype), scale=tf.ones(1, dtype=dtype))
   # orientations will decide the normalization strategy.
@@ -375,7 +377,10 @@ def _make_black_objective_and_vega_func(prices, forwards, strikes, expiries,
   x = tf.where(orientations, forwards / strikes, units)
   lnz = tf.math.log(forwards) - tf.math.log(strikes)
   sqrt_t = tf.sqrt(expiries)
-
+  if is_call_options is not None:
+    is_call_options = tf.convert_to_tensor(is_call_options,
+                                           dtype=tf.bool,
+                                           name='is_call_options')
   def _black_objective_and_vega(volatilities):
     """Calculate the Black Scholes price and vega for a given volatility.
 

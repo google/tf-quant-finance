@@ -41,19 +41,27 @@ class ImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
       expiries = np.exp(np.random.randn(n))
       prices = self.evaluate(
           bs.option_price(
-              volatilities, strikes, expiries, forwards=forwards, dtype=dtype))
+              volatilities=volatilities,
+              strikes=strikes,
+              expiries=expiries,
+              forwards=forwards,
+              dtype=dtype))
       # Using the default method
       implied_vols_default = self.evaluate(
           bs.implied_vol(
-              prices, strikes, expiries, forwards=forwards, dtype=dtype))
+              prices=prices,
+              strikes=strikes,
+              expiries=expiries,
+              forwards=forwards,
+              dtype=dtype))
       self.assertArrayNear(volatilities, implied_vols_default, 0.2)
 
       # Using Newton explicitly
       implied_vols_newton = self.evaluate(
           bs.implied_vol(
-              prices,
-              strikes,
-              expiries,
+              prices=prices,
+              strikes=strikes,
+              expiries=expiries,
               forwards=forwards,
               dtype=dtype,
               method=bs.ImpliedVolMethod.NEWTON))
@@ -62,9 +70,9 @@ class ImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
       # Using approximation.
       implied_vols_approx = self.evaluate(
           bs.implied_vol(
-              prices,
-              strikes,
-              expiries,
+              prices=prices,
+              strikes=strikes,
+              expiries=expiries,
               forwards=forwards,
               dtype=dtype,
               method=bs.ImpliedVolMethod.FAST_APPROX))
@@ -82,13 +90,17 @@ class ImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
       expiries = np.exp(np.random.randn(n))
       prices = self.evaluate(
           bs.option_price(
-              volatilities, strikes, expiries, forwards=forwards, dtype=dtype))
+              volatilities=volatilities,
+              strikes=strikes,
+              expiries=expiries,
+              forwards=forwards,
+              dtype=dtype))
 
       implied_vols = self.evaluate(
           bs.implied_vol(
-              prices,
-              strikes,
-              expiries,
+              prices=prices,
+              strikes=strikes,
+              expiries=expiries,
               forwards=forwards,
               validate_args=True,
               dtype=dtype))
@@ -115,9 +127,9 @@ class ImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
       is_call_options = np.array([is_call_option])
       with self.assertRaises(tf.errors.InvalidArgumentError):
         implied_vols = bs.implied_vol(
-            prices,
-            strikes,
-            expiries,
+            prices=prices,
+            strikes=strikes,
+            expiries=expiries,
             forwards=forwards,
             is_call_options=is_call_options,
             validate_args=True,

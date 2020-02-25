@@ -18,7 +18,8 @@ import numpy as np
 import tensorflow.compat.v2 as tf
 
 
-def implied_vol(prices,
+def implied_vol(*,
+                prices,
                 strikes,
                 expiries,
                 spots=None,
@@ -120,6 +121,7 @@ def implied_vol(prices,
           is_call_options
       ]):
     prices = tf.convert_to_tensor(prices, dtype=dtype, name='prices')
+    dtype = prices.dtype
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
     expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')
     if discount_factors is None:
@@ -158,6 +160,9 @@ def _validate_args_control_deps(prices, forwards, strikes, expiries,
   put_lower_bounds = tf.nn.relu(strikes - forwards)
   call_lower_bounds = tf.nn.relu(forwards - strikes)
   if is_call_options is not None:
+    is_call_options = tf.convert_to_tensor(is_call_options,
+                                           dtype=tf.bool,
+                                           name='is_call_options')
     lower_bounds = tf.where(
         is_call_options, x=call_lower_bounds, y=put_lower_bounds)
     upper_bounds = tf.where(is_call_options, x=forwards, y=strikes)
@@ -227,6 +232,9 @@ def _approx_implied_vol_polya(normalized_prices, normalized_forwards, expiries,
   sign_log_forward = tf.math.sign(log_normalized_forwards)
 
   if is_call_options is not None:
+    is_call_options = tf.convert_to_tensor(is_call_options,
+                                           dtype=tf.bool,
+                                           name='is_call_options')
     ones = tf.ones_like(is_call_options, dtype=normalized_forwards.dtype)
     option_signs = tf.where(is_call_options, ones, -ones)
   else:

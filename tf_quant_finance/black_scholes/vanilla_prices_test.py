@@ -36,9 +36,9 @@ class VanillaPrice(tf.test.TestCase):
     expiries = 1.0
     computed_prices = self.evaluate(
         tff.black_scholes.option_price(
-            volatilities,
-            strikes,
-            expiries,
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
             forwards=forwards))
     expected_prices = np.array(
         [0.0, 2.0, 2.0480684764112578, 1.0002029716043364, 2.0730313058959933])
@@ -55,9 +55,9 @@ class VanillaPrice(tf.test.TestCase):
     expected_prices = np.array([0.0, 0.1, 0.1, 0.0])
     computed_prices = self.evaluate(
         tff.black_scholes.option_price(
-            volatilities,
-            strikes,
-            expiries,
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
             forwards=forwards,
             is_call_options=is_call_options))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
@@ -73,9 +73,9 @@ class VanillaPrice(tf.test.TestCase):
     expected_prices = np.array([0.0, 0.1, 0.1, 0.0])
     computed_prices = self.evaluate(
         tff.black_scholes.option_price(
-            volatilities,
-            strikes,
-            expiries,
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
             forwards=forwards,
             is_call_options=is_call_options))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
@@ -89,9 +89,9 @@ class VanillaPrice(tf.test.TestCase):
     expected_prices = forwards
     computed_prices = self.evaluate(
         tff.black_scholes.option_price(
-            volatilities,
-            strikes,
-            expiries,
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
             forwards=forwards))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
 
@@ -104,9 +104,9 @@ class VanillaPrice(tf.test.TestCase):
     expected_prices = strikes
     computed_prices = self.evaluate(
         tff.black_scholes.option_price(
-            volatilities,
-            strikes,
-            expiries,
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
             forwards=forwards,
             is_call_options=False))
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
@@ -122,15 +122,15 @@ class VanillaPrice(tf.test.TestCase):
     scaling = 5.0
     base_prices = self.evaluate(
         tff.black_scholes.option_price(
-            volatilities,
-            strikes,
-            expiries,
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
             forwards=forwards))
     scaled_prices = self.evaluate(
         tff.black_scholes.option_price(
-            volatilities * scaling,
-            strikes,
-            expiries / scaling / scaling,
+            volatilities=volatilities * scaling,
+            strikes=strikes,
+            expiries=expiries / scaling / scaling,
             forwards=forwards))
     self.assertArrayNear(base_prices, scaled_prices, 1e-10)
 
@@ -142,9 +142,9 @@ class VanillaPrice(tf.test.TestCase):
     expiries = 1.0
     computed_prices = self.evaluate(
         tff.black_scholes.binary_price(
-            volatilities,
-            strikes,
-            expiries,
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
             forwards=forwards))
     expected_prices = np.array([0.0, 0.0, 0.15865525, 0.99764937, 0.85927418])
     self.assertArrayNear(expected_prices, computed_prices, 1e-8)
@@ -186,9 +186,9 @@ class VanillaPrice(tf.test.TestCase):
     is_call_options = np.array(call_options, dtype=np.bool)
     computed_prices = self.evaluate(
         tff.black_scholes.binary_price(
-            volatilities,
-            strikes,
-            expiries,
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
             forwards=forwards,
             is_call_options=is_call_options,
             discount_factors=discount_factors))
@@ -233,17 +233,17 @@ class VanillaPrice(tf.test.TestCase):
 
     option_prices_0 = self.evaluate(
         tff.black_scholes.option_price(
-            volatilities,
-            strikes_0,
-            expiries,
+            volatilities=volatilities,
+            strikes=strikes_0,
+            expiries=expiries,
             forwards=forwards,
             is_call_options=is_call_options))
 
     option_prices_1 = self.evaluate(
         tff.black_scholes.option_price(
-            volatilities,
-            strikes_1,
-            expiries,
+            volatilities=volatilities,
+            strikes=strikes_1,
+            expiries=expiries,
             forwards=forwards,
             is_call_options=is_call_options))
 
@@ -252,9 +252,9 @@ class VanillaPrice(tf.test.TestCase):
 
     binary_prices = self.evaluate(
         tff.black_scholes.binary_price(
-            volatilities,
-            strikes_1,
-            expiries,
+            volatilities=volatilities,
+            strikes=strikes_1,
+            expiries=expiries,
             forwards=forwards,
             is_call_options=is_call_options,
             discount_factors=discount_factors))

@@ -27,7 +27,8 @@ class ImpliedVolMethod(enum.Enum):
   NEWTON = 2  # Uses Newton root search to find an accurate value.
 
 
-def implied_vol(prices,
+def implied_vol(*,
+                prices,
                 strikes,
                 expiries,
                 spots=None,
@@ -123,9 +124,9 @@ def implied_vol(prices,
   """
   if method == ImpliedVolMethod.FAST_APPROX:
     return approx.implied_vol(
-        prices,
-        strikes,
-        expiries,
+        prices=prices,
+        strikes=strikes,
+        expiries=expiries,
         spots=spots,
         forwards=forwards,
         discount_factors=discount_factors,
@@ -136,9 +137,9 @@ def implied_vol(prices,
         **kwargs)
   if method == ImpliedVolMethod.NEWTON:
     return newton.implied_vol(
-        prices,
-        strikes,
-        expiries,
+        prices=prices,
+        strikes=strikes,
+        expiries=expiries,
         spots=spots,
         forwards=forwards,
         discount_factors=discount_factors,
