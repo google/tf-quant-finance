@@ -110,6 +110,10 @@ class TensorWrapper(metaclass=abc.ABCMeta):
     """See tf.squeeze."""
     return self._apply_op(lambda t: tf.squeeze(t, axis))
 
+  def boolean_mask(self, mask, axis=None):
+    """See tf.boolean_mask."""
+    return self._apply_op(lambda t: tf.boolean_mask(t, mask, axis=axis))
+
   def __getitem__(self, key):
     """Implements indexing."""
     return self._apply_op(lambda t: t.__getitem__(key))
