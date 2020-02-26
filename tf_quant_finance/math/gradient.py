@@ -21,7 +21,7 @@ import tensorflow.compat.v2 as tf
 from tensorflow_probability.python.math import value_and_gradient
 
 
-def fwd_gradient(func, x, grad_x=None, use_gradient_tape=False):
+def fwd_gradient(func, x, input_gradients=None, use_gradient_tape=False):
   """Computes forward mode gradient.
 
   Implementation based on suggestions in
@@ -72,10 +72,12 @@ def fwd_gradient(func, x, grad_x=None, use_gradient_tape=False):
     func: A Python callable accepting one `Tensor` of shape of `x` and returning
       a `Tensor` of any shape. The function whose gradient is to be computed.
     x: A `Tensor` with respect to which the gradient is to be computed.
-    grad_x: A `Tensor` of the same shape as `x`. The direction along which the
-      directional derivative is to be computed.
+    input_gradients: A `Tensor` of the same shape as `x`. The direction along
+      which the directional derivative is to be computed.
+      Default value: `None` which maps to a ones-like `Tensor` of `x`.
     use_gradient_tape: Optional Python bool. Whether to use gradient tape even
       when eager mode is not turned on.
+      Defaule value: `False`.
 
   Returns:
     A `Tensor` of the same shape as `func(x)`.
@@ -84,7 +86,7 @@ def fwd_gradient(func, x, grad_x=None, use_gradient_tape=False):
     y = func(x)
     w = tf.zeros_like(y)
     g = tf.gradients(y, x, grad_ys=w)
-    return tf.gradients(g, w, grad_ys=grad_x)[0]
+    return tf.gradients(g, w, grad_ys=input_gradients)[0]
 
   with tf.GradientTape() as outer_tape:
     with tf.GradientTape() as inner_tape:
@@ -93,7 +95,7 @@ def fwd_gradient(func, x, grad_x=None, use_gradient_tape=False):
     w = tf.zeros_like(y)
     outer_tape.watch(w)
     g = inner_tape.gradient(y, x, output_gradients=w)
-  return outer_tape.gradient(g, w, output_gradients=grad_x)
+  return outer_tape.gradient(g, w, output_gradients=input_gradients)
 
 
 def gradients(f, xs, output_gradients=None, use_gradient_tape=False, name=None):
@@ -108,6 +110,7 @@ def gradients(f, xs, output_gradients=None, use_gradient_tape=False, name=None):
       `ys`. This argument is forwarded to the underlying gradient implementation
       (i.e., either the `grad_ys` argument of `tf.gradients` or the
       `output_gradients` argument of `tf.GradientTape.gradient`).
+      Default value: `None` which maps to a ones-like `Tensor` of `ys`.
     use_gradient_tape: Python `bool` indicating that `tf.GradientTape` should be
       used regardless of `tf.executing_eagerly()` status.
       Default value: `False`.
