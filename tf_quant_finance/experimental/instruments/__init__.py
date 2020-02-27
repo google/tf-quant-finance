@@ -14,16 +14,20 @@
 # limitations under the License.
 """Instruments."""
 
+from tf_quant_finance.experimental.instruments import eurodollar_futures
 from tf_quant_finance.experimental.instruments import forward_rate_agreement
 from tf_quant_finance.experimental.instruments import rate_curve
+from tf_quant_finance.experimental.instruments import rates_common
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
+EurodollarFutures = eurodollar_futures.EurodollarFutures
 ForwardRateAgreement = forward_rate_agreement.ForwardRateAgreement
 RateCurve = rate_curve.RateCurve
-InterestRateMarket = forward_rate_agreement.InterestRateMarket
-DayCountBasis = forward_rate_agreement.DayCountBasis
+InterestRateMarket = rates_common.InterestRateMarket
+DayCountBasis = rates_common.DayCountBasis
 
 _allowed_symbols = [
+    'EurodollarFutures',
     'ForwardRateAgreement',
     'RateCurve',
     'InterestRateMarket',

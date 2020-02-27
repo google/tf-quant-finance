@@ -15,58 +15,10 @@
 
 """Forward Rate Agreement."""
 
-import collections
-import enum
 import numpy as np
 import tensorflow.compat.v2 as tf
 from tf_quant_finance.experimental import dates
-
-
-InterestRateMarket = collections.namedtuple(
-    'InterestRateMarket',
-    [
-        # Instance of class RateCurve. The curve used for computing the forward
-        # expectation of Libor rate.
-        'reference_curve',
-        # Instance of class RateCurve. The curve used for discounting cashflows.
-        'discount_curve'
-    ])
-
-
-# TODO(b/149644030): Use daycounts.py for this.
-class DayCountBasis(enum.Enum):
-  """Day count basis for accrual."""
-  # Actual/360 day count basis
-  ACTUAL_360 = 1
-
-  # Acutal/365 day count basis
-  ACTUAL_365 = 2
-
-
-def elapsed_time(date_1, date_2, dtype):
-  """Computes elapsed time between two date tensors."""
-  days_in_year = 365.
-  return tf.cast(date_1.days_until(date_2), dtype=dtype) / (
-      days_in_year)
-
-
-def get_daycount_fraction(date_start, date_end, basis, dtype):
-  """Return the dat count fraction between two dates using the input basis."""
-  default_values = tf.zeros(date_start.shape, dtype=dtype)
-  basis_as_int = tf.constant([x.value for x in basis], dtype=tf.int16)
-  year_fractions = tf.where(
-      tf.math.equal(basis_as_int,
-                    tf.constant(DayCountBasis.ACTUAL_365.value,
-                                dtype=tf.int16)),
-      dates.daycounts.actual_365_fixed(
-          start_date=date_start, end_date=date_end, dtype=dtype),
-      tf.where(
-          tf.math.equal(basis_as_int, tf.constant(
-              DayCountBasis.ACTUAL_360.value, dtype=tf.int16)),
-          dates.daycounts.actual_360(
-              start_date=date_start, end_date=date_end, dtype=dtype),
-          default_values))
-  return year_fractions
+from tf_quant_finance.experimental.instruments import rates_common as rc
 
 
 class ForwardRateAgreement:
@@ -194,16 +146,15 @@ class ForwardRateAgreement:
 
       # TODO (b/150216422): Fix tf.repeat to work with python enums
       if daycount_basis is None:
-        daycount_basis = np.repeat(DayCountBasis.ACTUAL_360,
+        daycount_basis = np.repeat(rc.DayCountBasis.ACTUAL_360,
                                    settlement_date.shape)
 
       self._fixed_rate = tf.convert_to_tensor(fixed_rate, dtype=self._dtype,
                                               name='fixed_rate')
       self._daycount_basis = daycount_basis
-      self._daycount_fraction = get_daycount_fraction(self._accrual_start_date,
-                                                      self._accrual_end_date,
-                                                      self._daycount_basis,
-                                                      self._dtype)
+      self._daycount_fraction = rc.get_daycount_fraction(
+          self._accrual_start_date, self._accrual_end_date,
+          self._daycount_basis, self._dtype)
 
   def price(self, valuation_date, market, model=None):
     """Returns the present value of the instrument on the valuation date.
