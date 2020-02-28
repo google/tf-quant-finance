@@ -75,7 +75,6 @@ py_library(
         "//tf_quant_finance/math/interpolation/linear:linear_interpolation",
         "//tf_quant_finance/math/optimizer:conjugate_gradient",
         # attr dep,
-        # numpy dep,
         # tensorflow dep,
     ],
 )

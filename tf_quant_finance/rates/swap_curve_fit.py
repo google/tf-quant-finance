@@ -30,7 +30,6 @@ instruments and the present values computed using the constructed swap curve.
 """
 
 import collections
-import numpy as np
 
 import tensorflow.compat.v2 as tf
 
@@ -310,10 +309,9 @@ def swap_curve_fit(float_leg_start_times,
     if optimize is None:
       optimize = optimizer.conjugate_gradient_minimize
 
-    if curve_interpolator is None:
-      def default_interpolator(xi, x, y):
-        return linear.interpolate(xi, x, y, dtype=dtype)
-      curve_interpolator = default_interpolator
+    present_values = _convert_to_tensors(dtype, present_values,
+                                         'present_values')
+    dtype = present_values[0].dtype
     if present_values_settlement_times is None:
       pv_settle_times = [tf.zeros_like(pv) for pv in present_values]
     else:
@@ -333,8 +331,7 @@ def swap_curve_fit(float_leg_start_times,
         dtype, fixed_leg_daycount_fractions, 'fixed_leg_daycount_fractions')
     fixed_leg_cashflows = _convert_to_tensors(dtype, fixed_leg_cashflows,
                                               'fixed_leg_cashflows')
-    present_values = _convert_to_tensors(dtype, present_values,
-                                         'present_values')
+
     pv_settle_times = _convert_to_tensors(dtype, pv_settle_times,
                                           'pv_settle_times')
     if instrument_weights is None:
@@ -344,6 +341,12 @@ def swap_curve_fit(float_leg_start_times,
     else:
       instrument_weights = _convert_to_tensors(dtype, instrument_weights,
                                                'instrument_weights')
+
+    if curve_interpolator is None:
+      def default_interpolator(xi, x, y):
+        return linear.interpolate(xi, x, y, dtype=dtype)
+      curve_interpolator = default_interpolator
+
     self_discounting_float_leg = False
     self_discounting_fixed_leg = False
     # Determine how the floating and fixed leg will be discounted. If separate
@@ -541,7 +544,7 @@ def _convert_to_tensors(dtype, input_array, name):
 
 def _initialize_instrument_weights(float_times, fixed_times, dtype):
   """Function to compute default initial weights for optimization."""
-  weights = np.ones(len(float_times), dtype=dtype)
+  weights = tf.ones(len(float_times), dtype=dtype)
   one = tf.ones([], dtype=dtype)
   float_times_last = tf.stack([times[-1] for times in float_times])
   fixed_times_last = tf.stack([times[-1] for times in fixed_times])
