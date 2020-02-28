@@ -33,17 +33,19 @@ def make_basket_put_payoff(strike_price, dtype=None, name=None):
       Default value: `None` which is mapped to the default name 'put_valuer'
   Returns:
     A callable from `Tensor` of shape `[num_samples, num_exercise_times, dim]`
-    to `Tensor` of shape `[num_samples, num_strikes]`.
+    and a scalar `Tensor` representing current time to a `Tensor` of shape
+    `[num_samples, num_strikes]`.
   """
   strike_price = tf.convert_to_tensor(strike_price, dtype=dtype,
                                       name='strike_price')
-  def put_valuer(sample_paths):
+  def put_valuer(sample_paths, time_index):
     with tf.compat.v1.name_scope(name, default_name='put_valuer',
                                  values=[sample_paths, strike_price]):
       sample_paths = tf.convert_to_tensor(sample_paths, dtype=dtype,
                                           name='sample_paths')
-      average = tf.expand_dims(
-          tf.math.reduce_mean(sample_paths[:, -1, :], axis=-1), axis=-1)
+      average = tf.math.reduce_mean(sample_paths[:, time_index, :],
+                                    axis=-1,
+                                    keepdims=True)
       return tf.nn.relu(strike_price - average)
 
   return put_valuer

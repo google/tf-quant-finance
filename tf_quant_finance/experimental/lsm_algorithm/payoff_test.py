@@ -44,7 +44,7 @@ class PayoffTest(tf.test.TestCase):
       sample_paths = tf.convert_to_tensor(samples, dtype=dtype)
       sample_paths = tf.expand_dims(sample_paths, -1)
       # Actual payoff
-      payoff = payoff_fn(sample_paths)
+      payoff = payoff_fn(sample_paths, 3)
       # Expected payoffs at the final time
       expected_payoff = [[0, 0],
                          [0, 0],

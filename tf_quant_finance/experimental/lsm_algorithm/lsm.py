@@ -161,8 +161,9 @@ def least_square_mc(sample_paths,
     exercise_times: An `int32` `Tensor` of shape `[num_exercise_times]`.
       Contents must be a subset of the integers `[0,...,num_times - 1]`,
       representing the ticks at which the option may be exercised.
-    payoff_fn: Callable from a `Tensor` of shape `[num_samples, S, dim]`
-      (where S <= num_times) to a `Tensor` of shape `[num_samples, payoff_dim]`
+    payoff_fn: Callable from a `Tensor` of shape `[num_samples, num_times, dim]`
+      and an integer scalar positive `Tensor` (representing the current time
+      index) to a `Tensor` of shape `[num_samples, payoff_dim]`
       of the same dtype as `samples`. The output represents the payout resulting
       from exercising the option at time `S`. The `payoff_dim` allows multiple
       options on the same underlying asset (i.e., `samples`) to be valued in
@@ -206,7 +207,7 @@ def least_square_mc(sample_paths,
     tick = exercise_times[num_times - 1]
     # Calculate the payoff of each path if exercised now. Shape
     # [num_samples, payoff_dim]
-    exercise_value = payoff_fn(sample_paths[:, :(tick + 1), :])
+    exercise_value = payoff_fn(sample_paths, tick)
     zeros = tf.zeros(exercise_value.shape + [num_times - 1],
                      dtype=exercise_value.dtype)
     exercise_value = tf.expand_dims(exercise_value, -1)
@@ -220,8 +221,7 @@ def least_square_mc(sample_paths,
                             payoff_fn, basis_fn,
                             num_times, exercise_index, cashflow)
 
-    loop_value = tf.while_loop(lsm_loop_cond, loop_body,
-                                         lsm_loop_vars)
+    loop_value = tf.while_loop(lsm_loop_cond, loop_body, lsm_loop_vars)
     present_values = continuation_value_fn(
         loop_value.cashflow, discount_factors, 0)
     return tf.math.reduce_mean(present_values, axis=0)
@@ -350,7 +350,7 @@ def _lsm_loop_body(sample_paths, exercise_times, discount_factors, payoff_fn,
   tick = exercise_times[exercise_index - 1]
   # Calculate the payoff of each path if exercised now.
   # Shape [num_samples, payoff_dim]
-  exercise_value = payoff_fn(sample_paths[:, :(tick + 1), :])
+  exercise_value = payoff_fn(sample_paths, tick)
   # Present value of hanging on to the options (using future information).
   # Shape `[num_samples, payoff_dim]`
   continuation_value = continuation_value_fn(cashflow, discount_factors,
