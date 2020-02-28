@@ -9,6 +9,7 @@ py_library(
     srcs = ["__init__.py"],
     srcs_version = "PY3",
     deps = [
+        ":crr_binomial_tree",
         ":implied_vol_approximation",
         ":implied_vol_lib",
         ":implied_vol_newton_root",
@@ -37,6 +38,27 @@ py_test(
         # numpy dep,
         # tensorflow dep,
         # tensorflow_probability dep,
+    ],
+)
+
+py_library(
+    name = "crr_binomial_tree",
+    srcs = ["crr_binomial_tree.py"],
+    srcs_version = "PY3",
+    deps = [
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "crr_binomial_tree_test",
+    srcs = ["crr_binomial_tree_test.py"],
+    python_version = "PY3",
+    deps = [
+        "//tf_quant_finance",
+        # test util,
+        # numpy dep,
+        # tensorflow dep,
     ],
 )
 
