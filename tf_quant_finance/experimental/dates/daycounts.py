@@ -178,3 +178,74 @@ def actual_365_actual(*,
     denominator = tf.cast(tf.where(leap_days_between > 0, 366, 365),
                           dtype=dtype)
     return actual_days / denominator
+
+
+def thirty_360_isda(*,
+                    start_date,
+                    end_date,
+                    schedule_info=None,
+                    dtype=None,
+                    name=None):
+  """Computes the year fraction between the specified dates.
+
+  The 30/360 (ISDA / Bond Basis) convention specifies the year fraction
+  between the start and end date as the number of days by the following
+  formula between the two dates divided by 360.
+
+    day difference = (Y2 - Y1) * 360 + (M2 - M1) * 30 + (D2 - D1)
+
+  where
+
+    Y1 is the year, expressed as a number, of the start date;
+
+    Y2 is the year, expressed as a number, of the end date;
+
+    M1 is the calendar month, expressed as a number, of the start date;
+
+    M2 is the calendar month, expressed as a number of the last date;
+
+    D1 is the start date calendar day, unless such number would be 31, in
+    which case D1 will be 30;
+
+    D2 is the last date calendar day, unless such number would be 31 and D1
+    is either 30 or 31, in which case D2 will be 30
+
+  Note that the schedule info is not needed for this convention and is ignored
+  if supplied.
+
+  For more details see:
+  https://en.wikipedia.org/wiki/Day_count_convention#30/360_Bond_Basis
+  https://www.isda.org/2008/12/22/30-360-day-count-conventions
+
+  Args:
+    start_date: A `DateTensor` object of any shape.
+    end_date: A `DateTensor` object of compatible shape with `start_date`.
+    schedule_info: The schedule info. Ignored for this convention.
+    dtype: The dtype of the result. Either `tf.float32` or `tf.float64`. If not
+      supplied, `tf.float32` is returned.
+    name: Python `str` name prefixed to ops created by this function. If not
+      supplied, `thirty_360_isda` is used.
+
+  Returns:
+    A real `Tensor` of supplied `dtype` and shape of `start_date`. The year
+    fraction between the start and end date as computed by 30/360 convention.
+  """
+  del schedule_info
+  with tf.name_scope(name or 'thirty_360_isda'):
+    d1_days = tf.minimum(start_date.day(), 30)
+    d2_days = tf.where(
+        tf.equal(d1_days, 30) & tf.equal(end_date.day(), 31),
+        30,
+        end_date.day()
+    )
+
+    day_difference = (d2_days - d1_days)
+    month_difference = (end_date.month() - start_date.month()) * 30
+    year_difference = (end_date.year() - start_date.year()) * 360
+    dtype = dtype or tf.constant(0.).dtype
+    total_day_difference = tf.cast(
+        day_difference + month_difference + year_difference,
+        dtype=dtype
+    )
+
+    return total_day_difference / 360
