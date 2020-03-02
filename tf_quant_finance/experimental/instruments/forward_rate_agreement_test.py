@@ -123,7 +123,8 @@ class ForwardRateAgreementTest(tf.test.TestCase):
         notional=notional,
         rate_term=rate_term,
         dtype=dtype,
-        daycount_basis=[tff.experimental.instruments.DayCountBasis.ACTUAL_365])
+        daycount_convention=tff.experimental.instruments.DayCountConvention
+        .ACTUAL_365)
 
     curve_dates = valuation_date + dates.periods.PeriodTensor(
         [1, 2, 3, 12, 24, 60], dates.PeriodType.MONTH)
@@ -136,43 +137,6 @@ class ForwardRateAgreementTest(tf.test.TestCase):
         reference_curve=reference_curve, discount_curve=reference_curve)
     price = self.evaluate(fra.price(valuation_date, market))
     np.testing.assert_allclose(price, [0.003844721, 0.004297866, 0.00462077292],
-                               atol=1e-6)
-
-  def test_fra_many_mixed(self):
-    dtype = np.float64
-    notional = 1.
-    settlement_date = dates.convert_to_date_tensor(
-        [(2021, 2, 8), (2021, 5, 8), (2021, 8, 8)])
-    fixing_date = dates.convert_to_date_tensor(
-        [(2021, 2, 8), (2021, 5, 8), (2021, 8, 8)])
-    valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
-    fixed_rate = tf.convert_to_tensor([0.02, 0.021, 0.022], dtype=dtype)
-    rate_term = dates.periods.PeriodTensor(
-        [3, 3, 3], dates.PeriodType.MONTH)
-
-    basis365 = tff.experimental.instruments.DayCountBasis.ACTUAL_365
-    basis360 = tff.experimental.instruments.DayCountBasis.ACTUAL_360
-
-    fra = tff.experimental.instruments.ForwardRateAgreement(
-        settlement_date,
-        fixing_date,
-        fixed_rate,
-        notional=notional,
-        rate_term=rate_term,
-        dtype=dtype,
-        daycount_basis=[basis360, basis365, basis365])
-
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 3, 12, 24, 60], dates.PeriodType.MONTH)
-    reference_curve = tff.experimental.instruments.RateCurve(
-        curve_dates,
-        np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),
-        valuation_date=valuation_date,
-        dtype=dtype)
-    market = tff.experimental.instruments.InterestRateMarket(
-        reference_curve=reference_curve, discount_curve=reference_curve)
-    price = self.evaluate(fra.price(valuation_date, market))
-    np.testing.assert_allclose(price, [0.00377957, 0.004297866, 0.00462077292],
                                atol=1e-6)
 
 if __name__ == '__main__':

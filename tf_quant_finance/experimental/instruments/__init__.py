@@ -24,14 +24,14 @@ EurodollarFutures = eurodollar_futures.EurodollarFutures
 ForwardRateAgreement = forward_rate_agreement.ForwardRateAgreement
 RateCurve = rate_curve.RateCurve
 InterestRateMarket = rates_common.InterestRateMarket
-DayCountBasis = rates_common.DayCountBasis
+DayCountConvention = rates_common.DayCountConvention
 
 _allowed_symbols = [
     'EurodollarFutures',
     'ForwardRateAgreement',
     'RateCurve',
     'InterestRateMarket',
-    'DayCountBasis',
+    'DayCountConvention',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

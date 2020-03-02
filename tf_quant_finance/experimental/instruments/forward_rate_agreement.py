@@ -15,7 +15,6 @@
 
 """Forward Rate Agreement."""
 
-import numpy as np
 import tensorflow.compat.v2 as tf
 from tf_quant_finance.experimental import dates
 from tf_quant_finance.experimental.instruments import rates_common as rc
@@ -80,7 +79,7 @@ class ForwardRateAgreement:
                fixing_date,
                fixed_rate,
                notional=1.,
-               daycount_basis=None,
+               daycount_convention=None,
                rate_term=None,
                maturity_date=None,
                dtype=None,
@@ -103,11 +102,11 @@ class ForwardRateAgreement:
         notional is in the form of a `Tensor`, then the shape must be the same
         as `settlement_date`.
         Default value: 1.0
-      daycount_basis: An optional list of `DayCountBasis` to determine how
-        cashflows are accrued for each contract. The length of the list must be
-        the same as the number of FRAs being created.
-        Default value: None in which case the daycount basis will default to
-        DayCountBasis.ACTUAL_360 for all contracts.
+      daycount_convention: An optional `DayCountConvention` to determine
+        how cashflows are accrued for each contract. Daycount is assumed to be
+        the same for all contracts in a given batch.
+        Default value: None in which case the daycount convention will default
+        to DayCountConvention.ACTUAL_360 for all contracts.
       rate_term: An optional rank 1 `PeriodTensor` specifying the term (or the
         tenor) of the Libor rate that determines the floating cashflow. The
         shape of the input should be the same as `settlement_date`.
@@ -145,16 +144,15 @@ class ForwardRateAgreement:
         self._accrual_end_date = self._accrual_start_date + rate_term
 
       # TODO (b/150216422): Fix tf.repeat to work with python enums
-      if daycount_basis is None:
-        daycount_basis = np.repeat(rc.DayCountBasis.ACTUAL_360,
-                                   settlement_date.shape)
+      if daycount_convention is None:
+        daycount_convention = rc.DayCountConvention.ACTUAL_360
 
       self._fixed_rate = tf.convert_to_tensor(fixed_rate, dtype=self._dtype,
                                               name='fixed_rate')
-      self._daycount_basis = daycount_basis
+      self._daycount_convention = daycount_convention
       self._daycount_fraction = rc.get_daycount_fraction(
           self._accrual_start_date, self._accrual_end_date,
-          self._daycount_basis, self._dtype)
+          self._daycount_convention, self._dtype)
 
   def price(self, valuation_date, market, model=None):
     """Returns the present value of the instrument on the valuation date.

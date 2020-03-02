@@ -78,7 +78,7 @@ class EurodollarFutures:
   def __init__(self,
                expiry_date,
                contract_notional=1.,
-               daycount_basis=None,
+               daycount_convention=None,
                rate_term=None,
                maturity_date=None,
                dtype=None,
@@ -94,11 +94,11 @@ class EurodollarFutures:
         `contract_notional` is entered as a scalar, it is assumed that the input
         is the same for all of the contracts.
         Default value: 1.0
-      daycount_basis: An optional scalar `DayCountBasis` corresponding to the
-        day count basis for the underlying rate for each contract. Daycount is
-        assumed to be the same for all contracts in a given batch.
-        Default value: None in which case each the day count basis of
-        DayCountBasis.ACTUAL_360 is used for each contract.
+      daycount_convention: An optional `DayCountConvention` corresponding
+        to the day count convention for the underlying rate for each contract.
+        Daycount is assumed to be the same for all contracts in a given batch.
+        Default value: None in which case each the day count convention of
+        DayCountConvention.ACTUAL_360 is used for each contract.
       rate_term: An optional Rank 1 `PeriodTensor` specifying the term (or
         tenor) of the rate that determines the settlement of each contract.
         Default value: `None` in which case the the rate is assumed to be for
@@ -144,14 +144,13 @@ class EurodollarFutures:
         # TODO (b/150291959): Add businessday and holiday conventions
         self._accrual_end_date = self._accrual_start_date + rate_term
 
-      if daycount_basis is None:
-        daycount_basis = rc.DayCountBasis.ACTUAL_360
-      daycount_basis = [daycount_basis]
+      if daycount_convention is None:
+        daycount_convention = rc.DayCountConvention.ACTUAL_360
 
-      self._daycount_basis = daycount_basis
+      self._daycount_convention = daycount_convention
       self._daycount_fraction = rc.get_daycount_fraction(
           self._accrual_start_date, self._accrual_end_date,
-          self._daycount_basis, self._dtype)
+          self._daycount_convention, self._dtype)
 
   def price(self, valuation_date, market, model=None):
     """Returns the price of the contract on the valuation date.

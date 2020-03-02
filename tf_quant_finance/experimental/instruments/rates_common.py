@@ -42,8 +42,8 @@ class AverageType(enum.Enum):
   ARITHMATIC_AVERAGE = 2
 
 
-class DayCountBasis(enum.Enum):
-  """Day count basis for accrual."""
+class DayCountConvention(enum.Enum):
+  """Day count conventions for accrual."""
   # Actual/360 day count basis
   ACTUAL_360 = 1
 
@@ -58,20 +58,13 @@ def elapsed_time(date_1, date_2, dtype):
       days_in_year)
 
 
-def get_daycount_fraction(date_start, date_end, basis, dtype):
-  """Return the day count fraction between two dates using the input basis."""
-  default_values = tf.zeros(date_start.shape, dtype=dtype)
-  basis_as_int = tf.constant([x.value for x in basis], dtype=tf.int16)
-  year_fractions = tf.where(
-      tf.math.equal(basis_as_int,
-                    tf.constant(DayCountBasis.ACTUAL_365.value,
-                                dtype=tf.int16)),
-      dates.daycounts.actual_365_fixed(
-          start_date=date_start, end_date=date_end, dtype=dtype),
-      tf.where(
-          tf.math.equal(basis_as_int, tf.constant(
-              DayCountBasis.ACTUAL_360.value, dtype=tf.int16)),
-          dates.daycounts.actual_360(
-              start_date=date_start, end_date=date_end, dtype=dtype),
-          default_values))
-  return year_fractions
+def get_daycount_fraction(date_start, date_end, convention, dtype):
+  """Return the day count fraction between two dates using the input convention."""
+  if convention == DayCountConvention.ACTUAL_365:
+    return dates.daycounts.actual_365_fixed(
+        start_date=date_start, end_date=date_end, dtype=dtype)
+  elif convention == DayCountConvention.ACTUAL_360:
+    return dates.daycounts.actual_360(
+        start_date=date_start, end_date=date_end, dtype=dtype)
+  else:
+    raise ValueError('Daycount convention not implemented.')
