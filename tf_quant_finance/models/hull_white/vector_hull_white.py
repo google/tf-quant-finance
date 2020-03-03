@@ -308,20 +308,20 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
           [num_samples, self._dim])
       current_instant_forward_rates = self._instant_forward_rate_fn(
           tf.constant(0, self._dtype))
-      times_shape = times.shape
+      num_requested_times = times.shape[0]
       params = [self._mean_reversion, self._volatility, self._corr_matrix]
       if self._corr_matrix is not None:
         params = params + [self._corr_matrix]
       times, keep_mask = _prepare_grid(
           times, params)
       return self._sample_paths(
-          times, times_shape,
+          times, num_requested_times,
           current_rates, current_instant_forward_rates,
           num_samples, random_type, skip, keep_mask, seed)
 
   def _sample_paths(self,
                     times,
-                    times_shape,
+                    num_requested_times,
                     current_rates,
                     current_instant_forward_rates,
                     num_samples,
@@ -384,8 +384,15 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
           self._instant_forward_rate_fn,
           current_instant_forward_rates,
           current_rates, corr_matrix_root, normals)
+
+      def write_next_state_to_result():
+        # Replace rate_paths[:, written_count, :] with next_rates.
+        one_hot = tf.one_hot(written_count, depth=num_requested_times)
+        mask = tf.expand_dims(one_hot > 0, axis=-1)
+        return tf.where(mask, tf.expand_dims(next_rates, axis=1), rate_paths)
+
       rate_paths = tf.cond(keep_mask[i + 1],
-                           lambda: rate_paths.write(written_count, next_rates),
+                           write_next_state_to_result,
                            lambda: rate_paths)
       written_count += tf.cast(keep_mask[i + 1], dtype=tf.int32)
       return (i + 1, written_count,
@@ -393,17 +400,12 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
               next_instant_forward_rates,
               rate_paths)
 
-    rate_paths = tf.TensorArray(dtype=self._dtype, size=times_shape[-1])
-
+    rate_paths = tf.zeros((num_samples, num_requested_times, self._dim),
+                          dtype=self._dtype)
     _, _, _, _, rate_paths = tf.while_loop(
         cond_fn, body_fn, (0, 0, current_rates,
                            current_instant_forward_rates,
                            rate_paths))
-    rate_paths = tf.transpose(rate_paths.stack(), (1, 0, 2))
-    # Shape of `rate_paths` is dynamic because of `TensorArray`.
-    # In order to make the shape static, use `set_shape` method
-    rate_paths.set_shape(current_rates.shape[:1] + times_shape
-                         + current_rates.shape[-1:])
     return rate_paths
 
 

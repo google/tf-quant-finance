@@ -207,12 +207,12 @@ class ItoProcess(object):
       times = tf.convert_to_tensor(times, dtype=self._dtype)
       initial_state = tf.convert_to_tensor(
           initial_state, dtype=self._dtype, name='initial_state')
-      times_size = tf.shape(times)[-1]
+      num_requested_times = tf.shape(times)[-1]
       grid_step = kwargs['grid_step']
       times, keep_mask = self._prepare_grid(times, grid_step)
-      return self._sample_paths(times, grid_step, keep_mask, times_size,
-                                num_samples, initial_state, random_type, seed,
-                                swap_memory)
+      return self._sample_paths(times, grid_step, keep_mask,
+                                num_requested_times, num_samples, initial_state,
+                                random_type, seed, swap_memory)
 
   def fd_solver_backward(self,
                          final_time,
@@ -310,8 +310,8 @@ class ItoProcess(object):
     raise NotImplementedError('Backward Finite difference solver not '
                               'implemented for ItoProcess.')
 
-  def _sample_paths(self, times, grid_step, keep_mask, times_size, num_samples,
-                    initial_state, random_type, seed, swap_memory):
+  def _sample_paths(self, times, grid_step, keep_mask, num_requested_times,
+                    num_samples, initial_state, random_type, seed, swap_memory):
     """Returns a sample of paths from the process."""
     dt = times[1:] - times[:-1]
     sqrt_dt = tf.sqrt(dt)
@@ -335,26 +335,32 @@ class ItoProcess(object):
           tf.matmul(self.volatility_fn()(current_time, current_state), dw), -1)  # pylint: disable=not-callable
       next_state = current_state + dt_inc + dw_inc
 
-      # Keep only states for times, requested by user.
+      def write_next_state_to_result():
+        # Replace result[:, written_count, :] with next_state.
+        one_hot = tf.one_hot(written_count, depth=num_requested_times)
+        mask = tf.expand_dims(one_hot > 0, axis=-1)
+        return tf.where(mask, tf.expand_dims(next_state, axis=1), result)
+
+      # Keep only states for times requested by user.
       result = tf.cond(keep_mask[i + 1],
-                       (lambda: result.write(written_count, next_state)),
-                       (lambda: result))
+                       write_next_state_to_result,
+                       lambda: result)
       written_count += tf.cast(keep_mask[i + 1], dtype=tf.int32)
-      return (i + 1, written_count, next_state, result)
+      return i + 1, written_count, next_state, result
 
     # Maximum number iterations is passed to the while loop below. It improves
     # performance of the while loop on a GPU and is needed for XLA-compilation
     # comptatiblity
     maximum_iterations = (
         tf.cast(1. / grid_step, dtype=tf.int32) + tf.size(times))
-    result = tf.TensorArray(dtype=self._dtype, size=times_size)
+    result = tf.zeros((num_samples, num_requested_times, self.dim()))
     _, _, _, result = tf.compat.v1.while_loop(
         cond_fn,
         step_fn, (0, 0, current_state, result),
         maximum_iterations=maximum_iterations,
         swap_memory=swap_memory)
 
-    return tf.transpose(result.stack(), (1, 0, 2))
+    return result
 
   def _prepare_grid(self, times, grid_step):
     """Prepares grid of times for path generation.

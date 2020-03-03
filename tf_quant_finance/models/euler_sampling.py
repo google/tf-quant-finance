@@ -116,17 +116,29 @@ def sample(dim,
       initial_state = tf.zeros(dim, dtype=dtype)
     initial_state = tf.convert_to_tensor(initial_state, dtype=dtype,
                                          name='initial_state')
-    times_shape = times.shape
+    num_requested_times = times.shape[0]
     # Create a time grid for the Euler scheme.
-    times, keep_mask = _prepare_grid(times, time_step, dtype)
+    times, keep_mask = _prepare_grid(
+        times=times, time_step=time_step, dtype=dtype)
     return _sample(
-        dim, drift_fn, volatility_fn,
-        times, time_step, keep_mask, times_shape, num_samples, initial_state,
-        random_type, seed, swap_memory, skip, dtype)
+        dim=dim,
+        drift_fn=drift_fn,
+        volatility_fn=volatility_fn,
+        times=times,
+        time_step=time_step,
+        keep_mask=keep_mask,
+        num_requested_times=num_requested_times,
+        num_samples=num_samples,
+        initial_state=initial_state,
+        random_type=random_type,
+        seed=seed,
+        swap_memory=swap_memory,
+        skip=skip,
+        dtype=dtype)
 
 
-def _sample(dim, drift_fn, volatility_fn, times, time_step, keep_mask,
-            times_shape, num_samples, initial_state, random_type,
+def _sample(*, dim, drift_fn, volatility_fn, times, time_step, keep_mask,
+            num_requested_times, num_samples, initial_state, random_type,
             seed, swap_memory, skip, dtype):
   """Returns a sample of paths from the process using Euler method."""
   dt = times[1:] - times[:-1]
@@ -162,27 +174,36 @@ def _sample(dim, drift_fn, volatility_fn, times, time_step, keep_mask,
   # performance of the while loop on a GPU and is needed for XLA-compilation
   # comptatiblity.
   def step_fn(i, written_count, current_state, result):
-    return _euler_step(i, written_count, current_state, result,
-                       drift_fn, volatility_fn, wiener_mean,
-                       num_samples, times, dt, sqrt_dt, keep_mask,
-                       random_type, seed, normal_draws)
+    return _euler_step(
+        i=i,
+        written_count=written_count,
+        num_requested_times=num_requested_times,
+        current_state=current_state,
+        result=result,
+        drift_fn=drift_fn,
+        volatility_fn=volatility_fn,
+        wiener_mean=wiener_mean,
+        num_samples=num_samples,
+        times=times,
+        dt=dt,
+        sqrt_dt=sqrt_dt,
+        keep_mask=keep_mask,
+        random_type=random_type,
+        seed=seed,
+        normal_draws=normal_draws)
+
   maximum_iterations = (tf.cast(1. / time_step, dtype=tf.int32)
                         + tf.size(times))
-  result = tf.TensorArray(dtype=dtype, size=times_shape[-1])
+
+  result = tf.zeros((num_samples, num_requested_times, dim), dtype=dtype)
   _, _, _, result = tf.while_loop(
       cond_fn, step_fn, (0, 0, current_state, result),
       maximum_iterations=maximum_iterations,
       swap_memory=swap_memory)
-  result = tf.transpose(result.stack(), (1, 0, 2))
-  # Shape of `rate_paths` is dynamic in `times` dimension because of
-  # `TensorArray`. In order to make the shape static, use `set_shape` method.
-  # TODO(b/148854825): Consider removing TensorArray to make all shapes static.
-  result.set_shape(current_state.shape[:1] + times_shape
-                   + current_state.shape[-1:])
   return result
 
 
-def _euler_step(i, written_count, current_state, result,
+def _euler_step(*, i, written_count, num_requested_times, current_state, result,
                 drift_fn, volatility_fn, wiener_mean,
                 num_samples, times, dt, sqrt_dt, keep_mask,
                 random_type, seed, normal_draws):
@@ -199,15 +220,19 @@ def _euler_step(i, written_count, current_state, result,
   dw_inc = tf.linalg.matvec(volatility_fn(current_time, current_state), dw)  # pylint: disable=not-callable
   next_state = current_state + dt_inc + dw_inc
 
-  # Keep only states for times, requested by user.
-  result = tf.cond(keep_mask[i + 1],
-                   (lambda: result.write(written_count, next_state)),
-                   (lambda: result))
+  def write_next_state_to_result():
+    # Replace result[:, written_count, :] with next_state.
+    one_hot = tf.one_hot(written_count, depth=num_requested_times)
+    mask = tf.expand_dims(one_hot > 0, axis=-1)
+    return tf.where(mask, tf.expand_dims(next_state, axis=1), result)
+
+  # Keep only states for times requested by user.
+  result = tf.cond(keep_mask[i + 1], write_next_state_to_result, lambda: result)
   written_count += tf.cast(keep_mask[i + 1], dtype=tf.int32)
-  return (i + 1, written_count, next_state, result)
+  return i + 1, written_count, next_state, result
 
 
-def _prepare_grid(times, time_step, dtype):
+def _prepare_grid(*, times, time_step, dtype):
   """Prepares grid of times for path generation.
 
   Args:

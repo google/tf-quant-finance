@@ -229,18 +229,18 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       current_vol = (
           tf.convert_to_tensor(initial_state[..., 1], dtype=self._dtype)
           + tf.zeros([num_samples], dtype=self._dtype))
-      times_shape = times.shape
+      num_requested_times = times.shape[0]
       times, keep_mask = _prepare_grid(
           times, time_step, times.dtype,
           self._kappa, self._theta, self._epsilon, self._rho)
       return self._sample_paths(
-          times, times_shape,
+          times, num_requested_times,
           current_log_spot, current_vol,
           num_samples, random_type, keep_mask, seed, skip, tolerance)
 
   def _sample_paths(self,
                     times,
-                    times_shape,
+                    num_requested_times,
                     current_log_spot,
                     current_vol,
                     num_samples,
@@ -305,32 +305,32 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       next_log_spot = tf.cond(time_step > tolerance,
                               _next_log_spot_fn,
                               lambda: current_log_spot)
-      vol_paths = tf.cond(keep_mask[i + 1],
-                          lambda: vol_paths.write(written_count, next_vol),
-                          lambda: vol_paths)
+
+      def write_next_state_to_result(result, value):
+        # Replace result[:, written_count] with value.
+        mask = tf.one_hot(written_count, depth=num_requested_times) > 0
+        return tf.where(mask, tf.expand_dims(value, axis=-1), result)
+
+      vol_paths = tf.cond(
+          keep_mask[i + 1],
+          lambda: write_next_state_to_result(vol_paths, next_vol),
+          lambda: vol_paths)
       log_spot_paths = tf.cond(
           keep_mask[i + 1],
-          lambda: log_spot_paths.write(written_count, next_log_spot),
+          lambda: write_next_state_to_result(log_spot_paths, next_log_spot),
           lambda: log_spot_paths)
       written_count += tf.cast(keep_mask[i + 1], dtype=tf.int32)
       return (i + 1, written_count,
               next_vol, next_log_spot, vol_paths, log_spot_paths)
 
-    log_spot_paths = tf.TensorArray(dtype=self._dtype,
-                                    size=times_shape[-1])
-    vol_paths = tf.TensorArray(dtype=self._dtype,
-                               size=times_shape[-1])
+    shape = (num_samples, num_requested_times)
+    log_spot_paths = tf.zeros(shape, dtype=self._dtype)
+    vol_paths = tf.zeros(shape, dtype=self._dtype)
     _, _, _, _, vol_paths, log_spot_paths = tf.while_loop(
         cond_fn, body_fn, (0, 0, current_vol, current_log_spot,
                            vol_paths, log_spot_paths),
         maximum_iterations=steps_num)
-    # TensorArray.stack() produces tensors of unknown shapes
-    log_spot_paths = log_spot_paths.stack()
-    log_spot_paths.set_shape(times_shape + current_log_spot.shape)
-    vol_paths = vol_paths.stack()
-    vol_paths.set_shape(times_shape + current_vol.shape)
-    return tf.stack([tf.transpose(log_spot_paths),
-                     tf.transpose(vol_paths)], -1)
+    return tf.stack([log_spot_paths, vol_paths], -1)
 
 
 def _get_parameters(times, *params):
