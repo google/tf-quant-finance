@@ -43,8 +43,10 @@ py_test(
     deps = [
         "//tf_quant_finance",
         # test util,
+        # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
+        # xla_cpu_jit xla dep,
     ],
 )
 

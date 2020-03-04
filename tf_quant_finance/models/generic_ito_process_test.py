@@ -15,6 +15,7 @@
 """Tests for `sample_paths` of `ItoProcess`."""
 
 from unittest import mock  # pylint: disable=g-importing-member
+from absl.testing import parameterized
 import numpy as np
 import tensorflow.compat.v2 as tf
 
@@ -27,9 +28,16 @@ grids = tff.math.pde.grids
 
 
 @test_util.run_all_in_graph_and_eager_modes
-class GenericItoProcessTest(tf.test.TestCase):
+class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
 
-  def test_sample_paths_wiener(self):
+  @parameterized.named_parameters({
+      "testcase_name": "no_xla",
+      "use_xla": False,
+  }, {
+      "testcase_name": "xla",
+      "use_xla": True,
+  })
+  def test_sample_paths_wiener(self, use_xla):
     """Tests paths properties for Wiener process (dX = dW)."""
 
     def drift_fn(_, x):
@@ -42,9 +50,15 @@ class GenericItoProcessTest(tf.test.TestCase):
     times = np.array([0.1, 0.2, 0.3])
     num_samples = 10000
 
-    paths = self.evaluate(
-        process.sample_paths(
-            times=times, num_samples=num_samples, seed=42, time_step=0.005))
+    @tf.function
+    def fn():
+      return process.sample_paths(
+          times=times, num_samples=num_samples, seed=42, time_step=0.005)
+
+    if use_xla:
+      paths = self.evaluate(tf.xla.experimental.compile(fn))[0]
+    else:
+      paths = self.evaluate(fn())
 
     means = np.mean(paths, axis=0).reshape([-1])
     covars = np.cov(paths.reshape([num_samples, -1]), rowvar=False)
