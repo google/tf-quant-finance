@@ -16,6 +16,7 @@
 
 """Tests for vanilla_price."""
 
+from absl.testing import parameterized
 import numpy as np
 import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
@@ -25,7 +26,7 @@ from tensorflow.python.framework import test_util  # pylint: disable=g-direct-te
 
 
 @test_util.run_all_in_graph_and_eager_modes
-class VanillaPrice(tf.test.TestCase):
+class VanillaPrice(tf.test.TestCase, parameterized.TestCase):
   """Tests for methods for the vanilla pricing module."""
 
   def test_option_prices(self):
@@ -134,6 +135,38 @@ class VanillaPrice(tf.test.TestCase):
             forwards=forwards))
     self.assertArrayNear(base_prices, scaled_prices, 1e-10)
 
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'SinglePrecision',
+          'dtype': np.float32
+      }, {
+          'testcase_name': 'DoublePrecision',
+          'dtype': np.float64},
+  )
+  def test_option_prices_detailed_discount(self, dtype):
+    """Tests that the prices with risk_free_rates and cost_of_carries."""
+    spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
+    strikes = np.array([100.0] * 10)
+    risk_free_rates = 0.08
+    volatilities = 0.2
+    expiries = 0.25
+
+    is_call_options = np.array([True] * 5 + [False] * 5)
+    cost_of_carries = -0.04
+    computed_prices = self.evaluate(
+        tff.black_scholes.option_price(
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
+            spots=spots,
+            discount_rates=risk_free_rates,
+            cost_of_carries=cost_of_carries,
+            is_call_options=is_call_options,
+            dtype=dtype))
+    expected_prices = np.array([0.03, 0.57, 3.42, 9.85, 18.62, 20.41, 11.25,
+                                4.40, 1.12, 0.18])
+    self.assertArrayNear(expected_prices, computed_prices, 5e-3)
+
   def test_binary_prices(self):
     """Tests that the BS binary option prices are correct."""
     forwards = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
@@ -218,7 +251,6 @@ class VanillaPrice(tf.test.TestCase):
     This enables a test for consistency of pricing between vanilla and binary
     options prices.
     """
-
     np.random.seed(135)
     num_examples = 1000
     forwards = np.exp(np.random.normal(size=num_examples))

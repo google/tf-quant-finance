@@ -24,6 +24,7 @@ py_library(
     srcs = ["vanilla_prices.py"],
     srcs_version = "PY3",
     deps = [
+        # numpy dep,
         # tensorflow dep,
     ],
 )
