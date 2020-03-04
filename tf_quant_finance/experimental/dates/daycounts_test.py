@@ -72,6 +72,84 @@ class DayCountsTest(tf.test.TestCase):
             start_date=start_date, end_date=end_date))
     self.assertAllClose(yf, [1.046448], atol=1e-5)
 
+  def test_thirty_360_isda_no_leap_year(self):
+    """Test 30/360 ISDA on start / last dates without leap year.
+
+    The test cases and results are from
+    https://www.isda.org/2008/12/22/30-360-day-count-conventions
+    """
+    start_date = dateslib.from_tuples([
+        (2007, 1, 15),
+        (2007, 1, 15),
+        (2007, 1, 15),
+        (2007, 9, 30),
+        (2007, 9, 30),
+        (2007, 9, 30),
+    ])
+    end_date = dateslib.from_tuples([
+        (2007, 1, 30),
+        (2007, 2, 15),
+        (2007, 7, 15),
+        (2008, 3, 31),
+        (2007, 10, 31),
+        (2008, 9, 30),
+    ])
+    yf = self.evaluate(
+        dateslib.daycounts.thirty_360_isda(
+            start_date=start_date, end_date=end_date))
+    self.assertAllClose(yf, [
+        0.041666667,
+        0.083333333,
+        0.5,
+        0.5,
+        0.083333333,
+        1.0], atol=1e-5)
+
+  def test_thirty_360_isda_with_leap_year_on_start(self):
+    """Test 30/360 ISDA on start dates in leap year.
+
+    The test cases and results are from
+    https://www.isda.org/2008/12/22/30-360-day-count-conventions
+    """
+    start_date = dateslib.from_tuples([
+        (2008, 2, 29),
+        (2008, 2, 29),
+        (2008, 2, 29),
+    ])
+    end_date = dateslib.from_tuples([
+        (2009, 2, 28),
+        (2008, 3, 30),
+        (2008, 3, 31),
+    ])
+    yf = self.evaluate(
+        dateslib.daycounts.thirty_360_isda(
+            start_date=start_date, end_date=end_date))
+    self.assertAllClose(yf, [
+        0.997222222,
+        0.086111111,
+        0.088888889], atol=1e-5)
+
+  def test_thirty_360_isda_with_leap_year_on_end(self):
+    """Test 30/360 ISDA on last dates in leap year.
+
+    The test cases and results are from
+    https://www.isda.org/2008/12/22/30-360-day-count-conventions
+    """
+    start_date = dateslib.from_tuples([
+        (2007, 2, 26),
+        (2007, 8, 31),
+    ])
+    end_date = dateslib.from_tuples([
+        (2008, 2, 29),
+        (2008, 2, 29),
+    ])
+    yf = self.evaluate(
+        dateslib.daycounts.thirty_360_isda(
+            start_date=start_date, end_date=end_date))
+    self.assertAllClose(yf, [
+        1.008333333,
+        0.497222222], atol=1e-5)
+
 
 if __name__ == '__main__':
   tf.test.main()
