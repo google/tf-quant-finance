@@ -305,20 +305,20 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       next_log_spot = tf.cond(time_step > tolerance,
                               _next_log_spot_fn,
                               lambda: current_log_spot)
-
-      def write_next_state_to_result(result, value):
-        # Replace result[:, written_count] with value.
-        mask = tf.one_hot(written_count, depth=num_requested_times) > 0
-        return tf.where(mask, tf.expand_dims(value, axis=-1), result)
-
-      vol_paths = tf.cond(
-          keep_mask[i + 1],
-          lambda: write_next_state_to_result(vol_paths, next_vol),
-          lambda: vol_paths)
-      log_spot_paths = tf.cond(
-          keep_mask[i + 1],
-          lambda: write_next_state_to_result(log_spot_paths, next_log_spot),
-          lambda: log_spot_paths)
+      # Update volatility paths
+      vol_paths = utils.maybe_update_along_axis(
+          tensor=vol_paths,
+          do_update=keep_mask[i + 1],
+          ind=written_count,
+          axis=1,
+          new_tensor=tf.expand_dims(next_vol, axis=1))
+      # Update log-spot paths
+      log_spot_paths = utils.maybe_update_along_axis(
+          tensor=log_spot_paths,
+          do_update=keep_mask[i + 1],
+          ind=written_count,
+          axis=1,
+          new_tensor=tf.expand_dims(next_log_spot, axis=1))
       written_count += tf.cast(keep_mask[i + 1], dtype=tf.int32)
       return (i + 1, written_count,
               next_vol, next_log_spot, vol_paths, log_spot_paths)

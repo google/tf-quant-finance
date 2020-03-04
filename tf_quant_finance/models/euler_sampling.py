@@ -107,8 +107,8 @@ def sample(dim,
       values are random), and `random_type` is `SOBOL`. This will be fixed with
       the release of TensorFlow 2.2.
   """
-  with tf.compat.v1.name_scope(
-      name, default_name='euler_sample', values=[times, initial_state]):
+  name = name or 'euler_sample'
+  with tf.name_scope(name):
     times = tf.convert_to_tensor(times, dtype=dtype)
     if dtype is None:
       dtype = times.dtype
@@ -116,7 +116,7 @@ def sample(dim,
       initial_state = tf.zeros(dim, dtype=dtype)
     initial_state = tf.convert_to_tensor(initial_state, dtype=dtype,
                                          name='initial_state')
-    num_requested_times = times.shape[0]
+    num_requested_times = times.shape.as_list()[0]
     # Create a time grid for the Euler scheme.
     times, keep_mask = _prepare_grid(
         times=times, time_step=time_step, dtype=dtype)
@@ -138,7 +138,8 @@ def sample(dim,
 
 
 def _sample(*, dim, drift_fn, volatility_fn, times, time_step, keep_mask,
-            num_requested_times, num_samples, initial_state, random_type,
+            num_requested_times,
+            num_samples, initial_state, random_type,
             seed, swap_memory, skip, dtype):
   """Returns a sample of paths from the process using Euler method."""
   dt = times[1:] - times[:-1]
@@ -154,6 +155,7 @@ def _sample(*, dim, drift_fn, volatility_fn, times, time_step, keep_mask,
       raise ValueError('Sobol sequence for Euler sampling is temporarily '
                        'unsupported when `time_step` or `times` have a '
                        'non-constant value')
+
   # In order to use low-discrepancy random_type we need to generate the sequence
   # of independent random normals upfront.
   if random_type in (random.RandomType.SOBOL,
@@ -177,7 +179,6 @@ def _sample(*, dim, drift_fn, volatility_fn, times, time_step, keep_mask,
     return _euler_step(
         i=i,
         written_count=written_count,
-        num_requested_times=num_requested_times,
         current_state=current_state,
         result=result,
         drift_fn=drift_fn,
@@ -203,7 +204,7 @@ def _sample(*, dim, drift_fn, volatility_fn, times, time_step, keep_mask,
   return result
 
 
-def _euler_step(*, i, written_count, num_requested_times, current_state, result,
+def _euler_step(*, i, written_count, current_state, result,
                 drift_fn, volatility_fn, wiener_mean,
                 num_samples, times, dt, sqrt_dt, keep_mask,
                 random_type, seed, normal_draws):
@@ -219,15 +220,12 @@ def _euler_step(*, i, written_count, num_requested_times, current_state, result,
   dt_inc = dt[i] * drift_fn(current_time, current_state)  # pylint: disable=not-callable
   dw_inc = tf.linalg.matvec(volatility_fn(current_time, current_state), dw)  # pylint: disable=not-callable
   next_state = current_state + dt_inc + dw_inc
-
-  def write_next_state_to_result():
-    # Replace result[:, written_count, :] with next_state.
-    one_hot = tf.one_hot(written_count, depth=num_requested_times)
-    mask = tf.expand_dims(one_hot > 0, axis=-1)
-    return tf.where(mask, tf.expand_dims(next_state, axis=1), result)
-
-  # Keep only states for times requested by user.
-  result = tf.cond(keep_mask[i + 1], write_next_state_to_result, lambda: result)
+  result = utils.maybe_update_along_axis(
+      tensor=result,
+      do_update=keep_mask[i + 1],
+      ind=written_count,
+      axis=1,
+      new_tensor=tf.expand_dims(next_state, axis=1))
   written_count += tf.cast(keep_mask[i + 1], dtype=tf.int32)
   return i + 1, written_count, next_state, result
 

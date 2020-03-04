@@ -14,6 +14,9 @@
 # limitations under the License.
 """Tests for the `utils` module."""
 
+from absl.testing import parameterized
+
+import numpy as np
 import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
@@ -22,33 +25,62 @@ from tf_quant_finance.models import utils
 
 
 @test_util.run_all_in_graph_and_eager_modes
-class UtilsTest(tf.test.TestCase):
+class UtilsTest(tf.test.TestCase, parameterized.TestCase):
 
-  def test_sobol_numbers_generation(self):
+  @parameterized.named_parameters(
+      ('SinglePrecision', np.float32),
+      ('DoublePrecision', np.float64),
+  )
+  def test_sobol_numbers_generation(self, dtype):
     """Sobol random dtype results in the correct draws."""
-    for dtype in (tf.float32, tf.float64):
-      num_draws = tf.constant(2, dtype=tf.int32)
-      steps_num = tf.constant(3, dtype=tf.int32)
-      num_samples = tf.constant(4, dtype=tf.int32)
-      random_type = tff.math.random.RandomType.SOBOL
-      skip = 10
-      samples = utils.generate_mc_normal_draws(
-          num_normal_draws=num_draws, num_time_steps=steps_num,
-          num_sample_paths=num_samples, random_type=random_type,
-          dtype=dtype, skip=skip)
-      expected_samples = [[[0.8871465, 0.48877636],
-                           [-0.8871465, -0.48877636],
-                           [0.48877636, 0.8871465],
-                           [-0.15731068, 0.15731068]],
-                          [[0.8871465, -1.5341204],
-                           [1.5341204, -0.15731068],
-                           [-0.15731068, 1.5341204],
-                           [-0.8871465, 0.48877636]],
-                          [[-0.15731068, 1.5341204],
-                           [0.15731068, -0.48877636],
-                           [-1.5341204, 0.8871465],
-                           [0.8871465, -1.5341204]]]
-      self.assertAllClose(samples, expected_samples, rtol=1e-5, atol=1e-5)
+    num_draws = tf.constant(2, dtype=tf.int32)
+    steps_num = tf.constant(3, dtype=tf.int32)
+    num_samples = tf.constant(4, dtype=tf.int32)
+    random_type = tff.math.random.RandomType.SOBOL
+    skip = 10
+    samples = utils.generate_mc_normal_draws(
+        num_normal_draws=num_draws, num_time_steps=steps_num,
+        num_sample_paths=num_samples, random_type=random_type,
+        dtype=dtype, skip=skip)
+    expected_samples = [[[0.8871465, 0.48877636],
+                         [-0.8871465, -0.48877636],
+                         [0.48877636, 0.8871465],
+                         [-0.15731068, 0.15731068]],
+                        [[0.8871465, -1.5341204],
+                         [1.5341204, -0.15731068],
+                         [-0.15731068, 1.5341204],
+                         [-0.8871465, 0.48877636]],
+                        [[-0.15731068, 1.5341204],
+                         [0.15731068, -0.48877636],
+                         [-1.5341204, 0.8871465],
+                         [0.8871465, -1.5341204]]]
+    self.assertAllClose(samples, expected_samples, rtol=1e-5, atol=1e-5)
+
+  @parameterized.named_parameters(
+      ('SinglePrecision', np.float32),
+      ('DoublePrecision', np.float64),
+  )
+  def test_maybe_update_along_axis(self, dtype):
+    """Tests that the values are updated correctly."""
+    tensor = tf.ones([5, 4, 3, 2], dtype=dtype)
+    new_tensor = tf.zeros([5, 4, 1, 2], dtype=dtype)
+    @tf.function
+    def maybe_update_along_axis(do_update):
+      return utils.maybe_update_along_axis(
+          tensor=tensor, new_tensor=new_tensor, axis=1, ind=2,
+          do_update=do_update)
+    updated_tensor = maybe_update_along_axis(True)
+    with self.subTest(name='Shape'):
+      self.assertEqual(updated_tensor.shape, tensor.shape)
+    with self.subTest(name='UpdatedVals'):
+      self.assertAllEqual(updated_tensor[:, 2, :, :],
+                          tf.zeros_like(updated_tensor[:, 2, :, :]))
+    with self.subTest(name='NotUpdatedVals'):
+      self.assertAllEqual(updated_tensor[:, 1, :, :],
+                          tf.ones_like(updated_tensor[:, 2, :, :]))
+    with self.subTest(name='DoNotUpdateVals'):
+      not_updated_tensor = maybe_update_along_axis(False)
+      self.assertAllEqual(not_updated_tensor, tensor)
 
   def test_block_diagonal_to_dense(self):
     matrices = [[[1.0, 0.1], [0.1, 1.0]],

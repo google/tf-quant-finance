@@ -91,6 +91,81 @@ def generate_mc_normal_draws(num_normal_draws,
     return normal_draws
 
 
+def maybe_update_along_axis(*,
+                            tensor,
+                            new_tensor,
+                            axis,
+                            ind,
+                            do_update,
+                            dtype=None,
+                            name=None):
+  """Replace `tensor` entries with `new_tensor` along a given axis.
+
+  This updates elements of `tensor` that correspond to the elements returned by
+  `numpy.take(updated, ind, axis)` with the corresponding elements of
+  `new_tensor`.
+
+  # Example
+  ```python
+  tensor = tf.ones([5, 4, 3, 2])
+  new_tensor = tf.zeros([5, 4, 3, 2])
+  updated_tensor = maybe_update_along_axis(tensor=tensor,
+                                           new_tensor=new_tensor,
+                                           axis=1,
+                                           ind=2,
+                                           do_update=True)
+  # Returns a `Tensor` of ones where
+  # `updated_tensor[:, 2, :, :].numpy() == 0`
+  ```
+  If the `do_update` is set to `False`, then the update does not happen unless
+  the number of dimensions along the `axis` is equal to 1. This functionality
+  is useful when, for example, aggregating samples of an Ito process.
+
+  Args:
+    tensor: A `Tensor` of any shape and `dtype`.
+    new_tensor: A `Tensor` of the same `dtype` as `tensor` and of shape
+      broadcastable with `tensor`.
+    axis: A Python integer. The axis of `tensor` along which the elements have
+      to be updated.
+    ind: An int32 scalar `Tensor` that denotes an index on the `axis` which
+      defines the updated slice of `tensor` (see example above).
+    do_update: A bool scalar `Tensor`. If `False`, the output is the same as
+      `tensor`, unless  the dimension of the `tensor` along the `axis` is equal
+      to 1.
+    dtype: The `dtype` of the input `Tensor`s.
+      Default value: `None` which means that default dtypes inferred by
+        TensorFlow are used.
+    name: Python string. The name to give this op.
+      Default value: `None` which maps to `maybe_update_along_axis`.
+
+  Returns:
+    A `Tensor` of the same shape and `dtype` as `tensor`.
+  """
+  name = name or 'maybe_update_along_axis'
+  with tf.name_scope(name):
+    tensor = tf.convert_to_tensor(tensor, dtype=dtype,
+                                  name='tensor')
+    dtype = tensor.dtype
+    new_tensor = tf.convert_to_tensor(new_tensor, dtype=dtype,
+                                      name='new_tensor')
+    ind = tf.convert_to_tensor(ind, name='ind')
+    do_update = tf.convert_to_tensor(do_update, name='do_update')
+    size_along_axis = tensor.shape.as_list()[axis]
+    def _write_update_to_result():
+      one_hot = tf.one_hot(ind, depth=size_along_axis)
+      mask_shape = len(tensor.shape) * [1]
+      mask_shape[axis] = size_along_axis
+      mask = tf.reshape(one_hot > 0, mask_shape)
+      return tf.where(mask, new_tensor, tensor)
+    # Update only if size_along_axis > 1.
+    if size_along_axis > 1:
+      return tf.cond(do_update,
+                     _write_update_to_result,
+                     lambda: tensor)
+    else:
+      return new_tensor
+
+
 def block_diagonal_to_dense(*matrices):
   """Given a sequence of matrices, creates a block-diagonal dense matrix."""
   operators = [tf.linalg.LinearOperatorFullMatrix(m) for m in matrices]

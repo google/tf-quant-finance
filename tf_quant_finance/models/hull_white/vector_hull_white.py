@@ -384,16 +384,13 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
           self._instant_forward_rate_fn,
           current_instant_forward_rates,
           current_rates, corr_matrix_root, normals)
-
-      def write_next_state_to_result():
-        # Replace rate_paths[:, written_count, :] with next_rates.
-        one_hot = tf.one_hot(written_count, depth=num_requested_times)
-        mask = tf.expand_dims(one_hot > 0, axis=-1)
-        return tf.where(mask, tf.expand_dims(next_rates, axis=1), rate_paths)
-
-      rate_paths = tf.cond(keep_mask[i + 1],
-                           write_next_state_to_result,
-                           lambda: rate_paths)
+      # Update `rate_paths`
+      rate_paths = utils.maybe_update_along_axis(
+          tensor=rate_paths,
+          do_update=keep_mask[i + 1],
+          ind=written_count,
+          axis=1,
+          new_tensor=tf.expand_dims(next_rates, axis=1))
       written_count += tf.cast(keep_mask[i + 1], dtype=tf.int32)
       return (i + 1, written_count,
               next_rates,

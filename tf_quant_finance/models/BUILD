@@ -147,10 +147,13 @@ py_test(
     size = "small",
     srcs = ["utils_test.py"],
     python_version = "PY3",
+    shard_count = 3,
     deps = [
         ":utils",
         "//tf_quant_finance",
         # test util,
+        # absl/testing:parameterized dep,
+        # numpy dep,
         # tensorflow dep,
     ],
 )
