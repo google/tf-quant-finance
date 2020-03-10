@@ -15,6 +15,7 @@
 # ==============================================================================
 """Setup for pip package."""
 
+import datetime
 from os import path
 import sys
 
@@ -32,13 +33,31 @@ cwd = path.abspath(path.dirname(__file__))
 with open(path.join(cwd, 'README.md'), encoding='utf-8') as f:
   long_description = f.read()
 
-__version__ = '0.0.1dev18'
+description = 'High-performance TensorFlow library for quantitative finance.'
+
+major_version = '0'
+minor_version = '0'
+patch_version = '1'
+
+if '--nightly' in sys.argv:
+  # Run `python3 setup.py --nightly ...` to create a nightly build.
+  sys.argv.remove('--nightly')
+  project_name = 'tff-nightly'
+  release_suffix = datetime.datetime.utcnow().strftime('.dev%Y%m%d')
+else:
+  project_name = 'tf-quant-finance'
+  # The suffix should be replaced with 'aN', 'bN', or 'rcN' (note: no dots) for
+  # respective alpha releases, beta releases, and release candidates. And it
+  # should be cleared, i.e. set to '', for stable releases (c.f. PEP 440).
+  release_suffix = '.dev18'
+
+__version__ = '.'.join([major_version, minor_version, patch_version])
+if release_suffix:
+  __version__ += release_suffix
+
 REQUIRED_PACKAGES = [
     'attrs >= 18.2.0', 'tensorflow-probability >= 0.8.0', 'numpy >= 1.16.0'
 ]
-
-project_name = 'tf-quant-finance'
-description = 'High-performance TensorFlow library for quantitative finance.'
 
 
 class BinaryDistribution(Distribution):
