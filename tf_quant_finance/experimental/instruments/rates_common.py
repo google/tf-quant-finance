@@ -39,7 +39,7 @@ class AverageType(enum.Enum):
   COMPOUNDING = 1
 
   # Arthmatic average
-  ARITHMATIC_AVERAGE = 2
+  ARITHMETIC_AVERAGE = 2
 
 
 class DayCountConvention(enum.Enum):

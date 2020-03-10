@@ -9,10 +9,11 @@ py_library(
     ],
     srcs_version = "PY3",
     deps = [
-        "rates_common",
         ":eurodollar_futures",
         ":forward_rate_agreement",
+        ":overnight_index_linked_futures",
         ":rate_curve",
+        ":rates_common",
         # attr dep,
         # numpy dep,
         # tensorflow dep,
@@ -60,6 +61,20 @@ py_library(
 )
 
 py_library(
+    name = "overnight_index_linked_futures",
+    srcs = [
+        "overnight_index_linked_futures.py",
+    ],
+    srcs_version = "PY3",
+    deps = [
+        ":rates_common",
+        # attr dep,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
     name = "rate_curve",
     srcs = [
         "rate_curve.py",
@@ -91,6 +106,21 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["eurodollar_futures_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":instruments",
+        "//tf_quant_finance",
+        "//tf_quant_finance/experimental/dates",
+        # test util,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "overnight_index_linked_futures_test",
+    size = "small",
+    timeout = "moderate",
+    srcs = ["overnight_index_linked_futures_test.py"],
     python_version = "PY3",
     deps = [
         ":instruments",

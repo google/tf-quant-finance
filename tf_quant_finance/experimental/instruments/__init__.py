@@ -16,22 +16,27 @@
 
 from tf_quant_finance.experimental.instruments import eurodollar_futures
 from tf_quant_finance.experimental.instruments import forward_rate_agreement
+from tf_quant_finance.experimental.instruments import overnight_index_linked_futures
 from tf_quant_finance.experimental.instruments import rate_curve
 from tf_quant_finance.experimental.instruments import rates_common
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 EurodollarFutures = eurodollar_futures.EurodollarFutures
+OvernightIndexLinkedFutures = overnight_index_linked_futures.OvernightIndexLinkedFutures
 ForwardRateAgreement = forward_rate_agreement.ForwardRateAgreement
 RateCurve = rate_curve.RateCurve
 InterestRateMarket = rates_common.InterestRateMarket
 DayCountConvention = rates_common.DayCountConvention
+AverageType = rates_common.AverageType
 
 _allowed_symbols = [
     'EurodollarFutures',
     'ForwardRateAgreement',
+    'OvernightIndexLinkedFutures',
     'RateCurve',
     'InterestRateMarket',
     'DayCountConvention',
+    'AverageType',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
