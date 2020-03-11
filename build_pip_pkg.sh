@@ -21,10 +21,14 @@ PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 PIP_FILE_PREFIX="bazel-bin/build_pip_pkg.runfiles/tf_quant_finance/"
 
 function main() {
+  SETUP_FLAGS="--universal"
   while [[ ! -z "${1}" ]]; do
     if [[ ${1} == "make" ]]; then
       echo "Using Makefile to build pip package."
       PIP_FILE_PREFIX=""
+    elif [[ ${1} == "--nightly" ]]; then
+      echo "Building a nightly build."
+      SETUP_FLAGS="${SETUP_FLAGS} --nightly"
     else
       DEST=${1}
     fi
@@ -62,7 +66,7 @@ function main() {
   pushd ${TMPDIR}
   echo $(date) : "=== Building wheel"
 
-  python3 setup.py bdist_wheel --universal > /dev/null
+  python3 setup.py bdist_wheel ${SETUP_FLAGS} > /dev/null
 
   cp dist/*.whl "${DEST}"
   popd
