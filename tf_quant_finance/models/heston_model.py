@@ -33,7 +33,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
   Represents the Ito process:
 
   ```None
-    dX(t) = -V(t) / 2 * dt + sqrt(V(t)) * dW_{Y}(t),
+    dX(t) = -V(t) / 2 * dt + sqrt(V(t)) * dW_{X}(t),
     dV(t) = kappa(t) * (theta(t) - V(t)) * dt
             + epsilon(t) * sqrt(V(t)) * dW_{V}(t)
   ```
@@ -203,10 +203,9 @@ class HestonModel(generic_ito_process.GenericItoProcess):
 
     Returns:
       A `Tensor`s of shape [num_samples, k, 2] where `k` is the size
-      of the `times`, `n` is the dimension of the process. For each sample and
-      time the first dimension represents the simulated log-state trajectories
-      of the spot price `X(t)`, whereas the second one represents the simulated
-      variance trajectories `V(t)`.
+      of the `times`. For each sample and time the first dimension represents
+      the simulated log-state trajectories of the spot price `X(t)`, whereas the
+      second one represents the simulated variance trajectories `V(t)`.
 
     Raises:
       ValueError: If `time_step` is not supplied.
@@ -215,6 +214,8 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       [1]: Leif Andersen. Efficient Simulation of the Heston Stochastic
         Volatility Models. 2006.
     """
+    if random_type is None:
+      random_type = random.RandomType.PSEUDO
     if time_step is None:
       raise ValueError('`time_step` can not be `None` when calling '
                        'sample_paths of HestonModel.')
