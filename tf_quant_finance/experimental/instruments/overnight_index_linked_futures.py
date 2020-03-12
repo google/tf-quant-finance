@@ -187,8 +187,8 @@ class OvernightIndexLinkedFutures:
     with tf.name_scope(name):
       reference_curve = market.reference_curve
 
-      df1 = reference_curve.get_discount(self._accrual_start_dates)
-      df2 = reference_curve.get_discount(self._accrual_end_dates)
+      df1 = reference_curve.get_discount_factor(self._accrual_start_dates)
+      df2 = reference_curve.get_discount_factor(self._accrual_end_dates)
 
       fwd_rates = (df1 / df2 - 1.) / self._accrual_daycount
 

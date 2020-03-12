@@ -177,7 +177,8 @@ class ForwardRateAgreement:
     fwd_rate = reference_curve.get_forward_rate(self._accrual_start_date,
                                                 self._accrual_end_date,
                                                 self._daycount_fraction)
-    discount_at_settlement = discount_curve.get_discount(self._settlement_date)
+    discount_at_settlement = discount_curve.get_discount_factor(
+        self._settlement_date)
 
     return discount_at_settlement * self._notional * (
         fwd_rate - self._fixed_rate) * self._daycount_fraction / (

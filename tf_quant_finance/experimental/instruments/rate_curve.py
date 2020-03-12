@@ -93,7 +93,7 @@ class RateCurve(object):
     times = self._get_time(idates)
     return self._interpolator(times, self._times, self._rates)
 
-  def get_discount(self, interpolation_dates):
+  def get_discount_factor(self, interpolation_dates):
     """Returns discount factors at `interpolation_dates`."""
 
     idates = dates.convert_to_date_tensor(interpolation_dates)
@@ -119,8 +119,8 @@ class RateCurve(object):
       forward rate.
     """
 
-    dfstart = self.get_discount(start_date)
-    dfmaturity = self.get_discount(maturity_date)
+    dfstart = self.get_discount_factor(start_date)
+    dfmaturity = self.get_discount_factor(maturity_date)
     return (dfstart / dfmaturity - 1.) / daycount_fraction
 
   @property
