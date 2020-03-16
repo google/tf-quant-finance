@@ -84,7 +84,7 @@ def fwd_gradient(func, x, input_gradients=None, use_gradient_tape=False):
   """
   if not tf.executing_eagerly() and not use_gradient_tape:
     y = func(x)
-    w = tf.zeros_like(y)
+    w = tf.ones_like(y)
     g = tf.gradients(y, x, grad_ys=w)
     return tf.gradients(g, w, grad_ys=input_gradients)[0]
 
@@ -92,7 +92,7 @@ def fwd_gradient(func, x, input_gradients=None, use_gradient_tape=False):
     with tf.GradientTape() as inner_tape:
       inner_tape.watch(x)
       y = func(x)
-    w = tf.zeros_like(y)
+    w = tf.ones_like(y)
     outer_tape.watch(w)
     g = inner_tape.gradient(y, x, output_gradients=w)
   return outer_tape.gradient(g, w, output_gradients=input_gradients)
