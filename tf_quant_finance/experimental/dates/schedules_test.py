@@ -29,10 +29,9 @@ from tensorflow.python.framework import test_util  # pylint: disable=g-direct-te
 class SchedulesTest(tf.test.TestCase, parameterized.TestCase):
 
   @parameterized.named_parameters(
-      *test_data.schedule_with_fixed_range_test_cases)
-  def test_schedule_on_fixed_interval(self, start_dates, end_dates,
-                                      period_quantities, period_type, backward,
-                                      expected_schedule):
+      *test_data.periodic_schedule_test_cases)
+  def test_periodic_schedule(self, start_dates, end_dates, period_quantities,
+                             period_type, backward, expected_schedule):
     start_dates = dates.from_np_datetimes(_to_np_datetimes(start_dates))
     end_dates = dates.from_np_datetimes(_to_np_datetimes(end_dates))
     tenors = dates.periods.PeriodTensor(period_quantities, period_type)
@@ -40,14 +39,34 @@ class SchedulesTest(tf.test.TestCase, parameterized.TestCase):
     expected_schedule = dates.from_np_datetimes(
         _to_np_datetimes(expected_schedule))
     actual_schedule = dates.PeriodicSchedule(
-        start_dates,
-        end_dates,
-        tenors,
-        dates.HolidayCalendar(
+        start_date=start_dates,
+        end_date=end_dates,
+        tenor=tenors,
+        holiday_calendar=dates.HolidayCalendar(
             weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
             start_year=2020,
             end_year=2028),
         roll_convention=dates.BusinessDayConvention.MODIFIED_FOLLOWING,
+        backward=backward).dates()
+    self.assertAllEqual(expected_schedule.ordinal(), actual_schedule.ordinal())
+
+  @parameterized.named_parameters(*test_data.business_day_schedule_test_cases)
+  def test_business_day_schedule(self, start_dates, end_dates, holidays,
+                                 backward, expected_schedule):
+    start_dates = dates.from_np_datetimes(_to_np_datetimes(start_dates))
+    end_dates = dates.from_np_datetimes(_to_np_datetimes(end_dates))
+    holiday_calendar = dates.HolidayCalendar(
+        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
+        holidays=holidays,
+        start_year=2020,
+        end_year=2020)
+    backward = backward
+    expected_schedule = dates.from_np_datetimes(
+        _to_np_datetimes(expected_schedule))
+    actual_schedule = dates.BusinessDaySchedule(
+        start_date=start_dates,
+        end_date=end_dates,
+        holiday_calendar=holiday_calendar,
         backward=backward).dates()
     self.assertAllEqual(expected_schedule.ordinal(), actual_schedule.ordinal())
 

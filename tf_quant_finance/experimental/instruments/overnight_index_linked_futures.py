@@ -214,8 +214,9 @@ class OvernightIndexLinkedFutures:
     daycount_fractions = []
     for i in range(self._batch_size):
       instr_reset_dates = dates.PeriodicSchedule(
-          self._start_date[i] + self._rate_tenor, self._end_date[i],
-          self._rate_tenor,
+          start_date=self._start_date[i] + self._rate_tenor,
+          end_date=self._end_date[i],
+          tenor=self._rate_tenor,
           holiday_calendar=self._holiday_calendar,
           roll_convention=dates.BusinessDayConvention.FOLLOWING).dates()
 

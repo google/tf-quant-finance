@@ -416,7 +416,7 @@ def _to_np_roll_convention(convention):
 
 
 def _resolve_calendar_boundaries(holidays_np, start_year, end_year):
-  if holidays_np is None:
+  if holidays_np is None or holidays_np.size == 0:
     if start_year is None or end_year is None:
       raise ValueError("Please specify either holidays or both start_year and"
                        "end_year arguments")

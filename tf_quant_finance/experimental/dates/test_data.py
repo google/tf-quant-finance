@@ -536,7 +536,7 @@ days_between_data = [
 ]
 
 # Assumes calendar with only weekends and modified-following convention.
-schedule_with_fixed_range_test_cases = [
+periodic_schedule_test_cases = [
     {
         "testcase_name": "monthly_forward",
         "start_dates": [(2020, 1, 1)],
@@ -922,3 +922,74 @@ leap_days_between_dates_test_cases = [
         "expected": 24
     },
 ]
+
+business_day_schedule_test_cases = [
+    {
+        "testcase_name": "within_business_week",
+        "start_dates": [(2020, 3, 17)],
+        "end_dates": [(2020, 3, 20)],
+        "holidays": [],
+        "backward": False,
+        "expected_schedule": [[(2020, 3, 17), (2020, 3, 18), (2020, 3, 19),
+                               (2020, 3, 20)]]
+    },
+    {
+        "testcase_name": "across_weekend",
+        "start_dates": [(2020, 3, 17)],
+        "end_dates": [(2020, 3, 24)],
+        "holidays": [],
+        "backward": False,
+        "expected_schedule": [[(2020, 3, 17), (2020, 3, 18), (2020, 3, 19),
+                               (2020, 3, 20), (2020, 3, 23), (2020, 3, 24)]]
+    },
+    {
+        "testcase_name": "across_holidays",
+        "start_dates": [(2020, 3, 17)],
+        "end_dates": [(2020, 3, 24)],
+        "holidays": [(2020, 3, 18), (2020, 3, 20)],
+        "backward": False,
+        "expected_schedule": [[(2020, 3, 17), (2020, 3, 19),
+                               (2020, 3, 23), (2020, 3, 24)]]
+    },
+    {
+        "testcase_name": "ending_on_weekend",
+        "start_dates": [(2020, 3, 17)],
+        "end_dates": [(2020, 3, 22)],
+        "holidays": [],
+        "backward": False,
+        "expected_schedule": [[(2020, 3, 17), (2020, 3, 18), (2020, 3, 19),
+                               (2020, 3, 20)]]
+    },
+    {
+        "testcase_name": "starting_on_weekend",
+        "start_dates": [(2020, 3, 14)],
+        "end_dates": [(2020, 3, 19)],
+        "holidays": [],
+        "backward": False,
+        "expected_schedule": [[(2020, 3, 16), (2020, 3, 17), (2020, 3, 18),
+                               (2020, 3, 19)]]
+    },
+    {
+        "testcase_name": "batch_forward",
+        "start_dates": [(2020, 3, 17), (2020, 3, 14)],
+        "end_dates": [(2020, 3, 24), (2020, 3, 19)],
+        "holidays": [],
+        "backward": False,
+        "expected_schedule": [[(2020, 3, 17), (2020, 3, 18), (2020, 3, 19),
+                               (2020, 3, 20), (2020, 3, 23), (2020, 3, 24)],
+                              [(2020, 3, 16), (2020, 3, 17), (2020, 3, 18),
+                               (2020, 3, 19), (2020, 3, 19), (2020, 3, 19)]]
+    },
+    {
+        "testcase_name": "batch_backward",
+        "start_dates": [(2020, 3, 17), (2020, 3, 14)],
+        "end_dates": [(2020, 3, 24), (2020, 3, 19)],
+        "holidays": [],
+        "backward": True,
+        "expected_schedule": [[(2020, 3, 17), (2020, 3, 18), (2020, 3, 19),
+                               (2020, 3, 20), (2020, 3, 23), (2020, 3, 24)],
+                              [(2020, 3, 16), (2020, 3, 16), (2020, 3, 16),
+                               (2020, 3, 17), (2020, 3, 18), (2020, 3, 19)]]
+    },
+]
+
