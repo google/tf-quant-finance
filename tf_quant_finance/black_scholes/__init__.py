@@ -14,6 +14,7 @@
 # limitations under the License.
 """TensorFlow Quantitative Finance volatility surfaces and vanilla options."""
 
+from tf_quant_finance.black_scholes import approximations
 from tf_quant_finance.black_scholes import crr_binomial_tree
 from tf_quant_finance.black_scholes import vanilla_prices
 from tf_quant_finance.black_scholes.implied_vol_approximation import implied_vol as implied_vol_approx
@@ -28,6 +29,7 @@ option_price = vanilla_prices.option_price
 option_price_binomial = crr_binomial_tree.option_price_binomial
 
 _allowed_symbols = [
+    'approximations',
     'binary_price',
     'implied_vol',
     'implied_vol_approx',
