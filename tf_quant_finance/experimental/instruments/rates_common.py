@@ -31,8 +31,56 @@ InterestRateMarket = collections.namedtuple(
         'discount_curve'
     ])
 
+# TODO(b/151954834): Change to `attrs` or `dataclasses`
+FixedCouponSpecs = collections.namedtuple(
+    'FixedCouponSpecs',
+    [
+        # Scalar of type `dates.PeriodTensor` specifying the frequency of
+        # the cashflow payments
+        'coupon_frequency',
+        # String specifying the currency of cashflows
+        'currency',
+        # Scalar of real dtype specifying the notional for the payments
+        'notional',
+        # Scalar of real dtype specifying the coupon rate
+        'coupon_rate',
+        # Scalar of type `DayCountConvention` specifying the applicable
+        # daycount convention
+        'daycount_convention',
+        # Scalar of type `BusinessDayConvention` specifying how dates are rolled
+        # if they fall on holidays
+        'businessday_rule'
+    ])
 
-# TODO(b/149644030): Use daycounts.py for this.
+FloatCouponSpecs = collections.namedtuple(
+    'FloatCouponSpecs',
+    [
+        # Scalar of type `dates.PeriodTensor` specifying the frequency of
+        # the cashflow payments
+        'coupon_frequency',
+        # Scalar of type `dates.PeriodTensor` specifying the term of the
+        # underlying rate which determines the coupon payment
+        'reference_rate_term',
+        # Scalar of type `dates.PeriodTensor` specifying the frequency with
+        # which the underlying rate resets
+        'reset_frequency',
+        # String specifying the currency of cashflows
+        'currency',
+        # Scalar of real dtype specifying the notional for the payments
+        'notional',
+        # Scalar of type `DayCountConvention` specifying the daycount
+        # convention of the underlying rate
+        'daycount_convention',
+        # Scalar of type `BusinessDayConvention` specifying how dates are rolled
+        # if they fall on holidays
+        'businessday_rule',
+        # Scalar of real dtype
+        'coupon_basis',
+        # Scalar of real dtype
+        'coupon_multiplier'
+    ])
+
+
 class AverageType(enum.Enum):
   """Averaging types."""
   # Componded rate
@@ -58,8 +106,9 @@ def elapsed_time(date_1, date_2, dtype):
       days_in_year)
 
 
+# TODO(b/149644030): Use daycounts.py for this.
 def get_daycount_fraction(date_start, date_end, convention, dtype):
-  """Return the day count fraction between two dates using the input convention."""
+  """Return the day count fraction between two dates."""
   if convention == DayCountConvention.ACTUAL_365:
     return dates.daycounts.actual_365_fixed(
         start_date=date_start, end_date=date_end, dtype=dtype)

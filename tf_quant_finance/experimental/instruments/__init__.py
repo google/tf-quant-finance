@@ -14,8 +14,10 @@
 # limitations under the License.
 """Instruments."""
 
+from tf_quant_finance.experimental.instruments import cashflow_stream
 from tf_quant_finance.experimental.instruments import eurodollar_futures
 from tf_quant_finance.experimental.instruments import forward_rate_agreement
+from tf_quant_finance.experimental.instruments import interest_rate_swap
 from tf_quant_finance.experimental.instruments import overnight_index_linked_futures
 from tf_quant_finance.experimental.instruments import rate_curve
 from tf_quant_finance.experimental.instruments import rates_common
@@ -27,6 +29,11 @@ ForwardRateAgreement = forward_rate_agreement.ForwardRateAgreement
 RateCurve = rate_curve.RateCurve
 InterestRateMarket = rates_common.InterestRateMarket
 DayCountConvention = rates_common.DayCountConvention
+FixedCashflowStream = cashflow_stream.FixedCashflowStream
+FloatingCashflowStream = cashflow_stream.FloatingCashflowStream
+InterestRateSwap = interest_rate_swap.InterestRateSwap
+FixedCouponSpecs = rates_common.FixedCouponSpecs
+FloatCouponSpecs = rates_common.FloatCouponSpecs
 AverageType = rates_common.AverageType
 
 _allowed_symbols = [
@@ -36,6 +43,11 @@ _allowed_symbols = [
     'RateCurve',
     'InterestRateMarket',
     'DayCountConvention',
+    'FixedCashflowStream',
+    'FloatingCashflowStream',
+    'InterestRateSwap',
+    'FixedCouponSpecs',
+    'FloatCouponSpecs',
     'AverageType',
 ]
 
