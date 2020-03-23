@@ -10,6 +10,7 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":lsm",
+        ":lsm_v2",
         ":payoff",
     ],
 )
@@ -36,6 +37,33 @@ py_test(
         # test util,
         # numpy dep,
         # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "lsm_v2",
+    srcs = ["lsm_v2.py"],
+    srcs_version = "PY3",
+    deps = [
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "lsm_v2_test",
+    size = "medium",
+    timeout = "moderate",
+    srcs = ["lsm_v2_test.py"],
+    python_version = "PY3",
+    shard_count = 6,
+    deps = [
+        ":payoff",
+        "//tf_quant_finance",
+        # test util,
+        # absl/testing:parameterized dep,
+        # numpy dep,
+        # tensorflow dep,
+        # xla_cpu_jit xla dep,
     ],
 )
 

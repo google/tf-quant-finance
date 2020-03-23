@@ -17,14 +17,18 @@
 
 from tf_quant_finance.experimental.lsm_algorithm.lsm import least_square_mc
 from tf_quant_finance.experimental.lsm_algorithm.lsm import make_polynomial_basis
+from tf_quant_finance.experimental.lsm_algorithm.lsm_v2 import least_square_mc as least_square_mc_v2
+from tf_quant_finance.experimental.lsm_algorithm.lsm_v2 import make_polynomial_basis as make_polynomial_basis_v2
 from tf_quant_finance.experimental.lsm_algorithm.payoff import make_basket_put_payoff
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
-    'least_square_mc',
-    'make_basket_put_payoff',
-    'make_polynomial_basis',
+    "least_square_mc",
+    "least_square_mc_v2",
+    "make_basket_put_payoff",
+    "make_polynomial_basis",
+    "make_polynomial_basis_v2",
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

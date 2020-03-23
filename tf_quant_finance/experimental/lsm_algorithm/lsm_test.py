@@ -83,9 +83,9 @@ class LsmTest(tf.test.TestCase):
       cashflow = tf.expand_dims(
           tf.concat([tf.ones_like(a), -tf.ones_like(a)], axis=0), -1)
 
-      eexpected_exercise = lsm.expected_exercise_fn(
+      expected_exercise = lsm.expected_exercise_fn(
           design, cashflow, exercise_now)
-      self.assertAllClose(eexpected_exercise, tf.ones_like(cashflow))
+      self.assertAllClose(expected_exercise, tf.ones_like(cashflow))
 
   def test_european_option_put(self):
     """Tests that LSM price of European put option is computed as expected."""

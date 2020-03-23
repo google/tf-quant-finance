@@ -14,6 +14,7 @@
 # limitations under the License.
 """Payoff functions."""
 
+import functools
 import tensorflow.compat.v2 as tf
 
 
@@ -25,27 +26,60 @@ def make_basket_put_payoff(strike_price, dtype=None, name=None):
       `[num_samples, num_strikes]`.
     dtype: Optional `dtype`. Either `tf.float32` or `tf.float64`. The `dtype`
       If supplied, represents the `dtype` for the 'strike_price' as well as
-      for the input argument of the ouput payoff callable.
+      for the input argument of the output payoff callable.
       Default value: `None`, which means that the `dtype` inferred by TensorFlow
       is used.
     name: Python `str` name prefixed to Ops created by the callable created
       by this function.
       Default value: `None` which is mapped to the default name 'put_valuer'
+
   Returns:
     A callable from `Tensor` of shape `[num_samples, num_exercise_times, dim]`
     and a scalar `Tensor` representing current time to a `Tensor` of shape
     `[num_samples, num_strikes]`.
   """
   strike_price = tf.convert_to_tensor(strike_price, dtype=dtype,
-                                      name='strike_price')
-  def put_valuer(sample_paths, time_index):
-    with tf.compat.v1.name_scope(name, default_name='put_valuer',
-                                 values=[sample_paths, strike_price]):
-      sample_paths = tf.convert_to_tensor(sample_paths, dtype=dtype,
-                                          name='sample_paths')
-      average = tf.math.reduce_mean(sample_paths[:, time_index, :],
-                                    axis=-1,
-                                    keepdims=True)
-      return tf.nn.relu(strike_price - average)
+                                      name="strike_price")
+  put_valuer = functools.partial(_put_valuer, strike_price=strike_price,
+                                 dtype=dtype, name=name)
 
   return put_valuer
+
+
+def _put_valuer(sample_paths, time_index, strike_price, dtype=None, name=None):
+  """Produces a callable from samples to payoff of a simple basket put option.
+
+  Args:
+    sample_paths: A `Tensor` of either `flaot32` or `float64` dtype and of
+      shape `[num_samples, num_times, dim]`.
+    time_index: An integer scalar `Tensor` that corresponds to the time
+      coordinate at which the basis function is computed.
+    strike_price: A `Tensor` of the same `dtype` as `sample_paths` and shape
+      `[num_samples, num_strikes]`.
+    dtype: Optional `dtype`. Either `tf.float32` or `tf.float64`. The `dtype`
+      If supplied, represents the `dtype` for the 'strike_price' as well as
+      for the input argument of the output payoff callable.
+      Default value: `None`, which means that the `dtype` inferred by TensorFlow
+      is used.
+    name: Python `str` name prefixed to Ops created by the callable created
+      by this function.
+      Default value: `None` which is mapped to the default name 'put_valuer'
+
+  Returns:
+    A callable from `Tensor` of shape `[num_samples, num_exercise_times, dim]`
+    and a scalar `Tensor` representing current time to a `Tensor` of shape
+    `[num_samples, num_strikes]`.
+  """
+  name = name or "put_valuer"
+  with tf.name_scope(name):
+    strike_price = tf.convert_to_tensor(strike_price, dtype=dtype,
+                                        name="strike_price")
+    sample_paths = tf.convert_to_tensor(sample_paths, dtype=dtype,
+                                        name="sample_paths")
+    num_samples, _, dim = sample_paths.shape.as_list()
+
+    slice_sample_paths = tf.slice(sample_paths, [0, time_index, 0],
+                                  [num_samples, 1, dim])
+    slice_sample_paths = tf.squeeze(slice_sample_paths, 1)
+    average = tf.math.reduce_mean(slice_sample_paths, axis=-1, keepdims=True)
+    return tf.nn.relu(strike_price - average)
