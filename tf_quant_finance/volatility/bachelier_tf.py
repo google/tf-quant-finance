@@ -1,8 +1,7 @@
 """
-""
 Created on Fri Nov 22 15:22:13 2019
 
-'Copyright 2020 Joerg Kienitz
+# Copyright 2020 Joerg Kienitz
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,7 +50,8 @@ def bachelier_option_price(spots,
     for the underlying
        
   ## References:
-  [1] Kienitz, J. "Interest Rate Derivatives Explained I", Plagrave McMillan (2014) p.119
+  [1] Kienitz, J. "Interest Rate Derivatives Explained I", Palgrave McMillan (2014) p.119
+      Link: https://www.palgrave.com/gp/book/9781137360069
   [2] Terakado, Satoshi: On the Option Pricing Formula Based on the Bachelier Model
       Link: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3428994
     
@@ -115,9 +115,9 @@ def bachelier_option_price(spots,
         
         if (discount_rates != None and discount_factors == None):
             rates = tf.convert_to_tensor(discount_rates, tf.float64, name='rates')
-            df = tf.math.exp(-rates*expiries)
+            df = tf.math.exp(-rates * expiries)
         elif (discount_factors != None and discount_rates == None):
-            rates = -tf.math.log(tf.convert_to_tensor(discount_rates, tf.float64, name='rates'))/expiries
+            rates = -tf.math.log(tf.convert_to_tensor(discount_rates, tf.float64, name='rates')) / expiries
             df = discount_factors
         else:
             rates = 0.0
@@ -132,20 +132,20 @@ def bachelier_option_price(spots,
         vt = volatilities * tf.math.sqrt(expiries)
         
         z = tf.where(rates == 0., (spots - strikes)/vt, 
-                     (spots-strikes*df)/(volatilities 
-                      * tf.math.sqrt(0.5*(1.-tf.math.exp(-2.*rates*expiries))/rates)))
+                     (spots - strikes * df) / (volatilities 
+                      * tf.math.sqrt(0.5 * (1.-tf.math.exp(-2. * rates*expiries)) / rates)))
                  
         n1 = _ncdf(z)
         n2 = _npdf(z)
         calls = tf.where(rates==0., (spots - strikes) * n1 + vt * n2,
-                         (spots - strikes*df)*n1 
-                         + volatilities*tf.math.sqrt(0.5*(1-tf.math.exp(-2*rates*expiries))/rates))
+                         (spots - strikes * df) * n1 
+                         + volatilities * tf.math.sqrt(0.5 * (1 - tf.math.exp(-2 * rates * expiries)) / rates))
                          
             
         if is_call_options is None:
             return calls
         
-        puts = calls - spots + strikes * tf.math.exp(-rates*expiries)
+        puts = calls - spots + strikes * tf.math.exp(-rates * expiries)
         
         return tf.where(is_call_options, calls, puts)
     
@@ -224,6 +224,7 @@ def dawson_option_price(forwards,
         volatilities = tf.convert_to_tensor(volatilities, dtype=tf.float64, name='volatilities')
         expiries = tf.convert_to_tensor(expiries, dtype=tf.float64, name='expiries')
         
+        # check if discount rates or discount factor version is used
         if (discount_rates != None and discount_factors != None):
              raise ValueError('Either discount rates or discount factors have to be used.')
         
@@ -235,20 +236,21 @@ def dawson_option_price(forwards,
             discount_factors = tf.convert_to_tensor(discount_factors, dtype=tf.float64, name='discount_factors')   
               
         vt = volatilities * tf.math.sqrt(expiries)
-        #normal = tfp.distributions.Normal(
-        #    loc=tf.zeros([], dtype=forwards.dtype), scale=1)
         
         z = (forwards - strikes) / vt
-                 
+        
+        # calculate constituents of Bachelier formula         
         n1 = _ncdf(z)
         n2 = _npdf(z)
-        undiscounted_calls = (forwards-strikes) * n1 + vt * n2
-                         
+        undiscounted_calls = (forwards - strikes) * n1 + vt * n2   # Bachelier option price
+        
+        # check if calls or puts need to be considered                 
         if is_call_options is None:
             return discount_factors * undiscounted_calls
         undiscounted_forward = forwards - strikes
         undiscounted_puts = undiscounted_calls - undiscounted_forward
         
+        # return call, resp. put prices
         return discount_factors * tf.where(is_call_options, undiscounted_calls,
                                        undiscounted_puts)
     
