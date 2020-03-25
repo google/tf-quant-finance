@@ -28,8 +28,11 @@ InterestRateMarket = collections.namedtuple(
         # expectation of Libor rate.
         'reference_curve',
         # Instance of class RateCurve. The curve used for discounting cashflows.
-        'discount_curve'
+        'discount_curve',
+        # Scalar of real dtype containing the past fixing of libor rate
+        'libor_rate'
     ])
+InterestRateMarket.__new__.__defaults__ = (None, None, None)
 
 # TODO(b/151954834): Change to `attrs` or `dataclasses`
 FixedCouponSpecs = collections.namedtuple(
@@ -99,6 +102,11 @@ class DayCountConvention(enum.Enum):
   ACTUAL_365 = 2
 
 
+class RateIndexType(enum.Enum):
+  """Interest rate indexes."""
+  LIBOR = 1
+
+
 def elapsed_time(date_1, date_2, dtype):
   """Computes elapsed time between two date tensors."""
   days_in_year = 365.
@@ -117,3 +125,14 @@ def get_daycount_fraction(date_start, date_end, convention, dtype):
         start_date=date_start, end_date=date_end, dtype=dtype)
   else:
     raise ValueError('Daycount convention not implemented.')
+
+
+def get_rate_index(market,
+                   valuation_date,
+                   rate_type=None,
+                   currency=None,
+                   dtype=None):
+  """Return the relevant rate from the market data."""
+  del rate_type, currency
+  rate = market.libor_rate or tf.zeros(valuation_date.shape, dtype=dtype)
+  return rate

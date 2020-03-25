@@ -119,14 +119,17 @@ class FixedCashflowStream:
       based on the input market data.
     """
 
-    del valuation_date, model
+    del model
     name = name or (self._name + '_price')
     with tf.name_scope(name):
       discount_curve = market.discount_curve
       discount_factors = discount_curve.get_discount_factor(
           self._payment_dates)
+      future_cashflows = tf.cast(self._payment_dates >= valuation_date,
+                                 dtype=self._dtype)
       cashflow_pvs = self._notional * (
-          self._daycount_fractions * self._coupon_rate * discount_factors)
+          future_cashflows * self._daycount_fractions * self._coupon_rate *
+          discount_factors)
       return tf.math.segment_sum(cashflow_pvs, self._contract_index)
 
   @property
@@ -174,7 +177,7 @@ class FixedCashflowStream:
     contract_index = tf.repeat(tf.range(0, len(coupon_spec)),
                                notional.shape.as_list()[-1])
 
-    self._payment_dates = dates.DateTensor.reshape(payment_dates, [-1])
+    self._payment_dates = payment_dates.reshape([-1])
     self._notional = tf.reshape(notional, [-1])
     self._daycount_fractions = tf.reshape(daycount_fractions, [-1])
     self._coupon_rate = tf.reshape(coupon_rate, [-1])
@@ -284,11 +287,16 @@ class FloatingCashflowStream:
       contract based on the input market data.
     """
 
-    del valuation_date, model
+    del model
     name = name or (self._name + '_price')
     with tf.name_scope(name):
       discount_curve = market.discount_curve
       reference_curve = market.reference_curve
+      libor_rate = rc.get_rate_index(market, self._start_date,
+                                     rc.RateIndexType.LIBOR,
+                                     dtype=self._dtype)
+      libor_rate = tf.repeat(tf.convert_to_tensor(
+          libor_rate, dtype=self._dtype), self._num_cashflows)
 
       discount_factors = discount_curve.get_discount_factor(self._payment_dates)
       forward_rates = reference_curve.get_forward_rate(self._accrual_start_date,
@@ -297,6 +305,15 @@ class FloatingCashflowStream:
 
       forward_rates = tf.where(self._daycount_fractions > 0., forward_rates,
                                tf.zeros_like(forward_rates))
+      # If coupon end date is before the valuation date, the payment is in the
+      # past. If valuation date is between coupon start date and coupon end
+      # date, then the rate has been fixed but not paid. Otherwise the rate is
+      # not fixed and should be read from the curve.
+      forward_rates = tf.where(
+          self._coupon_end_dates < valuation_date,
+          tf.constant(0., dtype=self._dtype),
+          tf.where(self._coupon_start_dates < valuation_date,
+                   libor_rate, forward_rates))
 
       coupon_rate = self._coupon_multiplier * (
           forward_rates + self._coupon_basis)
@@ -323,6 +340,8 @@ class FloatingCashflowStream:
                                   -1] + dates.periods.PeriodTensor.expand_dims(
                                       ref_term, axis=-1).broadcast_to(
                                           accrual_start_dates.shape)
+    coupon_start_dates = cpn_dates[:, :-1]
+    coupon_end_dates = cpn_dates[:, 1:]
     payment_dates = cpn_dates[:, 1:]
 
     daycount_fractions = rc.get_daycount_fraction(
@@ -348,10 +367,12 @@ class FloatingCashflowStream:
         tf.range(0, len(coupon_spec)),
         payment_dates.shape.as_list()[-1])
 
-    self._payment_dates = dates.DateTensor.reshape(payment_dates, [-1])
-    self._accrual_start_date = dates.DateTensor.reshape(accrual_start_dates,
-                                                        [-1])
-    self._accrual_end_date = dates.DateTensor.reshape(accrual_end_dates, [-1])
+    self._num_cashflows = daycount_fractions.shape.as_list()[-1]
+    self._coupon_start_dates = coupon_start_dates.reshape([-1])
+    self._coupon_end_dates = coupon_end_dates.reshape([-1])
+    self._payment_dates = payment_dates.reshape([-1])
+    self._accrual_start_date = accrual_start_dates.reshape([-1])
+    self._accrual_end_date = accrual_end_dates.reshape([-1])
     self._notional = notional
     self._daycount_fractions = tf.reshape(daycount_fractions, [-1])
     self._coupon_basis = coupon_basis
