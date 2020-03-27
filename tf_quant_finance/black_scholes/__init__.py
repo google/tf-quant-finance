@@ -15,6 +15,7 @@
 """TensorFlow Quantitative Finance volatility surfaces and vanilla options."""
 
 from tf_quant_finance.black_scholes import approximations
+from tf_quant_finance.black_scholes import brownian_bridge
 from tf_quant_finance.black_scholes import crr_binomial_tree
 from tf_quant_finance.black_scholes import vanilla_prices
 from tf_quant_finance.black_scholes.implied_vol_approximation import implied_vol as implied_vol_approx
@@ -25,12 +26,16 @@ from tf_quant_finance.black_scholes.implied_vol_newton_root import implied_vol a
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 binary_price = vanilla_prices.binary_price
+brownian_bridge_single = brownian_bridge.brownian_bridge_single
+brownian_bridge_double = brownian_bridge.brownian_bridge_double
 option_price = vanilla_prices.option_price
 option_price_binomial = crr_binomial_tree.option_price_binomial
 
 _allowed_symbols = [
     'approximations',
     'binary_price',
+    'brownian_bridge_single',
+    'brownian_bridge_double',
     'implied_vol',
     'implied_vol_approx',
     'implied_vol_newton',

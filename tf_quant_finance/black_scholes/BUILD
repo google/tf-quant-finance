@@ -44,6 +44,27 @@ py_test(
 )
 
 py_library(
+    name = "brownian_bridge",
+    srcs = ["brownian_bridge.py"],
+    srcs_version = "PY3",
+    deps = [
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "brownian_bridge_test",
+    srcs = ["brownian_bridge_test.py"],
+    python_version = "PY3",
+    deps = [
+        "//tf_quant_finance",
+        # test util,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
     name = "crr_binomial_tree",
     srcs = ["crr_binomial_tree.py"],
     srcs_version = "PY3",
