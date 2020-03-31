@@ -101,6 +101,9 @@ class DayCountConvention(enum.Enum):
   # Acutal/365 day count basis
   ACTUAL_365 = 2
 
+  # 30/360 ISDA day count basis
+  THIRTY_360_ISDA = 3
+
 
 class RateIndexType(enum.Enum):
   """Interest rate indexes."""
@@ -122,6 +125,9 @@ def get_daycount_fraction(date_start, date_end, convention, dtype):
         start_date=date_start, end_date=date_end, dtype=dtype)
   elif convention == DayCountConvention.ACTUAL_360:
     return dates.daycounts.actual_360(
+        start_date=date_start, end_date=date_end, dtype=dtype)
+  elif convention == DayCountConvention.THIRTY_360_ISDA:
+    return dates.daycounts.thirty_360_isda(
         start_date=date_start, end_date=date_end, dtype=dtype)
   else:
     raise ValueError('Daycount convention not implemented.')

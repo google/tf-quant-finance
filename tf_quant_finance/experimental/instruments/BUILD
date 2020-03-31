@@ -9,6 +9,7 @@ py_library(
     ],
     srcs_version = "PY3",
     deps = [
+        ":bond",
         ":cashflow_stream",
         ":eurodollar_futures",
         ":forward_rate_agreement",
@@ -181,6 +182,35 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["cashflow_stream_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":instruments",
+        "//tf_quant_finance",
+        "//tf_quant_finance/experimental/dates",
+        # test util,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "bond",
+    srcs = [
+        "bond.py",
+    ],
+    srcs_version = "PY3",
+    deps = [
+        ":cashflow_stream",
+        # attr dep,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "bond_test",
+    size = "small",
+    timeout = "moderate",
+    srcs = ["bond_test.py"],
     python_version = "PY3",
     deps = [
         ":instruments",

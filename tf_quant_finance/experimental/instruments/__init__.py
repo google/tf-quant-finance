@@ -14,6 +14,7 @@
 # limitations under the License.
 """Instruments."""
 
+from tf_quant_finance.experimental.instruments import bond
 from tf_quant_finance.experimental.instruments import cashflow_stream
 from tf_quant_finance.experimental.instruments import eurodollar_futures
 from tf_quant_finance.experimental.instruments import forward_rate_agreement
@@ -23,6 +24,7 @@ from tf_quant_finance.experimental.instruments import rate_curve
 from tf_quant_finance.experimental.instruments import rates_common
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
+Bond = bond.Bond
 EurodollarFutures = eurodollar_futures.EurodollarFutures
 OvernightIndexLinkedFutures = overnight_index_linked_futures.OvernightIndexLinkedFutures
 ForwardRateAgreement = forward_rate_agreement.ForwardRateAgreement
@@ -37,6 +39,7 @@ FloatCouponSpecs = rates_common.FloatCouponSpecs
 AverageType = rates_common.AverageType
 
 _allowed_symbols = [
+    'Bond',
     'EurodollarFutures',
     'ForwardRateAgreement',
     'OvernightIndexLinkedFutures',
