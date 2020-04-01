@@ -10,6 +10,7 @@ py_library(
     deps = [
         ":euler_sampling",
         ":generic_ito_process",
+        ":geometric_brownian_motion",
         ":heston_model",
         ":ito_process",
         ":joined_ito_process",
@@ -73,6 +74,35 @@ py_test(
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "geometric_brownian_motion",
+    srcs = ["geometric_brownian_motion.py"],
+    deps = [
+        ":ito_process",
+        ":utils",
+        "//tf_quant_finance/math/pde",
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "geometric_brownian_motion_test",
+    size = "medium",
+    timeout = "moderate",
+    srcs = ["geometric_brownian_motion_test.py"],
+    python_version = "PY3",
+    shard_count = 4,
+    deps = [
+        ":geometric_brownian_motion",
+        "//tf_quant_finance",
+        # test util,
+        # absl/testing:parameterized dep,
+        # numpy dep,
+        # tensorflow dep,
+        # xla_cpu_jit xla dep,
     ],
 )
 
