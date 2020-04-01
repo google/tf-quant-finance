@@ -82,6 +82,7 @@ py_test(
     size = "small",
     srcs = ["gradient_test.py"],
     python_version = "PY3",
+    shard_count = 4,
     deps = [
         ":math",
         # test util,

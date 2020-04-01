@@ -21,7 +21,8 @@ import tensorflow.compat.v2 as tf
 from tensorflow_probability.python.math import value_and_gradient
 
 
-def fwd_gradient(func, x, input_gradients=None, use_gradient_tape=False):
+def fwd_gradient(func_or_y, x, input_gradients=None, use_gradient_tape=False,
+                 name=None):
   """Computes forward mode gradient.
 
   Implementation based on suggestions in
@@ -69,8 +70,11 @@ def fwd_gradient(func, x, input_gradients=None, use_gradient_tape=False):
   ```
 
   Args:
-    func: A Python callable accepting one `Tensor` of shape of `x` and returning
-      a `Tensor` of any shape. The function whose gradient is to be computed.
+    func_or_y: Either a `Tensor` conencted to the input `x` or a Python callable
+      accepting one `Tensor` of shape of `x` and returning a `Tensor` of any
+      shape. The function whose gradient is to be computed. If eagerly
+      executing, can only be a callable, i.e., one should not supply a Tensor
+      in eager mode.
     x: A `Tensor` with respect to which the gradient is to be computed.
     input_gradients: A `Tensor` of the same shape as `x`. The direction along
       which the directional derivative is to be computed.
@@ -78,31 +82,46 @@ def fwd_gradient(func, x, input_gradients=None, use_gradient_tape=False):
     use_gradient_tape: Optional Python bool. Whether to use gradient tape even
       when eager mode is not turned on.
       Defaule value: `False`.
+    name: Python `str` name prefixed to ops created by this function.
+      Default value: `None` (i.e., 'gradients').
 
   Returns:
     A `Tensor` of the same shape as `func(x)`.
+
+  Raises:
+    ValueError: If `func_or_y` is not a callable and the output is eagerly
+      executed or when the `tf.GradientTape` is used.
   """
-  if not tf.executing_eagerly() and not use_gradient_tape:
-    y = func(x)
-    w = tf.ones_like(y)
-    g = tf.gradients(y, x, grad_ys=w)
-    return tf.gradients(g, w, grad_ys=input_gradients)[0]
+  with tf.name_scope(name or "gradients"):
+    f = _prepare_func(func_or_y)
+    if not tf.executing_eagerly() and not use_gradient_tape:
+      y = f(x)
+      w = tf.ones_like(y)
+      g = tf.gradients(y, x, grad_ys=w)
+      return tf.gradients(g, w, grad_ys=input_gradients)[0]
+    if not callable(func_or_y):
+      raise ValueError("`func_or_y` should be a callable in eager mode or when "
+                       "`tf.GradientTape` is used.")
+    with tf.GradientTape() as outer_tape:
+      with tf.GradientTape() as inner_tape:
+        inner_tape.watch(x)
+        y = f(x)
+      w = tf.ones_like(y)
+      outer_tape.watch(w)
+      g = inner_tape.gradient(y, x, output_gradients=w)
+    return outer_tape.gradient(g, w, output_gradients=input_gradients)
 
-  with tf.GradientTape() as outer_tape:
-    with tf.GradientTape() as inner_tape:
-      inner_tape.watch(x)
-      y = func(x)
-    w = tf.ones_like(y)
-    outer_tape.watch(w)
-    g = inner_tape.gradient(y, x, output_gradients=w)
-  return outer_tape.gradient(g, w, output_gradients=input_gradients)
 
-
-def gradients(f, xs, output_gradients=None, use_gradient_tape=False, name=None):
-  """Computes the gradients of `f` wrt to `*xs`.
+def gradients(func_or_y, xs, output_gradients=None, use_gradient_tape=False,
+              name=None):
+  """Computes the gradients of `func_or_y` wrt to `*xs`.
 
   Args:
-    f: Python `callable` to be differentiated.
+   func_or_y: Either a `Tensor` conencted to the input `x` or a Python callable
+      accepting one `Tensor` of shape of `x` and returning a `Tensor` of any
+      shape. The function whose gradient is to be computed. If eagerly
+      executing, can only be a callable, i.e., one should not supply a Tensor
+      in eager mode.
     xs: Python list of parameters of `f` for which to differentiate. (Can also
       be single `Tensor`.)
     output_gradients: A `Tensor` or list of `Tensor`s the same size as the
@@ -115,14 +134,28 @@ def gradients(f, xs, output_gradients=None, use_gradient_tape=False, name=None):
       used regardless of `tf.executing_eagerly()` status.
       Default value: `False`.
     name: Python `str` name prefixed to ops created by this function.
-      Default value: `None` (i.e., `'gradients'`).
+      Default value: `None` (i.e., 'gradients').
 
   Returns:
-    A `Tensor` with the gradient of `y` wrt each of `xs`.
+    A `Tensor` with the gradient of `y` wrt each of `xs` or a list of `Tensor`s
+    if `xs` is a list.
   """
+  f = _prepare_func(func_or_y)
+  if not tf.executing_eagerly() and not use_gradient_tape:
+    with tf.name_scope(name or "gradients"):
+      xs, is_xs_list_like = _prepare_args(xs)
+      y = f(*xs)
+      grad = tf.gradients(y, xs, grad_ys=output_gradients)
+      if is_xs_list_like:
+        return grad
+      else:
+        return grad[0]
+  if not callable(func_or_y):
+    raise ValueError("`func_or_y` should be a callable in eager mode or when "
+                     "`tf.GradientTape` is used.")
   _, grad = value_and_gradient(
       f, xs, output_gradients=output_gradients,
-      use_gradient_tape=use_gradient_tape, name=name or 'gradients')
+      use_gradient_tape=use_gradient_tape, name=name or "gradients")
   return grad
 
 
@@ -155,3 +188,19 @@ def make_val_and_grad_fn(value_fn):
     return value_and_gradient(value_fn, x)
 
   return val_and_grad
+
+
+def _prepare_func(func_or_y):
+  """Creates a function out of the input callable or `Tensor`."""
+  if callable(func_or_y):
+    return func_or_y
+  else:
+    return lambda *args: func_or_y
+
+
+def _prepare_args(xs):
+  """Converst `xs` to a list if necessary."""
+  if isinstance(xs, (list, tuple)):
+    return xs, True
+  else:
+    return [xs], False
