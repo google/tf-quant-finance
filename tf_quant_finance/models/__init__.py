@@ -15,6 +15,7 @@
 """TensorFlow Quantitative Finance tools to build Diffusion Models."""
 
 from tf_quant_finance.models import euler_sampling
+from tf_quant_finance.models import heston
 from tf_quant_finance.models import heston_model
 from tf_quant_finance.models import hull_white
 from tf_quant_finance.models.generic_ito_process import GenericItoProcess
@@ -25,6 +26,7 @@ from tensorflow.python.util.all_util import remove_undocumented  # pylint: disab
 
 _allowed_symbols = [
     'euler_sampling',
+    'heston',
     'heston_model',
     'hull_white',
     'GenericItoProcess',

@@ -1,4 +1,5 @@
-# Copyright 2019 Google LLC
+# Lint as: python3
+# Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,22 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Approximations to the Heston European option price."""
 
-licenses(["notice"])
+from tf_quant_finance.models.heston.approximations.heston import eu_option_price
+from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
-exports_files(["LICENSE"])
+_allowed_symbols = [
+    'eu_option_price',
+]
 
-py_library(
-    name = "tf_quant_finance",
-    srcs = ["__init__.py"],
-    srcs_version = "PY3",
-    visibility = ["//visibility:public"],
-    deps = [
-        "//tf_quant_finance/black_scholes",
-        "//tf_quant_finance/experimental",
-        "//tf_quant_finance/math",
-        "//tf_quant_finance/models",
-        "//tf_quant_finance/rates",
-        "//tf_quant_finance/volatility",
-    ],
-)
+remove_undocumented(__name__, _allowed_symbols)
