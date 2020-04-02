@@ -24,7 +24,7 @@ The algorithm implemented here uses the bootstrap method to iteratively
 construct the swap curve. It decouples interpolation from bootstrapping so that
 any arbitrary interpolation scheme could be used to build the curve.
 
-### References:
+#### References:
 
 [1]: Patrick Hagan & Graeme West. Interpolation Methods for Curve Construction.
   Applied Mathematical Finance. Vol 13, No. 2, pp 89-129. June 2006.
@@ -80,7 +80,7 @@ def swap_curve_bootstrap(float_leg_start_times,
   The algorithm implemented here uses the bootstrap method to iteratively
   construct the swap curve [1].
 
-  ### Example:
+  #### Example:
 
   The following example illustrates the usage by building an implied swap curve
   from four vanilla (fixed to float) LIBOR swaps.
@@ -162,7 +162,7 @@ def swap_curve_bootstrap(float_leg_start_times,
                                  fixed_leg_daycount, pvs, dtype=dtype,
                                  initial_curve_rates=initial_curve_rates)
 
-  ### References:
+  #### References:
 
   [1]: Patrick Hagan & Graeme West. Interpolation Methods for Curve
     Construction. Applied Mathematical Finance. Vol 13, No. 2, pp 89-129.

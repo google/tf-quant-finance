@@ -41,7 +41,7 @@ def diff(x, order=1, exclusive=False, dtype=None, name=None):
 
   ```
 
-  ## Example
+  #### Example
 
   ```python
     x = tf.constant([1, 2, 3, 4, 5])

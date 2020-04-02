@@ -43,7 +43,7 @@ class GenericItoProcess(ito_process.ItoProcess):
     conditions which may be found in Ref. [1]. The vector `dW_j` represents
     independent Brownian increments.
 
-    ### Example. Sampling from 2-dimensional Ito process of the form:
+    #### Example. Sampling from 2-dimensional Ito process of the form:
 
     ```none
     dX_1 = mu_1 * sqrt(t) dt + s11 * dW_1 + s12 * dW_2
@@ -80,7 +80,7 @@ class GenericItoProcess(ito_process.ItoProcess):
               seed=42)
     ```
 
-    ### References
+    #### References
     [1]: Brent Oksendal. Stochastic Differential Equations: An Introduction with
       Applications. Springer. 2010.
 
@@ -307,7 +307,7 @@ class GenericItoProcess(ito_process.ItoProcess):
     For a simple instructive example of implementation of this method, see
     `models.GenericItoProcess.fd_solver_backward`.
 
-    # TODO(b/142309558): Complete documentation.
+    TODO(b/142309558): Complete documentation.
 
     Args:
       start_time: Real positive scalar `Tensor`. The start time of the grid.
@@ -480,7 +480,7 @@ class GenericItoProcess(ito_process.ItoProcess):
     For a simple instructive example of implementation of this method, see
     `models.GenericItoProcess.fd_solver_forward`.
 
-    # TODO(b/142309558): Complete documentation.
+    TODO(b/142309558): Complete documentation.
 
     Args:
       start_time: Real positive scalar `Tensor`. The start time of the grid.

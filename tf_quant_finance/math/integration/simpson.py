@@ -28,11 +28,11 @@ def simpson(func, lower, upper, num_points=1001, dtype=None, name=None):
   then uses obtained values to interpolate `func` with quadratic polynomials
   and integrates these polynomials.
 
-  ## References
+  #### References
   [1] Weisstein, Eric W. "Simpson's Rule." From MathWorld - A Wolfram Web
       Resource. http://mathworld.wolfram.com/SimpsonsRule.html
 
-  ## Example
+  #### Example
   ```python
     f = lambda x: x*x
     a = tf.constant(0.0)

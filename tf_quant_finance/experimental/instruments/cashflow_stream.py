@@ -55,7 +55,7 @@ class CashflowStream:
 class FixedCashflowStream(CashflowStream):
   """Represents a batch of fixed stream of cashflows.
 
-  ### Example:
+  #### Example:
   The following example illustrates the construction of an FixedCashflowStream
   and calculating its present value.
 
@@ -241,7 +241,7 @@ class FixedCashflowStream(CashflowStream):
 class FloatingCashflowStream(CashflowStream):
   """Represents a batch of cashflows indexed to a floating rate.
 
-  ### Example:
+  #### Example:
   The following example illustrates the construction of an floating
   cashflow stream and calculating its present value.
 

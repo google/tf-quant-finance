@@ -24,7 +24,7 @@ The algorithm implemented here uses conjugate gradient optimization to minimize
 the weighted least squares error between the input present values of the
 instruments and the present values computed using the constructed swap curve.
 
-### References:
+#### References:
   [1]: Leif B.G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling,
       Volume I: Foundations and Vanilla Models. Chapter 6. 2010.
 """
@@ -79,7 +79,7 @@ def swap_curve_fit(float_leg_start_times,
   the user specified interpolation method (the default interpolation method
   is linear interpolation on rates).
 
-  ### Example:
+  #### Example:
 
   The following example illustrates the usage by building an implied swap curve
   from four vanilla (fixed to float) LIBOR swaps.
@@ -161,7 +161,7 @@ def swap_curve_fit(float_leg_start_times,
                            fixed_leg_daycount, pvs, dtype=dtype,
                            initial_curve_rates=initial_curve_rates)
 
-  ### References:
+  #### References:
   [1]: Leif B.G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling,
       Volume I: Foundations and Vanilla Models. Chapter 6. 2010.
 

@@ -205,7 +205,7 @@ def multidim_parabolic_equation_step(
     as`values_grid` and represents an approximate solution of the equation after
     one iteration.
 
-  ### References:
+  #### References:
   [1] Tinne Haentjens, Karek J. in't Hout. ADI finite difference schemes
   for the Heston-Hull-White PDE. https://arxiv.org/abs/1111.4087
   """

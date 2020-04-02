@@ -56,7 +56,7 @@ class OvernightIndexLinkedFutures:
   contracts simultaneously. However all contracts within an object must be
   priced using a common reference curve.
 
-  ### Example:
+  #### Example:
   The following example illustrates the construction of an overnight index
   future instrument and calculating its price.
 
@@ -90,7 +90,7 @@ class OvernightIndexLinkedFutures:
 
   price = future.price(valuation_date, market)
 
-  ### References:
+  #### References:
   [1]: SOFR futures settlement calculation.
   https://www.cmegroup.com/education/files/sofr-futures-settlement-calculation-methodologies.pdf
   """

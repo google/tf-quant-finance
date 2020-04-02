@@ -37,7 +37,7 @@ class PiecewiseConstantFunc(object):
            * I_{x \in [jump_locations[..., i -1], jump_locations[..., i])}
     ```
 
-    ### Example. Simple scalar-valued piecewise constant function.
+    #### Example. Simple scalar-valued piecewise constant function.
     ```python
     dtype = np.float64
     jump_locations = [0.1, 10]
@@ -53,7 +53,7 @@ class PiecewiseConstantFunc(object):
     # Expected integrals: [3.9, 4, 4, 5]
     ```
 
-    ### Example. Matrix-valued piecewise constant function.
+    #### Example. Matrix-valued piecewise constant function.
     ```python
     dtype = np.float64
     jump_locations = [0.1, 10]
@@ -224,7 +224,7 @@ def find_interval_index(query_xs,
   and if x < x_0, -1 is returned. If `last_interval_is_closed` is set to `True`,
   the last interval [x_{n-1}, x_n] is interpreted as closed (including x_n).
 
-  ### Example
+  #### Example
 
   ```python
   interval_lower_xs = [0.25, 0.5, 1.0, 2.0, 3.0]

@@ -57,7 +57,7 @@ def forward_rates_from_yields(yields,
   Instead of a batch as an extra dimension, we support the concept of groups
   (also see documentation for `tf.segment_sum` which uses the same concept).
 
-  ### Example
+  #### Example
 
   The following example illustrates this method along with the concept of
   groups. Assuming there are two sets of zero rates (e.g. for different
@@ -84,7 +84,7 @@ def forward_rates_from_yields(yields,
         rates, times, groups=groups, dtype=dtype)
   ```
 
-  ### References:
+  #### References:
 
   [1]: John C. Hull. Options, Futures and Other Derivatives. Ninth Edition.
     June 2006.
@@ -165,7 +165,7 @@ def yields_from_forward_rates(discrete_forwards,
   groups (also see documentation for `tf.segment_sum` which uses the same
   concept).
 
-  ### Example
+  #### Example
 
   The following example illustrates this method along with the concept of
   groups. Assuming there are two sets of zero rates (e.g. for different
@@ -192,7 +192,7 @@ def yields_from_forward_rates(discrete_forwards,
     # Produces: [0.04, 0.041, 0.044, 0.022, 0.025, 0.028, 0.036]
   ```
 
-  ### References:
+  #### References:
 
   [1]: John C. Hull. Options, Futures and Other Derivatives. Ninth Edition.
     June 2006.

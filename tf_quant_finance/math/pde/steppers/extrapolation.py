@@ -74,7 +74,7 @@ def extrapolation_scheme(value_grid, t1, t2, equation_params_fn):
   for Crank-Nicolson scheme in case of non-smooth initial conditions. See [1]
   for details.
 
-  ### References:
+  #### References:
   [1]: D. Lawson, J & Ll Morris, J. The Extrapolation of First Order Methods
   for Parabolic Partial Differential Equations. I. 1978
   SIAM Journal on Numerical Analysis. 15. 1212-1224.

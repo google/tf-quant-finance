@@ -61,7 +61,7 @@ def multivariate_normal(sample_shape,
   supplied mean and covariance parameters. Allows generating either
   (pseudo) random or quasi-random draws based on the `random_type` parameter.
 
-  ## Example:
+  #### Example:
 
   ```python
 

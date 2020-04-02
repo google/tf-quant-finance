@@ -36,7 +36,7 @@ class EurodollarFutures:
   simultaneously. However all contracts within an object must be priced using a
   common reference curve.
 
-  ### Example:
+  #### Example:
   The following example illustrates the construction of an ED future instrument
   and calculating its price.
 
@@ -70,7 +70,7 @@ class EurodollarFutures:
 
   price = self.evaluate(edfuture.price(valuation_date, market))
 
-  ### References:
+  #### References:
   [1]: Leif B.G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling,
       Volume I: Foundations and Vanilla Models. Chapter 5. 2010.
   """

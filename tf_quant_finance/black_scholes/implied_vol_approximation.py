@@ -42,7 +42,7 @@ def implied_vol(*,
   enough so this result should be used as a starting point for some method with
   controllable tolerance (e.g. a root finder).
 
-  ## References:
+  #### References:
   [1]: Dan Stefanica and Rados Radoicic. An explicit implied volatility formula.
     International Journal of Theoretical and Applied Finance,
     Vol. 20, no. 7, 2017.

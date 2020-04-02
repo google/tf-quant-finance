@@ -57,7 +57,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   For `n=1` this class represents Hull-White Model (see
   tff.models.hull_white.HullWhiteModel1F).
 
-  ## Example. Two correlated Hull-White processes.
+  #### Example. Two correlated Hull-White processes.
 
   ```python
   import numpy as np
@@ -102,7 +102,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   #                  [0.0914114, 1.       ]]
   ```
 
-  ### References:
+  #### References:
     [1]: D. Brigo, F. Mercurio. Interest Rate Models. 2007.
   """
 

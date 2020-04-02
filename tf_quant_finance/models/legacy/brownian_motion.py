@@ -26,7 +26,7 @@ process.
 
 For more details, see Ref [1].
 
-### References:
+#### References:
   [1]: Brent Oksendal. Stochastic Differential Equations: An Introduction with
     Applications. Springer. 2010.
 """
@@ -80,7 +80,7 @@ class BrownianMotion(ito_process.ItoProcess):
     inefficient. It is advisable to supply the total covariance and total drift
     in the time dependent case where possible.
 
-    ## Example
+    #### Example
     The following is an example of a 1 dimensional brownian motion using default
     arguments of zero drift and unit volatility.
 

@@ -45,7 +45,7 @@ class HullWhiteModel1F(vector_hull_white.VectorHullWhiteModel):
   If the parameters `a` and `sigma` are piecewise constant functions, the
   process is sampled exactly. Otherwise, Euler sampling is used.
 
-  ## Example. Hull-White processes with piecewise constant coefficients.
+  #### Example. Hull-White processes with piecewise constant coefficients.
 
   ```python
   import numpy as np
@@ -81,7 +81,7 @@ class HullWhiteModel1F(vector_hull_white.VectorHullWhiteModel):
   # Expected value: 0.10928
   ```
 
-  ### References:
+  #### References:
     [1]: D. Brigo, F. Mercurio. Interest Rate Models. 2007.
   """
 

@@ -77,7 +77,7 @@ class PeriodicSchedule():
 
     The following examples demonstrate the batch and non-batch usage.
 
-    ## Example Usage (Non-batch)
+    #### Example Usage (Non-batch)
 
     ```python
       start_date = dates.from_tuples([(2020, 1, 18)])
@@ -102,7 +102,7 @@ class PeriodicSchedule():
 
     The following example demonstrates this batching property.
 
-    ## Example Usage (Batch)
+    #### Example Usage (Batch)
 
     ```python
       start_date = dates.from_tuples([(2020, 1, 15), (2020, 4, 15)])
@@ -218,7 +218,7 @@ class BusinessDaySchedule:
     `backward=False` and with extra `start_date` elements in the beginning if
     `backward=True`. In all cases each schedule in the batch is monotonic.
 
-    ## Example Usage (Non-batch)
+    #### Example Usage (Non-batch)
 
     ```python
       start_date = dates.from_tuples([(2020, 3, 19)])
@@ -235,7 +235,7 @@ class BusinessDaySchedule:
       #   (2021, 3, 25)]] regardless of `backward`.
     ```
 
-    ## Example Usage (Batch)
+    #### Example Usage (Batch)
 
     ```python
       start_date = dates.from_tuples([(2020, 3, 19), (2020, 4, 15)])

@@ -49,7 +49,7 @@ def option_price(*,
   # [ 0.          2.          2.04806848  1.00020297  2.07303131]
   ```
 
-  ## References:
+  #### References:
   [1] Hull, John C., Options, Futures and Other Derivatives. Pearson, 2018.
   [2] Wikipedia contributors. Black-Scholes model. Available at:
     https://en.wikipedia.org/w/index.php?title=Black%E2%80%93Scholes_model
@@ -198,7 +198,7 @@ def binary_price(*,
   probability that the asset will end up higher (resp. lower) than the
   strike price at expiry.
 
-  ## Example
+  #### Example
 
   ```python
   forwards = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
@@ -215,7 +215,7 @@ def binary_price(*,
   # [0.         0.         0.15865525 0.99764937 0.85927418]
   ```
 
-  ## References:
+  #### References:
 
   [1] Hull, John C., Options, Futures and Other Derivatives. Pearson, 2018.
   [2] Wikipedia contributors. Binary option. Available at:

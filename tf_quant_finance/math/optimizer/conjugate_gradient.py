@@ -171,7 +171,7 @@ def minimize(value_and_gradients_function,
 
   Supports batches with 1-dimensional batch shape.
 
-  ### References:
+  #### References:
   [HZ2006] Hager, William W., and Hongchao Zhang. "Algorithm 851: CG_DESCENT,
     a conjugate gradient method with guaranteed descent."
     http://users.clas.ufl.edu/hager/papers/CG/cg_compare.pdf

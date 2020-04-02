@@ -80,7 +80,7 @@ def solve_backward(start_time,
   The mapping between the arguments of this method and the above
   equation are described in the Args section below.
 
-  ### Example. European call option pricing.
+  #### Example. European call option pricing.
   ```python
   import tensorflow.compat.v2 as tf
   import tf_quant_finance as tff

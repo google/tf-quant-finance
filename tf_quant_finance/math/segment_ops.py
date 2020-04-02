@@ -36,7 +36,7 @@ def segment_diff(x,
   segment. The result is effectively a concatenation of the results of `diff`
   applied to each segment.
 
-  ## Example
+  #### Example
 
   ```python
     x = tf.constant([2, 5, 1, 7, 9] + [32, 10, 12, 3] + [4, 8, 5])
@@ -135,7 +135,7 @@ def segment_cumsum(x, segment_ids, exclusive=False, dtype=None, name=None):
   `tf.math.cumsum` applied to each segment with the same interpretation for the
   argument `exclusive`.
 
-  ## Example
+  #### Example
 
   ```python
     x = tf.constant([2, 5, 1, 7, 9] + [32, 10, 12, 3] + [4, 8, 5])

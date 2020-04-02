@@ -48,7 +48,7 @@ class InterestRateSwap:
   well as basis swaps. However all IRS within an IRS object must be priced using
   a common reference and discount curve.
 
-  ### Example:
+  #### Example:
   The following example illustrates the construction of an IRS instrument and
   calculating its price.
 
@@ -98,7 +98,7 @@ class InterestRateSwap:
   # Expected result: 1e-7
   ```
 
-  ### References:
+  #### References:
   [1]: Leif B.G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling,
       Volume I: Foundations and Vanilla Models. Chapter 5. 2010.
   """

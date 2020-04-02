@@ -29,7 +29,7 @@ class TensorWrapper(metaclass=abc.ABCMeta):
   Inheritors must implement _apply_op(self, op_fn) and provide a static method
   _apply_sequence_to_tensor_op(op_fn, tensors). For example:
 
-  '''python
+  ```python
   class MyWrapper(TensorWrapper):
     def __init__(self, backing_tensor):
        self._backing_tensor = backing_tensor
@@ -42,18 +42,18 @@ class TensorWrapper(metaclass=abc.ABCMeta):
     def _apply_sequence_to_tensor_op(op_fn, tensors):
       new_backing_tensor = op_fn([t._backing_tensor for t in tensors])
       return MyWrapper(new_backing_tensor)
-  '''
+  ```
 
   Then 'MyWrapper` can be used as follows:
 
-  '''python
+  ```python
   m1 = MyWrapper(tf.constant([[1, 2, 3], [4, 5, 6]]))
   m2 = MyWrapper(...)
   m3 = m1[0, 1:-1]
   m4 = m1.expand_dims(axis=-1)
   m5 = MyWrapper.concat((m1, m2), axis=-1)
   # etc.
-  '''
+  ```
   """
 
   @classmethod

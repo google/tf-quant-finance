@@ -113,7 +113,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     The result is one-based, i.e. yields 1 for first day of the month.
 
-    ## Example
+    #### Example
 
     ```python
     dates = DateTensor([(2019, 1, 25), (2020, 3, 2)])
@@ -128,7 +128,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     The result is zero-based according to Python datetime convention, i.e.
     Monday is "0".
 
-    ## Example
+    #### Example
     ```python
     dates = DateTensor([(2019, 1, 25), (2020, 3, 2)])
     dates.days_of_week()  # [5, 1]
@@ -141,7 +141,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
   def month(self):
     """Returns an int32 tensor of months.
 
-    ## Example
+    #### Example
     ```python
     dates = DateTensor([(2019, 1, 25), (2020, 3, 2)])
     dates.month()  # [1, 3]
@@ -152,7 +152,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
   def year(self):
     """Returns an int32 tensor of years.
 
-    ## Example
+    #### Example
     ```python
     dates = DateTensor([(2019, 1, 25), (2020, 3, 2)])
     dates.year()  # [2019, 2020]
@@ -165,7 +165,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     Ordinal is the number of days since 1st Jan 0001.
 
-    ## Example
+    #### Example
     ```python
     dates = DateTensor([(2019, 3, 25), (1, 1, 1)])
     dates.ordinal()  # [737143, 1]
@@ -180,7 +180,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
       Tensor of int32 type with elements in range [1, 366]. January 1st yields
       "1".
 
-    ## Example
+    #### Example
     ```python
     dt = dates.from_tuples([(2019, 1, 25), (2020, 3, 2)])
     dt.day_of_year()  # [25, 62]
@@ -208,7 +208,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
       target_date_tensor: a DateTensor object broadcastable to the shape of
         "self".
 
-    ## Example
+    #### Example
     ```python
     dates = DateTensor([(2020, 1, 25), (2020, 3, 2)])
     target = DateTensor([(2020, 3, 5)])
@@ -227,7 +227,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
       period_tensor: a periods.PeriodTensor object broadcastable to the shape of
         "self".
 
-    ## Example
+    #### Example
     ```python
     dates = DateTensor([(2020, 2, 25), (2020, 3, 2)])
     dates.period_length_in_days(period.month())  # [29, 31]
@@ -260,7 +260,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     to the largest valid value if necessary. E.g. 31.03.2020 + 1 month =
     30.04.2020, 29.02.2020 + 1 year = 28.02.2021.
 
-    ## Example
+    #### Example
     ```python
     dates = DateTensor([(2020, 2, 25), (2020, 3, 31)])
     new_dates = dates + period.month()
@@ -429,13 +429,13 @@ def from_datetimes(datetimes):
   Returns:
     DateTensor object.
 
-  ## Example
-  '''python
+  #### Example
+  ```python
   import datetime
 
   dates = [datetime.date(2015, 4, 15), datetime.date(2017, 12, 30)]
   date_tensor = from_datetimes(dates)
-  '''
+  ```
 
   """
   years = tf.constant([dt.year for dt in datetimes], dtype=tf.int32)
@@ -457,8 +457,8 @@ def from_np_datetimes(np_datetimes):
   Returns:
     DateTensor object.
 
-  ## Example
-  '''python
+  #### Example
+  ```python
   import datetime
   import numpy as np
 
@@ -468,7 +468,7 @@ def from_np_datetimes(np_datetimes):
      dtype=np.datetime64)
 
   date_tensor = from_np_datetimes(date_tensor_np)
-  '''
+  ```
   """
 
   # There's no easy way to extract year, month, day from numpy datetime, so
@@ -489,10 +489,10 @@ def from_tuples(year_month_day_tuples, validate=True):
   Returns:
     DateTensor object.
 
-  ## Example
-  '''python
+  #### Example
+  ```python
   date_tensor = from_tuples([(2015, 4, 15), (2017, 12, 30)])
-  '''
+  ```
 
   """
   years, months, days = [], [], []
@@ -521,7 +521,7 @@ def from_year_month_day(year, month, day, validate=True):
   Returns:
     DateTensor object.
 
-  ## Example
+  #### Example
   ```python
   year = tf.constant([2015, 2017], dtype=tf.int32)
   month = tf.constant([4, 12], dtype=tf.int32)
@@ -568,7 +568,7 @@ def from_ordinals(ordinals, validate=True):
   Returns:
     DateTensor object.
 
-  ## Example
+  #### Example
   ```python
 
   ordinals = tf.constant([
@@ -603,7 +603,7 @@ def random_dates(*, start_date, end_date, size=1, seed=None, name=None):
   (exclusive). Note that the dates are uniformly distributed over the calendar
   range, i.e. no holiday calendar is taken into account.
 
-  ## Example
+  #### Example
   ```python
   # Import TFF.
   import tf_quant_finance as tff

@@ -37,7 +37,7 @@ def uniform(
   quasi-random draws one needs to know the dimensionality of the space as
   opposed to just sample shape.
 
-  ## Example:
+  #### Example:
 
   ```python
   sample_shape = [10]  # Generates 10 draws.

@@ -40,7 +40,7 @@ def integrate(func,
               **kwargs):
   """Evaluates definite integral.
 
-  ## Example
+  #### Example
   ```python
     f = lambda x: x*x
     a = tf.constant(0.0)

@@ -43,7 +43,7 @@ to evaluate the `f(t)` for `t` as a vector of times but not build multiple
 curves at the same time).
 
 
-### References:
+#### References:
 
 [1]: Patrick Hagan & Graeme West. Interpolation Methods for Curve Construction.
   Applied Mathematical Finance. Vol 13, No. 2, pp 89-129. June 2006.
@@ -109,7 +109,7 @@ def interpolate(times,
   to evaluate the `f(t)` for `t` as a vector of times but not build multiple
   curves at the same time).
 
-  ### Example
+  #### Example
 
   ```python
   interval_times = tf.constant([0.25, 0.5, 1.0, 2.0, 3.0], dtype=dtype)
@@ -127,7 +127,7 @@ def interpolate(times,
       times, interval_values, interval_times)
   ```
 
-  ### References:
+  #### References:
 
   [1]: Patrick Hagan & Graeme West. Interpolation Methods for Curve
     Construction. Applied Mathematical Finance. Vol 13, No. 2, pp 89-129.
@@ -301,7 +301,7 @@ def interpolate_forward_rate(interpolation_times,
     discrete forwards before interpolation.
     For more details on the interpolation procedure, see Ref. [1].
 
-  ### Example
+  #### Example
 
   ```python
     dtype = np.float64
@@ -319,7 +319,7 @@ def interpolate_forward_rate(interpolation_times,
     # Produces: [0.0229375, 0.05010625, 0.0609, 0.03625].
   ```
 
-  ### References:
+  #### References:
 
   [1]: Patrick Hagan & Graeme West. Methods for Constructing a Yield Curve.
     Wilmott Magazine, pp. 70-81. May 2008.
@@ -428,7 +428,7 @@ def interpolate_yields(interpolation_times,
 
     For more details on the interpolation procedure, see Ref. [1].
 
-  ### Example
+  #### Example
 
   ```python
     dtype = np.float64
@@ -443,7 +443,7 @@ def interpolate_yields(interpolation_times,
     # Produces [5.1171875, 5.09375, 5.0, 4.75]
   ```
 
-  ### References:
+  #### References:
 
   [1]: Patrick Hagan & Graeme West. Methods for Constructing a Yield Curve.
     Wilmott Magazine, pp. 70-81. May 2008.

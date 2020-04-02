@@ -30,7 +30,7 @@ def oscillation_damped_crank_nicolson_step(extrapolation_steps=1):
   See [1], [2] ([2] mostly discusses using fully implicit scheme on the first
   step, but mentions using extrapolation scheme for better accuracy in the end).
 
-  ### References:
+  #### References:
   [1]: D. Lawson, J & Ll Morris, J. The Extrapolation of First Order Methods for
     Parabolic Partial Differential Equations. I. 1978 SIAM Journal on Numerical
     Analysis. 15. 1212-1224.

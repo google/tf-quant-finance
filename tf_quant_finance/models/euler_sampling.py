@@ -48,7 +48,7 @@ def sample(dim,
   where `dt = t_{n+1} - t_n` and `N` is a sample from the Normal distribution.
   See [1] for details.
 
-  ### References
+  #### References
   [1]: Wikipedia. Euler-Maruyama method:
   https://en.wikipedia.org/wiki/Euler-Maruyama_method
 

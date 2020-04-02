@@ -55,7 +55,7 @@ def fwd_gradient(func_or_y, x, input_gradients=None, use_gradient_tape=False,
   This function provides only a small subset of the flexibility of
   the tf.gradients function. This may be extended in the future.
 
-  ### Example
+  #### Example
 
   Following example demonstrates the usage and the difference between this
   op and the standard `tf.gradients`

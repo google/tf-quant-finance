@@ -37,7 +37,7 @@ def option_price_binomial(*,
   For more information about the binomial tree method and the
   Cox-Ross-Rubinstein method in particular see the references below.
 
-  ## Example
+  #### Example
 
   ```python
   # Prices 5 options with a mix of Call/Put, American/European features
@@ -65,7 +65,7 @@ def option_price_binomial(*,
   # Prints [0., 0.0098847, 0.41299509, 0., 0.06046989]
   ```
 
-  ## References
+  #### References
 
   [1] Hull, John C., Options, Futures and Other Derivatives. Pearson, 2018.
   [2] Wikipedia contributors. Binomial Options Pricing Model. Available at:
