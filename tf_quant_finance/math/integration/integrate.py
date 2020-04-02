@@ -24,8 +24,11 @@ from tf_quant_finance.math.integration.simpson import simpson
 
 @enum.unique
 class IntegrationMethod(enum.Enum):
-  """Specifies which algorithm to use for the numeric integration."""
-  COMPOSITE_SIMPSONS_RULE = 1  # Composite Simpson's 1/3 rule.
+  """Specifies which algorithm to use for the numeric integration.
+
+  * `COMPOSITE_SIMPSONS_RULE`: Composite Simpson's 1/3 rule.
+  """
+  COMPOSITE_SIMPSONS_RULE = 1
 
 
 def integrate(func,

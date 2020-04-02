@@ -54,24 +54,22 @@ class PeriodType(enum.Enum):
 
 
 class BusinessDayConvention(enum.Enum):
-  """Conventions that determine how to roll dates that fall on holidays."""
-  # No adjustment.
+  """Conventions that determine how to roll dates that fall on holidays.
+
+  * `NONE`: No adjustment
+  * `FOLLOWING`: Choose the first business day after the given holiday.
+  * `MODIFIED_FOLLOWING`: Choose the first business day after the given holiday
+  unless that day falls in the next calendar month, in which case choose the
+  first business day before the holiday.
+  * `PRECEDING`: Choose the first business day before the given holiday.
+  * `MODIFIED_PRECEDING`: Choose the first business day before the given holiday
+  unless that day falls in the previous calendar month, in which case choose the
+  first business day after the holiday.
+  """
   NONE = 0
-
-  # Choose the first business day after the given holiday.
   FOLLOWING = 1
-
-  # Choose the first business day after the given holiday unless that day falls
-  # in the next calendar month, in which case choose the first business day
-  # before the holiday.
   MODIFIED_FOLLOWING = 2
-
-  # Choose the first business day before the given holiday.
   PRECEDING = 3
-
-  # Choose the first business day before the given holiday unless that day falls
-  # in the previous calendar month, in which case choose the first business day
-  # after the holiday.
   MODIFIED_PRECEDING = 4
 
 # TODO(b/148011715): add NEAREST convention.

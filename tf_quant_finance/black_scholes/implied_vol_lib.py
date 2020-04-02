@@ -23,8 +23,13 @@ from tf_quant_finance.black_scholes import implied_vol_newton_root as newton
 
 @enum.unique
 class ImpliedVolMethod(enum.Enum):
-  FAST_APPROX = 1  # A faster but approximate method.
-  NEWTON = 2  # Uses Newton root search to find an accurate value.
+  """Implied volatility methods.
+
+  * `FAST_APPROX`: A faster but approximate method.
+  * `NEWTON`: Uses Newton root search to find an accurate value.
+  """
+  FAST_APPROX = 1
+  NEWTON = 2
 
 
 def implied_vol(*,

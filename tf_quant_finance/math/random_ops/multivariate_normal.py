@@ -28,12 +28,21 @@ _SQRT_2 = np.sqrt(2.)
 
 @enum.unique
 class RandomType(enum.Enum):
-  PSEUDO = 0  # The standard Tensorflow random generator.
-  STATELESS = 1  # The stateless Tensorflow random generator.
-  HALTON = 2  # The standard Halton sequence.
-  HALTON_RANDOMIZED = 3  # The randomized Halton sequence.
-  SOBOL = 4  # The standard Sobol sequence.
-  PSEUDO_ANTITHETIC = 5  # PSEUDO random numbers along with antithetic variates
+  """Types of random number sequences.
+
+  * `PSEUDO`: The standard Tensorflow random generator.
+  * `STATELESS`: The stateless Tensorflow random generator.
+  * `HALTON`: The standard Halton sequence.
+  * `HALTON_RANDOMIZED`: The randomized Halton sequence.
+  * `SOBOL`: The standard Sobol sequence.
+  * `PSEUDO_ANTITHETIC`: PSEUDO random numbers along with antithetic variates.
+  """
+  PSEUDO = 0
+  STATELESS = 1
+  HALTON = 2
+  HALTON_RANDOMIZED = 3
+  SOBOL = 4
+  PSEUDO_ANTITHETIC = 5
 
 
 def multivariate_normal(sample_shape,
