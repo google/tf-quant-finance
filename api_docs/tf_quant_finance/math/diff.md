@@ -1,0 +1,78 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.diff" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.diff
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/diff_ops.py">View source</a>
+
+
+
+Computes the difference between elements of an array at a regular interval.
+
+```python
+tf_quant_finance.math.diff(
+    x, order=1, exclusive=False, dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+If exclusive is True, then computes
+
+```
+  result[i] = x[i+order] - x[i] for i < size(x) - order
+
+```
+
+This is the same as doing `x[order:] - x[:-order]`. Note that in this case
+the result `Tensor` is smaller in size than the input `Tensor`.
+
+If exclusive is False, then computes:
+
+```
+  result[i] = x[i] - x[i-order] for i >= order
+  result[i] = x[i]  for 0 <= i < order
+
+```
+
+#### Example
+
+```python
+  x = tf.constant([1, 2, 3, 4, 5])
+  dx = diff(x, order=1, exclusive=False)  # Returns [1, 1, 1, 1, 1]
+  dx1 = diff(x, order=1, exclusive=True)  # Returns [1, 1, 1, 1]
+  dx2 = diff(x, order=2, exclusive=False)  # Returns [1, 2, 2, 2, 2]
+```
+
+#### Args:
+
+
+* <b>`x`</b>: A rank 1 `Tensor` of any dtype for which arithmetic operations are
+  permitted.
+* <b>`order`</b>: Positive Python int. The order of the difference to compute. `order =
+  1` corresponds to the difference between successive elements.
+  Default value: 1
+* <b>`exclusive`</b>: Python bool. See description above.
+  Default value: False
+* <b>`dtype`</b>: Optional `tf.Dtype`. If supplied, the dtype for `x` to use when
+  converting to `Tensor`.
+  Default value: None which maps to the default dtype inferred by TF.
+* <b>`name`</b>: Python `str` name prefixed to Ops created by this class.
+  Default value: None which is mapped to the default name 'diff'.
+
+
+#### Returns:
+
+
+* <b>`diffs`</b>: A `Tensor` of the same dtype as `x`. If `exclusive` is True,
+  then the size is `n-min(order, size(x))` where `n` is the size of x. If
+  `exclusive` is False, then the size is `n`.

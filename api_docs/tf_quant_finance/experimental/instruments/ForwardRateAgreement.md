@@ -1,0 +1,160 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.experimental.instruments.ForwardRateAgreement" />
+<meta itemprop="path" content="Stable" />
+<meta itemprop="property" content="__init__"/>
+<meta itemprop="property" content="price"/>
+</div>
+
+# tf_quant_finance.experimental.instruments.ForwardRateAgreement
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/instruments/forward_rate_agreement.py">View source</a>
+
+
+
+Represents a batch of Forward Rate Agreements (FRA).
+
+```python
+tf_quant_finance.experimental.instruments.ForwardRateAgreement(
+    settlement_date, fixing_date, fixed_rate, notional=1.0,
+    daycount_convention=None, rate_term=None, maturity_date=None, dtype=None,
+    name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+An FRA is a contract for the period [T, T+tau] where the holder exchanges a
+fixed rate (agreed at the start of the contract) against a floating payment
+determined at time T based on the spot Libor rate for term `tau`. The
+cashflows are exchanged at the settlement time T_s, which is either equal to T
+or close to T. The FRA are structured so that the payments are made in T+tau
+dollars (ref [1]).
+
+The ForwardRateAgreement class can be used to create and price multiple FRAs
+simultaneously. However all FRAs within a FRA object must be priced using
+a common reference and discount curve.
+
+#### Example:
+The following example illustrates the construction of a FRA instrument and
+calculating its price.
+
+```python
+import numpy as np
+import tensorflow as tf
+import tf_quant_finance as tff
+dates = tff.experimental.dates
+
+dtype = np.float64
+notional = 1.
+settlement_date = dates.convert_to_date_tensor([(2021, 2, 8)])
+fixing_date = dates.convert_to_date_tensor([(2021, 2, 8)])
+valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
+fixed_rate = 0.02
+rate_term = rate_term = dates.periods.PeriodTensor(
+      3, dates.PeriodType.MONTH)
+
+fra = tff.experimental.instruments.ForwardRateAgreement(
+      notional, settlement_date, fixing_date, fixed_rate,
+      rate_term=rate_term, dtype=dtype)
+curve_dates = valuation_date + dates.periods.PeriodTensor(
+      [1, 2, 3, 12, 24, 60], dates.PeriodType.MONTH)
+reference_curve = tff.experimental.instruments.RateCurve(
+    curve_dates,
+    np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),
+    dtype=dtype)
+market = tff.experimental.instruments.InterestRateMarket(
+    reference_curve=reference_curve, discount_curve=reference_curve)
+
+price = fra.price(valuation_date, market)
+# Expected result: 0.00378275
+```
+
+#### References:
+[1]: Leif B.G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling,
+    Volume I: Foundations and Vanilla Models. Chapter 5. 2010.
+
+#### Args:
+
+
+* <b>`settlement_date`</b>: A rank 1 `DateTensor` specifying the dates on which
+  cashflows are settled. The shape of the input correspond to the number
+  of instruments being created.
+* <b>`fixing_date`</b>: A rank 1 `DateTensor` specifying the dates on which forward
+  rate will be fixed. The shape of the inout should be the same as that of
+  `settlement_date`.
+* <b>`fixed_rate`</b>: A rank 1 `Tensor` of real dtype specifying the fixed rate
+  payment agreed at the initiation of the individual contracts. The shape
+  should be the same as that of `settlement_date`.
+* <b>`notional`</b>: A scalar or a rank 1 `Tensor` of real dtype specifying the
+  notional amount for each contract. When the notional is specified as a
+  scalar, it is assumed that all contracts have the same notional. If the
+  notional is in the form of a `Tensor`, then the shape must be the same
+  as `settlement_date`.
+  Default value: 1.0
+* <b>`daycount_convention`</b>: An optional `DayCountConvention` to determine
+  how cashflows are accrued for each contract. Daycount is assumed to be
+  the same for all contracts in a given batch.
+  Default value: None in which case the daycount convention will default
+  to DayCountConvention.ACTUAL_360 for all contracts.
+* <b>`rate_term`</b>: An optional rank 1 `PeriodTensor` specifying the term (or the
+  tenor) of the Libor rate that determines the floating cashflow. The
+  shape of the input should be the same as `settlement_date`.
+  Default value: `None` in which case the the forward rate is determined
+  for the period [settlement_date, maturity_date].
+* <b>`maturity_date`</b>: An optional rank 1 `DateTensor` specifying the maturity of
+  the underlying forward rate for each contract. This input is only used
+  if the input `rate_term` is `None`.
+  Default value: `None`
+* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the real variables or ops
+  either supplied to the FRA object or created by the FRA object.
+  Default value: None which maps to the default dtype inferred by
+  TensorFlow.
+* <b>`name`</b>: Python str. The name to give to the ops created by this class.
+  Default value: `None` which maps to 'forward_rate_agreement'.
+
+
+#### Raises:
+
+
+* <b>`ValueError`</b>: If both `maturity_date` and `rate_term` are unspecified.
+
+## Methods
+
+<h3 id="price"><code>price</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/instruments/forward_rate_agreement.py">View source</a>
+
+```python
+price(
+    valuation_date, market, model=None
+)
+```
+
+Returns the present value of the instrument on the valuation date.
+
+
+#### Args:
+
+
+* <b>`valuation_date`</b>: A scalar `DateTensor` specifying the date on which
+  valuation is being desired.
+* <b>`market`</b>: A namedtuple of type `InterestRateMarket` which contains the
+  necessary information for pricing the FRA instrument.
+* <b>`model`</b>: Reserved for future use.
+
+
+#### Returns:
+
+A Rank 1 `Tensor` of real type containing the modeled price of each FRA
+contract based on the input market data.
+
+
+
+

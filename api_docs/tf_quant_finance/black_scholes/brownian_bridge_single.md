@@ -1,0 +1,84 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.black_scholes.brownian_bridge_single" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.black_scholes.brownian_bridge_single
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/black_scholes/brownian_bridge.py">View source</a>
+
+
+
+Computes proba of not touching the barrier for a 1D Brownian Bridge.
+
+```python
+tf_quant_finance.black_scholes.brownian_bridge_single(
+    *, x_start, x_end, variance, barrier, dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+The Brownian bridge starts at `x_start`, ends at `x_end` and has a variance
+`variance`. The no-touch probabilities are calculated assuming that `x_start`
+and `x_end` are the same side of the barrier (either both above or both
+below).
+This can be used in Monte Carlo pricing for adjusting probability of
+touching the barrier from discrete case to continuous case.
+Typically in practise, the tensors `x_start`, `x_end` and `variance` should be
+bi-dimensional (with time steps and paths being the 2 dimensions).
+
+#### Example
+
+```python
+x_start = np.asarray([[4.5, 4.5, 4.5], [4.5, 4.6, 4.7]])
+x_end = np.asarray([[5.0, 4.9, 4.8], [4.8, 4.9, 5.0]])
+variance = np.asarray([[0.1, 0.2, 0.1], [0.3, 0.1, 0.2]])
+barrier = 5.1
+
+no_touch_proba = brownian_bridge_single(
+  x_start=x_start,
+  x_end=x_end,
+  variance=variance,
+  barrier=barrier)
+# Expected print output of no_touch_proba:
+# [[0.69880579 0.69880579 0.97267628]
+#  [0.69880579 0.86466472 0.32967995]]
+```
+
+#### References
+
+[1] Emmanuel Gobet. Advanced Monte Carlo methods for barrier and related
+exotic options.
+https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1265669
+
+#### Args:
+
+
+* <b>`x_start`</b>: A real `Tensor` of any shape and dtype.
+* <b>`x_end`</b>: A real `Tensor` of the same dtype and compatible shape as
+  `x_start`.
+* <b>`variance`</b>: A real `Tensor` of the same dtype and compatible shape as
+  `x_start`.
+* <b>`barrier`</b>: A scalar `Tensor` of the same dtype as `x_start`. Stands for the
+  boundary for the Brownian Bridge.
+* <b>`dtype`</b>: Optional `tf.DType`. If supplied, the dtype to be used for conversion
+  of any supplied non-`Tensor` arguments to `Tensor`.
+  Default value: None which maps to the default dtype inferred by
+  TensorFlow.
+* <b>`name`</b>: str. The name for the ops created by this function.
+  Default value: None which is mapped to the default name
+  `brownian_bridge_single`.
+
+
+#### Returns:
+
+A `Tensor` of the same shape as the input data which is the probability
+of not touching the barrier.

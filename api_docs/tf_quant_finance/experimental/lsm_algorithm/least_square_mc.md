@@ -1,0 +1,118 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.experimental.lsm_algorithm.least_square_mc" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.experimental.lsm_algorithm.least_square_mc
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/lsm_algorithm/lsm.py">View source</a>
+
+
+
+Values Amercian style options using the LSM algorithm.
+
+```python
+tf_quant_finance.experimental.lsm_algorithm.least_square_mc(
+    sample_paths, exercise_times, payoff_fn, basis_fn, discount_factors=None,
+    dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+The Least-Squares Monte-Carlo (LSM) algorithm is a Monte-Carlo approach to
+valuation of American style options. Using the sample paths of underlying
+assets, and a user supplied payoff function it attempts to find the optimal
+exercise point along each sample path. With optimal exercise points known,
+the option is valued as the average payoff assuming optimal exercise
+discounted to present value.
+
+#### Example. American put option price through Monte Carlo
+```python
+# Let the underlying model be a Black-Scholes process
+# dS_t / S_t = rate dt + sigma**2 dW_t, S_0 = 1.0
+# with `rate = 0.1`, and volatility `sigma = 1.0`.
+# Define drift and volatility functions for log(S_t)
+rate = 0.1
+def drift_fn(_, x):
+  return rate - tf.ones_like(x) / 2.
+def vol_fn(_, x):
+  return tf.expand_dims(tf.ones_like(x), -1)
+# Use Euler scheme to propagate 100000 paths for 1 year into the future
+times = np.linspace(0., 1, num=50)
+num_samples = 100000
+log_paths = tf.function(tff.models.euler_sampling.sample)(
+        dim=1,
+        drift_fn=drift_fn, volatility_fn=vol_fn,
+        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
+        times=times, num_samples=num_samples, seed=42, time_step=0.01)
+# Compute exponent to get samples of `S_t`
+paths = tf.math.exp(log_paths)
+# American put option price for strike 1.1 and expiry 1 (assuming actual day
+# count convention and no settlement adjustment)
+strike = [1.1]
+exercise_times = tf.range(times.shape[-1])
+discount_factors = tf.exp(-rate * times)
+payoff_fn = make_basket_put_payoff(strike)
+basis_fn = make_polynomial_basis(10)
+lsm_price(paths, exercise_times, payoff_fn, basis_fn,
+          discount_factors=discount_factors)
+# Expected value: [0.397]
+# European put option price
+tff.black_scholes.option_price(volatilities=[1], strikes=strikes,
+                               expiries=[1], spots=[1.],
+                               discount_factors=discount_factors[-1],
+                               is_call_options=False,
+                               dtype=tf.float64)
+# Expected value: [0.379]
+```
+#### References
+
+[1] Longstaff, F.A. and Schwartz, E.S., 2001. Valuing American options by
+simulation: a simple least-squares approach. The review of financial studies,
+14(1), pp.113-147.
+
+#### Args:
+
+
+* <b>`sample_paths`</b>: A `Tensor` of shape `[num_samples, num_times, dim]`, the
+  sample paths of the underlying ito process of dimension `dim` at
+  `num_times` different points.
+* <b>`exercise_times`</b>: An `int32` `Tensor` of shape `[num_exercise_times]`.
+  Contents must be a subset of the integers `[0,...,num_times - 1]`,
+  representing the ticks at which the option may be exercised.
+* <b>`payoff_fn`</b>: Callable from a `Tensor` of shape `[num_samples, num_times, dim]`
+  and an integer scalar positive `Tensor` (representing the current time
+  index) to a `Tensor` of shape `[num_samples, payoff_dim]`
+  of the same dtype as `samples`. The output represents the payout resulting
+  from exercising the option at time `S`. The `payoff_dim` allows multiple
+  options on the same underlying asset (i.e., `samples`) to be valued in
+  parallel.
+* <b>`basis_fn`</b>: Callable from a `Tensor` of shape `[num_samples, dim]` to a
+  `Tensor` of shape `[basis_size, num_samples]` of the same dtype as
+  `samples`. The result being the design matrix used in regression of the
+  continuation value of options.
+* <b>`discount_factors`</b>: A `Tensor` of shape `[num_exercise_times]` and the same
+  `dtype` as `samples`, the k-th element of which represents the discount
+  factor at time tick `k`.
+  Default value: `None` which maps to a one-`Tensor` of the same `dtype`
+    as `samples` and shape `[num_exercise_times]`.
+* <b>`dtype`</b>: Optional `dtype`. Either `tf.float32` or `tf.float64`. The `dtype`
+  If supplied, represents the `dtype` for the input and output `Tensor`s.
+  Default value: `None`, which means that the `dtype` inferred by TensorFlow
+  is used.
+* <b>`name`</b>: Python `str` name prefixed to Ops created by this function.
+  Default value: `None` which is mapped to the default name
+  'least_square_mc'.
+
+#### Returns:
+
+A `Tensor` of shape `[num_samples, payoff_dim]` of the same dtype as
+`samples`.

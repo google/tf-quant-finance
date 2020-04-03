@@ -1,0 +1,210 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.pde.steppers.douglas_adi.multidim_parabolic_equation_step" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.pde.steppers.douglas_adi.multidim_parabolic_equation_step
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/pde/steppers/multidim_parabolic_equation_stepper.py">View source</a>
+
+
+
+Performs one step in time to solve a multidimensional PDE.
+
+```python
+tf_quant_finance.math.pde.steppers.douglas_adi.multidim_parabolic_equation_step(
+    time, next_time, coord_grid, value_grid, boundary_conditions,
+    time_marching_scheme, second_order_coeff_fn=None, first_order_coeff_fn=None,
+    zeroth_order_coeff_fn=None, inner_second_order_coeff_fn=None,
+    inner_first_order_coeff_fn=None, dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+Typically one doesn't need to use this function directly, unless they have
+a custom time marching scheme. A simple stepper function for multidimensional
+PDEs can be found in `douglas_adi.py`.
+
+The PDE is of the form
+
+```None
+  dV/dt + Sum[a_ij d2(A_ij V)/dx_i dx_j, 1 <= i, j <=n] +
+     Sum[b_i d(B_i V)/dx_i, 1 <= i <= n] + c V = 0.
+```
+from time `t0` to time `t1`. The solver can go both forward and backward in
+time. Here `a_ij`, `A_ij`, `b_i`, `B_i` and `c` are coefficients that may
+depend on spatial variables `x` and time `t`.
+
+Here `V` is the unknown function, `V_{...}` denotes partial derivatives
+w.r.t. dimensions specified in curly brackets, `i` and `j` denote spatial
+dimensions, `r` is the spatial radius-vector.
+
+#### Args:
+
+
+* <b>`time`</b>: Real scalar `Tensor`. The time before the step.
+* <b>`next_time`</b>: Real scalar `Tensor`. The time after the step.
+* <b>`coord_grid`</b>: List of `n` rank 1 real `Tensor`s. `n` is the dimension of the
+  domain. The i-th `Tensor` has shape, `[d_i]` where `d_i` is the size of
+  the grid along axis `i`. The coordinates of the grid points. Corresponds
+  to the spatial grid `G` above.
+* <b>`value_grid`</b>: Real `Tensor` containing the function values at time
+  `time` which have to be evolved to time `next_time`. The shape of the
+  `Tensor` must broadcast with `B + [d_1, d_2, ..., d_n]`. `B` is the batch
+  dimensions (one or more), which allow multiple functions (with potentially
+  different boundary/final conditions and PDE coefficients) to be evolved
+  simultaneously.
+* <b>`boundary_conditions`</b>: The boundary conditions. Only rectangular boundary
+  conditions are supported.
+  A list of tuples of size `n` (space dimension
+  of the PDE). Each tuple consists of two callables representing the
+  boundary conditions at the minimum and maximum values of the spatial
+  variable indexed by the position in the list. E.g. for `n=2`, the length
+  of `boundary_conditions` should be 2, `boundary_conditions[0][0]`
+  describes the boundary `(y_min, x)`, and `boundary_conditions[1][0]`- the
+  boundary `(y, x_min)`. The boundary conditions are accepted in the form
+  `alpha(t, x) V + beta(t, x) V_n = gamma(t, x)`, where `V_n` is the
+  derivative with respect to the exterior normal to the boundary.
+  Each callable receives the current time `t` and the `coord_grid` at the
+  current time, and should return a tuple of `alpha`, `beta`, and `gamma`.
+  Each can be a number, a zero-rank `Tensor` or a `Rensor` whose shape is
+  the grid shape with the corresponding dimension removed.
+  For example, for a two-dimensional grid of shape `(b, ny, nx)`, where `b`
+  is the batch size, `boundary_conditions[0][0]` should return a tuple of
+  either numbers, zero-rank tensors or tensors of shape `(b, nx)`. Similarly
+  for `boundary_conditions[1][0]`, except the tensor shape should be
+  `(b, ny)`. `alpha` and `beta` can also be `None` in case of Neumann and
+  Dirichlet conditions, respectively.
+* <b>`time_marching_scheme`</b>: A callable which represents the time marching scheme
+  for solving the PDE equation. If `u(t)` is space-discretized vector of the
+  solution of a PDE, a time marching scheme approximately solves the
+  equation `du/dt = A(t) u(t) + b(t)` for `u(t2)` given `u(t1)`, or vice
+  versa if going backwards in time. Here `A` is a banded matrix containing
+  contributions from the current and neighboring points in space, `b` is an
+  arbitrary vector (inhomogeneous term).
+  Multidimensional time marching schemes are usually based on the idea of
+  ADI (alternating direction implicit) method: the time step is split into
+  substeps, and in each substep only one dimension is treated "implicitly",
+  while all the others are treated "explicitly". This way one has to solve
+  only tridiagonal systems of equations, but not more complicated banded
+  ones. A few examples of time marching schemes (Douglas, Craig-Sneyd, etc.)
+  can be found in [1].
+  The callable consumes the following arguments by keyword:
+    1. inner_value_grid: Grid of solution values at the current time of
+      the same `dtype` as `value_grid` and shape of `value_grid[..., 1:-1]`.
+    2. t1: Lesser of the two times defining the step.
+    3. t2: Greater of the two times defining the step.
+    4. equation_params_fn: A callable that takes a scalar `Tensor` argument
+      representing time and returns a tuple of two elements.
+      The first one represents `A`. The length must be the number of
+      dimensions (`n_dims`), and A[i] must have length `n_dims - i`.
+      `A[i][0]` is a tridiagonal matrix representing influence of the
+      neighboring points along the dimension `i`. It is a tuple of
+      superdiagonal, diagonal, and subdiagonal parts of the tridiagonal
+      matrix. The shape of these tensors must be same as of `value_grid`.
+      superdiagonal[..., -1] and subdiagonal[..., 0] are ignored.
+      `A[i][j]` with `i < j < n_dims` are tuples of four Tensors with same
+      shape as `value_grid` representing the influence of four points placed
+      diagonally from the given point in the plane of dimensions `i` and
+      `j`. Denoting `k`, `l` the indices of a given grid point in the plane,
+      the four Tensors represent contributions of points `(k+1, l+1)`,
+      `(k+1, l-1)`, `(k-1, l+1)`, and `(k-1, l-1)`, in this order.
+      The second element in the tuple is a list of contributions to `b(t)`
+      associated with each dimension. E.g. if `b(t)` comes from boundary
+      conditions, then it is split correspondingly. Each element in the list
+      is a Tensor with the shape of `value_grid`.
+      For example a 2D problem with `value_grid.shape = (B, ny, nx)`, where
+      `B` is the batch size. The elements `Aij` are non-zero if `i = j` or
+      `i` is a neighbor of `j` in the x-y plane. Depict these non-zero
+      elements on the grid as follows:
+      ```
+      a_mm    a_y-   a_mp
+      a_x-    a_0    a_x+
+      a_pm   a_y+   a_pp
+      ```
+      The callable should return
+      ```
+      ([[(a_y-, a_0y, a_y+), (a_pp, a_pm, a_mp, a_pp)],
+        [None, (a_x-, a_0x, a_x+)]],
+      [b_y, b_x])
+      ```
+      where `a_0x + a_0y = a_0` (the splitting is arbitrary). Note that
+      there is no need to repeat the non-diagonal term
+      `(a_pp, a_pm, a_mp, a_pp)` for the second time: it's replaced with
+      `None`.
+      All the elements `a_...` may be different for each point in the grid,
+      so they are `Tensors` of shape `(B, ny, nx)`. `b_y` and `b_x` are also
+      `Tensors` of that shape.
+    5. n_dims: A Python integer, the spatial dimension of the PDE.
+  The callable should return a `Tensor` of the same shape and `dtype` as
+  `values_grid` that represents an approximate solution of the
+  space-discretized PDE.
+* <b>`second_order_coeff_fn`</b>: Callable returning the second order coefficient
+  `a_{ij}(t, r)` evaluated at given time `t`.
+  The callable accepts the following arguments:
+    `t`: The time at which the coefficient should be evaluated.
+    `locations_grid`: a `Tensor` representing a grid of locations `r` at
+      which the coefficient should be evaluated.
+  Returns an object `A` such that `A[i][j]` is defined and
+  `A[i][j]=a_{ij}(r, t)`, where `0 <= i < n_dims` and `i <= j < n_dims`.
+  For example, the object may be a list of lists or a rank 2 Tensor.
+  Only the elements with `j >= i` will be used, and it is assumed that
+  `a_{ji} = a_{ij}`, so `A[i][j] with `j < i` may return `None`.
+  Each `A[i][j]` should be a Number, a `Tensor` broadcastable to the
+  shape of the grid represented by `locations_grid`, or `None` if
+  corresponding term is absent in the equation. Also, the callable itself
+  may be None, meaning there are no second-order derivatives in the
+  equation.
+  For example, for `n_dims=2`, the callable may return either
+  `[[a_yy, a_xy], [a_xy, a_xx]]` or `[[a_yy, a_xy], [None, a_xx]]`.
+* <b>`first_order_coeff_fn`</b>: Callable returning the first order coefficients
+  `b_{i}(t, r)` evaluated at given time `t`.
+  The callable accepts the following arguments:
+    `t`: The time at which the coefficient should be evaluated.
+    `locations_grid`: a `Tensor` representing a grid of locations `r` at
+      which the coefficient should be evaluated.
+  Returns a list or an 1D `Tensor`, `i`-th element of which represents
+  `b_{i}(t, r)`. Each element should be a Number, a `Tensor` broadcastable
+   to the shape of of the grid represented by `locations_grid`, or None if
+   corresponding term is absent in the equation. The callable itself may be
+   None, meaning there are no first-order derivatives in the equation.
+* <b>`zeroth_order_coeff_fn`</b>: Callable returning the zeroth order coefficient
+  `c(t, r)` evaluated at given time `t`.
+  The callable accepts the following arguments:
+    `t`: The time at which the coefficient should be evaluated.
+    `locations_grid`: a `Tensor` representing a grid of locations `r` at
+      which the coefficient should be evaluated.
+  Should return a Number or a `Tensor` broadcastable to the shape of
+  the grid represented by `locations_grid`. May also return None or be None
+  if the shift term is absent in the equation.
+* <b>`inner_second_order_coeff_fn`</b>: Callable returning the coefficients under the
+  second derivatives (i.e. `A_ij(t, x)` above) at given time `t`. The
+  requirements are the same as for `second_order_coeff_fn`.
+* <b>`inner_first_order_coeff_fn`</b>: Callable returning the coefficients under the
+  first derivatives (i.e. `B_i(t, x)` above) at given time `t`. The
+  requirements are the same as for `first_order_coeff_fn`.
+* <b>`dtype`</b>: The dtype to use.
+* <b>`name`</b>: The name to give to the ops.
+  Default value: None which means `parabolic_equation_step` is used.
+
+
+#### Returns:
+
+A sequence of two `Tensor`s. The first one is a `Tensor` of the same
+`dtype` and `shape` as `coord_grid` and represents a new coordinate grid
+after one iteration. The second `Tensor` is of the same shape and `dtype`
+as`values_grid` and represents an approximate solution of the equation after
+one iteration.
+
+
+#### References:
+[1] Tinne Haentjens, Karek J. in't Hout. ADI finite difference schemes
+for the Heston-Hull-White PDE. https://arxiv.org/abs/1111.4087

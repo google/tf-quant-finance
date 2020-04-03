@@ -1,0 +1,49 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.pde.steppers.crank_nicolson.crank_nicolson_step" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.pde.steppers.crank_nicolson.crank_nicolson_step
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/pde/steppers/crank_nicolson.py">View source</a>
+
+
+
+Creates a stepper function with Crank-Nicolson time marching scheme.
+
+```python
+tf_quant_finance.math.pde.steppers.crank_nicolson.crank_nicolson_step()
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+Crank-Nicolson time marching scheme is one of the the most widely used schemes
+for 1D PDEs. Given a space-discretized equation
+
+```
+du/dt = A(t) u(t) + b(t)
+```
+(here `u` is a value vector, `A` and `b` are the matrix and the vector defined
+by the PDE), it approximates the right-hand side as an average of values taken
+before and after the time step:
+
+```
+(u(t2) - u(t1)) / (t2 - t1) = (A(t1) u(t1) + b(t1) + A(t2) u(t2) + b(t2)) / 2.
+```
+
+Crank-Nicolson has second order accuracy and is stable.
+
+More details can be found in `weighted_implicit_explicit.py` describing the
+weighted implicit-explicit scheme - Crank-Nicolson scheme is a special case
+with `theta = 0.5`.
+
+#### Returns:
+
+Callable to be used in finite-difference PDE solvers (see fd_solvers.py).

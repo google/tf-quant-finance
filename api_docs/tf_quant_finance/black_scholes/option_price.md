@@ -1,0 +1,124 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.black_scholes.option_price" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.black_scholes.option_price
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/black_scholes/vanilla_prices.py">View source</a>
+
+
+
+Computes the Black Scholes price for a batch of call or put options.
+
+```python
+tf_quant_finance.black_scholes.option_price(
+    *, volatilities, strikes, expiries, spots=None, forwards=None,
+    discount_rates=None, continuous_dividends=None, cost_of_carries=None,
+    discount_factors=None, is_call_options=None, dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+#### Example
+
+```python
+forwards = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+strikes = np.array([3.0, 3.0, 3.0, 3.0, 3.0])
+volatilities = np.array([0.0001, 102.0, 2.0, 0.1, 0.4])
+expiries = 1.0
+computed_prices = option_price(
+    volatilities,
+    strikes,
+    expiries,
+    forwards=forwards,
+    dtype=tf.float64)
+# Expected print output of computed prices:
+# [ 0.          2.          2.04806848  1.00020297  2.07303131]
+```
+
+#### References:
+[1] Hull, John C., Options, Futures and Other Derivatives. Pearson, 2018.
+[2] Wikipedia contributors. Black-Scholes model. Available at:
+  https://en.wikipedia.org/w/index.php?title=Black%E2%80%93Scholes_model
+
+#### Args:
+
+
+* <b>`volatilities`</b>: Real `Tensor` of any shape and dtype. The volatilities to
+  expiry of the options to price.
+* <b>`strikes`</b>: A real `Tensor` of the same dtype and compatible shape as
+  `volatilities`. The strikes of the options to be priced.
+* <b>`expiries`</b>: A real `Tensor` of same dtype and compatible shape as
+  `volatilities`. The expiry of each option. The units should be such that
+  `expiry * volatility**2` is dimensionless.
+* <b>`spots`</b>: A real `Tensor` of any shape that broadcasts to the shape of the
+  `volatilities`. The current spot price of the underlying. Either this
+  argument or the `forwards` (but not both) must be supplied.
+* <b>`forwards`</b>: A real `Tensor` of any shape that broadcasts to the shape of
+  `volatilities`. The forwards to maturity. Either this argument or the
+  `spots` must be supplied but both must not be supplied.
+* <b>`discount_rates`</b>: An optional real `Tensor` of same dtype as the
+  `volatilities` and of the shape that broadcasts with `volatilities`.
+  If not `None`, discount factors are calculated as e^(-rT),
+  where r are the discount rates, or risk free rates. At most one of
+  discount_rates and discount_factors can be supplied.
+  Default value: `None`, equivalent to r = 0 and discount factors = 1 when
+  discount_factors also not given.
+* <b>`continuous_dividends`</b>: An optional real `Tensor` of same dtype as the
+  `volatilities` and of the shape that broadcasts with `volatilities`.
+  If not `None`, `cost_of_carries` is calculated as r - q,
+  where r are the `discount_rates` and q is `continuous_dividends`. Either
+  this or `cost_of_carries` can be given.
+  Default value: `None`, equivalent to q = 0.
+* <b>`cost_of_carries`</b>: An optional real `Tensor` of same dtype as the
+  `volatilities` and of the shape that broadcasts with `volatilities`.
+  Cost of storing a physical commodity, the cost of interest paid when
+  long, or the opportunity cost, or the cost of paying dividends when short.
+  If not `None`, and `spots` is supplied, used to calculate forwards from
+  `spots`: F = e^(bT) * S, where F is the forwards price, b is the cost of
+  carries, T is expiries and S is the spot price. If `None`, value assumed
+  to be equal to the `discount_rate` - `continuous_dividends`
+  Default value: `None`, equivalent to b = r.
+* <b>`discount_factors`</b>: An optional real `Tensor` of same dtype as the
+  `volatilities`. If not `None`, these are the discount factors to expiry
+  (i.e. e^(-rT)). Mutually exclusive with discount_rate and cost_of_carry.
+  If neither is given, no discounting is applied (i.e. the undiscounted
+  option price is returned). If `spots` is supplied and `discount_factors`
+  is not `None` then this is also used to compute the forwards to expiry.
+  At most one of discount_rates and discount_factors can be supplied.
+  Default value: `None`, which maps to -log(discount_factors) / expiries
+* <b>`is_call_options`</b>: A boolean `Tensor` of a shape compatible with
+  `volatilities`. Indicates whether the option is a call (if True) or a put
+  (if False). If not supplied, call options are assumed.
+* <b>`dtype`</b>: Optional `tf.DType`. If supplied, the dtype to be used for conversion
+  of any supplied non-`Tensor` arguments to `Tensor`.
+  Default value: `None` which maps to the default dtype inferred by
+    TensorFlow.
+* <b>`name`</b>: str. The name for the ops created by this function.
+  Default value: `None` which is mapped to the default name `option_price`.
+
+
+#### Returns:
+
+
+* <b>`option_prices`</b>: A `Tensor` of the same shape as `forwards`. The Black
+Scholes price of the options.
+
+
+#### Raises:
+
+
+* <b>`ValueError`</b>: If both `forwards` and `spots` are supplied or if neither is
+  supplied.
+* <b>`ValueError`</b>: If both `discount_rates` and `discount_factors` is supplied.
+* <b>`ValueError`</b>: If both `continuous_dividends` and `cost_of_carries` is
+  supplied.

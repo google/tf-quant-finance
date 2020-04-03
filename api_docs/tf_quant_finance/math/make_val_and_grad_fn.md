@@ -1,0 +1,55 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.make_val_and_grad_fn" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.make_val_and_grad_fn
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/gradient.py">View source</a>
+
+
+
+Function decorator to compute both function value and gradient.
+
+```python
+tf_quant_finance.math.make_val_and_grad_fn(
+    value_fn
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+
+#### For example:
+
+
+
+```
+@tff.math.make_val_and_grad_fn
+def quadratic(x):
+  return tf.reduce_sum(scales * (x - minimum) ** 2, axis=-1)
+```
+
+Turns `quadratic` into a function that accepts a point as a `Tensor` as input
+and returns a tuple of two `Tensor`s with the value and the gradient of the
+defined quadratic function evaluated at the input point.
+
+This is useful for constucting functions to optimize with tff.math.optimizer
+methods.
+
+#### Args:
+
+
+* <b>`value_fn`</b>: A python function to decorate.
+
+
+#### Returns:
+
+The decorated function.

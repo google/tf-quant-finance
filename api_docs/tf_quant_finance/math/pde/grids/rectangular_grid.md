@@ -1,0 +1,62 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.pde.grids.rectangular_grid" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.pde.grids.rectangular_grid
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/pde/grids.py">View source</a>
+
+
+
+Specifies parameters for an axis-wise non-uniform grid in n-dimensions.
+
+```python
+tf_quant_finance.math.pde.grids.rectangular_grid(
+    axis_locations, dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+This specifies rectangular grids formed by taking the cartesian product
+of points along each axis. For example, in two dimensions, one may specify
+a grid by specifying points along the x-axis as [0.0, 1.0, 1.3] and along the
+y-axis by [3.0, 3.6, 4.3, 7.0]. Taking the cartesian product of the two,
+produces a 3 x 4 grid which is rectangular but non-uniform along each axis.
+
+The points along each axis should be in ascending order and there must be at
+least two points specified along each axis. If `validate_args` is set to
+True, both these conditions are explicitly verified.
+
+#### Args:
+
+
+* <b>`axis_locations`</b>: A Python iterable of rank 1 real `Tensor`s. The number of
+  `Tensor`s in the list is the dimension of the grid. The i'th element
+  specifies the coordinates of the points of the grid along that axis. Each
+  `Tensor` must have at least two elements.
+* <b>`dtype`</b>: Optional tf.dtype. The default dtype to use for the grid..
+* <b>`name`</b>: Python str. The name prefixed to the ops created by this class. If not
+  supplied, the default name 'rectangular_grid' is used.
+
+
+#### Returns:
+
+The grid locations as projected along each axis. One `Tensor` of shape
+`[..., n]`, where `n` is the number of points along that axis. The first
+dimensions are the batch shape. The grid itself can be seen as a cartesian
+product of the locations array.
+
+
+
+#### Raises:
+
+ValueError if `axis_locations` is empty.

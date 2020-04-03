@@ -1,0 +1,96 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.pde.grids.log_uniform_grid_with_extra_point" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.pde.grids.log_uniform_grid_with_extra_point
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/pde/grids.py">View source</a>
+
+
+
+Creates a grid for a uniform grid in a log-space with an extra grid point.
+
+```python
+tf_quant_finance.math.pde.grids.log_uniform_grid_with_extra_point(
+    minimums, maximums, sizes, extra_grid_point, dtype=None, validate_args=False,
+    name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+A log-uniform grid is characterized by having a constant gap between
+neighboring points along each axis in the log-space, i.e., the logarithm of
+output grid is the uniform grid.  An extra grid point is useful, for example,
+when computing sensitivities for a value through a grid pricing method.
+
+Note that the shape of all three parameters must be fully defined and equal
+to each other. The shape is used to determine the dimension of the grid.
+Note that all the parameters are supplied and returned for the original space
+and not the log-space.
+
+#### Examples
+
+```python
+dtype = np.float64
+extra_locations = tf.constant([[0.5, 2], [2, 3]], dtype=dtype)
+min_x, max_x, sizes = [[0.1, 0.1], [0.01, 0.1]], [[10, 5], [100, 5]], [3, 2]
+# Here min_x and max_x are in the original space and *not* in the log-space.
+grid = log_uniform_grid_with_extra_point(
+    min_x, max_x, sizes,
+    extra_grid_point=extra_locations, dtype=dtype)
+with tf.Session() as sess:
+  grid = sess.run(grid)
+# Note that the minimum and maximum grid locations are the same as min_x and
+# max_x.
+print(grid.locations[0])
+# [[0.1, 0.5, 1.0, 10.0], [0.01, 1.0, 2.0, 100.0]]
+print(grid.locations[1])
+# [[0.1, 2, 5], [0.1, 3, 5]]
+```
+
+#### Args:
+
+
+* <b>`minimums`</b>: Real `Tensor` of rank 1 or 2 containing the lower end points of
+  the grid. Must have the same shape as those of `maximums`. When rank is 2
+  the first dimension is the batch dimension.
+* <b>`maximums`</b>: `Tensor` of the same dtype and shape as `minimums`. The upper
+  endpoints of the grid.
+* <b>`sizes`</b>: Integer rank 1 `Tensor` of the same shape as `minimums`. The size of
+  the grid in each axis. Each entry must be greater than or equal to 2 (i.e.
+  the sizes include the end points).
+* <b>`extra_grid_point`</b>: A `Tensor` of the same `dtype` as `minimums` and of shape
+  `[batch_size, n]`, where `batch_shape` is a positive integer and `n` is
+  the number of points along a dimension. These are the extra points added
+  to the grid, so that the output grid `locations` have shape `[batch_shape,
+  n+1]`.
+* <b>`dtype`</b>: Optional tf.dtype. The default dtype to use for the grid.
+* <b>`validate_args`</b>: Python boolean indicating whether to validate the supplied
+  arguments. The validation checks performed are (a) `maximums` > `minimums`
+  (b) `minimums` > 0.0 (c) `sizes` >= 2.
+* <b>`name`</b>: Python str. The name prefixed to the ops created by this function. If
+  not supplied, the default name 'uniform_grid_spec' is used.
+
+
+#### Returns:
+
+The grid locations as projected along each axis. One `Tensor` of shape
+`[..., n]`, where `n` is the number of points along that axis. The first
+dimensions are the batch shape. The grid itself can be seen as a cartesian
+product of the locations array.
+
+
+
+#### Raises:
+
+ValueError if the shape of maximums, minimums and sizes are not fully
+defined or they are not identical to each other or they are not rank 1.

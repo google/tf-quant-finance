@@ -1,0 +1,24 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.random.halton" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# Module: tf_quant_finance.math.random.halton
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/random_ops/halton/__init__.py">View source</a>
+
+
+
+Halton sampling.
+
+
+
+## Functions
+
+[`sample(...)`](../../../tf_quant_finance/math/random/halton/sample.md): Returns a sample from the `dim` dimensional Halton sequence.
+

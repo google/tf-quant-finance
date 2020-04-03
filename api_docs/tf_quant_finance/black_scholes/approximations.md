@@ -1,0 +1,24 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.black_scholes.approximations" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# Module: tf_quant_finance.black_scholes.approximations
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/black_scholes/approximations/__init__.py">View source</a>
+
+
+
+Approximations to the black scholes formula.
+
+
+
+## Functions
+
+[`adesi_whaley(...)`](../../tf_quant_finance/black_scholes/approximations/adesi_whaley.md): Computes American option prices using the Baron-Adesi Whaley approximation.
+

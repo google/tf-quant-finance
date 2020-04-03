@@ -1,0 +1,102 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.fwd_gradient" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.fwd_gradient
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/gradient.py">View source</a>
+
+
+
+Computes forward mode gradient.
+
+```python
+tf_quant_finance.math.fwd_gradient(
+    func_or_y, x, input_gradients=None, use_gradient_tape=False, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+Implementation based on suggestions in
+[this thread](https://github.com/tensorflow/tensorflow/issues/19361).
+
+TensorFlow computes gradients using the reverse mode automatic
+differentiation which is suitable for typical machine learning situations
+where one has a scalar loss function that one wants to differentiate with
+respect to the parameters. In some cases, one needs to be able to compute
+directional derivatives of non-scalar functions. Suppose F is a function from
+R^n to R^m and let u be a fixed vector in R^n, w a fixed vector in R^m and
+x a variable taking values in R^n. Let J(F) denote the jacobian matrix of
+F of shape [m, n] (i.e. J(F)[i, j] = dF_i / dx_j). Then the default
+gradients function in TF computes the expression
+w^T.J(F) (i.e. Sum[w_i dF_i / dx_j, 1 <= i <= m]).
+
+On the other hand, one also often needs to compute the directional derivative
+J(F).u (i.e. Sum[u_j dF_i / dx_j, 1 <= j <= n]). Unfortunately, TensorFlow
+has no native support for accumulating this. Providing first class support
+for forward mode differentiation requires some significant changes in the core
+architecture of TF (including writing a directional derivative for each
+op).
+
+The following function sidesteps this by using two passes of reverse mode
+differentiation. Mathematically, the idea is simple. If F: R^n -> R^m, then
+w^T.J(F) seen as a function of w is a function from R^m to R^n (because
+w is in R^m, and w^T.J(F) is in R^n). Hence a reverse mode differentiation
+with respect to w should produce J(F).u.
+
+This function provides only a small subset of the flexibility of
+the tf.gradients function. This may be extended in the future.
+
+#### Example
+
+Following example demonstrates the usage and the difference between this
+op and the standard `tf.gradients`
+```python
+  t = tf.range(1, 3, dtype=tf.float32)  # Shape [2]
+  def fn(t):
+    return tf.stack([t, t ** 2, t ** 3], axis=0)  # Shape [3, 2]
+  # Produces shape [3, 2] with values [[1, 1], [2, 4], [3, 12]]
+  fwd_grad_y = fwd_gradient(fn, t)
+  # Produces shape [2] with values [6, 17].
+  bck_grad_y = tf.gradients(y, t)[0]
+```
+
+#### Args:
+
+
+* <b>`func_or_y`</b>: Either a `Tensor` conencted to the input `x` or a Python callable
+  accepting one `Tensor` of shape of `x` and returning a `Tensor` of any
+  shape. The function whose gradient is to be computed. If eagerly
+  executing, can only be a callable, i.e., one should not supply a Tensor
+  in eager mode.
+* <b>`x`</b>: A `Tensor` with respect to which the gradient is to be computed.
+* <b>`input_gradients`</b>: A `Tensor` of the same shape as `x`. The direction along
+  which the directional derivative is to be computed.
+  Default value: `None` which maps to a ones-like `Tensor` of `x`.
+* <b>`use_gradient_tape`</b>: Optional Python bool. Whether to use gradient tape even
+  when eager mode is not turned on.
+  Defaule value: `False`.
+* <b>`name`</b>: Python `str` name prefixed to ops created by this function.
+  Default value: `None` (i.e., 'gradients').
+
+
+#### Returns:
+
+A `Tensor` of the same shape as `func(x)`.
+
+
+
+#### Raises:
+
+
+* <b>`ValueError`</b>: If `func_or_y` is not a callable and the output is eagerly
+  executed or when the `tf.GradientTape` is used.

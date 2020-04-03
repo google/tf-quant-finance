@@ -1,0 +1,219 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.rates.hagan_west.bond_curve" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.rates.hagan_west.bond_curve
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/rates/hagan_west/bond_curve.py">View source</a>
+
+
+
+Constructs the bond discount rate curve using the Hagan-West algorithm.
+
+```python
+tf_quant_finance.rates.hagan_west.bond_curve(
+    bond_cashflows, bond_cashflow_times, present_values,
+    present_values_settlement_times=None, initial_discount_rates=None,
+    discount_tolerance=1e-08, maximum_iterations=50, validate_args=False,
+    dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+
+A discount curve is a function of time which gives the interest rate that
+applies to a unit of currency deposited today for a period of  time `t`.
+The traded price of bonds implicitly contains the market view on the discount
+rates. The purpose of discount curve construction is to extract this
+information.
+
+Suppose we have a set of `N` bonds `B_i` with increasing expiries whose market
+prices are known.
+Suppose also that the `i`th bond issues cashflows at times `T_{ij}` where
+`1 <= j <= n_i` and `n_i` is the number of cashflows (including expiry)
+for the `i`th bond.
+Denote by `T_i` the time of final payment for the `i`th bond
+(hence `T_i = T_{i,n_i}`). This function estimates a set of rates `r(T_i)`
+such that when these rates are interpolated to all other cashflow times using
+the Monotone Convex interpolation scheme (Ref [1, 2]), the computed value of
+the bonds matches the market value of the bonds (within some tolerance).
+
+The algorithm implemented here is based on the Monotone Convex Interpolation
+method described by Hagan and West in Ref [1, 2].
+
+
+### Limitations
+
+The fitting algorithm suggested in Hagan and West has a few limitations that
+are worth keeping in mind.
+
+  1. Non-convexity: The implicit loss function that is minimized by the
+    procedure is non-convex. Practically this means that for a given level of
+    tolerance, it is possible to find distinct values for the discount rates
+    all of which price the given cashflows to within tolerance. Depending
+    on the initial values chosen, the procedure of Hagan-West can converge to
+    different minima.
+  2. Stability: The procedure iterates by computing the rate to expiry of
+    a bond given the approximate rates for the coupon dates. If the initial
+    guess is widely off or even if it isn't but the rates are artificially
+    large, it can happen that the discount factor estimated at an iteration
+    step (see Eq. 14 in Ref. [2]) is negative. Hence no real discount rate
+    can be found to continue the iterations. Additionally, it can be shown
+    that the procedure diverges if the final cashflow is not larger than
+    all the intermediate cashflows. While this situation does not arise in
+    the case of bond cashflows, it is an important consideration from a
+    mathematical perspective. For the details of the stability and
+    convergence of the scheme see the associated technical note.
+    TODO(b/139052353): Write the technical note and add a reference here.
+
+#### Example:
+
+The following example demonstrates the usage by building the implied curve
+from four coupon bearing bonds.
+
+```python
+
+dtype=np.float64
+
+# These need to be sorted by expiry time.
+cashflow_times = [
+    np.array([0.25, 0.5, 0.75, 1.0], dtype=dtype),
+    np.array([0.5, 1.0, 1.5, 2.0], dtype=dtype),
+    np.array([0.5, 1.0, 1.5, 2.0, 2.5, 3.0], dtype=dtype),
+    np.array([0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0], dtype=dtype)
+]
+
+cashflows = [
+    # 1 year bond with 5% three monthly coupon.
+    np.array([12.5, 12.5, 12.5, 1012.5], dtype=dtype),
+    # 2 year bond with 6% semi-annual coupon.
+    np.array([30, 30, 30, 1030], dtype=dtype),
+    # 3 year bond with 8% semi-annual coupon.
+    np.array([40, 40, 40, 40, 40, 1040], dtype=dtype),
+    # 4 year bond with 3% semi-annual coupon.
+    np.array([15, 15, 15, 15, 15, 15, 15, 1015], dtype=dtype)
+]
+
+# The present values of the above cashflows.
+pvs = np.array([
+    999.68155223943393, 1022.322872470043, 1093.9894418810143,
+    934.20885689015677
+], dtype=dtype)
+
+results = bond_curve(cashflows, cashflow_times, pvs)
+
+# The curve times are the expiries of the supplied cashflows.
+np.testing.assert_allclose(results.times, [1.0, 2.0, 3.0, 4.0])
+
+expected_discount_rates = np.array([5.0, 4.75, 4.53333333, 4.775],
+                                   dtype=dtype) / 100
+
+np.testing.assert_allclose(results.discount_rates, expected_discount_rates,
+                           atol=1e-6)
+```
+
+#### References:
+
+[1]: Patrick Hagan & Graeme West. Interpolation Methods for Curve
+  Construction. Applied Mathematical Finance. Vol 13, No. 2, pp 89-129.
+  June 2006.
+https://www.researchgate.net/publication/24071726_Interpolation_Methods_for_Curve_Construction
+[2]: Patrick Hagan & Graeme West. Methods for Constructing a Yield Curve.
+  Wilmott Magazine, pp. 70-81. May 2008.
+https://www.researchgate.net/profile/Patrick_Hagan3/publication/228463045_Methods_for_constructing_a_yield_curve/links/54db8cda0cf23fe133ad4d01.pdf
+
+#### Args:
+
+
+* <b>`bond_cashflows`</b>: List of `Tensor`s. Each `Tensor` must be of rank 1 and of
+  the same real dtype. They may be of different sizes. Each `Tensor`
+  represents the bond cashflows defining a particular bond. The elements of
+  the list are the bonds to be used to build the curve.
+* <b>`bond_cashflow_times`</b>: List of `Tensor`s. The list must be of the same length
+  as the `bond_cashflows` and each `Tensor` in the list must be of the same
+  length as the `Tensor` at the same index in the `bond_cashflows` list.
+  Each `Tensor` must be of rank 1 and of the same dtype as the `Tensor`s in
+  `bond_cashflows` and contain strictly positive and increasing values. The
+  times of the bond cashflows for the bonds must in an ascending order.
+* <b>`present_values`</b>: List containing scalar `Tensor`s of the same dtype as
+  elements of `bond_cashflows`. The length of the list must be the same as
+  the length of `bond_cashflows`. The market price (i.e the all-in or dirty
+  price) of the bond cashflows supplied in the `bond_cashflows`.
+* <b>`present_values_settlement_times`</b>: List containing scalar `Tensor`s of the
+  same dtype as elements of `bond_cashflows`. The length of the list must be
+  the same as the length of `bond_cashflows`. The settlement times for the
+  present values is the time from now when the bond is traded to the time
+  that the purchase price is actually delivered. If not supplied, then it is
+  assumed that the settlement times are zero for every bond.
+  Default value: `None` which is equivalent to zero settlement times.
+* <b>`initial_discount_rates`</b>: Optional `Tensor` of the same dtype and shape as
+  `present_values`. The starting guess for the discount rates used to
+  initialize the iterative procedure.
+  Default value: `None`. If not supplied, the yields to maturity for the
+    bonds is used as the initial value.
+* <b>`discount_tolerance`</b>: Optional positive scalar `Tensor` of same dtype as
+  elements of `bond_cashflows`. The absolute tolerance for terminating the
+  iterations used to fit the rate curve. The iterations are stopped when the
+  estimated discounts at the expiry times of the bond_cashflows change by a
+  amount smaller than `discount_tolerance` in an iteration.
+  Default value: 1e-8.
+* <b>`maximum_iterations`</b>: Optional positive integer `Tensor`. The maximum number
+  of iterations permitted when fitting the curve.
+  Default value: 50.
+* <b>`validate_args`</b>: Optional boolean flag to enable validation of the input
+  arguments. The checks performed are: (1) There are no cashflows which
+  expire before or at the corresponding settlement time (or at time 0 if
+  settlement time is not provided). (2) Cashflow times for each bond form
+  strictly increasing sequence. (3) Final cashflow for each bond is larger
+  than any other cashflow for that bond.
+  Default value: False.
+* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the (elements of)
+  `bond_cashflows`, `bond_cashflow_times` and `present_values`.
+  Default value: None which maps to the default dtype inferred by TensorFlow
+    (float32).
+* <b>`name`</b>: Python str. The name to give to the ops created by this function.
+  Default value: None which maps to 'hagan_west'.
+
+
+#### Returns:
+
+
+* <b>`curve_builder_result`</b>: An instance of `CurveBuilderResult` containing the
+  following attributes.
+  times: Rank 1 real `Tensor`. Times for the computed discount rates. These
+    are chosen to be the expiry times of the supplied cashflows.
+  discount_rates: Rank 1 `Tensor` of the same dtype as `times`.
+    The inferred discount rates.
+  discount_factor: Rank 1 `Tensor` of the same dtype as `times`.
+    The inferred discount factors.
+  initial_discount_rates: Rank 1 `Tensor` of the same dtype as `times`. The
+    initial guess for the discount rates.
+  converged: Scalar boolean `Tensor`. Whether the procedure converged.
+    The procedure is said to have converged when the maximum absolute
+    difference in the discount factors from one iteration to the next falls
+    below the `discount_tolerance`.
+  failed: Scalar boolean `Tensor`. Whether the procedure failed. Procedure
+    may fail either because a NaN value was encountered for the discount
+    rates or the discount factors.
+  iterations: Scalar int32 `Tensor`. Number of iterations performed.
+
+
+#### Raises:
+
+
+* <b>`ValueError`</b>: If the `cashflows` and `cashflow_times` are not all of the same
+  length greater than or equal to two. Also raised if the
+  `present_values_settlement_times` is not None and not of the same length
+  as the `cashflows`.
+* <b>`tf.errors.InvalidArgumentError`</b>: In case argument validation is requested and
+  conditions explained in the corresponding section of Args comments are not
+  met.

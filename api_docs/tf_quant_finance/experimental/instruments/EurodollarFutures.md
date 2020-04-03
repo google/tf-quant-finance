@@ -1,0 +1,155 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.experimental.instruments.EurodollarFutures" />
+<meta itemprop="path" content="Stable" />
+<meta itemprop="property" content="__init__"/>
+<meta itemprop="property" content="price"/>
+</div>
+
+# tf_quant_finance.experimental.instruments.EurodollarFutures
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/instruments/eurodollar_futures.py">View source</a>
+
+
+
+Represents a collection of Eurodollar futures contracts.
+
+```python
+tf_quant_finance.experimental.instruments.EurodollarFutures(
+    expiry_date, contract_notional=1.0, daycount_convention=None, rate_term=None,
+    maturity_date=None, dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+Interest rate futures are exchange traded futures contracts on Libor rates
+liquidly traded on exchanges such as Chicago Mercantile Exchange (CME) or
+London International Financial Futures and Options Exchange (LIFFE). Contracts
+on CME on a US Dollar spot Libor rate are called Eurodollar (ED) Futures.
+An ED future contract at maturity T settles at the price
+100 * (1 - F(T, T1, T2))
+where F(T, T1, T2) is the spot Libor rate at time T with start T1 and
+maturity T2 (ref [1]).
+
+The EurodollarFutures class can used to create and price multiple contracts
+simultaneously. However all contracts within an object must be priced using a
+common reference curve.
+
+#### Example:
+The following example illustrates the construction of an ED future instrument
+and calculating its price.
+
+```python
+
+import numpy as np
+import tensorflow as tf
+import tf_quant_finance as tff
+
+dates = tff.experimental.dates
+instruments = tff.experimental.instruments
+
+dtype = np.float64
+notional = 1.
+expiry_date = dates.convert_to_date_tensor([(2021, 2, 8)])
+valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
+rate_term = dateslib.periods.PeriodTensor(3, dateslib.PeriodType.MONTH)
+
+edfuture = instruments.EurodollarFutures(
+    expiry_date, notional, rate_term=rate_term, dtype=dtype)
+
+curve_dates = valuation_date + tff.experimental.dates.periods.PeriodTensor(
+      [1, 2, 3, 12, 24, 60], tff.experimental.dates.PeriodType.MONTH)
+reference_curve = instruments.RateCurve(
+    curve_dates,
+    np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),
+    dtype=dtype)
+
+market = instruments.InterestRateMarket(reference_curve=reference_curve,
+                                        discount_curve=None)
+
+price = self.evaluate(edfuture.price(valuation_date, market))
+
+#### References:
+[1]: Leif B.G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling,
+    Volume I: Foundations and Vanilla Models. Chapter 5. 2010.
+
+#### Args:
+
+
+* <b>`expiry_date`</b>: A Rank 1 `DateTensor` specifying the dates on which the
+  futures contracts expire.
+* <b>`contract_notional`</b>: An optional scalar or Rank 1 `Tensor` of real dtype
+  specifying the unit (or size) for the contract. For example for
+  eurodollar futures traded on CME, the contract notional is $2500. If
+  `contract_notional` is entered as a scalar, it is assumed that the input
+  is the same for all of the contracts.
+  Default value: 1.0
+* <b>`daycount_convention`</b>: An optional `DayCountConvention` corresponding
+  to the day count convention for the underlying rate for each contract.
+  Daycount is assumed to be the same for all contracts in a given batch.
+  Default value: None in which case each the day count convention of
+  DayCountConvention.ACTUAL_360 is used for each contract.
+* <b>`rate_term`</b>: An optional Rank 1 `PeriodTensor` specifying the term (or
+  tenor) of the rate that determines the settlement of each contract.
+  Default value: `None` in which case the the rate is assumed to be for
+  the period [expiry_date, maturity_date].
+* <b>`maturity_date`</b>: An optional Rank 1 `DateTensor` specifying the maturity of
+  the underlying forward rate for each contract. This input should be
+  specified if the input `rate_term` is `None`. If both `maturity_date`
+  and `rate_term` are specified, an error is raised.
+  Default value: `None`
+* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the real variables or ops
+  either supplied to the EurodollarFuture object or created by the
+  EurodollarFuture object.
+  Default value: None which maps to the default dtype inferred by
+  TensorFlow.
+* <b>`name`</b>: Python str. The name to give to the ops created by this class.
+  Default value: `None` which maps to 'eurodollar_future'.
+
+
+#### Raises:
+
+
+* <b>`ValueError`</b>: If both `maturity_date` and `rate_term` are unspecified or
+if both `maturity_date` and `rate_term` are specified.
+
+## Methods
+
+<h3 id="price"><code>price</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/instruments/eurodollar_futures.py">View source</a>
+
+```python
+price(
+    valuation_date, market, model=None
+)
+```
+
+Returns the price of the contract on the valuation date.
+
+
+#### Args:
+
+
+* <b>`valuation_date`</b>: A scalar `DateTensor` specifying the date on which
+  valuation is being desired.
+* <b>`market`</b>: A namedtuple of type `InterestRateMarket` which contains the
+  necessary information for pricing the FRA instrument.
+* <b>`model`</b>: Reserved for future use.
+
+
+#### Returns:
+
+A Rank 1 `Tensor` of real type containing the modeled price of each
+futures contract based on the input market data.
+
+
+
+

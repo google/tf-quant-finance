@@ -1,0 +1,53 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.experimental.dates.from_year_month_day" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.experimental.dates.from_year_month_day
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/date_tensor.py">View source</a>
+
+
+
+Creates DateTensor from tensors of years, months and days.
+
+```python
+tf_quant_finance.experimental.dates.from_year_month_day(
+    year, month, day, validate=True
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+
+#### Args:
+
+
+* <b>`year`</b>: Tensor of int32 type. Elements should be positive.
+* <b>`month`</b>: Tensor of int32 type of same shape as `year`. Elements should be in
+  range `[1, 12]`.
+* <b>`day`</b>: Tensor of int32 type of same shape as `year`. Elements should be in
+  range `[1, 31]` and represent valid dates together with corresponding
+  elements of `month` and `year` Tensors.
+* <b>`validate`</b>: Whether to validate the dates.
+
+
+#### Returns:
+
+DateTensor object.
+
+
+#### Example
+```python
+year = tf.constant([2015, 2017], dtype=tf.int32)
+month = tf.constant([4, 12], dtype=tf.int32)
+day = tf.constant([15, 30], dtype=tf.int32)
+date_tensor = from_year_month_day(year, month, day)
+```

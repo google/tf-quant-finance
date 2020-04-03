@@ -1,0 +1,291 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.experimental.dates.HolidayCalendar2" />
+<meta itemprop="path" content="Stable" />
+<meta itemprop="property" content="__init__"/>
+<meta itemprop="property" content="add_business_days"/>
+<meta itemprop="property" content="add_period_and_roll"/>
+<meta itemprop="property" content="business_days_between"/>
+<meta itemprop="property" content="business_days_in_period"/>
+<meta itemprop="property" content="is_business_day"/>
+<meta itemprop="property" content="roll_to_business_day"/>
+<meta itemprop="property" content="subtract_business_days"/>
+<meta itemprop="property" content="subtract_period_and_roll"/>
+</div>
+
+# tf_quant_finance.experimental.dates.HolidayCalendar2
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/holiday_calendar_v2.py">View source</a>
+
+
+
+Represents a holiday calendar.
+
+```python
+tf_quant_finance.experimental.dates.HolidayCalendar2(
+    weekend_mask=None, holidays=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+Differs from dates.HolidayCalendar in implementation. This implementation
+supports weekends and holiday supplied as `Tensor`s. However, it is
+(potentially significantly) slower than the dates.HolidayCalendar
+implementation.
+
+Provides methods for manipulating the dates taking into account the holidays,
+and the business day roll conventions. Weekends are treated as holidays.
+
+#### Args:
+
+
+* <b>`weekend_mask`</b>: Boolean `Tensor` of 7 elements one for each day of the week
+  starting with Monday at index 0. A `True` value indicates the day is
+  considered a weekend day and a `False` value implies a week day.
+  Default value: None which means no weekends are applied.
+* <b>`holidays`</b>: Defines the holidays that are added to the weekends defined by
+  `weekend_mask`. An instance of <a href="../../../tf_quant_finance/experimental/dates/DateTensor.md"><code>dates.DateTensor</code></a> or an object
+  convertible to `DateTensor`.
+  Default value: None which means no holidays other than those implied by
+    the weekends (if any).
+
+## Methods
+
+<h3 id="add_business_days"><code>add_business_days</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/holiday_calendar_v2.py">View source</a>
+
+```python
+add_business_days(
+    date_tensor, num_days,
+    roll_convention=tf_quant_finance.experimental.dates.BusinessDayConvention.NONE
+)
+```
+
+Adds given number of business days to given dates.
+
+Note that this is different from calling `add_period_and_roll` with
+PeriodType.DAY. For example, adding 5 business days to Monday gives the next
+Monday (unless there are holidays on this week or next Monday). Adding 5
+days and rolling means landing on Saturday and then rolling either to next
+Monday or to Friday of the same week, depending on the roll convention.
+
+If any of the dates in `date_tensor` are not business days, they will be
+rolled to business days before doing the addition. If `roll_convention` is
+`NONE`, and any dates are not business days, an exception is raised.
+
+#### Args:
+
+
+* <b>`date_tensor`</b>: `DateTensor` of dates to advance from.
+* <b>`num_days`</b>: Tensor of int32 type broadcastable to `date_tensor`.
+* <b>`roll_convention`</b>: BusinessDayConvention. Determines how to roll a date that
+  falls on a holiday.
+
+
+#### Returns:
+
+The resulting `DateTensor`.
+
+
+<h3 id="add_period_and_roll"><code>add_period_and_roll</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/holiday_calendar_v2.py">View source</a>
+
+```python
+add_period_and_roll(
+    date_tensor, period_tensor,
+    roll_convention=tf_quant_finance.experimental.dates.BusinessDayConvention.NONE
+)
+```
+
+Adds given periods to given dates and rolls to business days.
+
+The original dates are not rolled prior to addition.
+
+#### Args:
+
+
+* <b>`date_tensor`</b>: `DateTensor` of dates to add to.
+* <b>`period_tensor`</b>: PeriodTensor broadcastable to `date_tensor`.
+* <b>`roll_convention`</b>: BusinessDayConvention. Determines how to roll a date that
+  falls on a holiday.
+
+
+#### Returns:
+
+The resulting `DateTensor`.
+
+
+<h3 id="business_days_between"><code>business_days_between</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/holiday_calendar_v2.py">View source</a>
+
+```python
+business_days_between(
+    from_dates, to_dates
+)
+```
+
+Calculates number of business between pairs of dates.
+
+For each pair, the initial date is included in the difference, and the final
+date is excluded. If the final date is the same or earlier than the initial
+date, zero is returned.
+
+#### Args:
+
+
+* <b>`from_dates`</b>: `DateTensor` of initial dates.
+* <b>`to_dates`</b>: `DateTensor` of final dates, should be broadcastable to
+  `from_dates`.
+
+
+#### Returns:
+
+An int32 Tensor with the number of business days between the
+corresponding pairs of dates.
+
+
+<h3 id="business_days_in_period"><code>business_days_in_period</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/holiday_calendar_v2.py">View source</a>
+
+```python
+business_days_in_period(
+    date_tensor, period_tensor
+)
+```
+
+Calculates number of business days in a period.
+
+Includes the dates in `date_tensor`, but excludes final dates resulting from
+addition of `period_tensor`.
+
+#### Args:
+
+
+* <b>`date_tensor`</b>: `DateTensor` of starting dates.
+* <b>`period_tensor`</b>: PeriodTensor, should be broadcastable to `date_tensor`.
+
+
+#### Returns:
+
+An int32 Tensor with the number of business days in given periods that
+start at given dates.
+
+
+<h3 id="is_business_day"><code>is_business_day</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/holiday_calendar_v2.py">View source</a>
+
+```python
+is_business_day(
+    date_tensor
+)
+```
+
+Returns a tensor of bools for whether given dates are business days.
+
+
+<h3 id="roll_to_business_day"><code>roll_to_business_day</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/holiday_calendar_v2.py">View source</a>
+
+```python
+roll_to_business_day(
+    date_tensor, roll_convention
+)
+```
+
+Rolls the given dates to business dates according to given convention.
+
+
+#### Args:
+
+
+* <b>`date_tensor`</b>: `DateTensor` of dates to roll from.
+* <b>`roll_convention`</b>: BusinessDayConvention. Determines how to roll a date that
+  falls on a holiday.
+
+
+#### Returns:
+
+The resulting `DateTensor`.
+
+
+<h3 id="subtract_business_days"><code>subtract_business_days</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/holiday_calendar_v2.py">View source</a>
+
+```python
+subtract_business_days(
+    date_tensor, num_days,
+    roll_convention=tf_quant_finance.experimental.dates.BusinessDayConvention.NONE
+)
+```
+
+Adds given number of business days to given dates.
+
+Note that this is different from calling `subtract_period_and_roll` with
+PeriodType.DAY. For example, subtracting 5 business days from Friday gives
+the previous Friday (unless there are holidays on this week or previous
+Friday). Subtracting 5 days and rolling means landing on Sunday and then
+rolling either to Monday or to Friday, depending on the roll convention.
+
+If any of the dates in `date_tensor` are not business days, they will be
+rolled to business days before doing the subtraction. If `roll_convention`
+is `NONE`, and any dates are not business days, an exception is raised.
+
+#### Args:
+
+
+* <b>`date_tensor`</b>: `DateTensor` of dates to advance from.
+* <b>`num_days`</b>: Tensor of int32 type broadcastable to `date_tensor`.
+* <b>`roll_convention`</b>: BusinessDayConvention. Determines how to roll a date that
+  falls on a holiday.
+
+
+#### Returns:
+
+The resulting `DateTensor`.
+
+
+<h3 id="subtract_period_and_roll"><code>subtract_period_and_roll</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/holiday_calendar_v2.py">View source</a>
+
+```python
+subtract_period_and_roll(
+    date_tensor, period_tensor,
+    roll_convention=tf_quant_finance.experimental.dates.BusinessDayConvention.NONE
+)
+```
+
+Subtracts given periods from given dates and rolls to business days.
+
+The original dates are not rolled prior to subtraction.
+
+#### Args:
+
+
+* <b>`date_tensor`</b>: `DateTensor` of dates to subtract from.
+* <b>`period_tensor`</b>: PeriodTensor broadcastable to `date_tensor`.
+* <b>`roll_convention`</b>: BusinessDayConvention. Determines how to roll a date that
+  falls on a holiday.
+
+
+#### Returns:
+
+The resulting `DateTensor`.
+
+
+
+

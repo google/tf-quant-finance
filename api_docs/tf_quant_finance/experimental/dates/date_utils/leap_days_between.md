@@ -1,0 +1,47 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.experimental.dates.date_utils.leap_days_between" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.experimental.dates.date_utils.leap_days_between
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/date_utils.py">View source</a>
+
+
+
+Calculates number of leap days (29 Feb) between two dates.
+
+```python
+tf_quant_finance.experimental.dates.date_utils.leap_days_between(
+    start_date, end_date
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+'start_date' is included and 'end_date' is excluded from the period.
+
+For example, for dates '(2019, 12, 24)' and '(2024, 3, 10))' the result is
+2: there is 29 Feb 2020 and 29 Feb 2024 between 24 Dec 2019 (inclusive) and
+10 Mar 2024 (exclusive).
+
+If `end_date` is earlier than `start_date`, the result will be negative or
+zero.
+
+#### Args:
+
+
+* <b>`start_date`</b>: DateTensor.
+* <b>`end_date`</b>: DateTensor compatible with `start_date`.
+
+
+#### Returns:
+
+Tensor of type 'int32'.

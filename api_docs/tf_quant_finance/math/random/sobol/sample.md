@@ -1,0 +1,64 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.random.sobol.sample" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.random.sobol.sample
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/random_ops/sobol/sobol_impl.py">View source</a>
+
+
+
+Returns num_results samples from the Sobol sequence of dimension dim.
+
+```python
+tf_quant_finance.math.random.sobol.sample(
+    dim, num_results, skip=0, validate_args=False, dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+Uses the original ordering of points, not the more commonly used Gray code
+ordering. Derived from notes by Joe & Kuo[1].
+
+[1] describes bitwise operations on binary floats. The implementation below
+achieves this by transforming the floats into ints, being careful to align
+the digits so the bitwise operations are correct, then transforming back to
+floats.
+
+#### Args:
+
+
+* <b>`dim`</b>: Positive Python `int` representing each sample's `event_size.`
+* <b>`num_results`</b>: Positive scalar `Tensor` of dtype int32. The number of Sobol
+  points to return in the output.
+* <b>`skip`</b>: Positive scalar `Tensor` of dtype int32. The number of initial points
+  of the Sobol sequence to skip.
+* <b>`validate_args`</b>: Python `bool`. When `True`, input `Tensor's` are checked for
+  validity despite possibly degrading runtime performance. The checks verify
+  that `dim >= 1`, `num_results >= 1`, and `skip >= 0`. When `False` invalid
+  inputs may silently render incorrect outputs.
+  Default value: False.
+* <b>`dtype`</b>: Optional `dtype`. The dtype of the output `Tensor` (either `float32`
+  or `float64`).
+  Default value: `None` which maps to the `float32`.
+* <b>`name`</b>: Python `str` name prefixed to ops created by this function.
+
+
+#### Returns:
+
+`Tensor` of samples from Sobol sequence with `shape` [n, dim].
+
+
+#### References
+
+[1]: S. Joe and F. Y. Kuo. Notes on generating Sobol sequences. August 2008.
+     https://web.maths.unsw.edu.au/~fkuo/sobol/joe-kuo-notes.pdf

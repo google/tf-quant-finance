@@ -1,0 +1,81 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.segment_ops.segment_diff" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.segment_ops.segment_diff
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/segment_ops.py">View source</a>
+
+
+
+Computes difference of successive elements in a segment.
+
+```python
+tf_quant_finance.math.segment_ops.segment_diff(
+    x, segment_ids, order=1, exclusive=False, dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+For a complete description of segment_* ops see documentation of
+`tf.segment_max`. This op extends the `diff` functionality to segmented
+inputs.
+
+The behaviour of this op is the same as that of the op `diff` within each
+segment. The result is effectively a concatenation of the results of `diff`
+applied to each segment.
+
+#### Example
+
+```python
+  x = tf.constant([2, 5, 1, 7, 9] + [32, 10, 12, 3] + [4, 8, 5])
+  segments = tf.constant([0, 0, 0, 0, 0] + [1, 1, 1, 1] + [2, 2, 2])
+  # First order diff. Expected result: [3, -4, 6, 2, -22, 2, -9, 4, -3]
+  dx1 = segment_diff(
+      x, segment_ids=segments, order=1, exclusive=True)
+  # Non-exclusive, second order diff.
+  # Expected result: [2, 5, -1, 2, 8, 32, 10, -20, -7, 4, 8, 1]
+  dx2 = segment_diff(
+      x, segment_ids=segments, order=2, exclusive=False)
+```
+
+#### Args:
+
+
+* <b>`x`</b>: A rank 1 `Tensor` of any dtype for which arithmetic operations are
+  permitted.
+* <b>`segment_ids`</b>: A `Tensor`. Must be one of the following types: int32, int64. A
+  1-D tensor whose size is equal to the size of `x`. Values should be sorted
+  and can be repeated.
+* <b>`order`</b>: Positive Python int. The order of the difference to compute. `order =
+  1` corresponds to the difference between successive elements.
+  Default value: 1
+* <b>`exclusive`</b>: Python bool. See description above.
+  Default value: False
+* <b>`dtype`</b>: Optional `tf.Dtype`. If supplied, the dtype for `x` to use when
+  converting to `Tensor`.
+  Default value: None which maps to the default dtype inferred by TF.
+* <b>`name`</b>: Python `str` name prefixed to Ops created by this class.
+  Default value: None which is mapped to the default name 'segment_diff'.
+
+
+#### Returns:
+
+
+* <b>`diffs`</b>: A `Tensor` of the same dtype as `x`. Assuming that each segment is
+  of length greater than or equal to order, if `exclusive` is True,
+  then the size is `n-order*k` where `n` is the size of x,
+  `k` is the number of different segment ids supplied if `segment_ids` is
+  not None or 1 if `segment_ids` is None. If any of the segments is of
+  length less than the order, then the size is:
+  `n-sum(min(order, length(segment_j)), j)` where the sum is over segments.
+  If `exclusive` is False, then the size is `n`.

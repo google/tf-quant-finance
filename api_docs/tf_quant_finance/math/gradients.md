@@ -1,0 +1,56 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.gradients" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.gradients
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/gradient.py">View source</a>
+
+
+
+Computes the gradients of `func_or_y` wrt to `*xs`.
+
+```python
+tf_quant_finance.math.gradients(
+    func_or_y, xs, output_gradients=None, use_gradient_tape=False, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+
+#### Args:
+
+
+* <b>`func_or_y`</b>: Either a `Tensor` conencted to the input `x` or a Python callable
+   accepting one `Tensor` of shape of `x` and returning a `Tensor` of any
+   shape. The function whose gradient is to be computed. If eagerly
+   executing, can only be a callable, i.e., one should not supply a Tensor
+   in eager mode.
+ xs: Python list of parameters of `f` for which to differentiate. (Can also
+   be single `Tensor`.)
+ output_gradients: A `Tensor` or list of `Tensor`s the same size as the
+   result `ys = f(*xs)` and holding the gradients computed for each `y` in
+   `ys`. This argument is forwarded to the underlying gradient implementation
+   (i.e., either the `grad_ys` argument of `tf.gradients` or the
+   `output_gradients` argument of `tf.GradientTape.gradient`).
+   Default value: `None` which maps to a ones-like `Tensor` of `ys`.
+ use_gradient_tape: Python `bool` indicating that `tf.GradientTape` should be
+   used regardless of `tf.executing_eagerly()` status.
+   Default value: `False`.
+ name: Python `str` name prefixed to ops created by this function.
+   Default value: `None` (i.e., 'gradients').
+
+
+#### Returns:
+
+A `Tensor` with the gradient of `y` wrt each of `xs` or a list of `Tensor`s
+if `xs` is a list.

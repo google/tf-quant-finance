@@ -1,0 +1,131 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.experimental.instruments.RateCurve" />
+<meta itemprop="path" content="Stable" />
+<meta itemprop="property" content="__init__"/>
+<meta itemprop="property" content="get_discount_factor"/>
+<meta itemprop="property" content="get_forward_rate"/>
+<meta itemprop="property" content="get_rates"/>
+</div>
+
+# tf_quant_finance.experimental.instruments.RateCurve
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/instruments/rate_curve.py">View source</a>
+
+
+
+Represents an interest rate curve.
+
+```python
+tf_quant_finance.experimental.instruments.RateCurve(
+    maturity_dates, rates, valuation_date, compounding=None, interpolator=None,
+    dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+
+#### Args:
+
+
+* <b>`maturity_dates`</b>: A `DateTensor` containing the maturity dates on which the
+  curve is specified.
+* <b>`rates`</b>: A `Tensor` of real dtype specifying the rates (or yields)
+  corresponding to the input maturities. The shape of this input should
+  match the shape of `maturity_dates`.
+* <b>`valuation_date`</b>: A scalar `DateTensor` specifying the valuation (or
+  settlement) date for the curve.
+* <b>`compounding`</b>: Optional scalar `Tensor` of dtype int32 specifying the
+  componding frequency of the input rates. Use compounding=0 for
+  continuously compounded rates. If compounding is different than 0, then
+  rates are converted to continuously componded rates to perform
+  interpolation.
+  Default value: If omitted, the default value is 0.
+* <b>`interpolator`</b>: Optional Python callable specifying the desired
+  interpolation method. It should have the following interface: yi =
+  interpolator(xi, x, y) `x`, `y`, 'xi', 'yi' are all `Tensors` of real
+  dtype. `x` and `y` are the sample points and values (respectively) of
+  the function to be interpolated. `xi` are the points at which the
+  interpolation is desired and `yi` are the corresponding interpolated
+  values returned by the function.
+  Default value: None in which case linear interpolation is used.
+* <b>`dtype`</b>: `tf.Dtype`. Optional input specifying the dtype of the `rates`
+  input.
+* <b>`name`</b>: Python str. The name to give to the ops created by this function.
+  Default value: `None` which maps to 'rate_curve'.
+
+#### Attributes:
+
+* <b>`valuation_date`</b>
+
+
+## Methods
+
+<h3 id="get_discount_factor"><code>get_discount_factor</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/instruments/rate_curve.py">View source</a>
+
+```python
+get_discount_factor(
+    interpolation_dates
+)
+```
+
+Returns discount factors at `interpolation_dates`.
+
+
+<h3 id="get_forward_rate"><code>get_forward_rate</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/instruments/rate_curve.py">View source</a>
+
+```python
+get_forward_rate(
+    start_date, maturity_date, daycount_fraction
+)
+```
+
+Returns the simply accrued forward rate between [start_dt, maturity_dt].
+
+
+#### Args:
+
+
+* <b>`start_date`</b>: A `DateTensor` specifying the start of the accrual period
+  for the forward rate.
+* <b>`maturity_date`</b>: A `DateTensor` specifying the end of the accrual period
+  for the forward rate. The shape of `maturity_date` must be the same
+  as the shape of the `DateTensor` `start_date`.
+* <b>`daycount_fraction`</b>: A `Tensor` of real dtype specifying the a time between
+  `start_date` and `maturity_date` in years computed using the forward
+  rate's day count basis. The shape of the input should be the same as
+  that if `start_date` and `maturity_date`.
+
+
+#### Returns:
+
+A real tensor of same shape as the inputs containing the simply compounded
+forward rate.
+
+
+<h3 id="get_rates"><code>get_rates</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/instruments/rate_curve.py">View source</a>
+
+```python
+get_rates(
+    interpolation_dates
+)
+```
+
+Returns interpolated rates at `interpolation_dates`.
+
+
+
+

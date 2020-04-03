@@ -1,0 +1,65 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.integration.integrate" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.integration.integrate
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/integration/integrate.py">View source</a>
+
+
+
+Evaluates definite integral.
+
+```python
+tf_quant_finance.math.integration.integrate(
+    func, lower, upper, method=tf_quant_finance.math.integration.IntegrationMethod.C
+    OMPOSITE_SIMPSONS_RULE, dtype=None, name=None, **kwargs
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+#### Example
+```python
+  f = lambda x: x*x
+  a = tf.constant(0.0)
+  b = tf.constant(3.0)
+  integrate(f, a, b) # 9.0
+```
+
+#### Args:
+
+
+* <b>`func`</b>: Python callable representing a function to be integrated. It must be a
+  callable of a single `Tensor` parameter and return a `Tensor` of the same
+  shape and dtype as its input. It will be called with a `Tesnor` of shape
+  `lower.shape + [n]` (where n is integer number of points) and of the same
+  `dtype` as `lower`.
+* <b>`lower`</b>: `Tensor` or Python float representing the lower limits of
+  integration. `func` will be integrated between each pair of points defined
+  by `lower` and `upper`.
+* <b>`upper`</b>: `Tensor` of the same shape and dtype as `lower` or Python float
+  representing the upper limits of intergation.
+* <b>`method`</b>: Integration method. Instance of IntegrationMethod enum. Default is
+  IntegrationMethod.COMPOSITE_SIMPSONS_RULE.
+* <b>`dtype`</b>: Dtype of result. Must be real dtype. Defaults to dtype of `lower`.
+* <b>`name`</b>: Python str. The name to give to the ops created by this function.
+  Default value: None which maps to 'integrate'.
+* <b>`**kwargs`</b>: Additional parameters for specific integration method.
+
+
+#### Returns:
+
+`Tensor` of the same shape and dtype as `lower`, containing the value of the
+definite integral.
+
+
+Raises: ValueError if `method` was not recognized.

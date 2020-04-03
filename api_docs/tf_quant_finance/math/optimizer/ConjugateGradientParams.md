@@ -1,0 +1,114 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.optimizer.ConjugateGradientParams" />
+<meta itemprop="path" content="Stable" />
+<meta itemprop="property" content="__eq__"/>
+<meta itemprop="property" content="__ge__"/>
+<meta itemprop="property" content="__gt__"/>
+<meta itemprop="property" content="__init__"/>
+<meta itemprop="property" content="__le__"/>
+<meta itemprop="property" content="__lt__"/>
+<meta itemprop="property" content="__ne__"/>
+</div>
+
+# tf_quant_finance.math.optimizer.ConjugateGradientParams
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/optimizer/conjugate_gradient.py">View source</a>
+
+
+
+Adjustable parameters of conjugate gradient algorithm.
+
+```python
+tf_quant_finance.math.optimizer.ConjugateGradientParams(
+    sufficient_decrease_param=attr_dict['sufficient_decrease_param'].default,
+    curvature_param=attr_dict['curvature_param'].default, threshold_use_approximate_
+    wolfe_condition=attr_dict['threshold_use_approximate_wolfe_condition'].default,
+    shrinkage_param=attr_dict['shrinkage_param'].default,
+    direction_update_param=attr_dict['direction_update_param'].default,
+    expansion_param=attr_dict['expansion_param'].default,
+    initial_guess_small_factor=attr_dict['initial_guess_small_factor'].default, init
+    ial_guess_step_multiplier=attr_dict['initial_guess_step_multiplier'].default,
+    quad_step=attr_dict['quad_step'].default
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+
+## Methods
+
+<h3 id="__eq__"><code>__eq__</code></h3>
+
+```python
+__eq__(
+    other
+)
+```
+
+Return self==value.
+
+
+<h3 id="__ge__"><code>__ge__</code></h3>
+
+```python
+__ge__(
+    other
+)
+```
+
+Automatically created by attrs.
+
+
+<h3 id="__gt__"><code>__gt__</code></h3>
+
+```python
+__gt__(
+    other
+)
+```
+
+Automatically created by attrs.
+
+
+<h3 id="__le__"><code>__le__</code></h3>
+
+```python
+__le__(
+    other
+)
+```
+
+Automatically created by attrs.
+
+
+<h3 id="__lt__"><code>__lt__</code></h3>
+
+```python
+__lt__(
+    other
+)
+```
+
+Automatically created by attrs.
+
+
+<h3 id="__ne__"><code>__ne__</code></h3>
+
+```python
+__ne__(
+    other
+)
+```
+
+Check equality and either forward a NotImplemented or return the result
+negated.
+
+
+

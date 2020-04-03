@@ -1,0 +1,30 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.integration" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# Module: tf_quant_finance.math.integration
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/integration/__init__.py">View source</a>
+
+
+
+Numerical integration methods.
+
+
+
+## Classes
+
+[`class IntegrationMethod`](../../tf_quant_finance/math/integration/IntegrationMethod.md): Specifies which algorithm to use for the numeric integration.
+
+## Functions
+
+[`integrate(...)`](../../tf_quant_finance/math/integration/integrate.md): Evaluates definite integral.
+
+[`simpson(...)`](../../tf_quant_finance/math/integration/simpson.md): Evaluates definite integral using composite Simpson's 1/3 rule.
+

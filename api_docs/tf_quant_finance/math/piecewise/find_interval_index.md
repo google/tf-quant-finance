@@ -1,0 +1,69 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.piecewise.find_interval_index" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.piecewise.find_interval_index
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/piecewise.py">View source</a>
+
+
+
+Function to find the index of the interval where query points lies.
+
+```python
+tf_quant_finance.math.piecewise.find_interval_index(
+    query_xs, interval_lower_xs, last_interval_is_closed=False, dtype=None,
+    name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+Given a list of adjacent half-open intervals [x_0, x_1), [x_1, x_2), ...,
+[x_{n-1}, x_n), [x_n, inf), described by a list [x_0, x_1, ..., x_{n-1}, x_n].
+Return the index where the input query points lie. If x >= x_n, n is returned,
+and if x < x_0, -1 is returned. If `last_interval_is_closed` is set to `True`,
+the last interval [x_{n-1}, x_n] is interpreted as closed (including x_n).
+
+#### Example
+
+```python
+interval_lower_xs = [0.25, 0.5, 1.0, 2.0, 3.0]
+query_xs = [0.25, 3.0, 5.0, 0.0, 0.5, 0.8]
+result = find_interval_index(query_xs, interval_lower_xs)
+# result == [0, 4, 4, -1, 1, 1]
+```
+
+#### Args:
+
+
+* <b>`query_xs`</b>: Rank 1 real `Tensor` of any size, the list of x coordinates for
+  which the interval index is to be found. The values must be strictly
+  increasing.
+* <b>`interval_lower_xs`</b>: Rank 1 `Tensor` of the same shape and dtype as
+  `query_xs`. The values x_0, ..., x_n that define the interval starts.
+* <b>`last_interval_is_closed`</b>: If set to `True`, the last interval is interpreted
+  as closed.
+* <b>`dtype`</b>: Optional `tf.Dtype`. If supplied, the dtype for `query_xs` and
+  `interval_lower_xs`.
+  Default value: None which maps to the default dtype inferred by TensorFlow
+    (float32).
+* <b>`name`</b>: Optional name of the operation.
+
+
+#### Returns:
+
+A tensor that matches the shape of `query_xs` with dtype=int32 containing
+the indices of the intervals containing query points. `-1` means the query
+point lies before all intervals and `n-1` means that the point lies in the
+last half-open interval (if `last_interval_is_closed` is `False`) or that
+the point lies to the right of all intervals (if `last_interval_is_closed`
+is `True`).

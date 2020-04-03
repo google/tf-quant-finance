@@ -1,0 +1,49 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.experimental.lsm_algorithm.make_basket_put_payoff" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.experimental.lsm_algorithm.make_basket_put_payoff
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/lsm_algorithm/payoff.py">View source</a>
+
+
+
+Produces a callable from samples to payoff of a simple basket put option.
+
+```python
+tf_quant_finance.experimental.lsm_algorithm.make_basket_put_payoff(
+    strike_price, dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+
+#### Args:
+
+
+* <b>`strike_price`</b>: A `Tensor` of `dtype` consistent with `samples` and shape
+  `[num_samples, num_strikes]`.
+* <b>`dtype`</b>: Optional `dtype`. Either `tf.float32` or `tf.float64`. The `dtype`
+  If supplied, represents the `dtype` for the 'strike_price' as well as
+  for the input argument of the output payoff callable.
+  Default value: `None`, which means that the `dtype` inferred by TensorFlow
+  is used.
+* <b>`name`</b>: Python `str` name prefixed to Ops created by the callable created
+  by this function.
+  Default value: `None` which is mapped to the default name 'put_valuer'
+
+
+#### Returns:
+
+A callable from `Tensor` of shape `[num_samples, num_exercise_times, dim]`
+and a scalar `Tensor` representing current time to a `Tensor` of shape
+`[num_samples, num_strikes]`.

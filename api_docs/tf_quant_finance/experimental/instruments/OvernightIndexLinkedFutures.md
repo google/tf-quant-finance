@@ -1,0 +1,171 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.experimental.instruments.OvernightIndexLinkedFutures" />
+<meta itemprop="path" content="Stable" />
+<meta itemprop="property" content="__init__"/>
+<meta itemprop="property" content="price"/>
+</div>
+
+# tf_quant_finance.experimental.instruments.OvernightIndexLinkedFutures
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/instruments/overnight_index_linked_futures.py">View source</a>
+
+
+
+Represents a collection of futures linked to an average of overnight rates.
+
+```python
+tf_quant_finance.experimental.instruments.OvernightIndexLinkedFutures(
+    contract_start_date, contract_end_date, daycount_convention=None,
+    averaging_type=None, contract_unit=1.0, holiday_calendar=None, dtype=None,
+    name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+Overnight index futures are exchange traded futures contracts where the
+underlying reference rates are the published overnight rates such as
+Secured Overnight Financing Rate (SOFR), Effective Fed Funds Rate (EFFR) etc.
+These contracts are generally cash settled where the settlement price is
+evaluated on the basis of realized reference rate values during the contract
+reference period (or delivery period). Typically the settlement price is
+based on componding the published daily reference rate during the delivery
+period or based on the arithmetic average of the reference rate during the
+delivery period.
+An overnight index future contract on the settlement date T settles at the
+price
+
+`100 * (1 - R)`
+
+If R is evaluated based on compunding the realized index values during the
+reference period then:
+
+`R = [Product[(1 + tau_i * r_i), 1 <= i <= N] - 1] / Sum[tau_i, 1 <= i <= N]`
+
+If R is evaulated based on the arithmetic average of the realized index
+during the reference period, then:
+
+`R = Sum(r_i, 1 <= i <= N)  / N`
+
+where `i` is the variable indexing the business days within the delivery
+period, tau_i denotes the year fractions between successive business days
+taking into account the appropriate daycount convention and N is the number of
+calendar days in the delivery period. See [1] for SOFR futures on CME.
+
+The OvernightIndexLinkedFutures class can be used to create and price multiple
+contracts simultaneously. However all contracts within an object must be
+priced using a common reference curve.
+
+#### Example:
+The following example illustrates the construction of an overnight index
+future instrument and calculating its price.
+
+```python
+
+import numpy as np
+import tensorflow as tf
+import tf_quant_finance as tff
+
+dates = tff.experimental.dates
+instruments = tff.experimental.instruments
+
+dtype = np.float64
+notional = 1.
+contract_start_date = dates.convert_to_date_tensor([(2021, 2, 8)])
+contract_end_date = dates.convert_to_date_tensor([(2021, 5, 8)])
+valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
+
+future = instruments.OvernightIndexLinkedFutures(
+    contract_start_date, contract_end_date, dtype=dtype)
+
+curve_dates = valuation_date + dates.periods.PeriodTensor(
+      [1, 2, 3, 12, 24, 60], dates.PeriodType.MONTH)
+reference_curve = instruments.RateCurve(
+    curve_dates,
+    np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),
+    dtype=dtype)
+
+market = instruments.InterestRateMarket(reference_curve=reference_curve,
+                                        discount_curve=None)
+
+price = future.price(valuation_date, market)
+
+#### References:
+[1]: SOFR futures settlement calculation.
+https://www.cmegroup.com/education/files/sofr-futures-settlement-calculation-methodologies.pdf
+
+#### Args:
+
+
+* <b>`contract_start_date`</b>: A Rank 1 `DateTensor` specifying the start dates of
+  the reference period (or delivery period) of each futures contract. The
+  published overnight index during the reference period determines the
+  final settlement price of the futures contract.
+* <b>`contract_end_date`</b>: A Rank 1 `DateTensor` specifying the ending dates of
+  the reference period (or delivery period) of each futures contract.
+* <b>`daycount_convention`</b>: An optional scalar `DayCountConvention` corresponding
+  to the day count convention for the underlying rate for each contract.
+  Default value: None in which case each the day count convention equal to
+  DayCountConvention.ACTUAL_360 is used.
+* <b>`averaging_type`</b>: An optional `AverageType` corresponding to how the
+  final settlement rate is computed from daily rates.
+  Default value: None, in which case <a href="../../../tf_quant_finance/experimental/instruments/AverageType.md#COMPOUNDING"><code>AverageType.COMPOUNDING</code></a> is used.
+* <b>`contract_unit`</b>: An optional scalar or Rank 1 `Tensor` of real dtype
+  specifying the notional amount for the contract. If the notional is
+  entered as a scalar, it is assumed that all of the contracts have a
+  notional equal to the input value.
+  Default value: 1.0
+* <b>`holiday_calendar`</b>: An instance of `dates.HolidayCalenday` to specify
+  weekends and holidays.
+  Default value: None in which case a holiday calendar would be created
+  with Saturday and Sunday being the holidays.
+* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the real variables or ops
+  either supplied to the EurodollarFuture object or created by the
+  EurodollarFuture object.
+  Default value: None which maps to the default dtype inferred by
+  TensorFlow.
+* <b>`name`</b>: Python str. The name to give to the ops created by this class.
+  Default value: `None` which maps to 'eurodollar_future'.
+
+## Methods
+
+<h3 id="price"><code>price</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/instruments/overnight_index_linked_futures.py">View source</a>
+
+```python
+price(
+    valuation_date, market, model=None, name=None
+)
+```
+
+Returns the price of the contract on the valuation date.
+
+
+#### Args:
+
+
+* <b>`valuation_date`</b>: A scalar `DateTensor` specifying the date on which
+  valuation is being desired.
+* <b>`market`</b>: An object of type `InterestRateMarket` which contains the
+  necessary information for pricing the FRA instrument.
+* <b>`model`</b>: Reserved for future use.
+* <b>`name`</b>: Python string. The name to give this op.
+  Default value: `None` which maps to `price`.
+
+
+#### Returns:
+
+A Rank 1 `Tensor` of real type containing the modeled price of each
+futures contract based on the input market data.
+
+
+
+

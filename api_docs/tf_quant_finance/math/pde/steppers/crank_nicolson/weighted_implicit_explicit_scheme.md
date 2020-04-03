@@ -1,0 +1,80 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.pde.steppers.crank_nicolson.weighted_implicit_explicit_scheme" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.pde.steppers.crank_nicolson.weighted_implicit_explicit_scheme
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/pde/steppers/weighted_implicit_explicit.py">View source</a>
+
+
+
+Constructs weighted implicit-explicit scheme.
+
+```python
+tf_quant_finance.math.pde.steppers.crank_nicolson.weighted_implicit_explicit_scheme(
+    theta
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+Approximates the space-discretized equation of `du/dt = A(t) u(t) + b(t)` as
+```
+(u(t2) - u(t1)) / (t2 - t1) = theta * (A u(t1) + b)
+   + (1 - theta) (A u(t2) + b),
+```
+where `A = A((t1 + t2)/2)`, `b = b((t1 + t2)/2)`, and `theta` is a float
+between `0` and `1`.
+
+Note that typically `A` and `b` are evaluated at `t1` and `t2` in
+the explicit and implicit terms respectively (the two terms of the right-hand
+side). Instead, we evaluate them at the midpoint `(t1 + t2)/2`, which saves
+some computation. One can check that evaluating at midpoint doesn't change the
+order of accuracy of the scheme: it is still second order accurate in
+`t2 - t1` if `theta = 0.5` and first order accurate otherwise.
+
+The solution is the following:
+`u(t2) = (1 - (1 - theta) dt A)^(-1) * (1 + theta dt A) u(t1) + dt b`.
+
+The main bottleneck here is inverting the matrix `(1 - (1 - theta) dt A)`.
+This matrix is tridiagonal (each point is influenced by the two neighbouring
+points), and thus the inversion can be efficiently performed using
+`tf.linalg.tridiagonal_solve`.
+
+#### References:
+[1] I.V. Puzynin, A.V. Selin, S.I. Vinitsky, A high-order accuracy method for
+numerical solving of the time-dependent Schrodinger equation, Comput. Phys.
+Commun. 123 (1999), 1.
+https://www.sciencedirect.com/science/article/pii/S0010465599002246
+
+#### Args:
+
+
+* <b>`theta`</b>: A float in range `[0, 1]`. A parameter used to mix implicit and
+  explicit schemes together. Value of `0.0` corresponds to the fully
+  implicit scheme, `1.0` to the fully explicit, and `0.5` to the
+  Crank-Nicolson scheme.
+
+
+#### Returns:
+
+A callable that consumes the following arguments by keyword:
+  1. value_grid: Grid of values at time `t1`, i.e. `u(t1)`.
+  2. t1: Time before the step.
+  3. t2: Time after the step.
+  4. equation_params_fn: A callable that takes a scalar `Tensor` argument
+    representing time, and constructs the tridiagonal matrix `A`
+    (a tuple of three `Tensor`s, main, upper, and lower diagonals)
+    and the inhomogeneous term `b`. All of the `Tensor`s are of the same
+    `dtype` as `value_grid` and of the shape broadcastable with the
+    shape of `value_grid`.
+The callable returns a `Tensor` of the same shape and `dtype` as
+`value_grid` and represents an approximate solution `u(t2)`.

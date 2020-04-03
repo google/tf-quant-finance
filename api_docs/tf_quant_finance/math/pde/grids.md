@@ -1,0 +1,36 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.pde.grids" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# Module: tf_quant_finance.math.pde.grids
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/pde/grids.py">View source</a>
+
+
+
+Functions to create grids suitable for PDE pricing.
+
+
+
+## Classes
+
+[`class range`](../../../tf_quant_finance/math/pde/grids/range.md): range(stop) -> range object
+
+## Functions
+
+[`log_uniform_grid(...)`](../../../tf_quant_finance/math/pde/grids/log_uniform_grid.md): Creates a grid spec for a uniform grid in a log-space.
+
+[`log_uniform_grid_with_extra_point(...)`](../../../tf_quant_finance/math/pde/grids/log_uniform_grid_with_extra_point.md): Creates a grid for a uniform grid in a log-space with an extra grid point.
+
+[`rectangular_grid(...)`](../../../tf_quant_finance/math/pde/grids/rectangular_grid.md): Specifies parameters for an axis-wise non-uniform grid in n-dimensions.
+
+[`uniform_grid(...)`](../../../tf_quant_finance/math/pde/grids/uniform_grid.md): Creates a grid spec for a uniform grid.
+
+[`uniform_grid_with_extra_point(...)`](../../../tf_quant_finance/math/pde/grids/uniform_grid_with_extra_point.md): Creates a grid spec for a uniform grid with an extra grid point.
+

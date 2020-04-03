@@ -1,0 +1,112 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.black_scholes.option_price_binomial" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.black_scholes.option_price_binomial
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/black_scholes/crr_binomial_tree.py">View source</a>
+
+
+
+Computes the BS price for a batch of European or American options.
+
+```python
+tf_quant_finance.black_scholes.option_price_binomial(
+    *, volatilities, strikes, expiries, spots, discount_rates=None,
+    dividend_rates=None, is_call_options=None, is_american=None, num_steps=100,
+    dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+Uses the Cox-Ross-Rubinstein version of the binomial tree method to compute
+the price of American or European options. Supports batching of the options
+and allows mixing of European and American style exercises in a batch.
+For more information about the binomial tree method and the
+Cox-Ross-Rubinstein method in particular see the references below.
+
+#### Example
+
+```python
+# Prices 5 options with a mix of Call/Put, American/European features
+# in a single batch.
+dtype = np.float64
+spots = np.array([1.0, 2.0, 3.0, 4.0, 5.0], dtype=dtype)
+strikes = np.array([3.0, 3.0, 3.0, 3.0, 3.0], dtype=dtype)
+volatilities = np.array([0.1, 0.22, 0.32, 0.01, 0.4], dtype=dtype)
+is_call_options = np.array([True, True, False, False, False])
+is_american = np.array([False, True, True, False, True])
+discount_rates = np.array(0.035, dtype=dtype)
+dividend_rates = np.array([0.02, 0.0, 0.07, 0.01, 0.0], dtype=dtype)
+expiries = np.array(1.0, dtype=dtype)
+
+prices = option_price_binomial(
+    volatilities=volatilities,
+    strikes=strikes,
+    expiries=expiries,
+    spots=spots,
+    discount_rates=discount_rates,
+    dividend_rates=dividend_rates,
+    is_call_options=is_call_options,
+    is_american=is_american,
+    dtype=dtype)
+# Prints [0., 0.0098847, 0.41299509, 0., 0.06046989]
+```
+
+#### References
+
+[1] Hull, John C., Options, Futures and Other Derivatives. Pearson, 2018.
+[2] Wikipedia contributors. Binomial Options Pricing Model. Available at:
+  https://en.wikipedia.org/wiki/Binomial_options_pricing_model
+
+#### Args:
+
+
+* <b>`volatilities`</b>: Real `Tensor` of any shape and dtype. The volatilities to
+  expiry of the options to price.
+* <b>`strikes`</b>: A real `Tensor` of the same dtype and compatible shape as
+  `volatilities`. The strikes of the options to be priced.
+* <b>`expiries`</b>: A real `Tensor` of same dtype and compatible shape as
+  `volatilities`. The expiry of each option. The units should be such that
+  `expiry * volatility**2` is dimensionless.
+* <b>`spots`</b>: A real `Tensor` of any shape that broadcasts to the shape of the
+  `volatilities`. The current spot price of the underlying.
+* <b>`discount_rates`</b>: An optional real `Tensor` of same dtype as the
+  `volatilities`. The risk free discount rate. If None the rate is assumed
+  to be 0.
+  Default value: None, equivalent to discount rates = 0..
+* <b>`dividend_rates`</b>: An optional real `Tensor` of same dtype as the
+  `volatilities`. If None the rate is assumed to be 0.
+  Default value: None, equivalent to discount rates = 1.
+* <b>`is_call_options`</b>: A boolean `Tensor` of a shape compatible with
+  `volatilities`. Indicates whether the option is a call (if True) or a put
+  (if False). If not supplied, call options are assumed.
+  Default value: None, equivalent to is_call_options = True.
+* <b>`is_american`</b>: A boolean `Tensor` of a shape compatible with `volatilities`.
+  Indicates whether the option exercise style is American (if True) or
+  European (if False). If not supplied, European style exercise is assumed.
+  Default value: None, equivalent to is_american = False.
+* <b>`num_steps`</b>: A positive scalar int32 `Tensor`. The size of the time
+  discretization to use.
+  Default value: 100.
+* <b>`dtype`</b>: Optional `tf.DType`. If supplied, the dtype to be used for conversion
+  of any supplied non-`Tensor` arguments to `Tensor`.
+  Default value: None which maps to the default dtype inferred by TensorFlow
+    (float32).
+* <b>`name`</b>: str. The name for the ops created by this function.
+  Default value: None which is mapped to the default name `option_price`.
+
+
+#### Returns:
+
+A `Tensor` of the same shape as the inferred batch shape of the input data.
+The Black Scholes price of the options computed on a binomial tree.

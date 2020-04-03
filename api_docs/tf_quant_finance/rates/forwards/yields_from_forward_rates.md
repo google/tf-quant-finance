@@ -1,0 +1,119 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.rates.forwards.yields_from_forward_rates" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.rates.forwards.yields_from_forward_rates
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/rates/forwards.py">View source</a>
+
+
+
+Computes yield rates from discrete forward rates.
+
+```python
+tf_quant_finance.rates.forwards.yields_from_forward_rates(
+    discrete_forwards, times, groups=None, dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+Denote the price of a zero coupon bond maturing at time `t` by `Z(t)`. Then
+the zero rate to time `t` is defined as
+
+```None
+  r(t) = - ln(Z(t)) / t       (1)
+
+```
+
+This is the (continuously compounded) interest rate that applies between time
+`0` and time `t` as seen at time `0`. The forward rate between times `t1` and
+`t2` is defined as the interest rate that applies to the period `[t1, t2]`
+as seen from today. It is related to the zero coupon bond prices by
+
+```None
+  exp(-f(t1, t2)(t2-t1)) = Z(t2) / Z(t1)                 (2)
+  f(t1, t2) = - (ln Z(t2) - ln Z(t1)) / (t2 - t1)        (3)
+  f(t1, t2) = (t2 * r(t2) - t1 * r(t1)) / (t2 - t1)      (4)
+```
+
+Given a sequence of increasing times `[t1, t2, ... tn]` and the forward rates
+for the consecutive time intervals, i.e. `[0, t1]`, `[t1, t2]` to
+`[t_{n-1}, tn]`, this function computes the yields to maturity for maturities
+`[t1, t2, ... tn]` using Eq. (4) above.
+
+Additionally, this function supports this computation for a batch of such
+forward rates. Batching is made slightly complicated by the fact that
+different zero curves may have different numbers of tenors (the parameter `n`
+above). Instead of a batch as an extra dimension, we support the concept of
+groups (also see documentation for `tf.segment_sum` which uses the same
+concept).
+
+#### Example
+
+The following example illustrates this method along with the concept of
+groups. Assuming there are two sets of zero rates (e.g. for different
+currencies) whose implied forward rates are needed. The first set has a total
+of three marked tenors at `[0.25, 0.5, 1.0]`. The second set
+has four marked tenors at `[0.25, 0.5, 1.0, 1.5]`.
+Suppose, the forward rates for the first set are:
+`[0.04, 0.041, 0.044]` and the second are `[0.022, 0.025, 0.028, 0.036]`.
+Then this data is batched together as follows:
+Groups:   [0,    0    0,   1,    1,   1    1  ]
+First three times for group 0, next four for group 1.
+Times:    [0.25, 0.5, 1.0, 0.25, 0.5, 1.0, 1.5]
+First three discrete forwards for group 0, next four for group 1.
+Forwards: [0.04, 0.042, 0.047, 0.022, 0.028, 0.031, 0.052]
+
+```python
+  dtype = np.float64
+  groups = np.array([0, 0, 0, 1, 1, 1, 1])
+  times = np.array([0.25, 0.5, 1.0, 0.25, 0.5, 1.0, 1.5], dtype=dtype)
+  discrete_forwards = np.array(
+      [0.04, 0.042, 0.047, 0.022, 0.028, 0.031, 0.052], dtype=dtype)
+  yields = yields_from_forward_rates(discrete_forwards, times,
+                                     groups=groups, dtype=dtype)
+  # Produces: [0.04, 0.041, 0.044, 0.022, 0.025, 0.028, 0.036]
+```
+
+#### References:
+
+[1]: John C. Hull. Options, Futures and Other Derivatives. Ninth Edition.
+  June 2006.
+
+#### Args:
+
+
+* <b>`discrete_forwards`</b>: Real rank 1 `Tensor` of size `n`. The forward rates for
+  the time periods specified. Note that the first value applies between `0`
+  and time `times[0]`.
+* <b>`times`</b>: Real positive rank 1 `Tensor` of size `n`. The set of times
+  corresponding to the supplied zero rates. If no `groups` is supplied, then
+  the whole array should be sorted in an increasing order. If `groups` are
+  supplied, then the times within a group should be in an increasing order.
+* <b>`groups`</b>: Optional int `Tensor` of size `n` containing values between 0 and
+  `k-1` where `k` is the number of different curves.
+  Default value: None. This implies that all the rates are treated as a
+    single group.
+* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the `discrete_forwards` and
+  `times`.
+  Default value: None which maps to the default dtype inferred by
+  Tensorflow.
+* <b>`name`</b>: Python str. The name to give to the ops created by this function.
+  Default value: None which maps to 'yields_from_forward_rates'.
+
+
+#### Returns:
+
+
+* <b>`yields`</b>: Real rank 1 `Tensor` of size `n` containing the zero coupon yields
+that for the supplied maturities (within each group if groups are
+specified).

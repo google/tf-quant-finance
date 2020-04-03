@@ -1,0 +1,130 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.rates.hagan_west.monotone_convex.interpolate" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.rates.hagan_west.monotone_convex.interpolate
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/rates/hagan_west/monotone_convex.py">View source</a>
+
+
+
+Performs the monotone convex interpolation.
+
+```python
+tf_quant_finance.rates.hagan_west.monotone_convex.interpolate(
+    times, interval_values, interval_times, validate_args=False, dtype=None,
+    name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+The monotone convex method is a scheme devised by Hagan and West (Ref [1]). It
+is a commonly used method to interpolate interest rate yield curves. For
+more details see Refs [1, 2].
+
+It is important to point out that the monotone convex method *does not* solve
+the standard interpolation problem but a modified one as described below.
+
+Suppose we are given a strictly increasing sequence of scalars (which we will
+refer to as time) `[t_1, t_2, ... t_n]` and a set of values
+`[f_1, f_2, ... f_n]`.
+The aim is to find a function `f(t)` defined on the interval `[0, t_n]` which
+satisfies (in addition to continuity and positivity conditions) the following
+
+```None
+  Integral[f(u), t_{i-1} <= u <= t_i] = f_i,  with t_0 = 0
+
+```
+
+In the context of interest rate curve building, `f(t)` corresponds to the
+instantaneous forward rate at time `t` and the `f_i` correspond to the
+discrete forward rates that apply to the time period `[t_{i-1}, t_i]`.
+Furthermore, the integral of the forward curve is related to the yield curve
+by
+
+```None
+  Integral[f(u), 0 <= u <= t] = r(t) * t
+
+```
+
+where `r(t)` is the interest rate that applies between `[0, t]` (the yield of
+a zero coupon bond paying a unit of currency at time `t`).
+
+This function computes both the interpolated value and the integral along
+the segment containing the supplied time. Specifically, given a time `t` such
+that `t_k <= t <= t_{k+1}`, this function computes the interpolated value
+`f(t)` and the value `Integral[f(u), t_k <= u <= t]`.
+
+This implementation of the method currently supports batching along the
+interpolation times but not along the interpolated curves (i.e. it is possible
+to evaluate the `f(t)` for `t` as a vector of times but not build multiple
+curves at the same time).
+
+#### Example
+
+```python
+interval_times = tf.constant([0.25, 0.5, 1.0, 2.0, 3.0], dtype=dtype)
+interval_values = tf.constant([0.05, 0.051, 0.052, 0.053, 0.055],
+                              dtype=dtype)
+times = tf.constant([0.25, 0.5, 1.0, 2.0, 3.0, 1.1], dtype=dtype)
+# Returns the following two values:
+# interpolated = [0.0505, 0.05133333, 0.05233333, 0.054, 0.0555, 0.05241]
+# integrated =  [0, 0, 0, 0, 0.055, 0.005237]
+# Note that the first four integrated values are zero. This is because
+# those interpolation time are at the start of their containing interval.
+# The fourth value (i.e. at 3.0) is not zero because this is the last
+# interval (i.e. it is the integral from 2.0 to 3.0).
+interpolated, integrated = interpolate(
+    times, interval_values, interval_times)
+```
+
+#### References:
+
+[1]: Patrick Hagan & Graeme West. Interpolation Methods for Curve
+  Construction. Applied Mathematical Finance. Vol 13, No. 2, pp 89-129.
+  June 2006.
+  https://www.researchgate.net/publication/24071726_Interpolation_Methods_for_Curve_Construction
+[2]: Patrick Hagan & Graeme West. Methods for Constructing a Yield Curve.
+  Wilmott Magazine, pp. 70-81. May 2008.
+
+#### Args:
+
+
+* <b>`times`</b>: Non-negative rank 1 `Tensor` of any size. The times for which the
+  interpolation has to be performed.
+* <b>`interval_values`</b>: Rank 1 `Tensor` of the same shape and dtype as
+  `interval_times`. The values associated to each of the intervals specified
+  by the `interval_times`. Must have size at least 2.
+* <b>`interval_times`</b>: Strictly positive rank 1 `Tensor` of real dtype containing
+  increasing values. The endpoints of the intervals (i.e. `t_i` above.).
+  Note that the left end point of the first interval is implicitly assumed
+  to be 0. Must have size at least 2.
+* <b>`validate_args`</b>: Python bool. If true, adds control dependencies to check that
+  the `times` are bounded by the `interval_endpoints`.
+  Default value: False
+* <b>`dtype`</b>: `tf.Dtype` to use when converting arguments to `Tensor`s. If not
+  supplied, the default Tensorflow conversion will take place. Note that
+  this argument does not do any casting.
+  Default value: None.
+* <b>`name`</b>: Python `str` name prefixed to Ops created by this class.
+  Default value: None which is mapped to the default name 'interpolation'.
+
+
+#### Returns:
+
+A 2-tuple containing
+  interpolated_values: Rank 1 `Tensor` of the same size and dtype as the
+    `times`. The interpolated values at the supplied times.
+  integrated_values: Rank 1 `Tensor` of the same size and dtype as the
+    `times`. The integral of the interpolated function. The integral is
+    computed from the largest interval time that is smaller than the time
+    up to the given time.

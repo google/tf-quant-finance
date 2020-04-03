@@ -1,0 +1,66 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.experimental.lsm_algorithm.make_polynomial_basis_v2" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.experimental.lsm_algorithm.make_polynomial_basis_v2
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/lsm_algorithm/lsm_v2.py">View source</a>
+
+
+
+Produces a callable from samples to polynomial basis for use in regression.
+
+```python
+tf_quant_finance.experimental.lsm_algorithm.make_polynomial_basis_v2(
+    degree
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+The output callable accepts a `Tensor` `X` of shape `[num_samples, dim]`,
+computes a centered value `Y = X - mean(X, axis=0)` and outputs a `Tensor`
+of shape `[degree * dim, num_samples]`, where
+```
+Z[i*j, k] = X[k, j]**(degree - i) * X[k, j]**i, 0<=i<degree - 1, 0<=j<dim
+```
+For example, if `degree` and `dim` are both equal to 2, the polynomial basis
+is `1, X, X**2, Y, Y**2, X * Y, X**2 * Y, X * Y**2`, where `X` and `Y` are
+the spatial axes.
+
+#### Example
+```python
+basis = make_polynomial_basis(2)
+x = [1.0, 2.0, 3.0, 4.0]
+x = tf.expand_dims(x, axis=-1)
+basis(x)
+# Expected result:
+[[ 1.0, 1.0, 1.0, 1.0], [-1.5, -0.5, 0.5, 1.5]]
+```
+
+#### Args:
+
+
+* <b>`degree`</b>: An `int32` scalar `Tensor`. The degree of the desired polynomial
+  basis.
+
+
+#### Returns:
+
+A callable from `Tensor`s of shape `[num_samples, dim]` to `Tensor`s of
+shape `[(degree + 1)**dim, num_samples]`.
+
+
+
+#### Raises:
+
+
+* <b>`ValueError`</b>: If `degree` is less than `1`.

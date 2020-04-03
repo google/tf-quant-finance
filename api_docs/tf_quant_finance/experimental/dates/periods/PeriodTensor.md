@@ -1,0 +1,273 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.experimental.dates.periods.PeriodTensor" />
+<meta itemprop="path" content="Stable" />
+<meta itemprop="property" content="__add__"/>
+<meta itemprop="property" content="__getitem__"/>
+<meta itemprop="property" content="__init__"/>
+<meta itemprop="property" content="__mul__"/>
+<meta itemprop="property" content="__sub__"/>
+<meta itemprop="property" content="boolean_mask"/>
+<meta itemprop="property" content="broadcast_to"/>
+<meta itemprop="property" content="concat"/>
+<meta itemprop="property" content="expand_dims"/>
+<meta itemprop="property" content="identity"/>
+<meta itemprop="property" content="period_type"/>
+<meta itemprop="property" content="quantity"/>
+<meta itemprop="property" content="reshape"/>
+<meta itemprop="property" content="squeeze"/>
+<meta itemprop="property" content="stack"/>
+<meta itemprop="property" content="transpose"/>
+<meta itemprop="property" content="where"/>
+</div>
+
+# tf_quant_finance.experimental.dates.periods.PeriodTensor
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/periods.py">View source</a>
+
+
+
+Represents a tensor of time periods.
+
+Inherits From: [`TensorWrapper`](../../../../tf_quant_finance/experimental/dates/periods/tensor_wrapper/TensorWrapper.md)
+
+```python
+tf_quant_finance.experimental.dates.periods.PeriodTensor(
+    quantity, period_type
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+
+#### Args:
+
+
+* <b>`quantity`</b>: A Tensor of type tf.int32, representing the quantities
+  of period types (e.g. how many months). Can be both positive and
+  negative.
+* <b>`period_type`</b>: A PeriodType (a day, a month, etc). Currently only one
+  PeriodType per instance of PeriodTensor is supported.
+
+
+#### Attributes:
+
+* <b>`rank`</b>
+* <b>`shape`</b>
+
+
+## Methods
+
+<h3 id="__add__"><code>__add__</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/periods.py">View source</a>
+
+```python
+__add__(
+    other
+)
+```
+
+Adds another PeriodTensor of the same type.
+
+
+<h3 id="__getitem__"><code>__getitem__</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/tensor_wrapper.py">View source</a>
+
+```python
+__getitem__(
+    key
+)
+```
+
+Implements indexing.
+
+
+<h3 id="__mul__"><code>__mul__</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/periods.py">View source</a>
+
+```python
+__mul__(
+    multiplier
+)
+```
+
+Multiplies PeriodTensor by a Tensor of ints.
+
+
+<h3 id="__sub__"><code>__sub__</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/periods.py">View source</a>
+
+```python
+__sub__(
+    other
+)
+```
+
+Subtracts another PeriodTensor of the same type.
+
+
+<h3 id="boolean_mask"><code>boolean_mask</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/tensor_wrapper.py">View source</a>
+
+```python
+boolean_mask(
+    mask, axis=None
+)
+```
+
+See tf.boolean_mask.
+
+
+<h3 id="broadcast_to"><code>broadcast_to</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/tensor_wrapper.py">View source</a>
+
+```python
+broadcast_to(
+    shape
+)
+```
+
+See tf.broadcast_to.
+
+
+<h3 id="concat"><code>concat</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/tensor_wrapper.py">View source</a>
+
+```python
+@classmethod
+concat(
+    cls, tensor_wrappers, axis
+)
+```
+
+See tf.concat.
+
+
+<h3 id="expand_dims"><code>expand_dims</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/tensor_wrapper.py">View source</a>
+
+```python
+expand_dims(
+    axis
+)
+```
+
+See tf.expand_dims.
+
+
+<h3 id="identity"><code>identity</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/tensor_wrapper.py">View source</a>
+
+```python
+identity()
+```
+
+See tf.identity.
+
+
+<h3 id="period_type"><code>period_type</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/periods.py">View source</a>
+
+```python
+period_type()
+```
+
+Returns the PeriodType of this PeriodTensor.
+
+
+<h3 id="quantity"><code>quantity</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/periods.py">View source</a>
+
+```python
+quantity()
+```
+
+Returns the quantities tensor of this PeriodTensor.
+
+
+<h3 id="reshape"><code>reshape</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/tensor_wrapper.py">View source</a>
+
+```python
+reshape(
+    shape
+)
+```
+
+See tf.reshape.
+
+
+<h3 id="squeeze"><code>squeeze</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/tensor_wrapper.py">View source</a>
+
+```python
+squeeze(
+    axis=None
+)
+```
+
+See tf.squeeze.
+
+
+<h3 id="stack"><code>stack</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/tensor_wrapper.py">View source</a>
+
+```python
+@classmethod
+stack(
+    cls, tensor_wrappers, axis=0
+)
+```
+
+See tf.stack.
+
+
+<h3 id="transpose"><code>transpose</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/tensor_wrapper.py">View source</a>
+
+```python
+transpose(
+    perm=None
+)
+```
+
+See tf.transpose.
+
+
+<h3 id="where"><code>where</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/tensor_wrapper.py">View source</a>
+
+```python
+@classmethod
+where(
+    cls, condition, tensor_wrapper_1, tensor_wrapper_2
+)
+```
+
+See tf.where. Only three-argument version is supported here.
+
+
+
+

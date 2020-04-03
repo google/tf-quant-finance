@@ -1,0 +1,147 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.pde.steppers.composite_stepper.parabolic_equation_step" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.pde.steppers.composite_stepper.parabolic_equation_step
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/pde/steppers/parabolic_equation_stepper.py">View source</a>
+
+
+
+Performs one step of the parabolic PDE solver.
+
+```python
+tf_quant_finance.math.pde.steppers.composite_stepper.parabolic_equation_step(
+    time, next_time, coord_grid, value_grid, boundary_conditions,
+    second_order_coeff_fn, first_order_coeff_fn, zeroth_order_coeff_fn,
+    inner_second_order_coeff_fn, inner_first_order_coeff_fn, time_marching_scheme,
+    dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+Typically one doesn't need to call this function directly, unless they have
+a custom time marching scheme. A simple stepper function for one-dimensional
+PDEs can be found in `crank_nicolson.py`.
+
+For a given solution (given by the `value_grid`) of a parabolic PDE at a given
+`time` on a given `coord_grid` computes an approximate solution at the
+`next_time` on the same coordinate grid. The parabolic differential equation
+is of the form:
+
+```none
+ dV/dt + a * d2(A * V)/dx2 + b * d(B * V)/dx + c * V = 0
+```
+Here `a`, `A`, `b`, `B`, and `c` are known coefficients which may depend on
+`x` and `t`; `V = V(t, x)` is the solution to be found.
+
+#### Args:
+
+
+* <b>`time`</b>: Real scalar `Tensor`. The time before the step.
+* <b>`next_time`</b>: Real scalar `Tensor`. The time after the step.
+* <b>`coord_grid`</b>: List of `n` rank 1 real `Tensor`s. `n` is the dimension of the
+  domain. The i-th `Tensor` has shape, `[d_i]` where `d_i` is the size of
+  the grid along axis `i`. The coordinates of the grid points. Corresponds
+  to the spatial grid `G` above.
+* <b>`value_grid`</b>: Real `Tensor` containing the function values at time
+  `time` which have to be evolved to time `next_time`. The shape of the
+  `Tensor` must broadcast with `B + [d_1, d_2, ..., d_n]`. `B` is the batch
+  dimensions (one or more), which allow multiple functions (with potentially
+  different boundary/final conditions and PDE coefficients) to be evolved
+  simultaneously.
+* <b>`boundary_conditions`</b>: The boundary conditions. Only rectangular boundary
+  conditions are supported. A list of tuples of size 1. The list element is
+  a tuple that consists of two callables representing the
+  boundary conditions at the minimum and maximum values of the spatial
+  variable indexed by the position in the list. `boundary_conditions[0][0]`
+  describes the boundary at `x_min`, and `boundary_conditions[0][1]` the
+  boundary at `x_max`. The boundary conditions are accepted in the form
+  `alpha(t) V + beta(t) V_n = gamma(t)`, where `V_n` is the derivative
+  with respect to the exterior normal to the boundary.
+  Each callable receives the current time `t` and the `coord_grid` at the
+  current time, and should return a tuple of `alpha`, `beta`, and `gamma`.
+  Each can be a number, a zero-rank `Tensor` or a `Tensor` of the batch
+  shape.
+  For example, for a grid of shape `(b, n)`, where `b` is the batch size,
+  `boundary_conditions[0][0]` should return a tuple of either numbers,
+  zero-rank tensors or tensors of shape `(b, n)`.
+  `alpha` and `beta` can also be `None` in case of Neumann and
+  Dirichlet conditions, respectively.
+* <b>`second_order_coeff_fn`</b>: Callable returning the second order coefficient
+  `a(t, r)` evaluated at given time `t`.
+  The callable accepts the following arguments:
+    `t`: The time at which the coefficient should be evaluated.
+    `locations_grid`: a `Tensor` representing a grid of locations `r` at
+      which the coefficient should be evaluated.
+  Returns an object `A` such that `A[0][0]` is defined and equals
+  `a(r, t)`. `A[0][0]` should be a Number, a `Tensor` broadcastable to the
+  shape of the grid represented by `locations_grid`, or `None` if
+  corresponding term is absent in the equation. Also, the callable itself
+  may be None, meaning there are no second-order derivatives in the
+  equation.
+* <b>`first_order_coeff_fn`</b>: Callable returning the first order coefficient
+  `b(t, r)` evaluated at given time `t`.
+  The callable accepts the following arguments:
+    `t`: The time at which the coefficient should be evaluated.
+    `locations_grid`: a `Tensor` representing a grid of locations `r` at
+      which the coefficient should be evaluated.
+  Returns a list or an 1D `Tensor`, `0`-th element of which represents
+  `b(t, r)`. This element should be a Number, a `Tensor` broadcastable
+   to the shape of the grid represented by `locations_grid`, or None if
+   corresponding term is absent in the equation. The callable itself may be
+   None, meaning there are no first-order derivatives in the equation.
+* <b>`zeroth_order_coeff_fn`</b>: Callable returning the zeroth order coefficient
+  `c(t, r)` evaluated at given time `t`.
+  The callable accepts the following arguments:
+    `t`: The time at which the coefficient should be evaluated.
+    `locations_grid`: a `Tensor` representing a grid of locations `r` at
+      which the coefficient should be evaluated.
+  Should return a Number or a `Tensor` broadcastable to the shape of
+  the grid represented by `locations_grid`. May also return None or be None
+  if the shift term is absent in the equation.
+* <b>`inner_second_order_coeff_fn`</b>: Callable returning the coefficients under the
+  second derivatives (i.e. `A(t, x)` above) at given time `t`. The
+  requirements are the same as for `second_order_coeff_fn`.
+* <b>`inner_first_order_coeff_fn`</b>: Callable returning the coefficients under the
+  first derivatives (i.e. `B(t, x)` above) at given time `t`. The
+  requirements are the same as for `first_order_coeff_fn`.
+* <b>`time_marching_scheme`</b>: A callable which represents the time marching scheme
+  for solving the PDE equation. If `u(t)` is space-discretized vector of the
+  solution of the PDE, this callable approximately solves the equation
+  `du/dt = A(t) u(t)` for `u(t1)` given `u(t2)`. Here `A` is a tridiagonal
+  matrix. The callable consumes the following arguments by keyword:
+    1. inner_value_grid: Grid of solution values at the current time of
+      the same `dtype` as `value_grid` and shape of `value_grid[..., 1:-1]`.
+    2. t1: Time before the step.
+    3. t2: Time after the step.
+    4. equation_params_fn: A callable that takes a scalar `Tensor` argument
+      representing time, and constructs the tridiagonal matrix `A`
+      (a tuple of three `Tensor`s, main, upper, and lower diagonals)
+      and the inhomogeneous term `b`. All of the `Tensor`s are of the same
+      `dtype` as `values_inner_value_gridgrid` and of the shape
+      broadcastable with the shape of `inner_value_grid`.
+  The callable should return a `Tensor` of the same shape and `dtype` a
+  `value_grid` and represents an approximate solution of the PDE after one
+  iteraton.
+* <b>`dtype`</b>: The dtype to use.
+* <b>`name`</b>: The name to give to the ops.
+  Default value: None which means `parabolic_equation_step` is used.
+
+
+#### Returns:
+
+A sequence of two `Tensor`s. The first one is a `Tensor` of the same
+`dtype` and `shape` as `coord_grid` and represents a new coordinate grid
+after one iteration. The second `Tensor` is of the same shape and `dtype`
+as`value_grid` and represents an approximate solution of the equation after
+one iteration.

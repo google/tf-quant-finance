@@ -1,0 +1,38 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.random" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# Module: tf_quant_finance.math.random
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/random_ops/__init__.py">View source</a>
+
+
+
+Ops related to random or quasi random sampling.
+
+
+
+## Modules
+
+[`halton`](../../tf_quant_finance/math/random/halton.md) module: Halton sampling.
+
+[`sobol`](../../tf_quant_finance/math/random/sobol.md) module: Sobol sampling.
+
+## Classes
+
+[`class RandomType`](../../tf_quant_finance/math/random/RandomType.md): Types of random number sequences.
+
+## Functions
+
+[`mv_normal_sample(...)`](../../tf_quant_finance/math/random/mv_normal_sample.md): Generates draws from a multivariate Normal distribution.
+
+[`stateless_random_shuffle(...)`](../../tf_quant_finance/math/random/stateless_random_shuffle.md): Produces stateless random shuffle of the 1st dimension of an input Tensor.
+
+[`uniform(...)`](../../tf_quant_finance/math/random/uniform.md): Generates draws from a uniform distribution on [0, 1).
+

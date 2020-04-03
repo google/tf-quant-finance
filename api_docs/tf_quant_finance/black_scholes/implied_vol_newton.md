@@ -1,0 +1,113 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.black_scholes.implied_vol_newton" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.black_scholes.implied_vol_newton
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/black_scholes/implied_vol_newton_root.py">View source</a>
+
+
+
+Computes implied volatilities from given call or put option prices.
+
+```python
+tf_quant_finance.black_scholes.implied_vol_newton(
+    *, prices, strikes, expiries, spots=None, forwards=None, discount_factors=None,
+    is_call_options=None, initial_volatilities=None, tolerance=1e-08,
+    max_iterations=20, validate_args=False, dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+This method applies a Newton root search algorithm to back out the implied
+volatility given the price of either a put or a call option.
+
+The implementation assumes that each cell in the supplied tensors corresponds
+to an independent volatility to find.
+
+#### Args:
+
+
+* <b>`prices`</b>: A real `Tensor` of any shape. The prices of the options whose
+  implied vol is to be calculated.
+* <b>`strikes`</b>: A real `Tensor` of the same dtype as `prices` and a shape that
+  broadcasts with `prices`. The strikes of the options.
+* <b>`expiries`</b>: A real `Tensor` of the same dtype as `prices` and a shape that
+  broadcasts with `prices`. The expiry for each option. The units should be
+  such that `expiry * volatility**2` is dimensionless.
+* <b>`spots`</b>: A real `Tensor` of any shape that broadcasts to the shape of the
+  `prices`. The current spot price of the underlying. Either this argument
+  or the `forwards` (but not both) must be supplied.
+* <b>`forwards`</b>: A real `Tensor` of any shape that broadcasts to the shape of
+  `prices`. The forwards to maturity. Either this argument or the `spots`
+  must be supplied but both must not be supplied.
+* <b>`discount_factors`</b>: An optional real `Tensor` of same dtype as the `prices`.
+  If not None, these are the discount factors to expiry (i.e. e^(-rT)). If
+  None, no discounting is applied (i.e. it is assumed that the undiscounted
+  option prices are provided ). If `spots` is supplied and
+  `discount_factors` is not None then this is also used to compute the
+  forwards to expiry.
+  Default value: None, equivalent to discount factors = 1.
+* <b>`is_call_options`</b>: A boolean `Tensor` of a shape compatible with `prices`.
+  Indicates whether the option is a call (if True) or a put (if False). If
+  not supplied, call options are assumed.
+* <b>`initial_volatilities`</b>: A real `Tensor` of the same shape and dtype as
+  `forwards`. The starting postions for Newton's method.
+  Default value: None. If not supplied, the starting point is chosen using
+    the Stefanica-Radoicic scheme. See `polya_approx.implied_vol` for
+    details.
+* <b>`tolerance`</b>: `float`. The root finder will stop where this tolerance is
+  crossed.
+* <b>`max_iterations`</b>: `int`. The maximum number of iterations of Newton's method.
+* <b>`validate_args`</b>: A Python bool. If True, indicates that arguments should be
+  checked for correctness before performing the computation. The checks
+  performed are: (1) Forwards and strikes are positive. (2) The prices
+    satisfy the arbitrage bounds (i.e. for call options, checks the
+    inequality `max(F-K, 0) <= Price <= F` and for put options, checks that
+    `max(K-F, 0) <= Price <= K`.). (3) Checks that the prices are not too
+    close to the bounds. It is numerically unstable to compute the implied
+    vols from options too far in the money or out of the money.
+* <b>`dtype`</b>: `tf.Dtype` to use when converting arguments to `Tensor`s. If not
+  supplied, the default TensorFlow conversion will take place. Note that
+  this argument does not do any casting for `Tensor`s or numpy arrays.
+  Default value: None.
+* <b>`name`</b>: (Optional) Python str. The name prefixed to the ops created by this
+  function. If not supplied, the default name 'implied_vol' is used.
+  Default value: None
+
+
+#### Returns:
+
+A 3-tuple containing the following items in order:
+   (a) implied_vols: A `Tensor` of the same dtype as `prices` and shape as
+     the common broadcasted shape of
+     `(prices, spots/forwards, strikes, expiries)`. The implied vols as
+     inferred by the algorithm. It is possible that the search may not have
+     converged or may have produced NaNs. This can be checked for using the
+     following return values.
+   (b) converged: A boolean `Tensor` of the same shape as `implied_vols`
+     above. Indicates whether the corresponding vol has converged to within
+     tolerance.
+   (c) failed: A boolean `Tensor` of the same shape as `implied_vols` above.
+     Indicates whether the corresponding vol is NaN or not a finite number.
+     Note that converged being True implies that failed will be false.
+     However, it may happen that converged is False but failed is not True.
+     This indicates the search did not converge in the permitted number of
+     iterations but may converge if the iterations are increased.
+
+
+
+#### Raises:
+
+
+* <b>`ValueError`</b>: If both `forwards` and `spots` are supplied or if neither is
+  supplied.

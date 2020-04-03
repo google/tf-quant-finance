@@ -1,0 +1,80 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.segment_ops.segment_cumsum" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.segment_ops.segment_cumsum
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/segment_ops.py">View source</a>
+
+
+
+Computes cumulative sum of elements in a segment.
+
+```python
+tf_quant_finance.math.segment_ops.segment_cumsum(
+    x, segment_ids, exclusive=False, dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+For a complete description of segment_* ops see documentation of
+`tf.segment_sum`. This op extends the `tf.math.cumsum` functionality to
+segmented inputs.
+
+The behaviour of this op is the same as that of the op `tf.math.cumsum` within
+each segment. The result is effectively a concatenation of the results of
+`tf.math.cumsum` applied to each segment with the same interpretation for the
+argument `exclusive`.
+
+#### Example
+
+```python
+  x = tf.constant([2, 5, 1, 7, 9] + [32, 10, 12, 3] + [4, 8, 5])
+  segments = tf.constant([0, 0, 0, 0, 0] + [1, 1, 1, 1] + [2, 2, 2])
+  # Inclusive cumulative sum.
+  # Expected result: [2, 7, 8, 15, 24, 32, 42, 54, 57, 4, 12, 17]
+  cumsum1 = segment_cumsum(
+      x, segment_ids=segments, exclusive=False)
+  # Exclusive cumsum.
+  # Expected result: [0, 2, 7, 8, 15, 0, 32, 42, 54, 0, 4, 12]
+  cumsum2 = segment_cumsum(
+      x, segment_ids=segments, exclusive=True)
+```
+
+#### Args:
+
+
+* <b>`x`</b>: A rank 1 `Tensor` of any dtype for which arithmetic operations are
+  permitted.
+* <b>`segment_ids`</b>: A `Tensor`. Must be one of the following types: int32, int64. A
+  1-D tensor whose size is equal to the size of `x`. Values should be sorted
+  and can be repeated. Values must range from `0` to `num segments - 1`.
+* <b>`exclusive`</b>: Python bool. See description above.
+  Default value: False
+* <b>`dtype`</b>: Optional `tf.Dtype`. If supplied, the dtype for `x` to use when
+  converting to `Tensor`.
+  Default value: None which maps to the default dtype inferred by TF.
+* <b>`name`</b>: Python `str` name prefixed to Ops created by this class.
+  Default value: None which is mapped to the default name 'segment_cumsum'.
+
+
+#### Returns:
+
+
+* <b>`cumsums`</b>: A `Tensor` of the same dtype as `x`. Assuming that each segment is
+  of length greater than or equal to order, if `exclusive` is True,
+  then the size is `n-order*k` where `n` is the size of x,
+  `k` is the number of different segment ids supplied if `segment_ids` is
+  not None or 1 if `segment_ids` is None. If any of the segments is of
+  length less than the order, then the size is:
+  `n-sum(min(order, length(segment_j)), j)` where the sum is over segments.
+  If `exclusive` is False, then the size is `n`.

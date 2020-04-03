@@ -1,0 +1,83 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.interpolation.linear.interpolate" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.interpolation.linear.interpolate
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/interpolation/linear/linear_interpolation.py">View source</a>
+
+
+
+Performs linear interpolation for supplied points.
+
+```python
+tf_quant_finance.math.interpolation.linear.interpolate(
+    x, x_data, y_data, left_slope=None, right_slope=None, validate_args=False,
+    dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+Given a set of knots whose x- and y- coordinates are in `x_data` and `y_data`,
+this function returns y-values for x-coordinates in `x` via piecewise
+linear interpolation.
+
+`x_data` must be non decreasing, but `y_data` don't need to be because we do
+not require the function approximated by these knots to be monotonic.
+
+#### Examples
+
+```python
+x = [-10, -1, 1, 3, 6, 7, 8, 15, 18, 25, 30, 35]
+x_data = [-1, 2, 6, 8, 18, 30.0]
+y_data = [10, -1, -5, 7, 9, 20]
+
+result = linear_interpolation(x, x_data, y_data)
+# [ 10, 10, 2.66666667, -2, -5, 1, 7, 8.4, 9, 15.41666667, 20, 20]
+```
+
+#### Args:
+
+
+* <b>`x`</b>: x-coordinates for which we need to get interpolation. A N-D `Tensor` of
+  real dtype. First N-1 dimensions represent batching dimensions.
+* <b>`x_data`</b>: x coordinates. A N-D `Tensor` of real dtype. Should be sorted
+  in non decreasing order. First N-1 dimensions represent batching
+  dimensions.
+* <b>`y_data`</b>: y coordinates. A N-D `Tensor` of real dtype. Should have the
+  compatible shape as `x_data`. First N-1 dimensions represent batching
+  dimensions.
+* <b>`left_slope`</b>: The slope to use for extrapolation with x-coordinate smaller
+  than the min `x_data`. It's a 0-D or N-D `Tensor`.
+  Default value: `None`, which maps to `0.0` meaning constant extrapolation,
+  i.e. extrapolated value will be the leftmost `y_data`.
+* <b>`right_slope`</b>: The slope to use for extrapolation with x-coordinate greater
+  than the max `x_data`. It's a 0-D or N-D `Tensor`.
+  Default value: `None` which maps to `0.0` meaning constant extrapolation,
+  i.e. extrapolated value will be the rightmost `y_data`.
+* <b>`validate_args`</b>: Python `bool` that indicates whether the function performs
+  the check if the shapes of `x_data` and `y_data` are equal and that the
+  elements in `x_data` are non decreasing. If this value is set to `False`
+  and the elements in `x_data` are not increasing, the result of linear
+  interpolation may be wrong.
+  Default value: `False`.
+* <b>`dtype`</b>: Optional tf.dtype for `x`, x_data`, `y_data`, `left_slope` and
+  `right_slope`.
+  Default value: `None` which means that the `dtype` inferred by TensorFlow
+  is used.
+* <b>`name`</b>: Python str. The name prefixed to the ops created by this function.
+  Default value: `None` which maps to 'linear_interpolation'.
+
+
+#### Returns:
+
+A N-D `Tensor` of real dtype corresponding to the x-values in `x`.

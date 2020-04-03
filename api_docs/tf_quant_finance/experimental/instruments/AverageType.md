@@ -1,0 +1,27 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.experimental.instruments.AverageType" />
+<meta itemprop="path" content="Stable" />
+<meta itemprop="property" content="ARITHMETIC_AVERAGE"/>
+<meta itemprop="property" content="COMPOUNDING"/>
+</div>
+
+# tf_quant_finance.experimental.instruments.AverageType
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/instruments/rates_common.py">View source</a>
+
+
+
+Averaging types.
+
+<!-- Placeholder for "Used in" -->
+
+
+## Class Variables
+
+* `ARITHMETIC_AVERAGE` <a id="ARITHMETIC_AVERAGE"></a>
+* `COMPOUNDING` <a id="COMPOUNDING"></a>

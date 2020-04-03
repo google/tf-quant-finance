@@ -1,0 +1,41 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.random.RandomType" />
+<meta itemprop="path" content="Stable" />
+<meta itemprop="property" content="HALTON"/>
+<meta itemprop="property" content="HALTON_RANDOMIZED"/>
+<meta itemprop="property" content="PSEUDO"/>
+<meta itemprop="property" content="PSEUDO_ANTITHETIC"/>
+<meta itemprop="property" content="SOBOL"/>
+<meta itemprop="property" content="STATELESS"/>
+</div>
+
+# tf_quant_finance.math.random.RandomType
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/random_ops/multivariate_normal.py">View source</a>
+
+
+
+Types of random number sequences.
+
+<!-- Placeholder for "Used in" -->
+
+* `PSEUDO`: The standard Tensorflow random generator.
+* `STATELESS`: The stateless Tensorflow random generator.
+* `HALTON`: The standard Halton sequence.
+* `HALTON_RANDOMIZED`: The randomized Halton sequence.
+* `SOBOL`: The standard Sobol sequence.
+* `PSEUDO_ANTITHETIC`: PSEUDO random numbers along with antithetic variates.
+
+## Class Variables
+
+* `HALTON` <a id="HALTON"></a>
+* `HALTON_RANDOMIZED` <a id="HALTON_RANDOMIZED"></a>
+* `PSEUDO` <a id="PSEUDO"></a>
+* `PSEUDO_ANTITHETIC` <a id="PSEUDO_ANTITHETIC"></a>
+* `SOBOL` <a id="SOBOL"></a>
+* `STATELESS` <a id="STATELESS"></a>

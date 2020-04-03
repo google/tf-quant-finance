@@ -1,0 +1,204 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.root_search.brentq" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.root_search.brentq
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/root_search.py">View source</a>
+
+
+
+Finds root(s) of a function of single variable using Brent's method.
+
+```python
+tf_quant_finance.math.root_search.brentq(
+    objective_fn, left_bracket, right_bracket, value_at_left_bracket=None,
+    value_at_right_bracket=None, absolute_root_tolerance=2e-07,
+    relative_root_tolerance=None, function_tolerance=2e-07, max_iterations=100,
+    stopping_policy_fn=None, validate_args=False, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+[Brent's method](https://en.wikipedia.org/wiki/Brent%27s_method) is a
+root-finding algorithm combining the bisection method, the secant method and
+extrapolation. Like bisection it is guaranteed to converge towards a root if
+one exists, but that convergence is superlinear and on par with less reliable
+methods.
+
+This implementation is a translation of the algorithm described in the
+[original article](https://academic.oup.com/comjnl/article/14/4/422/325237).
+
+#### Args:
+
+
+* <b>`objective_fn`</b>: Python callable for which roots are searched. It must be a
+  callable of a single `Tensor` parameter and return a `Tensor` of the same
+  shape and dtype as `left_bracket`.
+* <b>`left_bracket`</b>: `Tensor` or Python float representing the first starting
+  points. The function will search for roots between each pair of points
+  defined by `left_bracket` and `right_bracket`. The shape of `left_bracket`
+  should match that of the input to `objective_fn`.
+* <b>`right_bracket`</b>: `Tensor` of the same shape and dtype as `left_bracket` or
+  Python float representing the second starting points. The function will
+  search for roots between each pair of points defined by `left_bracket` and
+  `right_bracket`. This argument must have the same shape as `left_bracket`.
+* <b>`value_at_left_bracket`</b>: Optional `Tensor` or Pyhon float representing the
+  value of `objective_fn` at `left_bracket`. If specified, this argument
+  must have the same shape as `left_bracket`. If not specified, the value
+  will be evaluated during the search.
+  Default value: None.
+* <b>`value_at_right_bracket`</b>: Optional `Tensor` or Pyhon float representing the
+  value of `objective_fn` at `right_bracket`. If specified, this argument
+  must have the same shape as `right_bracket`. If not specified, the value
+  will be evaluated during the search.
+  Default value: None.
+* <b>`absolute_root_tolerance`</b>: Optional `Tensor` representing the absolute
+  tolerance for estimated roots, with the total tolerance being calculated
+  as `(absolute_root_tolerance + relative_root_tolerance * |root|) / 2`. If
+  specified, this argument must be positive, broadcast with the shape of
+  `left_bracket` and have the same dtype.
+  Default value: `2e-7`.
+* <b>`relative_root_tolerance`</b>: Optional `Tensor` representing the relative
+  tolerance for estimated roots, with the total tolerance being calculated
+  as `(absolute_root_tolerance + relative_root_tolerance * |root|) / 2`. If
+  specified, this argument must be positive, broadcast with the shape of
+  `left_bracket` and have the same dtype.
+  Default value: `None` which translates to `4 *
+    numpy.finfo(left_bracket.dtype.as_numpy_dtype).eps`.
+* <b>`function_tolerance`</b>: Optional `Tensor` representing the tolerance used to
+  check for roots. If the absolute value of `objective_fn` is smaller than
+  or equal to `function_tolerance` at a given estimate, then that estimate
+  is considered a root for the function. If specified, this argument must
+  broadcast with the shape of `left_bracket` and have the same dtype. Set to
+  zero to match Brent's original algorithm and to continue the search until
+  an exact root is found.
+  Default value: `2e-7`.
+* <b>`max_iterations`</b>: Optional `Tensor` of an integral dtype or Python integer
+  specifying the maximum number of steps to perform for each initial point.
+  Must broadcast with the shape of `left_bracket`. If an element is set to
+  zero, the function will not search for any root for the corresponding
+  points in `left_bracket` and `right_bracket`. Instead, it will return the
+  best estimate from the inputs.
+  Default value: `100`.
+* <b>`stopping_policy_fn`</b>: Python `callable` controlling the algorithm termination.
+  It must be a callable accepting a `Tensor` of booleans with the shape of
+  `left_bracket` (each denoting whether the search is finished for each
+  starting point), and returning a scalar boolean `Tensor` (indicating
+  whether the overall search should stop). Typical values are
+  `tf.reduce_all` (which returns only when the search is finished for all
+  pairs of points), and `tf.reduce_any` (which returns as soon as the search
+  is finished for any pair of points).
+  Default value: `None` which translates to `tf.reduce_all`.
+* <b>`validate_args`</b>: Python `bool` indicating whether to validate arguments such
+  as `left_bracket`, `right_bracket`, `absolute_root_tolerance`,
+  `relative_root_tolerance`, `function_tolerance`, and `max_iterations`.
+  Default value: `False`.
+* <b>`name`</b>: Python `str` name prefixed to ops created by this function.
+
+
+#### Returns:
+
+
+* <b>`brent_results`</b>: A Python object containing the following attributes:
+  estimated_root: `Tensor` containing the best estimate explored. If the
+    search was successful within the specified tolerance, this estimate is
+    a root of the objective function.
+  objective_at_estimated_root: `Tensor` containing the value of the
+    objective function at `estimated_root`. If the search was successful
+    within the specified tolerance, then this is close to 0. It has the
+    same dtype and shape as `estimated_root`.
+  num_iterations: `Tensor` containing the number of iterations performed.
+    It has the same dtype as `max_iterations` and shape as `estimated_root`.
+  converged: Scalar boolean `Tensor` indicating whether `estimated_root` is
+    a root within the tolerance specified for the search. It has the same
+    shape as `estimated_root`.
+
+
+#### Raises:
+
+
+* <b>`ValueError`</b>: if the `stopping_policy_fn` is not callable.
+
+#### Examples
+
+```python
+import tensorflow.compat.v2 as tf
+tf.enable_eager_execution()
+
+# Example 1: Roots of a single function for two pairs of starting points.
+
+f = lambda x: 63 * x**5 - 70 * x**3 + 15 * x + 2
+x1 = tf.constant([-10, 1], dtype=tf.float64)
+x2 = tf.constant([10, -1], dtype=tf.float64)
+
+tf.math.brentq(objective_fn=f, left_bracket=x1, right_bracket=x2)
+# ==> BrentResults(
+#    estimated_root=array([-0.14823253, -0.14823253]),
+#    objective_at_estimated_root=array([3.27515792e-15, 0.]),
+#    num_iterations=array([11, 6]),
+#    converged=array([True, True]))
+
+tf.math.brentq(objective_fn=f,
+               left_bracket=x1,
+               right_bracket=x2,
+               stopping_policy_fn=tf.reduce_any)
+# ==> BrentResults(
+#    estimated_root=array([-2.60718234, -0.14823253]),
+#    objective_at_estimated_root=array([-6.38579115e+03, 2.39763764e-11]),
+#    num_iterations=array([7, 6]),
+#    converged=array([False, True]))
+
+# Example 2: Roots of a multiplex function for one pair of starting points.
+
+def f(x):
+  return tf.constant([0., 63.], dtype=tf.float64) * x**5 \
+      + tf.constant([5., -70.], dtype=tf.float64) * x**3 \
+      + tf.constant([-3., 15.], dtype=tf.float64) * x \
+      + 2
+
+x1 = tf.constant([-5, -5], dtype=tf.float64)
+x2 = tf.constant([5, 5], dtype=tf.float64)
+
+tf.math.brentq(objective_fn=f, left_bracket=x1, right_bracket=x2)
+# ==> BrentResults(
+#    estimated_root=array([-1., -0.14823253]),
+#    objective_at_estimated_root=array([0., 2.08721929e-14]),
+#    num_iterations=array([13, 11]),
+#    converged=array([True, True]))
+
+# Example 3: Roots of a multiplex function for two pairs of starting points.
+
+def f(x):
+  return tf.constant([0., 63.], dtype=tf.float64) * x**5 \
+      + tf.constant([5., -70.], dtype=tf.float64) * x**3 \
+      + tf.constant([-3., 15.], dtype=tf.float64) * x \
+      + 2
+
+x1 = tf.constant([[-5, -5], [10, 10]], dtype=tf.float64)
+x2 = tf.constant([[5, 5], [-10, -10]], dtype=tf.float64)
+
+tf.math.brentq(objective_fn=f, left_bracket=x1, right_bracket=x2)
+# ==> BrentResults(
+#    estimated_root=array([
+#        [-1, -0.14823253],
+#        [-1, -0.14823253]]),
+#    objective_at_estimated_root=array([
+#        [0., 2.08721929e-14],
+#        [0., 2.08721929e-14]]),
+#    num_iterations=array([
+#        [13, 11],
+#        [15, 11]]),
+#    converged=array([
+#        [True, True],
+#        [True, True]]))
+```

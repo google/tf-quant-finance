@@ -1,0 +1,60 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.pde.steppers.extrapolation.extrapolation_scheme" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.pde.steppers.extrapolation.extrapolation_scheme
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/pde/steppers/extrapolation.py">View source</a>
+
+
+
+Constructs extrapolation implicit-explicit scheme.
+
+```python
+tf_quant_finance.math.pde.steppers.extrapolation.extrapolation_scheme(
+    value_grid, t1, t2, equation_params_fn
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+Performs two implicit half-steps, one full implicit step, and combines them
+with such coefficients that ensure second-order errors. More computationally
+expensive than Crank-Nicolson scheme, but provides a better approximation for
+high-wavenumber components, which results in absence of oscillations typical
+for Crank-Nicolson scheme in case of non-smooth initial conditions. See [1]
+for details.
+
+#### References:
+[1]: D. Lawson, J & Ll Morris, J. The Extrapolation of First Order Methods
+for Parabolic Partial Differential Equations. I. 1978
+SIAM Journal on Numerical Analysis. 15. 1212-1224.
+https://epubs.siam.org/doi/abs/10.1137/0715082
+
+#### Args:
+
+
+* <b>`value_grid`</b>: A `Tensor` of real dtype. Grid of solution values at the current
+  time.
+* <b>`t1`</b>: Time before the step.
+* <b>`t2`</b>: Time after the step.
+* <b>`equation_params_fn`</b>: A callable that takes a scalar `Tensor` argument
+  representing time and constructs the tridiagonal matrix `A`
+  (a tuple of three `Tensor`s, main, upper, and lower diagonals)
+  and the inhomogeneous term `b`. All of the `Tensor`s are of the same
+  `dtype` as `inner_value_grid` and of the shape broadcastable with the
+  shape of `inner_value_grid`.
+
+
+#### Returns:
+
+A `Tensor` of the same shape and `dtype` a
+`values_grid` and represents an approximate solution `u(t2)`.

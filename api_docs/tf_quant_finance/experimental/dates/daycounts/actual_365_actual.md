@@ -1,0 +1,55 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.experimental.dates.daycounts.actual_365_actual" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.experimental.dates.daycounts.actual_365_actual
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/daycounts.py">View source</a>
+
+
+
+Computes the year fraction between the specified dates.
+
+```python
+tf_quant_finance.experimental.dates.daycounts.actual_365_actual(
+    *, start_date, end_date, schedule_info=None, dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+The actual/365 actual convention specifies the year fraction between the
+start and end date as the actual number of days between the two dates divided
+365 if no leap day is contained in the date range and 366 otherwise.
+
+When determining whether a leap day is contained in the date range,
+'start_date' is excluded and 'end_date' is included.
+
+Note that the schedule info is not needed for this convention and is ignored
+if supplied.
+
+#### Args:
+
+
+* <b>`start_date`</b>: A `DateTensor` object of any shape.
+* <b>`end_date`</b>: A `DateTensor` object of compatible shape with `start_date`.
+* <b>`schedule_info`</b>: The schedule info. Ignored for this convention.
+* <b>`dtype`</b>: The dtype of the result. Either `tf.float32` or `tf.float64`. If not
+  supplied, `tf.float32` is returned.
+* <b>`name`</b>: Python `str` name prefixed to ops created by this function. If not
+  supplied, `actual_365_actual` is used.
+
+
+#### Returns:
+
+A real `Tensor` of supplied `dtype` and shape of `start_date`. The year
+fraction between the start and end date as computed by Actual/365 Actual
+convention.

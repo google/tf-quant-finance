@@ -1,0 +1,63 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.pde.steppers.weighted_implicit_explicit.weighted_implicit_explicit_step" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.pde.steppers.weighted_implicit_explicit.weighted_implicit_explicit_step
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/pde/steppers/weighted_implicit_explicit.py">View source</a>
+
+
+
+Creates a stepper function with weighted implicit-explicit scheme.
+
+```python
+tf_quant_finance.math.pde.steppers.weighted_implicit_explicit.weighted_implicit_explicit_step(
+    theta
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+Given a space-discretized equation
+
+```
+du/dt = A(t) u(t) + b(t)
+```
+(here `u` is a value vector, `A` and `b` are the matrix and the vector defined
+by the PDE), the scheme approximates the right-hand side as a weighted average
+of values taken before and after a time step:
+
+```
+(u(t2) - u(t1)) / (t2 - t1) = theta * (A(t1) u(t1) + b(t1))
+   + (1 - theta) (A(t2) u(t2) + b(t2)).
+```
+
+Includes as particular cases the implicit (`theta = 0`), explicit
+(`theta = 1`), and Crank-Nicolson (`theta = 0.5`) schemes.
+
+The scheme is stable for `theta >= 0.5`, is second order accurate if
+`theta = 0.5` (i.e. in Crank-Nicolson case), and first order accurate
+otherwise.
+
+More details can be found in `weighted_implicit_explicit_scheme` below.
+
+#### Args:
+
+
+* <b>`theta`</b>: A float in range `[0, 1]`. A parameter used to mix implicit and
+  explicit schemes together. Value of `0.0` corresponds to the fully
+  implicit scheme, `1.0` to the fully explicit, and `0.5` to the
+  Crank-Nicolson scheme.
+
+
+#### Returns:
+
+Callable to be used in finite-difference PDE solvers (see fd_solvers.py).

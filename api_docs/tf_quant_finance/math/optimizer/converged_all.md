@@ -1,0 +1,25 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.optimizer.converged_all" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.optimizer.converged_all
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+
+
+Condition to stop when all batch members have converged or failed.
+
+```python
+tf_quant_finance.math.optimizer.converged_all(
+    converged, failed
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->

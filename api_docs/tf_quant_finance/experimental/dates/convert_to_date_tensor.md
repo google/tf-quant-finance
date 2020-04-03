@@ -1,0 +1,54 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.experimental.dates.convert_to_date_tensor" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.experimental.dates.convert_to_date_tensor
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/date_tensor.py">View source</a>
+
+
+
+Converts supplied data to a `DateTensor` if possible.
+
+```python
+tf_quant_finance.experimental.dates.convert_to_date_tensor(
+    date_inputs
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+
+#### Args:
+
+
+* <b>`date_inputs`</b>: One of the supported types that can be converted to a
+  DateTensor. The following input formats are supported. 1. Sequence of
+  `datetime.datetime`, `datetime.date`, or any other structure with data
+  attributes called 'year', 'month' and 'day'. 2. A numpy array of
+  `datetime64` type. 3. Sequence of (year, month, day) Tuples. Months are
+  1-based (with January as 1) and constants.Months enum may be used instead
+  of ints. Days are also 1-based. 4. A tuple of three int32 `Tensor`s
+  containing year, month and date as positive integers in that order. 5. A
+  single int32 `Tensor` containing ordinals (i.e. number of days since 31
+  Dec 0 with 1 being 1 Jan 1.)
+
+
+#### Returns:
+
+A `DateTensor` object representing the supplied dates.
+
+
+
+#### Raises:
+
+
+* <b>`ValueError`</b>: If conversion fails for any reason.

@@ -1,0 +1,72 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.rates.hagan_west.monotone_convex" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# Module: tf_quant_finance.rates.hagan_west.monotone_convex
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/rates/hagan_west/monotone_convex.py">View source</a>
+
+
+
+The monotone convex interpolation method.
+
+
+The monotone convex method is a scheme devised by Hagan and West (Ref [1]). It
+is a commonly used method to interpolate interest rate yield curves. For
+more details see Refs [1, 2].
+
+It is important to point out that the monotone convex method *does not* solve
+the standard interpolation problem but a modified one as described below.
+
+Suppose we are given a strictly increasing sequence of scalars (which we will
+refer to as time) `[t_1, t_2, ... t_n]` and a set of values
+`[f_1, f_2, ... f_n]`.
+The aim is to find a function `f(t)` defined on the interval `[0, t_n]` which
+satisfies (in addition to continuity and positivity conditions, see Section 6
+of Ref [2] for more details) the following
+
+```
+  Integral[f(u), t_{i-1} <= u <= t_i] = f_i,  with t_0 = 0
+
+```
+
+In the context of interest rate curve building, `f(t)` corresponds to the
+instantaneous forward rate at time `t` and the `f_i` correspond to the
+discrete forward rates that apply to the time period `[t_{i-1}, t_i]`.
+
+This implementation of the method currently supports batching along the
+interpolation times but not along the interpolated curves (i.e. it is possible
+to evaluate the `f(t)` for `t` as a vector of times but not build multiple
+curves at the same time).
+
+
+#### References:
+
+[1]: Patrick Hagan & Graeme West. Interpolation Methods for Curve Construction.
+  Applied Mathematical Finance. Vol 13, No. 2, pp 89-129. June 2006.
+  https://www.researchgate.net/publication/24071726_Interpolation_Methods_for_Curve_Construction
+[2]: Patrick Hagan & Graeme West. Methods for Constructing a Yield Curve.
+  Wilmott Magazine, pp. 70-81. May 2008.
+
+## Modules
+
+[`forwards`](../../../tf_quant_finance/rates/forwards.md) module: Collection of functions to compute properties of cashflows.
+
+[`piecewise`](../../../tf_quant_finance/math/piecewise.md) module: Piecewise utility functions.
+
+## Functions
+
+[`diff(...)`](../../../tf_quant_finance/math/diff.md): Computes the difference between elements of an array at a regular interval.
+
+[`interpolate(...)`](../../../tf_quant_finance/rates/hagan_west/monotone_convex/interpolate.md): Performs the monotone convex interpolation.
+
+[`interpolate_forward_rate(...)`](../../../tf_quant_finance/rates/hagan_west/monotone_convex/interpolate_forward_rate.md): Interpolates instantaneous forward rate to supplied times .
+
+[`interpolate_yields(...)`](../../../tf_quant_finance/rates/hagan_west/monotone_convex/interpolate_yields.md): Interpolates the yield curve to the supplied times.
+

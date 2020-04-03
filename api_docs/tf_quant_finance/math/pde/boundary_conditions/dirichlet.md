@@ -1,0 +1,77 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.pde.boundary_conditions.dirichlet" />
+<meta itemprop="path" content="Stable" />
+</div>
+
+# tf_quant_finance.math.pde.boundary_conditions.dirichlet
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/pde/boundary_conditions.py">View source</a>
+
+
+
+Wrapper for Dirichlet boundary conditions to be used in PDE solvers.
+
+```python
+tf_quant_finance.math.pde.boundary_conditions.dirichlet(
+    boundary_values_fn
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+Example: the boundary value is 1 on both boundaries.
+
+```python
+def lower_boundary_fn(t, location_grid):
+  return 1
+
+def upper_boundary_fn(t, location_grid):
+  return 0
+
+solver = fd_solvers.solve_forward(...,
+    boundary_conditions = [(dirichlet(lower_boundary_fn),
+                            dirichlet(upper_boundary_fn))],
+    ...)
+```
+
+Also can be used as a decorator:
+
+```python
+@dirichlet
+def lower_boundary_fn(t, location_grid):
+  return 1
+
+@dirichlet
+def upper_boundary_fn(t, location_grid):
+  return 0
+
+solver = fd_solvers.solve_forward(...,
+    boundary_conditions = [(lower_boundary_fn, upper_boundary_fn)],
+    ...)
+```
+
+#### Args:
+
+
+* <b>`boundary_values_fn`</b>: Callable returning the boundary values at given time.
+  Accepts two arguments - the moment of time and the current coordinate
+  grid.
+  Returns a number, a zero-rank Tensor or a Tensor of shape
+  `batch_shape + grid_shape'`, where `grid_shape'` is grid_shape excluding
+  the axis orthogonal to the boundary. For example, in 3D the value grid
+  shape is `batch_shape + (z_size, y_size, x_size)`, and the boundary
+  tensors on the planes `y = y_min` and `y = y_max` should be either scalars
+  or have shape `batch_shape + (z_size, x_size)`. In 1D case this reduces
+  to just `batch_shape`.
+
+
+#### Returns:
+
+Callable suitable for PDE solvers.

@@ -1,0 +1,31 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.experimental.dates.PeriodType" />
+<meta itemprop="path" content="Stable" />
+<meta itemprop="property" content="DAY"/>
+<meta itemprop="property" content="MONTH"/>
+<meta itemprop="property" content="WEEK"/>
+<meta itemprop="property" content="YEAR"/>
+</div>
+
+# tf_quant_finance.experimental.dates.PeriodType
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/constants.py">View source</a>
+
+
+
+Periods that can be added or subtracted from DateTensors.
+
+<!-- Placeholder for "Used in" -->
+
+
+## Class Variables
+
+* `DAY` <a id="DAY"></a>
+* `MONTH` <a id="MONTH"></a>
+* `WEEK` <a id="WEEK"></a>
+* `YEAR` <a id="YEAR"></a>

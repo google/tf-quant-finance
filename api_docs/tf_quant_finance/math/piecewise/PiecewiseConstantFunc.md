@@ -1,0 +1,189 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.math.piecewise.PiecewiseConstantFunc" />
+<meta itemprop="path" content="Stable" />
+<meta itemprop="property" content="__call__"/>
+<meta itemprop="property" content="__init__"/>
+<meta itemprop="property" content="integrate"/>
+<meta itemprop="property" content="jump_locations"/>
+<meta itemprop="property" content="name"/>
+<meta itemprop="property" content="values"/>
+</div>
+
+# tf_quant_finance.math.piecewise.PiecewiseConstantFunc
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/piecewise.py">View source</a>
+
+
+
+Creates a piecewise constant function.
+
+```python
+tf_quant_finance.math.piecewise.PiecewiseConstantFunc(
+    jump_locations, values, dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+
+#### Args:
+
+
+* <b>`jump_locations`</b>: A real `Tensor` of shape
+  `batch_shape + [num_jump_points]`. The locations where the function
+  changes its values. Note that the values are expected to be ordered
+  along the last dimension. Repeated values are allowed but it is
+  up to the user to ensure that the corresponding `values` are also
+  repeated.
+* <b>`values`</b>: A `Tensor` of the same `dtype` as `jump_locations` and shape
+  `batch_shape + [num_jump_points + 1] + event_shape`. Defines
+  `values[batch_rank * slice(None), i]` on intervals
+  `(jump_locations[..., i - 1], jump_locations[..., i])`. Here
+  `event_shape` allows for array-valued piecewise constant functions
+  and `batch_rank = len(batch_shape)`.
+* <b>`dtype`</b>:  Optional dtype for `jump_locations` and `values`.
+  Default value: `None` which maps to the default dtype inferred by
+  TensorFlow.
+* <b>`name`</b>: Python `str` name prefixed to ops created by this class.
+  Default value: `None` which is mapped to the default name
+  `PiecewiseConstantFunc`.
+
+
+#### Raises:
+
+
+* <b>`ValueError`</b>:   If `jump_locations` and `values` have different batch shapes or,
+  in case of static shapes, if the event shape of `values` is different
+  from `num_jump_points + 1`.
+
+## Methods
+
+<h3 id="__call__"><code>__call__</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/piecewise.py">View source</a>
+
+```python
+__call__(
+    x, left_continuous=True, name=None
+)
+```
+
+Computes value of the piecewise constant function.
+
+Returns a value of the piecewise function with jump locations and values
+given by the initializer.
+
+#### Args:
+
+
+* <b>`x`</b>: A real `Tensor` of shape `batch_shape + [num_points]`. Points at which
+  the function has to be evaluated.
+* <b>`left_continuous`</b>: Python `bool`. Whether the function is left- or right-
+  continuous, i.e., at the `jump_locations[..., i]` left-continuity means
+  that the function has the same value
+  `values[batch_rank * slice(None), i]`, wheraes for
+  right-continuity, the value is
+  `values[batch_rank * slice(None), i + 1]`.
+  Default value: `True` which means that the function is left-continuous.
+* <b>`name`</b>: Python `str` name prefixed to ops created by this method.
+  Default value: `None` which is mapped to the default name
+  `self.name() + _call`.
+
+
+#### Returns:
+
+A `Tensor` of the same `dtype` as `x` and shape
+`batch_shape + [num_points] + event_shape` containing values of the
+piecewise constant function.
+
+
+
+#### Raises:
+
+
+* <b>`ValueError`</b>:   If `batch_shape` of `x` is incompatible with the batch shape of
+  `self.jump_locations()`.
+
+<h3 id="integrate"><code>integrate</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/piecewise.py">View source</a>
+
+```python
+integrate(
+    x1, x2, name=None
+)
+```
+
+Integrates the piecewise constant function between end points.
+
+Returns a value of the integral on the interval `[x1, x2]` of a piecewise
+constant function with jump locations and values given by the initializer.
+
+#### Args:
+
+
+* <b>`x1`</b>: A real `Tensor` of shape `batch_shape + [num_points]`. Left end points
+  at which the function has to be integrated.
+* <b>`x2`</b>: A `Tensor` of the same shape and `dtype` as `x1`. Right end points at
+  which the function has to be integrated.
+* <b>`name`</b>: Python `str` name prefixed to ops created by this method.
+  Default value: `None` which is mapped to the default name
+  `self.name() + `_integrate``.
+
+
+#### Returns:
+
+A `Tensor` of the same `dtype` as `x` and shape
+`batch_shape + [num_points] + event_shape` containing values of the
+integral of the piecewise constant function between `[x1, x2]`.
+
+
+
+#### Raises:
+
+
+* <b>`ValueError`</b>:   If `batch_shape` of `x1` and `x2` are incompatible with the batch shape
+  of `self.jump_locations()`.
+
+<h3 id="jump_locations"><code>jump_locations</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/piecewise.py">View source</a>
+
+```python
+jump_locations()
+```
+
+The jump locations of the piecewise constant function.
+
+
+<h3 id="name"><code>name</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/piecewise.py">View source</a>
+
+```python
+name()
+```
+
+The name to give to the ops created by this class.
+
+
+<h3 id="values"><code>values</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/piecewise.py">View source</a>
+
+```python
+values()
+```
+
+The value of the piecewise constant function between jump locations.
+
+
+
+
