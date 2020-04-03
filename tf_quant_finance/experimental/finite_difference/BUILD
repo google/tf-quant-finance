@@ -23,3 +23,10 @@ py_library(
         # sobol_seq dep,
     ],
 )
+
+filegroup(
+    name = "docs",
+    srcs = [
+        "README.md",
+    ],
+)

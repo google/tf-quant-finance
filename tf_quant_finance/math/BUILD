@@ -138,3 +138,16 @@ py_test(
         # tensorflow dep,
     ],
 )
+
+filegroup(
+    name = "docs",
+    srcs = [
+        "README.md",
+    ],
+    data = [
+        "//tf_quant_finance/math/interpolation:docs",
+        "//tf_quant_finance/math/optimizer:docs",
+        "//tf_quant_finance/math/pde:docs",
+        "//tf_quant_finance/math/random_ops:docs",
+    ],
+)

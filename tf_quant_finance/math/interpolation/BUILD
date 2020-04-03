@@ -14,3 +14,10 @@ py_library(
         # tensorflow dep,
     ],
 )
+
+filegroup(
+    name = "docs",
+    srcs = [
+        "README.md",
+    ],
+)

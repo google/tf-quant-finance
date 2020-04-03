@@ -15,3 +15,13 @@ py_library(
         "//tf_quant_finance/experimental/lsm_algorithm",
     ],
 )
+
+filegroup(
+    name = "docs",
+    srcs = [
+        "README.md",
+    ],
+    data = [
+        "//tf_quant_finance/experimental/finite_difference:docs",
+    ],
+)

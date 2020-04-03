@@ -95,3 +95,10 @@ py_test(
         # tensorflow dep,
     ],
 )
+
+filegroup(
+    name = "docs",
+    srcs = [
+        "README.md",
+    ],
+)
