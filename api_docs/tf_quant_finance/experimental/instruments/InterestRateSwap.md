@@ -137,6 +137,14 @@ price = swap.price(valuation_date, market)
 * <b>`name`</b>: Python str. The name to give to the ops created by this class.
   Default value: `None` which maps to 'interest_rate_swap'.
 
+#### Attributes:
+
+* <b>`fixed_rate`</b>
+* <b>`is_payer`</b>
+* <b>`notional`</b>
+* <b>`term`</b>
+
+
 ## Methods
 
 <h3 id="annuity"><code>annuity</code></h3>

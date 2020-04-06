@@ -38,11 +38,15 @@ Instruments.
 
 [`class ForwardRateAgreement`](../../tf_quant_finance/experimental/instruments/ForwardRateAgreement.md): Represents a batch of Forward Rate Agreements (FRA).
 
-[`class InterestRateMarket`](../../tf_quant_finance/experimental/instruments/InterestRateMarket.md): InterestRateMarket(reference_curve, discount_curve, libor_rate)
+[`class InterestRateMarket`](../../tf_quant_finance/experimental/instruments/InterestRateMarket.md): InterestRateMarket(reference_curve, discount_curve, libor_rate, volatility_curve)
+
+[`class InterestRateModelType`](../../tf_quant_finance/experimental/instruments/InterestRateModelType.md): Models for pricing interest rate derivatives.
 
 [`class InterestRateSwap`](../../tf_quant_finance/experimental/instruments/InterestRateSwap.md): Represents a batch of Interest Rate Swaps (IRS).
 
 [`class OvernightIndexLinkedFutures`](../../tf_quant_finance/experimental/instruments/OvernightIndexLinkedFutures.md): Represents a collection of futures linked to an average of overnight rates.
 
 [`class RateCurve`](../../tf_quant_finance/experimental/instruments/RateCurve.md): Represents an interest rate curve.
+
+[`class Swaption`](../../tf_quant_finance/experimental/instruments/Swaption.md): Represents a batch of European Swaptions.
 

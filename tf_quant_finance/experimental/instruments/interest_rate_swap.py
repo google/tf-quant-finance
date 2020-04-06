@@ -154,6 +154,7 @@ class InterestRateSwap:
       self._fixed_leg = None
       self._pay_leg = self._setup_leg(pay_leg)
       self._receive_leg = self._setup_leg(receive_leg)
+      self._is_payer = isinstance(self._pay_leg, cs.FixedCashflowStream)
 
   def price(self, valuation_date, market, model=None):
     """Returns the present value of the instrument on the valuation date.
@@ -176,25 +177,32 @@ class InterestRateSwap:
 
   def annuity(self, valuation_date, market, model=None):
     """Returns the annuity of each swap on the vauation date."""
-    del valuation_date, model
-
-    if self._fixed_leg is not None:
-      discount_curve = market.discount_curve
-      discount_factors = discount_curve.get_discount_factor(
-          self._fixed_leg.payment_dates)
-      return tf.math.segment_sum(
-          discount_factors * self._fixed_leg.daycount_fractions,
-          self._fixed_leg.contract_index)
-    else:
-      return 0.
+    return self._annuity(valuation_date, market, model, True)
 
   def par_rate(self, valuation_date, market, model=None):
     """Returns the par swap rate for the swap."""
 
-    swap_annuity = self.annuity(valuation_date, market, model)
+    swap_annuity = self._annuity(valuation_date, market, model, False)
     float_pv = self._floating_leg.price(valuation_date, market, model)
 
     return float_pv / swap_annuity
+
+  @property
+  def term(self):
+    return tf.cast(self._start_date.days_until(self._maturity_date),
+                   dtype=self._dtype) / 365.
+
+  @property
+  def fixed_rate(self):
+    return self._fixed_leg.fixed_rate
+
+  @property
+  def notional(self):
+    return self._floating_leg.notional
+
+  @property
+  def is_payer(self):
+    return self._is_payer
 
   def _setup_leg(self, leg):
     """Setup swap legs."""
@@ -210,3 +218,22 @@ class InterestRateSwap:
       raise ValueError('Unreconized leg type.')
 
     return leg_
+
+  def _annuity(self, valuation_date, market, model=None, unit_notional=True):
+    """Returns the annuity of each swap on the vauation date."""
+    del valuation_date, model
+
+    if unit_notional:
+      notional = 1.
+    else:
+      notional = self._fixed_leg.notional
+
+    if self._fixed_leg is not None:
+      discount_curve = market.discount_curve
+      discount_factors = discount_curve.get_discount_factor(
+          self._fixed_leg.payment_dates)
+      return tf.math.segment_sum(
+          notional * discount_factors * self._fixed_leg.daycount_fractions,
+          self._fixed_leg.contract_index)
+    else:
+      return 0.

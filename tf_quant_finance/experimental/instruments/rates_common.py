@@ -30,9 +30,11 @@ InterestRateMarket = collections.namedtuple(
         # Instance of class RateCurve. The curve used for discounting cashflows.
         'discount_curve',
         # Scalar of real dtype containing the past fixing of libor rate
-        'libor_rate'
+        'libor_rate',
+        # Instance of class VolatiltyCube. Market implied black volatilities.
+        'volatility_curve'
     ])
-InterestRateMarket.__new__.__defaults__ = (None, None, None)
+InterestRateMarket.__new__.__defaults__ = (None, None, None, None)
 
 # TODO(b/151954834): Change to `attrs` or `dataclasses`
 FixedCouponSpecs = collections.namedtuple(
@@ -110,6 +112,11 @@ class RateIndexType(enum.Enum):
   LIBOR = 1
 
 
+class InterestRateModelType(enum.Enum):
+  """Models for pricing interest rate derivatives."""
+  LOGNORMAL_RATE = 1
+
+
 def elapsed_time(date_1, date_2, dtype):
   """Computes elapsed time between two date tensors."""
   days_in_year = 365.
@@ -142,3 +149,13 @@ def get_rate_index(market,
   del rate_type, currency
   rate = market.libor_rate or tf.zeros(valuation_date.shape, dtype=dtype)
   return rate
+
+
+def get_implied_volatility_data(market,
+                                valuation_date=None,
+                                volatility_type=None,
+                                currency=None):
+  """Return the implied colatility date from the market data."""
+  del valuation_date, volatility_type, currency
+  vol_date = market.volatility_curve
+  return vol_date

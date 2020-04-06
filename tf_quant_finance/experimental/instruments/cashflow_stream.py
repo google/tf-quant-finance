@@ -204,6 +204,10 @@ class FixedCashflowStream(CashflowStream):
   def fixed_rate(self):
     return self._fixed_rate
 
+  @property
+  def notional(self):
+    return self._notional
+
   def _setup(self, coupon_spec):
     """Setup tensors for efficient computations."""
 
@@ -397,6 +401,10 @@ class FloatingCashflowStream(CashflowStream):
       cashflow_pvs = self._notional * (
           self._daycount_fractions * coupon_rate * discount_factors)
       return tf.math.segment_sum(cashflow_pvs, self._contract_index)
+
+  @property
+  def notional(self):
+    return self._notional
 
   def _setup(self, coupon_spec):
     """Setup tensors for efficient computations."""

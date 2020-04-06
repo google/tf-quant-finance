@@ -101,6 +101,11 @@ price = cf_stream.price(valuation_date, market)
 * <b>`name`</b>: Python str. The name to give to the ops created by this class.
   Default value: `None` which maps to 'floating_cashflow_stream'.
 
+#### Attributes:
+
+* <b>`notional`</b>
+
+
 ## Methods
 
 <h3 id="price"><code>price</code></h3>

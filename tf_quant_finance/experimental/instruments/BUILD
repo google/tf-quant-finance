@@ -17,6 +17,7 @@ py_library(
         ":overnight_index_linked_futures",
         ":rate_curve",
         ":rates_common",
+        ":swaption",
         # attr dep,
         # numpy dep,
         # tensorflow dep,
@@ -211,6 +212,34 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["bond_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":instruments",
+        "//tf_quant_finance",
+        "//tf_quant_finance/experimental/dates",
+        # test util,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "swaption",
+    srcs = [
+        "swaption.py",
+    ],
+    srcs_version = "PY3",
+    deps = [
+        # attr dep,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "swaption_test",
+    size = "small",
+    timeout = "moderate",
+    srcs = ["swaption_test.py"],
     python_version = "PY3",
     deps = [
         ":instruments",

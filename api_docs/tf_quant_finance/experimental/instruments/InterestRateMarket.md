@@ -15,12 +15,13 @@
 
 
 
-InterestRateMarket(reference_curve, discount_curve, libor_rate)
+InterestRateMarket(reference_curve, discount_curve, libor_rate, volatility_curve)
 
 ```python
 @staticmethod
 tf_quant_finance.experimental.instruments.InterestRateMarket(
-    _cls, reference_curve=None, discount_curve=None, libor_rate=None
+    _cls, reference_curve=None, discount_curve=None, libor_rate=None,
+    volatility_curve=None
 )
 ```
 
@@ -34,5 +35,6 @@ tf_quant_finance.experimental.instruments.InterestRateMarket(
 * <b>`reference_curve`</b>
 * <b>`discount_curve`</b>
 * <b>`libor_rate`</b>
+* <b>`volatility_curve`</b>
 
 

@@ -22,10 +22,12 @@ from tf_quant_finance.experimental.instruments import interest_rate_swap
 from tf_quant_finance.experimental.instruments import overnight_index_linked_futures
 from tf_quant_finance.experimental.instruments import rate_curve
 from tf_quant_finance.experimental.instruments import rates_common
+from tf_quant_finance.experimental.instruments import swaption
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 Bond = bond.Bond
 EurodollarFutures = eurodollar_futures.EurodollarFutures
+Swaption = swaption.Swaption
 OvernightIndexLinkedFutures = overnight_index_linked_futures.OvernightIndexLinkedFutures
 ForwardRateAgreement = forward_rate_agreement.ForwardRateAgreement
 RateCurve = rate_curve.RateCurve
@@ -37,14 +39,17 @@ InterestRateSwap = interest_rate_swap.InterestRateSwap
 FixedCouponSpecs = rates_common.FixedCouponSpecs
 FloatCouponSpecs = rates_common.FloatCouponSpecs
 AverageType = rates_common.AverageType
+InterestRateModelType = rates_common.InterestRateModelType
 
 _allowed_symbols = [
     'Bond',
     'EurodollarFutures',
+    'Swaption',
     'ForwardRateAgreement',
     'OvernightIndexLinkedFutures',
     'RateCurve',
     'InterestRateMarket',
+    'InterestRateModelType',
     'DayCountConvention',
     'FixedCashflowStream',
     'FloatingCashflowStream',

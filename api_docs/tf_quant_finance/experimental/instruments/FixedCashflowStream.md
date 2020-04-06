@@ -105,6 +105,7 @@ price = cf_stream.price(valuation_date, market)
 * <b>`contract_index`</b>
 * <b>`daycount_fractions`</b>
 * <b>`fixed_rate`</b>
+* <b>`notional`</b>
 * <b>`payment_dates`</b>
 
 

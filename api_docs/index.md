@@ -140,9 +140,11 @@
 *  <a href="./tf_quant_finance/experimental/instruments/FloatingCashflowStream.md"><code>tf_quant_finance.experimental.instruments.FloatingCashflowStream</code></a>
 *  <a href="./tf_quant_finance/experimental/instruments/ForwardRateAgreement.md"><code>tf_quant_finance.experimental.instruments.ForwardRateAgreement</code></a>
 *  <a href="./tf_quant_finance/experimental/instruments/InterestRateMarket.md"><code>tf_quant_finance.experimental.instruments.InterestRateMarket</code></a>
+*  <a href="./tf_quant_finance/experimental/instruments/InterestRateModelType.md"><code>tf_quant_finance.experimental.instruments.InterestRateModelType</code></a>
 *  <a href="./tf_quant_finance/experimental/instruments/InterestRateSwap.md"><code>tf_quant_finance.experimental.instruments.InterestRateSwap</code></a>
 *  <a href="./tf_quant_finance/experimental/instruments/OvernightIndexLinkedFutures.md"><code>tf_quant_finance.experimental.instruments.OvernightIndexLinkedFutures</code></a>
 *  <a href="./tf_quant_finance/experimental/instruments/RateCurve.md"><code>tf_quant_finance.experimental.instruments.RateCurve</code></a>
+*  <a href="./tf_quant_finance/experimental/instruments/Swaption.md"><code>tf_quant_finance.experimental.instruments.Swaption</code></a>
 *  <a href="./tf_quant_finance/experimental/lsm_algorithm.md"><code>tf_quant_finance.experimental.lsm_algorithm</code></a>
 *  <a href="./tf_quant_finance/experimental/lsm_algorithm/least_square_mc.md"><code>tf_quant_finance.experimental.lsm_algorithm.least_square_mc</code></a>
 *  <a href="./tf_quant_finance/experimental/lsm_algorithm/least_square_mc_v2.md"><code>tf_quant_finance.experimental.lsm_algorithm.least_square_mc_v2</code></a>
