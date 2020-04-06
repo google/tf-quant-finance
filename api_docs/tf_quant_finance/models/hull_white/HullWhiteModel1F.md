@@ -548,11 +548,8 @@ Default value: `None`.
 
 #### Returns:
 
-A `Tensor`s of shape [num_samples, k, dim] where `k` is the size
-of the `times`, `dim` is the dimension of the process. For each sample and
-time the first dimension represents the simulated log-state trajectories
-of the spot price `X(t)`, whereas the second one represents the simulated
-variance trajectories `V(t)`.
+A `Tensor` of shape [num_samples, k, dim] where `k` is the size
+of the `times` and `dim` is the dimension of the process.
 
 
 
