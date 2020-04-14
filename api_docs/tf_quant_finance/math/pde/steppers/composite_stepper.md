@@ -22,5 +22,3 @@ Composition of two time marching schemes.
 
 [`composite_scheme_step(...)`](../../../../tf_quant_finance/math/pde/steppers/composite_stepper/composite_scheme_step.md): Composes two time marching schemes.
 
-[`parabolic_equation_step(...)`](../../../../tf_quant_finance/math/pde/steppers/composite_stepper/parabolic_equation_step.md): Performs one step of the parabolic PDE solver.
-

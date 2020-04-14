@@ -18,10 +18,6 @@ Functions to create grids suitable for PDE pricing.
 
 
 
-## Classes
-
-[`class range`](../../../tf_quant_finance/math/pde/grids/range.md): range(stop) -> range object
-
 ## Functions
 
 [`log_uniform_grid(...)`](../../../tf_quant_finance/math/pde/grids/log_uniform_grid.md): Creates a grid spec for a uniform grid in a log-space.

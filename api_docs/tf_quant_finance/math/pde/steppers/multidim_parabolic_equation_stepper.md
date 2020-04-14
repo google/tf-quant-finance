@@ -20,5 +20,5 @@ Stepper for multidimensional parabolic PDE solving.
 
 ## Functions
 
-[`multidim_parabolic_equation_step(...)`](../../../../tf_quant_finance/math/pde/steppers/douglas_adi/multidim_parabolic_equation_step.md): Performs one step in time to solve a multidimensional PDE.
+[`multidim_parabolic_equation_step(...)`](../../../../tf_quant_finance/math/pde/steppers/multidim_parabolic_equation_stepper/multidim_parabolic_equation_step.md): Performs one step in time to solve a multidimensional PDE.
 

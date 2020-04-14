@@ -22,7 +22,5 @@ Douglas ADI method for solving multidimensional parabolic PDEs.
 
 [`douglas_adi_scheme(...)`](../../../../tf_quant_finance/math/pde/steppers/douglas_adi/douglas_adi_scheme.md): Applies Douglas time marching scheme (see [1] and Eq. 3.1 in [2]).
 
-[`douglas_adi_step(...)`](../../../../tf_quant_finance/math/pde/fd_solvers/douglas_adi_step.md): Creates a stepper function with Crank-Nicolson time marching scheme.
-
-[`multidim_parabolic_equation_step(...)`](../../../../tf_quant_finance/math/pde/steppers/douglas_adi/multidim_parabolic_equation_step.md): Performs one step in time to solve a multidimensional PDE.
+[`douglas_adi_step(...)`](../../../../tf_quant_finance/math/pde/steppers/douglas_adi/douglas_adi_step.md): Creates a stepper function with Crank-Nicolson time marching scheme.
 

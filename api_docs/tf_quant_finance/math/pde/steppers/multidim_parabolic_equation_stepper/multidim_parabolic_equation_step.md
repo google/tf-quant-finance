@@ -1,9 +1,9 @@
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.math.pde.steppers.douglas_adi.multidim_parabolic_equation_step" />
+<meta itemprop="name" content="tf_quant_finance.math.pde.steppers.multidim_parabolic_equation_stepper.multidim_parabolic_equation_step" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.math.pde.steppers.douglas_adi.multidim_parabolic_equation_step
+# tf_quant_finance.math.pde.steppers.multidim_parabolic_equation_stepper.multidim_parabolic_equation_step
 
 <!-- Insert buttons and diff -->
 
@@ -17,7 +17,7 @@
 Performs one step in time to solve a multidimensional PDE.
 
 ```python
-tf_quant_finance.math.pde.steppers.douglas_adi.multidim_parabolic_equation_step(
+tf_quant_finance.math.pde.steppers.multidim_parabolic_equation_stepper.multidim_parabolic_equation_step(
     time, next_time, coord_grid, value_grid, boundary_conditions,
     time_marching_scheme, second_order_coeff_fn=None, first_order_coeff_fn=None,
     zeroth_order_coeff_fn=None, inner_second_order_coeff_fn=None,

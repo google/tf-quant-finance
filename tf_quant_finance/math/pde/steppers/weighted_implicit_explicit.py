@@ -235,3 +235,9 @@ def _weighted_scheme_implicit_part(vec, diag, upper, lower, theta, t1, t2):
                                      diagonals_format='sequence',
                                      transpose_rhs=True,
                                      partial_pivoting=False)
+
+
+__all__ = [
+    'weighted_implicit_explicit_scheme',
+    'weighted_implicit_explicit_step',
+]

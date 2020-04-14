@@ -324,3 +324,6 @@ def _get_permutation(tensor, n_dims, active_dim):
   perm[rank - 1] = batch_rank + active_dim
   perm[batch_rank + active_dim] = rank - 1
   return perm
+
+
+__all__ = ['douglas_adi_step', 'douglas_adi_scheme']

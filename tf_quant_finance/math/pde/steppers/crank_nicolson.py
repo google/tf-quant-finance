@@ -79,3 +79,6 @@ def crank_nicolson_step():
 
 
 crank_nicolson_scheme = weighted_implicit_explicit_scheme(theta=0.5)
+
+
+__all__ = ['crank_nicolson_step', 'crank_nicolson_scheme']

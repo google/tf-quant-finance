@@ -471,3 +471,12 @@ def log_uniform_grid_with_extra_point(minimums,
 def _check_shapes_fully_defined(*args):
   """Checks if all the arguments have fully defined shapes."""
   return np.all([arg.shape.is_fully_defined() for arg in args])
+
+
+__all__ = [
+    'uniform_grid',
+    'uniform_grid_with_extra_point',
+    'rectangular_grid',
+    'log_uniform_grid',
+    'log_uniform_grid_with_extra_point',
+]

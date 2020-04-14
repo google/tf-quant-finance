@@ -726,3 +726,6 @@ def _trim_boundaries(tensor, from_dim, shifts=None):
     if shifts is not None:
       slice_begin[i] += shifts[i - from_dim]
   return tf.slice(tensor, slice_begin, slice_size)
+
+
+__all__ = ['multidim_parabolic_equation_step']

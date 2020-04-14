@@ -736,3 +736,6 @@ def _time_direction_forward_fn(t, dt, end_time):
 def _time_direction_backward_fn(t, dt, end_time):
   t_next = tf.math.maximum(end_time, t - dt)
   return t_next <= end_time, t_next
+
+
+__all__ = ['solve_backward', 'solve_forward']

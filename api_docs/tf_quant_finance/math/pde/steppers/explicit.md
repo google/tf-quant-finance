@@ -24,7 +24,3 @@ Explicit time marching scheme for parabolic PDEs.
 
 [`explicit_step(...)`](../../../../tf_quant_finance/math/pde/steppers/explicit/explicit_step.md): Creates a stepper function with explicit time marching scheme.
 
-[`parabolic_equation_step(...)`](../../../../tf_quant_finance/math/pde/steppers/composite_stepper/parabolic_equation_step.md): Performs one step of the parabolic PDE solver.
-
-[`weighted_implicit_explicit_scheme(...)`](../../../../tf_quant_finance/math/pde/steppers/crank_nicolson/weighted_implicit_explicit_scheme.md): Constructs weighted implicit-explicit scheme.
-

@@ -1,9 +1,9 @@
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.math.pde.steppers.composite_stepper.parabolic_equation_step" />
+<meta itemprop="name" content="tf_quant_finance.math.pde.steppers.parabolic_equation_stepper.parabolic_equation_step" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.math.pde.steppers.composite_stepper.parabolic_equation_step
+# tf_quant_finance.math.pde.steppers.parabolic_equation_stepper.parabolic_equation_step
 
 <!-- Insert buttons and diff -->
 
@@ -17,7 +17,7 @@
 Performs one step of the parabolic PDE solver.
 
 ```python
-tf_quant_finance.math.pde.steppers.composite_stepper.parabolic_equation_step(
+tf_quant_finance.math.pde.steppers.parabolic_equation_stepper.parabolic_equation_step(
     time, next_time, coord_grid, value_grid, boundary_conditions,
     second_order_coeff_fn, first_order_coeff_fn, zeroth_order_coeff_fn,
     inner_second_order_coeff_fn, inner_first_order_coeff_fn, time_marching_scheme,

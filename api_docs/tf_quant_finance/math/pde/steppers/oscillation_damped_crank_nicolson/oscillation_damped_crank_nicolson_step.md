@@ -1,9 +1,9 @@
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.math.pde.fd_solvers.oscillation_damped_crank_nicolson_step" />
+<meta itemprop="name" content="tf_quant_finance.math.pde.steppers.oscillation_damped_crank_nicolson.oscillation_damped_crank_nicolson_step" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.math.pde.fd_solvers.oscillation_damped_crank_nicolson_step
+# tf_quant_finance.math.pde.steppers.oscillation_damped_crank_nicolson.oscillation_damped_crank_nicolson_step
 
 <!-- Insert buttons and diff -->
 
@@ -17,7 +17,7 @@
 Scheme similar to Crank-Nicolson, but ensuring damping of oscillations.
 
 ```python
-tf_quant_finance.math.pde.fd_solvers.oscillation_damped_crank_nicolson_step(
+tf_quant_finance.math.pde.steppers.oscillation_damped_crank_nicolson.oscillation_damped_crank_nicolson_step(
     extrapolation_steps=1
 )
 ```

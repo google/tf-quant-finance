@@ -103,3 +103,6 @@ def extrapolation_scheme(value_grid, t1, t2, equation_params_fn):
 
   full_step = implicit_scheme(value_grid, t1, t2, equation_params_fn)
   return 2 * two_half_steps - full_step
+
+
+__all__ = ['extrapolation_scheme', 'extrapolation_step']

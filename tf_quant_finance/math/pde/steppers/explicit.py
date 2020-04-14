@@ -78,3 +78,6 @@ def explicit_step():
   return step_fn
 
 explicit_scheme = weighted_implicit_explicit_scheme(theta=1)
+
+
+__all__ = ['explicit_step', 'explicit_scheme']

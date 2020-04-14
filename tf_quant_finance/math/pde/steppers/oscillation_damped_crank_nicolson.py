@@ -48,3 +48,5 @@ def oscillation_damped_crank_nicolson_step(extrapolation_steps=1):
   """
   return composite_scheme_step(extrapolation_steps, extrapolation_scheme,
                                crank_nicolson_scheme)
+
+__all__ = ["oscillation_damped_crank_nicolson_step"]

@@ -1,9 +1,9 @@
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.math.pde.fd_solvers.douglas_adi_step" />
+<meta itemprop="name" content="tf_quant_finance.math.pde.steppers.douglas_adi.douglas_adi_step" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.math.pde.fd_solvers.douglas_adi_step
+# tf_quant_finance.math.pde.steppers.douglas_adi.douglas_adi_step
 
 <!-- Insert buttons and diff -->
 
@@ -17,7 +17,7 @@
 Creates a stepper function with Crank-Nicolson time marching scheme.
 
 ```python
-tf_quant_finance.math.pde.fd_solvers.douglas_adi_step(
+tf_quant_finance.math.pde.steppers.douglas_adi.douglas_adi_step(
     theta=0.5
 )
 ```

@@ -428,3 +428,6 @@ def _append_first(first, rest):
 
 def _append_last(rest, last):
   return tf.concat((rest, tf.expand_dims(last, -1)), -1)
+
+
+__all__ = ['parabolic_equation_step']

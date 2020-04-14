@@ -24,7 +24,3 @@ Extrapolation time marching scheme for parabolic PDEs.
 
 [`extrapolation_step(...)`](../../../../tf_quant_finance/math/pde/steppers/extrapolation/extrapolation_step.md): Creates a stepper function with Extrapolation time marching scheme.
 
-[`implicit_scheme(...)`](../../../../tf_quant_finance/math/pde/steppers/extrapolation/implicit_scheme.md): Constructs the time marching scheme.
-
-[`parabolic_equation_step(...)`](../../../../tf_quant_finance/math/pde/steppers/composite_stepper/parabolic_equation_step.md): Performs one step of the parabolic PDE solver.
-

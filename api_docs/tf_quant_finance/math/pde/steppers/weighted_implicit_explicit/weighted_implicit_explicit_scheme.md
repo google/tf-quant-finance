@@ -1,9 +1,9 @@
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.math.pde.steppers.crank_nicolson.weighted_implicit_explicit_scheme" />
+<meta itemprop="name" content="tf_quant_finance.math.pde.steppers.weighted_implicit_explicit.weighted_implicit_explicit_scheme" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.math.pde.steppers.crank_nicolson.weighted_implicit_explicit_scheme
+# tf_quant_finance.math.pde.steppers.weighted_implicit_explicit.weighted_implicit_explicit_scheme
 
 <!-- Insert buttons and diff -->
 
@@ -17,7 +17,7 @@
 Constructs weighted implicit-explicit scheme.
 
 ```python
-tf_quant_finance.math.pde.steppers.crank_nicolson.weighted_implicit_explicit_scheme(
+tf_quant_finance.math.pde.steppers.weighted_implicit_explicit.weighted_implicit_explicit_scheme(
     theta
 )
 ```

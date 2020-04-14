@@ -1,9 +1,9 @@
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.math.pde.steppers.extrapolation.implicit_scheme" />
+<meta itemprop="name" content="tf_quant_finance.math.pde.steppers.implicit.implicit_scheme" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.math.pde.steppers.extrapolation.implicit_scheme
+# tf_quant_finance.math.pde.steppers.implicit.implicit_scheme
 
 <!-- Insert buttons and diff -->
 
@@ -17,7 +17,7 @@
 Constructs the time marching scheme.
 
 ```python
-tf_quant_finance.math.pde.steppers.extrapolation.implicit_scheme(
+tf_quant_finance.math.pde.steppers.implicit.implicit_scheme(
     value_grid, t1, t2, equation_params_fn
 )
 ```

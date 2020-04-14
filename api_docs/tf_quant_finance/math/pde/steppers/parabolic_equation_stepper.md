@@ -20,5 +20,5 @@ Stepper for parabolic PDEs solving.
 
 ## Functions
 
-[`parabolic_equation_step(...)`](../../../../tf_quant_finance/math/pde/steppers/composite_stepper/parabolic_equation_step.md): Performs one step of the parabolic PDE solver.
+[`parabolic_equation_step(...)`](../../../../tf_quant_finance/math/pde/steppers/parabolic_equation_stepper/parabolic_equation_step.md): Performs one step of the parabolic PDE solver.
 
