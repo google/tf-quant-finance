@@ -20,12 +20,14 @@
 <meta itemprop="property" content="days_until"/>
 <meta itemprop="property" content="expand_dims"/>
 <meta itemprop="property" content="identity"/>
+<meta itemprop="property" content="is_end_of_month"/>
 <meta itemprop="property" content="month"/>
 <meta itemprop="property" content="ordinal"/>
 <meta itemprop="property" content="period_length_in_days"/>
 <meta itemprop="property" content="reshape"/>
 <meta itemprop="property" content="squeeze"/>
 <meta itemprop="property" content="stack"/>
+<meta itemprop="property" content="to_end_of_month"/>
 <meta itemprop="property" content="transpose"/>
 <meta itemprop="property" content="where"/>
 <meta itemprop="property" content="year"/>
@@ -387,6 +389,17 @@ identity()
 See tf.identity.
 
 
+<h3 id="is_end_of_month"><code>is_end_of_month</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/date_tensor.py">View source</a>
+
+```python
+is_end_of_month()
+```
+
+Returns a bool Tensor indicating whether dates are at ends of months.
+
+
 <h3 id="month"><code>month</code></h3>
 
 <a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/date_tensor.py">View source</a>
@@ -487,6 +500,17 @@ stack(
 ```
 
 See tf.stack.
+
+
+<h3 id="to_end_of_month"><code>to_end_of_month</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/dates/date_tensor.py">View source</a>
+
+```python
+to_end_of_month()
+```
+
+Returns a new DateTensor with each date shifted to the end of month.
 
 
 <h3 id="transpose"><code>transpose</code></h3>

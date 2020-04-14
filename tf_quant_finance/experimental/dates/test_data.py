@@ -201,6 +201,18 @@ invalid_dates = [
     (2016, 2, 30),
 ]
 
+end_of_month_test_cases = [
+    # (date, expected_is_end_of_month, expected_to_end_of_month)
+    ((2019, 1, 30), False, (2019, 1, 31)),
+    ((2019, 1, 31), True, (2019, 1, 31)),
+    ((2019, 2, 15), False, (2019, 2, 28)),
+    ((2019, 2, 28), True, (2019, 2, 28)),
+    ((2020, 2, 28), False, (2020, 2, 29)),
+    ((2020, 2, 29), True, (2020, 2, 29)),
+    ((2018, 11, 5), False, (2018, 11, 30)),
+    ((2018, 11, 30), True, (2018, 11, 30)),
+]
+
 holidays = [
     (2020, 1, 1),  # Wed
     (2020, 7, 3),  # Fri
@@ -536,6 +548,7 @@ days_between_data = [
 ]
 
 # Assumes calendar with only weekends and modified-following convention.
+# end_of_month is False by default.
 periodic_schedule_test_cases = [
     {
         "testcase_name": "monthly_forward",
@@ -709,6 +722,34 @@ periodic_schedule_test_cases = [
                                 (2020, 10, 19), (2020, 10, 30)],
                                [(2020, 5, 12), (2020, 7, 13), (2020, 9, 14),
                                 (2020, 9, 30), (2020, 9, 30)]]]
+    },
+    {
+        "testcase_name": "end_of_month_forward",
+        "start_dates": [(2020, 1, 15), (2020, 4, 30)],
+        "end_dates": [(2021, 3, 31), (2021, 1, 1)],
+        "period_type": dates.PeriodType.MONTH,
+        "period_quantities": [4, 3],
+        "backward": False,
+        "end_of_month": True,
+        "expected_schedule": [[(2020, 1, 15), (2020, 5, 15), (2020, 9, 15),
+                               (2021, 1, 15), (2021, 3, 31)],
+                              [(2020, 4, 30), (2020, 7, 31), (2020, 10, 30),
+                               (2021, 1, 29), (2021, 1, 29)]]
+    },
+    {
+        "testcase_name": "end_of_month_backward",
+        "start_dates": [(2020, 1, 15), (2020, 4, 15)],
+        # Note that (2021, 2, 28) is Sunday, so it's rolled, but we still apply
+        # end_of_month.
+        "end_dates": [(2021, 2, 28), (2021, 1, 1)],
+        "period_type": dates.PeriodType.MONTH,
+        "period_quantities": [4, 6],
+        "backward": True,
+        "end_of_month": True,
+        "expected_schedule": [[(2020, 1, 31), (2020, 2, 28), (2020, 6, 30),
+                               (2020, 10, 30), (2021, 2, 26)],
+                              [(2020, 4, 15), (2020, 4, 15), (2020, 4, 15),
+                               (2020, 7, 1), (2021, 1, 1)]]
     },
 ]
 

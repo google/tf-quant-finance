@@ -220,6 +220,18 @@ class DateTensorTest(tf.test.TestCase):
     self.assertTrue(self.evaluate(tf.reduce_all(sample < end_dates)))
     self.assertTrue(self.evaluate(tf.reduce_all(sample >= start_dates)))
 
+  def test_is_end_of_month(self):
+    cases = test_data.end_of_month_test_cases
+    dates = dateslib.from_tuples([case[0] for case in cases])
+    expected = tf.constant([case[1] for case in cases])
+    self.assertAllEqual(expected, dates.is_end_of_month())
+
+  def test_to_end_of_month(self):
+    cases = test_data.end_of_month_test_cases
+    dates = dateslib.from_tuples([case[0] for case in cases])
+    expected = dateslib.from_tuples([case[2] for case in cases])
+    self.assert_date_tensor_equals(expected, dates.to_end_of_month())
+
   def assert_date_tensor_equals(self, expected_date_tensor, actual_date_tensor):
     """Asserts given two DateTensors are equal."""
     self.assertAllEqual(expected_date_tensor.ordinal(),

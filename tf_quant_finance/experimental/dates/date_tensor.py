@@ -238,6 +238,16 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     """
     return (self + period_tensor).ordinal() - self._ordinals
 
+  def is_end_of_month(self):
+    """Returns a bool Tensor indicating whether dates are at ends of months."""
+    return tf.math.equal(self._days,
+                         _num_days_in_month(self._months, self._years))
+
+  def to_end_of_month(self):
+    """Returns a new DateTensor with each date shifted to the end of month."""
+    days = _num_days_in_month(self._months, self._years)
+    return from_year_month_day(self._years, self._months, days, validate=False)
+
   @property
   def shape(self):
     return self._ordinals.shape
@@ -281,11 +291,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
                                          constants.PeriodType.DAY)
 
     def adjust_day(year, month, day):
-      is_leap = date_utils.is_leap_year(year)
-      days_in_months = tf.constant(_DAYS_IN_MONTHS_COMBINED, tf.int32)
-      max_days = tf.gather(days_in_months,
-                           month + 12 * tf.dtypes.cast(is_leap, np.int32))
-      return tf.math.minimum(day, max_days)
+      return tf.math.minimum(day, _num_days_in_month(month, year))
 
     if period_type == constants.PeriodType.MONTH:
       m = self._months - 1 + period_tensor.quantity()
@@ -366,6 +372,14 @@ class DateTensor(tensor_wrapper.TensorWrapper):
         op_fn(t)
         for t in (self._ordinals, self._years, self._months, self._days))
     return DateTensor(o, y, m, d)
+
+
+def _num_days_in_month(month, year):
+  """Returns number of days in a given month of a given year."""
+  days_in_months = tf.constant(_DAYS_IN_MONTHS_COMBINED, tf.int32)
+  is_leap = date_utils.is_leap_year(year)
+  return tf.gather(
+      days_in_months, month + 12 * tf.dtypes.cast(is_leap, tf.int32))
 
 
 def convert_to_date_tensor(date_inputs):

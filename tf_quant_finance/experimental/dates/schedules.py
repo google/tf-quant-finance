@@ -28,7 +28,7 @@ _MIN_DAYS_IN_PERIOD = {
 }
 
 
-class PeriodicSchedule():
+class PeriodicSchedule:
   """Defines an array of dates specified by a regular schedule."""
 
   def __init__(self,
@@ -38,7 +38,8 @@ class PeriodicSchedule():
                tenor,
                holiday_calendar=None,
                roll_convention=constants.BusinessDayConvention.NONE,
-               backward=False):
+               backward=False,
+               end_of_month=False):
     """Initializes the schedule.
 
     Initializes a schedule with a given tenor, date range and holiday calendar.
@@ -141,13 +142,27 @@ class PeriodicSchedule():
       backward: Python `bool`. Whether to build the schedule from the
         `start_date` moving forwards or from the `end_date` and moving
         backwards.
+      end_of_month: Python `bool`. If `True`, shifts all dates in schedule to
+        the ends of corresponding months, if `start_date` or `end_date` (
+        depending on `backward`) is at the end of a month. The shift is applied
+        before applying `roll_convention`. In the batched case, only those
+        schedules in a batch, whose corresponding `start_date` (or `end_date`)
+        are at ends of months, will be shifted.
     """
+    if end_of_month and tenor.period_type() not in [constants.PeriodType.MONTH,
+                                                    constants.PeriodType.YEAR]:
+      raise ValueError(
+          "end_of_month may only be used with tenors of PeriodType.MONTH or "
+          "PeriodType.YEAR"
+      )
+
     self._start_date = start_date
     self._end_date = end_date
     self._tenor = tenor
     self._holiday_calendar = holiday_calendar
     self._roll_convention = roll_convention
     self._backward = backward
+    self._end_of_month = end_of_month
 
   def dates(self):
     """Returns the dates as computed from the schedule as a DateTensor.
@@ -166,7 +181,8 @@ class PeriodicSchedule():
         self._tenor,
         holiday_calendar=self._holiday_calendar,
         roll_convention=self._roll_convention,
-        backward=self._backward)
+        backward=self._backward,
+        end_of_month=self._end_of_month)
 
   @property
   def start_date(self):
@@ -192,6 +208,10 @@ class PeriodicSchedule():
   def generate_backwards(self):
     """Returns whether the schedule is generated from the end date."""
     return self._backward
+
+  @property
+  def end_of_month(self):
+    return self._end_of_month
 
 
 class BusinessDaySchedule:
@@ -313,7 +333,8 @@ def _gen_periodic_schedule(start_date,
                            tenor,
                            holiday_calendar=None,
                            roll_convention=constants.BusinessDayConvention.NONE,
-                           backward=False):
+                           backward=False,
+                           end_of_month=False):
   """Generates a periodic schedule, see PeriodicSchedule."""
 
   # Validate inputs.
@@ -380,6 +401,13 @@ def _gen_periodic_schedule(start_date,
       not_end_date = tf.math.not_equal(schedules.ordinal(), end_date.ordinal())
       max_schedule_len = tf.math.reduce_max(tf.where(not_end_date)[..., -1]) + 2
       schedules = schedules[..., :max_schedule_len]
+
+    # Move to the end of month where necessary.
+    if end_of_month:
+      where_cond = (end_date if backward else start_date).is_end_of_month()
+      schedules = date_tensor.DateTensor.where(where_cond,
+                                               schedules.to_end_of_month(),
+                                               schedules)
 
     # Roll to business days.
     if holiday_calendar is not None:

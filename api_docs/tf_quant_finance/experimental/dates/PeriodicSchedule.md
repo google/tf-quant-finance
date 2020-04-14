@@ -22,7 +22,7 @@ Defines an array of dates specified by a regular schedule.
 tf_quant_finance.experimental.dates.PeriodicSchedule(
     *, start_date, end_date, tenor, holiday_calendar=None,
     roll_convention=tf_quant_finance.experimental.dates.BusinessDayConvention.NONE,
-    backward=False
+    backward=False, end_of_month=False
 )
 ```
 
@@ -52,10 +52,17 @@ tf_quant_finance.experimental.dates.PeriodicSchedule(
 * <b>`backward`</b>: Python `bool`. Whether to build the schedule from the
   `start_date` moving forwards or from the `end_date` and moving
   backwards.
+* <b>`end_of_month`</b>: Python `bool`. If `True`, shifts all dates in schedule to
+  the ends of corresponding months, if `start_date` or `end_date` (
+  depending on `backward`) is at the end of a month. The shift is applied
+  before applying `roll_convention`. In the batched case, only those
+  schedules in a batch, whose corresponding `start_date` (or `end_date`)
+  are at ends of months, will be shifted.
 
 #### Attributes:
 
 * <b>`end_date`</b>
+* <b>`end_of_month`</b>
 * <b>`generate_backwards`</b>:   Returns whether the schedule is generated from the end date.
 * <b>`holiday_calendar`</b>
 * <b>`roll_convention`</b>

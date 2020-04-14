@@ -31,11 +31,11 @@ class SchedulesTest(tf.test.TestCase, parameterized.TestCase):
   @parameterized.named_parameters(
       *test_data.periodic_schedule_test_cases)
   def test_periodic_schedule(self, start_dates, end_dates, period_quantities,
-                             period_type, backward, expected_schedule):
+                             period_type, backward, expected_schedule,
+                             end_of_month=False):
     start_dates = dates.from_np_datetimes(_to_np_datetimes(start_dates))
     end_dates = dates.from_np_datetimes(_to_np_datetimes(end_dates))
     tenors = dates.periods.PeriodTensor(period_quantities, period_type)
-    backward = backward
     expected_schedule = dates.from_np_datetimes(
         _to_np_datetimes(expected_schedule))
     actual_schedule = dates.PeriodicSchedule(
@@ -47,7 +47,8 @@ class SchedulesTest(tf.test.TestCase, parameterized.TestCase):
             start_year=2020,
             end_year=2028),
         roll_convention=dates.BusinessDayConvention.MODIFIED_FOLLOWING,
-        backward=backward).dates()
+        backward=backward,
+        end_of_month=end_of_month).dates()
     self.assertAllEqual(expected_schedule.ordinal(), actual_schedule.ordinal())
 
   @parameterized.named_parameters(*test_data.business_day_schedule_test_cases)
@@ -60,7 +61,6 @@ class SchedulesTest(tf.test.TestCase, parameterized.TestCase):
         holidays=holidays,
         start_year=2020,
         end_year=2020)
-    backward = backward
     expected_schedule = dates.from_np_datetimes(
         _to_np_datetimes(expected_schedule))
     actual_schedule = dates.BusinessDaySchedule(
