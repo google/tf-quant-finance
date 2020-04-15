@@ -15,6 +15,7 @@
 """Instruments."""
 
 from tf_quant_finance.experimental.instruments import bond
+from tf_quant_finance.experimental.instruments import cap_floor
 from tf_quant_finance.experimental.instruments import cashflow_stream
 from tf_quant_finance.experimental.instruments import eurodollar_futures
 from tf_quant_finance.experimental.instruments import forward_rate_agreement
@@ -26,6 +27,7 @@ from tf_quant_finance.experimental.instruments import swaption
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 Bond = bond.Bond
+CapAndFloor = cap_floor.CapAndFloor
 EurodollarFutures = eurodollar_futures.EurodollarFutures
 Swaption = swaption.Swaption
 OvernightIndexLinkedFutures = overnight_index_linked_futures.OvernightIndexLinkedFutures
@@ -43,6 +45,7 @@ InterestRateModelType = rates_common.InterestRateModelType
 
 _allowed_symbols = [
     'Bond',
+    'CapAndFloor',
     'EurodollarFutures',
     'Swaption',
     'ForwardRateAgreement',

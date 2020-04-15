@@ -10,6 +10,7 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":bond",
+        ":cap_floor",
         ":cashflow_stream",
         ":eurodollar_futures",
         ":forward_rate_agreement",
@@ -240,6 +241,34 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["swaption_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":instruments",
+        "//tf_quant_finance",
+        "//tf_quant_finance/experimental/dates",
+        # test util,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "cap_floor",
+    srcs = [
+        "cap_floor.py",
+    ],
+    srcs_version = "PY3",
+    deps = [
+        # attr dep,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "cap_floor_test",
+    size = "small",
+    timeout = "moderate",
+    srcs = ["cap_floor_test.py"],
     python_version = "PY3",
     deps = [
         ":instruments",

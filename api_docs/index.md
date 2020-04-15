@@ -132,6 +132,7 @@
 *  <a href="./tf_quant_finance/experimental/instruments.md"><code>tf_quant_finance.experimental.instruments</code></a>
 *  <a href="./tf_quant_finance/experimental/instruments/AverageType.md"><code>tf_quant_finance.experimental.instruments.AverageType</code></a>
 *  <a href="./tf_quant_finance/experimental/instruments/Bond.md"><code>tf_quant_finance.experimental.instruments.Bond</code></a>
+*  <a href="./tf_quant_finance/experimental/instruments/CapAndFloor.md"><code>tf_quant_finance.experimental.instruments.CapAndFloor</code></a>
 *  <a href="./tf_quant_finance/experimental/instruments/DayCountConvention.md"><code>tf_quant_finance.experimental.instruments.DayCountConvention</code></a>
 *  <a href="./tf_quant_finance/experimental/instruments/EurodollarFutures.md"><code>tf_quant_finance.experimental.instruments.EurodollarFutures</code></a>
 *  <a href="./tf_quant_finance/experimental/instruments/FixedCashflowStream.md"><code>tf_quant_finance.experimental.instruments.FixedCashflowStream</code></a>

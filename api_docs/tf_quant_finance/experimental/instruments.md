@@ -24,6 +24,8 @@ Instruments.
 
 [`class Bond`](../../tf_quant_finance/experimental/instruments/Bond.md): Represents a batch of fixed coupon bonds.
 
+[`class CapAndFloor`](../../tf_quant_finance/experimental/instruments/CapAndFloor.md): Represents a batch of Caps and/or Floors.
+
 [`class DayCountConvention`](../../tf_quant_finance/experimental/instruments/DayCountConvention.md): Day count conventions for accrual.
 
 [`class EurodollarFutures`](../../tf_quant_finance/experimental/instruments/EurodollarFutures.md): Represents a collection of Eurodollar futures contracts.
