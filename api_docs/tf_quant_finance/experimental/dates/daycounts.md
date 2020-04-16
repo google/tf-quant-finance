@@ -47,14 +47,6 @@ payment schedule to be specified (e.g. Actual/Actual ISMA as in Ref [3] below.).
 [3] ISDA, EMU and Market Conventions: Recent Developments,
   https://www.isda.org/a/AIJEE/1998-ISDA-memo-%E2%80%9CEMU-and-Market-Conventions-Recent-Developments%E2%80%9D.pdf
 
-## Modules
-
-[`dt`](../../../tf_quant_finance/experimental/dates/daycounts/dt.md) module: DateTensor definition.
-
-[`du`](../../../tf_quant_finance/experimental/dates/date_utils.md) module: Utilities for working with dates.
-
-[`periods`](../../../tf_quant_finance/experimental/dates/periods.md) module: PeriodTensor definition.
-
 ## Functions
 
 [`actual_360(...)`](../../../tf_quant_finance/experimental/dates/daycounts/actual_360.md): Computes the year fraction between the specified dates.

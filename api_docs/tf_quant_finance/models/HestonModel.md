@@ -1,5 +1,5 @@
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.models.heston_model.HestonModel" />
+<meta itemprop="name" content="tf_quant_finance.models.HestonModel" />
 <meta itemprop="path" content="Stable" />
 <meta itemprop="property" content="__init__"/>
 <meta itemprop="property" content="dim"/>
@@ -12,7 +12,7 @@
 <meta itemprop="property" content="volatility_fn"/>
 </div>
 
-# tf_quant_finance.models.heston_model.HestonModel
+# tf_quant_finance.models.HestonModel
 
 <!-- Insert buttons and diff -->
 
@@ -25,10 +25,10 @@
 
 Heston Model with piecewise constant parameters.
 
-Inherits From: [`GenericItoProcess`](../../../tf_quant_finance/models/GenericItoProcess.md)
+Inherits From: [`GenericItoProcess`](../../tf_quant_finance/models/GenericItoProcess.md)
 
 ```python
-tf_quant_finance.models.heston_model.HestonModel(
+tf_quant_finance.models.HestonModel(
     kappa, theta, epsilon, rho, dtype=None, name=None
 )
 ```
@@ -197,13 +197,13 @@ discretization along time direction (e.g. method of lines) so this argument
 may not be applicable to some implementations.
 
 The workhorse of this method is the `one_step_fn`. For the commonly used
-methods, see functions in <a href="../../../tf_quant_finance/math/pde/steppers.md"><code>math.pde.steppers</code></a> module.
+methods, see functions in <a href="../../tf_quant_finance/math/pde/steppers.md"><code>math.pde.steppers</code></a> module.
 
 The mapping between the arguments of this method and the above
 equation are described in the Args section below.
 
 For a simple instructive example of implementation of this method, see
-<a href="../../../tf_quant_finance/models/GenericItoProcess.md#fd_solver_backward"><code>models.GenericItoProcess.fd_solver_backward</code></a>.
+<a href="../../tf_quant_finance/models/GenericItoProcess.md#fd_solver_backward"><code>models.GenericItoProcess.fd_solver_backward</code></a>.
 
 TODO(b/142309558): Complete documentation.
 
@@ -351,13 +351,13 @@ discretization along time direction (e.g. method of lines) so this argument
 may not be applicable to some implementations.
 
 The workhorse of this method is the `one_step_fn`. For the commonly used
-methods, see functions in <a href="../../../tf_quant_finance/math/pde/steppers.md"><code>math.pde.steppers</code></a> module.
+methods, see functions in <a href="../../tf_quant_finance/math/pde/steppers.md"><code>math.pde.steppers</code></a> module.
 
 The mapping between the arguments of this method and the above
 equation are described in the Args section below.
 
 For a simple instructive example of implementation of this method, see
-<a href="../../../tf_quant_finance/models/GenericItoProcess.md#fd_solver_forward"><code>models.GenericItoProcess.fd_solver_forward</code></a>.
+<a href="../../tf_quant_finance/models/GenericItoProcess.md#fd_solver_forward"><code>models.GenericItoProcess.fd_solver_forward</code></a>.
 
 TODO(b/142309558): Complete documentation.
 

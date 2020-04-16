@@ -28,6 +28,10 @@ Functions to handle rates.
 
 [`hagan_west`](../tf_quant_finance/rates/hagan_west.md) module: Hagan West algorithm for rate interpolation and bootstrapping.
 
+## Classes
+
+[`class SwapCurveBuilderResult`](../tf_quant_finance/rates/SwapCurveBuilderResult.md): SwapCurveBuilderResult(times, rates, discount_factors, initial_rates, converged, failed, iterations, objective_value)
+
 ## Functions
 
 [`swap_curve_bootstrap(...)`](../tf_quant_finance/rates/swap_curve_bootstrap.md): Constructs the zero swap curve using bootstrap method.

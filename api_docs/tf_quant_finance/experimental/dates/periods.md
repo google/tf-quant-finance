@@ -18,12 +18,6 @@ PeriodTensor definition.
 
 
 
-## Modules
-
-[`constants`](../../../tf_quant_finance/experimental/dates/periods/constants.md) module: Date-related constants and enums.
-
-[`tensor_wrapper`](../../../tf_quant_finance/experimental/dates/periods/tensor_wrapper.md) module: Base class for Tensor wrappers.
-
 ## Classes
 
 [`class PeriodTensor`](../../../tf_quant_finance/experimental/dates/periods/PeriodTensor.md): Represents a tensor of time periods.

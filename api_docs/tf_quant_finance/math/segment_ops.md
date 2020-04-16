@@ -18,10 +18,6 @@ Element wise ops acting on segments of arrays.
 
 
 
-## Modules
-
-[`diff_ops`](../../tf_quant_finance/math/segment_ops/diff_ops.md) module: Array difference ops.
-
 ## Functions
 
 [`segment_cumsum(...)`](../../tf_quant_finance/math/segment_ops/segment_cumsum.md): Computes cumulative sum of elements in a segment.

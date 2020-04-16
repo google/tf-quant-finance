@@ -22,8 +22,6 @@ TensorFlow Quantitative Finance tools to build Diffusion Models.
 
 [`euler_sampling`](../tf_quant_finance/models/euler_sampling.md) module: The Euler sampling method for ito processes.
 
-[`heston_model`](../tf_quant_finance/models/heston_model.md) module: Heston model with piecewise constant parameters.
-
 [`hull_white`](../tf_quant_finance/models/hull_white.md) module: TensorFlow Quantitative Finance tools to build Hull White type models.
 
 ## Classes
@@ -31,6 +29,8 @@ TensorFlow Quantitative Finance tools to build Diffusion Models.
 [`class GenericItoProcess`](../tf_quant_finance/models/GenericItoProcess.md): Generic Ito process defined from a drift and volatility function.
 
 [`class GeometricBrownianMotion`](../tf_quant_finance/models/GeometricBrownianMotion.md): Geometric Brownian Motion.
+
+[`class HestonModel`](../tf_quant_finance/models/HestonModel.md): Heston Model with piecewise constant parameters.
 
 [`class ItoProcess`](../tf_quant_finance/models/ItoProcess.md): Interface for specifying Ito processes.
 

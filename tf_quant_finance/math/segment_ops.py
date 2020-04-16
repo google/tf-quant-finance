@@ -197,3 +197,6 @@ def segment_cumsum(x, segment_ids, exclusive=False, dtype=None, name=None):
         scanner, (x, segment_ids),
         initializer=(tf.zeros_like(x[0]), tf.zeros_like(segment_ids[0]) - 1,
                      tf.zeros_like(x[0])))[0]
+
+
+__all__ = ['segment_cumsum', 'segment_diff']

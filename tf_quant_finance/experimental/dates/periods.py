@@ -129,3 +129,16 @@ class PeriodTensor(tensor_wrapper.TensorWrapper):
     if tf.executing_eagerly():
       return output + ", quantities={}".format(repr(self._quantity.numpy()))
     return output
+
+
+__all__ = [
+    "day",
+    "days",
+    "month",
+    "months",
+    "week",
+    "weeks",
+    "year",
+    "years",
+    "PeriodTensor",
+]

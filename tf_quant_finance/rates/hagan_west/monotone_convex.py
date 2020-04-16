@@ -631,3 +631,11 @@ def _region_4(g1plus2g0, g0plus2g1, g0, g1, x):
       shift * x + (g0 - shift) * eta * (1 - ratio_cap**3) / 3 + (g1 - shift) *
       (1 - eta) * (ratio_floor**3) / 3)
   return is_region_4, region_4_value, integrated_value
+
+
+__all__ = [
+    'diff',
+    'interpolate',
+    'interpolate_forward_rate',
+    'interpolate_yields',
+]

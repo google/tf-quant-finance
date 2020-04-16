@@ -18,12 +18,6 @@ The Euler sampling method for ito processes.
 
 
 
-## Modules
-
-[`random`](../../tf_quant_finance/math/random.md) module: Ops related to random or quasi random sampling.
-
-[`utils`](../../tf_quant_finance/models/euler_sampling/utils.md) module: Common methods for model building.
-
 ## Functions
 
 [`sample(...)`](../../tf_quant_finance/models/euler_sampling/sample.md): Returns a sample paths from the process using Euler method.

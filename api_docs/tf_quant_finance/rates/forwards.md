@@ -18,10 +18,6 @@ Collection of functions to compute properties of cashflows.
 
 
 
-## Modules
-
-[`segment_ops`](../../tf_quant_finance/math/segment_ops.md) module: Element wise ops acting on segments of arrays.
-
 ## Functions
 
 [`forward_rates_from_yields(...)`](../../tf_quant_finance/rates/forwards/forward_rates_from_yields.md): Computes forward rates given a set of zero rates.

@@ -261,3 +261,6 @@ def _prepare_grid(*, times, time_step, dtype):
   all_times = tf.gather(all_times, perm)
   mask = tf.gather(mask, perm)
   return all_times, mask
+
+
+__all__ = ['sample']

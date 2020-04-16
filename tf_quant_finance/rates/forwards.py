@@ -241,3 +241,6 @@ def yields_from_forward_rates(discrete_forwards,
     x = intervals * discrete_forwards
     y = segment_ops.segment_cumsum(x, exclusive=False, segment_ids=groups)
     return y / times
+
+
+__all__ = ['forward_rates_from_yields', 'yields_from_forward_rates']

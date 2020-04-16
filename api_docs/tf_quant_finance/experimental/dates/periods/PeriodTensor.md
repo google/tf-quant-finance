@@ -33,8 +33,6 @@
 
 Represents a tensor of time periods.
 
-Inherits From: [`TensorWrapper`](../../../../tf_quant_finance/experimental/dates/periods/tensor_wrapper/TensorWrapper.md)
-
 ```python
 tf_quant_finance.experimental.dates.periods.PeriodTensor(
     quantity, period_type

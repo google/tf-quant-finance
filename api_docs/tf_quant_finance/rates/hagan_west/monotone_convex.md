@@ -54,12 +54,6 @@ curves at the same time).
 [2]: Patrick Hagan & Graeme West. Methods for Constructing a Yield Curve.
   Wilmott Magazine, pp. 70-81. May 2008.
 
-## Modules
-
-[`forwards`](../../../tf_quant_finance/rates/forwards.md) module: Collection of functions to compute properties of cashflows.
-
-[`piecewise`](../../../tf_quant_finance/math/piecewise.md) module: Piecewise utility functions.
-
 ## Functions
 
 [`diff(...)`](../../../tf_quant_finance/math/diff.md): Computes the difference between elements of an array at a regular interval.

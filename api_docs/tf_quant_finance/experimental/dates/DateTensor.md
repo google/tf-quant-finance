@@ -46,8 +46,6 @@
 
 Represents a tensor of dates.
 
-Inherits From: [`TensorWrapper`](../../../tf_quant_finance/experimental/dates/periods/tensor_wrapper/TensorWrapper.md)
-
 ```python
 tf_quant_finance.experimental.dates.DateTensor(
     ordinals, years, months, days
