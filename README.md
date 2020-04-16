@@ -171,27 +171,6 @@ will run tests in
 Tests will be run using the Python version 3. Please make sure that you can
 run ```import tensorflow``` in the Python 3 shell, otherwise tests might fail.
 
-### Docker images
-
-The official TF Quant Finance Docker images are located in the
-[gcr.io](https://gcr.io/tf-quant-finance-images/tf-quant-finance) container
-repository.
-
-Images are tagged using the GitHub release version. Images contain
-all development dependencies. See [Dockerfile](Dockerfile) for details.
-
-You can pull the latest Docker image using
-
-```sh
-sudo docker pull gcr.io/tf-quant-finance-images/tf-quant-finance
-```
-
-To start a TF Quant Finance container, use the following command:
-
-```sh
-sudo docker run -it gcr.io/tf-quant-finance-images/tf-quant-finance
-```
-
 ### Building a custom pip package
 
 The following commands will build custom pip package from source and install it:
