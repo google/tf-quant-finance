@@ -40,14 +40,15 @@ InterestRateMarket.__new__.__defaults__ = (None, None, None, None)
 FixedCouponSpecs = collections.namedtuple(
     'FixedCouponSpecs',
     [
-        # Scalar of type `dates.PeriodTensor` specifying the frequency of
+        # Scalar or rank 1 `dates.PeriodTensor` specifying the frequency of
         # the cashflow payments
         'coupon_frequency',
         # String specifying the currency of cashflows
         'currency',
-        # Scalar of real dtype specifying the notional for the payments
+        # Scalar or rank 1 `Tensor` of real dtype specifying the notional for
+        # the payments
         'notional',
-        # Scalar of real dtype specifying the coupon rate
+        # Scalar or rank 1 `Tensor` of real dtype specifying the coupon rate
         'coupon_rate',
         # Scalar of type `DayCountConvention` specifying the applicable
         # daycount convention
@@ -60,18 +61,19 @@ FixedCouponSpecs = collections.namedtuple(
 FloatCouponSpecs = collections.namedtuple(
     'FloatCouponSpecs',
     [
-        # Scalar of type `dates.PeriodTensor` specifying the frequency of
+        # Scalar or rank 1 `dates.PeriodTensor` specifying the frequency of
         # the cashflow payments
         'coupon_frequency',
-        # Scalar of type `dates.PeriodTensor` specifying the term of the
+        # Scalar or rank 1 `dates.PeriodTensor` specifying the term of the
         # underlying rate which determines the coupon payment
         'reference_rate_term',
-        # Scalar of type `dates.PeriodTensor` specifying the frequency with
+        # Scalar or rank 1 `dates.PeriodTensor` specifying the frequency with
         # which the underlying rate resets
         'reset_frequency',
         # String specifying the currency of cashflows
         'currency',
-        # Scalar of real dtype specifying the notional for the payments
+        # Scalar or rank 1 `Tensor` of real dtype specifying the notional for
+        # the payments
         'notional',
         # Scalar of type `DayCountConvention` specifying the daycount
         # convention of the underlying rate

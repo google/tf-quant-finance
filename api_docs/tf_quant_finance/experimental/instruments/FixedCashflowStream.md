@@ -80,10 +80,13 @@ price = cf_stream.price(valuation_date, market)
 * <b>`end_date`</b>: A rank 1 `DateTensor` specifying the end dates for accrual of
   the last coupon in each cashflow stream. The shape of the input should
   be the same as that of `start_date`.
-* <b>`coupon_spec`</b>: A list of `FixedCouponSpecs` specifying the details of the
-  coupon payment for the cashflow stream. The length of the list should
-  be the same as the number of streams being created. Each coupon within
-  the list must have the same daycount_convention and businessday_rule.
+* <b>`coupon_spec`</b>: A scalar or a list of `FixedCouponSpecs` specifying the
+  details of the coupon payment for the cashflow stream. If specified as
+  a list then the length of the list should be the same as the number of
+  streams being created and each coupon within the list must have the
+  same daycount_convention and businessday_rule. If specified as
+  a scalar, then the elements of the namedtuple must be of the same shape
+  as (or compatible to) the shape of `start_date`.
 * <b>`first_coupon_date`</b>: An optional rank 1 `DateTensor` specifying the payment
   dates of the first coupon of the cashflow stream. Use this input for
   cashflows with irregular first coupon.
