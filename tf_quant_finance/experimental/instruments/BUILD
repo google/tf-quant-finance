@@ -270,6 +270,7 @@ py_test(
     timeout = "moderate",
     srcs = ["cap_floor_test.py"],
     python_version = "PY3",
+    shard_count = 2,
     deps = [
         ":instruments",
         "//tf_quant_finance",
