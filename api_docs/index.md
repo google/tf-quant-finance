@@ -64,6 +64,7 @@
 *  <a href="./tf_quant_finance/experimental/instruments/FixedCouponSpecs.md"><code>tf_quant_finance.experimental.instruments.FixedCouponSpecs</code></a>
 *  <a href="./tf_quant_finance/experimental/instruments/FloatCouponSpecs.md"><code>tf_quant_finance.experimental.instruments.FloatCouponSpecs</code></a>
 *  <a href="./tf_quant_finance/experimental/instruments/FloatingCashflowStream.md"><code>tf_quant_finance.experimental.instruments.FloatingCashflowStream</code></a>
+*  <a href="./tf_quant_finance/experimental/instruments/FloatingRateNote.md"><code>tf_quant_finance.experimental.instruments.FloatingRateNote</code></a>
 *  <a href="./tf_quant_finance/experimental/instruments/ForwardRateAgreement.md"><code>tf_quant_finance.experimental.instruments.ForwardRateAgreement</code></a>
 *  <a href="./tf_quant_finance/experimental/instruments/InterestRateMarket.md"><code>tf_quant_finance.experimental.instruments.InterestRateMarket</code></a>
 *  <a href="./tf_quant_finance/experimental/instruments/InterestRateModelType.md"><code>tf_quant_finance.experimental.instruments.InterestRateModelType</code></a>

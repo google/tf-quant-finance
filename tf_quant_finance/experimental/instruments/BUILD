@@ -13,6 +13,7 @@ py_library(
         ":cap_floor",
         ":cashflow_stream",
         ":eurodollar_futures",
+        ":floating_rate_note",
         ":forward_rate_agreement",
         ":interest_rate_swap",
         ":overnight_index_linked_futures",
@@ -271,6 +272,35 @@ py_test(
     srcs = ["cap_floor_test.py"],
     python_version = "PY3",
     shard_count = 2,
+    deps = [
+        ":instruments",
+        "//tf_quant_finance",
+        "//tf_quant_finance/experimental/dates",
+        # test util,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "floating_rate_note",
+    srcs = [
+        "floating_rate_note.py",
+    ],
+    srcs_version = "PY3",
+    deps = [
+        ":cashflow_stream",
+        # attr dep,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "floating_rate_note_test",
+    size = "small",
+    timeout = "moderate",
+    srcs = ["floating_rate_note_test.py"],
+    python_version = "PY3",
     deps = [
         ":instruments",
         "//tf_quant_finance",

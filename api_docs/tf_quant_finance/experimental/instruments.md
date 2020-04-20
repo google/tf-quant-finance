@@ -38,6 +38,8 @@ Instruments.
 
 [`class FloatingCashflowStream`](../../tf_quant_finance/experimental/instruments/FloatingCashflowStream.md): Represents a batch of cashflows indexed to a floating rate.
 
+[`class FloatingRateNote`](../../tf_quant_finance/experimental/instruments/FloatingRateNote.md): Represents a batch of floating rate notes.
+
 [`class ForwardRateAgreement`](../../tf_quant_finance/experimental/instruments/ForwardRateAgreement.md): Represents a batch of Forward Rate Agreements (FRA).
 
 [`class InterestRateMarket`](../../tf_quant_finance/experimental/instruments/InterestRateMarket.md): InterestRateMarket(reference_curve, discount_curve, libor_rate, volatility_curve)

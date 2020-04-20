@@ -18,6 +18,7 @@ from tf_quant_finance.experimental.instruments import bond
 from tf_quant_finance.experimental.instruments import cap_floor
 from tf_quant_finance.experimental.instruments import cashflow_stream
 from tf_quant_finance.experimental.instruments import eurodollar_futures
+from tf_quant_finance.experimental.instruments import floating_rate_note
 from tf_quant_finance.experimental.instruments import forward_rate_agreement
 from tf_quant_finance.experimental.instruments import interest_rate_swap
 from tf_quant_finance.experimental.instruments import overnight_index_linked_futures
@@ -32,6 +33,7 @@ EurodollarFutures = eurodollar_futures.EurodollarFutures
 Swaption = swaption.Swaption
 OvernightIndexLinkedFutures = overnight_index_linked_futures.OvernightIndexLinkedFutures
 ForwardRateAgreement = forward_rate_agreement.ForwardRateAgreement
+FloatingRateNote = floating_rate_note.FloatingRateNote
 RateCurve = rate_curve.RateCurve
 InterestRateMarket = rates_common.InterestRateMarket
 DayCountConvention = rates_common.DayCountConvention
@@ -47,10 +49,11 @@ _allowed_symbols = [
     'Bond',
     'CapAndFloor',
     'EurodollarFutures',
-    'Swaption',
+    'FloatingRateNote',
     'ForwardRateAgreement',
     'OvernightIndexLinkedFutures',
     'RateCurve',
+    'Swaption',
     'InterestRateMarket',
     'InterestRateModelType',
     'DayCountConvention',

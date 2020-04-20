@@ -23,7 +23,19 @@ class CashflowStream:
   """Base class for Fixed or Floating cashflow streams."""
 
   def _generate_schedule(self, cpn_frequency, roll_convention):
-    """Method to generate coupon dates."""
+    """Method to generate coupon dates.
+
+    Args:
+      cpn_frequency: A `PeriodTensor` specifying the frequency of coupon
+        payments.
+      roll_convention: Scalar of type `BusinessDayConvention` specifying how
+        dates are rolled if they fall on holidays.
+
+    Returns:
+      A tuple containing the generated date schedule and a boolean `Tensor`
+      of the same shape as the schedule specifying whether the coupons are
+      regular coupons.
+    """
     if (self._first_coupon_date is None) and (self._penultimate_coupon_date is
                                               None):
       cpn_dates = dates.PeriodicSchedule(
@@ -31,6 +43,8 @@ class CashflowStream:
           end_date=self._end_date,
           tenor=cpn_frequency,
           roll_convention=roll_convention).dates()
+      is_regular_cpn = tf.constant(
+          True, dtype=bool, shape=cpn_dates[:, :-1].shape)
     elif self._first_coupon_date is not None:
       cpn_dates = dates.PeriodicSchedule(
           start_date=self._first_coupon_date,
@@ -39,6 +53,14 @@ class CashflowStream:
           roll_convention=roll_convention).dates()
       cpn_dates = dates.DateTensor.concat(
           [self._start_date.expand_dims(-1), cpn_dates], axis=1)
+
+      is_irregular_cpn = tf.constant(
+          False, dtype=bool, shape=self._start_date.shape)
+      is_regular_cpn = tf.concat([
+          tf.expand_dims(is_irregular_cpn, axis=-1),
+          tf.constant(True, dtype=bool, shape=cpn_dates[:, :-2].shape)
+      ],
+                                 axis=1)
     else:
       cpn_dates = dates.PeriodicSchedule(
           start_date=self._start_date,
@@ -49,7 +71,15 @@ class CashflowStream:
       cpn_dates = dates.DateTensor.concat(
           [cpn_dates, self._end_date.expand_dims(-1)], axis=1)
 
-    return cpn_dates
+      is_irregular_cpn = tf.constant(
+          False, dtype=bool, shape=self._end_date.shape)
+      is_regular_cpn = tf.concat([
+          tf.constant(True, dtype=bool, shape=cpn_dates[:, :-2].shape),
+          tf.expand_dims(is_irregular_cpn, axis=-1)
+      ],
+                                 axis=1)
+
+    return cpn_dates, is_regular_cpn
 
 
 class FixedCashflowStream(CashflowStream):
@@ -234,7 +264,7 @@ class FixedCashflowStream(CashflowStream):
           self._start_date.shape)
       daycount_convention = coupon_spec.daycount_convention
 
-    cpn_dates = self._generate_schedule(cpn_frequency, businessday_rule)
+    cpn_dates, _ = self._generate_schedule(cpn_frequency, businessday_rule)
     payment_dates = cpn_dates[:, 1:]
 
     notional = tf.repeat(notional, payment_dates.shape.as_list()[-1])
@@ -455,7 +485,8 @@ class FloatingCashflowStream(CashflowStream):
           tf.convert_to_tensor(coupon_spec.coupon_multiplier,
                                dtype=self._dtype), self._start_date.shape)
 
-    cpn_dates = self._generate_schedule(cpn_frequency, businessday_rule)
+    cpn_dates, is_regular_cpn = self._generate_schedule(cpn_frequency,
+                                                        businessday_rule)
     accrual_start_dates = cpn_dates[:, :-1]
 
     accrual_end_dates = cpn_dates[:, :
@@ -464,6 +495,9 @@ class FloatingCashflowStream(CashflowStream):
                                           accrual_start_dates.shape)
     coupon_start_dates = cpn_dates[:, :-1]
     coupon_end_dates = cpn_dates[:, 1:]
+    accrual_end_dates = dates.DateTensor.where(is_regular_cpn,
+                                               accrual_end_dates,
+                                               coupon_end_dates)
     payment_dates = cpn_dates[:, 1:]
 
     daycount_fractions = rc.get_daycount_fraction(
@@ -491,3 +525,4 @@ class FloatingCashflowStream(CashflowStream):
     self._coupon_basis = coupon_basis
     self._coupon_multiplier = coupon_multiplier
     self._contract_index = contract_index
+    self._is_regular_coupon = tf.reshape(is_regular_cpn, [-1])
