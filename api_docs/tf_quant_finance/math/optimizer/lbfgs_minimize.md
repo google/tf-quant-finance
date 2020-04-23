@@ -25,7 +25,7 @@ tf_quant_finance.math.optimizer.lbfgs_minimize(
     value_and_gradients_function, initial_position, num_correction_pairs=10,
     tolerance=1e-08, x_tolerance=0, f_relative_tolerance=0,
     initial_inverse_hessian_estimate=None, max_iterations=50, parallel_iterations=1,
-    stopping_condition=None, name=None
+    stopping_condition=None, max_line_search_iterations=50, name=None
 )
 ```
 
@@ -112,6 +112,8 @@ http://pages.mtu.edu/~struther/Courses/OLD/Sp2013/5630/Jorge_Nocedal_Numerical_o
   which only stops when all batch members have either converged or failed.
   An alternative is tfp.optimizer.converged_any which stops as soon as one
   batch member has converged, or when all have failed.
+* <b>`max_line_search_iterations`</b>: Python int. The maximum number of iterations
+  for the `hager_zhang` line search algorithm.
 * <b>`name`</b>: (Optional) Python str. The name prefixed to the ops created by this
   function. If not supplied, the default name 'minimize' is used.
 

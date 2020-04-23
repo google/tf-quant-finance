@@ -25,7 +25,7 @@ tf_quant_finance.math.optimizer.bfgs_minimize(
     value_and_gradients_function, initial_position, tolerance=1e-08, x_tolerance=0,
     f_relative_tolerance=0, initial_inverse_hessian_estimate=None,
     max_iterations=50, parallel_iterations=1, stopping_condition=None,
-    validate_args=True, name=None
+    validate_args=True, max_line_search_iterations=50, name=None
 )
 ```
 
@@ -119,6 +119,8 @@ minimum for a simple two dimensional quadratic objective function.
   parameters are checked for validity despite possibly degrading runtime
   performance. When `False` invalid inputs may silently render incorrect
   outputs.
+* <b>`max_line_search_iterations`</b>: Python int. The maximum number of iterations
+  for the `hager_zhang` line search algorithm.
 * <b>`name`</b>: (Optional) Python str. The name prefixed to the ops created by this
   function. If not supplied, the default name 'minimize' is used.
 
