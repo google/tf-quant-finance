@@ -219,7 +219,9 @@ class FixedCashflowStream(CashflowStream):
       cashflow_pvs = self._notional * (
           future_cashflows * self._daycount_fractions * self._coupon_rate *
           discount_factors)
-      return tf.math.segment_sum(cashflow_pvs, self._contract_index)
+      return tf.math.reduce_sum(
+          tf.reshape(cashflow_pvs, (self._batch_size, self._num_cashflows)),
+          axis=1)
 
   @property
   def payment_dates(self):
@@ -279,6 +281,7 @@ class FixedCashflowStream(CashflowStream):
     contract_index = tf.repeat(tf.range(0, self._batch_size),
                                payment_dates.shape.as_list()[-1])
 
+    self._num_cashflows = payment_dates.shape.as_list()[-1]
     self._payment_dates = payment_dates.reshape([-1])
     self._notional = notional
     self._daycount_fractions = tf.reshape(daycount_fractions, [-1])
@@ -448,7 +451,9 @@ class FloatingCashflowStream(CashflowStream):
 
       cashflow_pvs = self._notional * (
           self._daycount_fractions * coupon_rate * discount_factors)
-      return tf.math.segment_sum(cashflow_pvs, self._contract_index)
+      return tf.math.reduce_sum(
+          tf.reshape(cashflow_pvs, (self._batch_size, self._num_cashflows)),
+          axis=1)
 
   @property
   def notional(self):
