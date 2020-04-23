@@ -15,6 +15,9 @@
 
 
 """Tests for vanilla_price."""
+
+import functools
+
 from absl.testing import parameterized
 
 import numpy as np
@@ -292,6 +295,44 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
             discount_factors=discount_factors))
 
     self.assertArrayNear(binary_approximation, binary_prices, 1e-6)
+
+  def test_binary_vanilla_consistency_exact(self):
+    """Tests that the binary price is the negative gradient of vanilla price.
+
+      The binary call option payoff is 1 when spot > strike and 0 otherwise.
+      This payoff is the proportional to the gradient of the payoff of a vanilla
+      call option (max(S-K, 0)) with respect to K. This test verifies that this
+      relationship is satisfied. A similar relation holds true between vanilla
+      puts and binary puts.
+    """
+    dtype = np.float64
+    strikes = tf.constant([1.0, 2.0], dtype=dtype)
+    spots = tf.constant([1.5, 1.5], dtype=dtype)
+    expiries = tf.constant([2.1, 1.3], dtype=dtype)
+    discount_rates = tf.constant([0.03, 0.04], dtype=dtype)
+    discount_factors = tf.exp(-discount_rates * expiries)
+    is_call_options = tf.constant([True, False])
+    volatilities = tf.constant([0.3, 0.4], dtype=dtype)
+    actual_binary_price = self.evaluate(
+        tff.black_scholes.binary_price(
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
+            spots=spots,
+            discount_factors=discount_factors,
+            is_call_options=is_call_options))
+    price_fn = functools.partial(
+        tff.black_scholes.option_price,
+        volatilities=volatilities,
+        spots=spots,
+        expiries=expiries,
+        discount_rates=discount_rates,
+        is_call_options=is_call_options)
+    implied_binary_price = tff.math.fwd_gradient(lambda x: price_fn(strikes=x),
+                                                 strikes)
+    implied_binary_price = self.evaluate(
+        tf.where(is_call_options, -implied_binary_price, implied_binary_price))
+    self.assertArrayNear(implied_binary_price, actual_binary_price, 1e-10)
 
 
 if __name__ == '__main__':
