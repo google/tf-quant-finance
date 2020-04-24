@@ -43,6 +43,10 @@ py_test(
     srcs = ["conjugate_gradient_test.py"],
     python_version = "PY3",
     shard_count = 5,
+    tags = [
+        "manual",
+        "no_tap",
+    ],  # TODO(b/154899062): Re-enable after bug fixed.
     deps = [
         "//tf_quant_finance",
         # test util,
