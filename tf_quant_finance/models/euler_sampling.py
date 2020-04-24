@@ -30,6 +30,7 @@ def sample(dim,
            seed=None,
            swap_memory=True,
            skip=0,
+           precompute_normal_draws=True,
            dtype=None,
            name=None):
   """Returns a sample paths from the process using Euler method.
@@ -92,6 +93,11 @@ def sample(dim,
       Halton sequence to skip. Used only when `random_type` is 'SOBOL',
       'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
       Default value: `0`.
+    precompute_normal_draws: Python bool. Indicates whether the noise increments
+      `N(0, t_{n+1}) - N(0, t_n)` are precomputed. For `HALTON` and `SOBOL`
+      random types the increments are always precomputed. While the resulting
+      graph consumes more memory, the performance gains might be significant.
+      Default value: `True`.
     dtype: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
       Default value: None which means that the dtype implied by `times` is
       used.
@@ -134,13 +140,14 @@ def sample(dim,
         seed=seed,
         swap_memory=swap_memory,
         skip=skip,
+        precompute_normal_draws=precompute_normal_draws,
         dtype=dtype)
 
 
 def _sample(*, dim, drift_fn, volatility_fn, times, time_step, keep_mask,
             num_requested_times,
             num_samples, initial_state, random_type,
-            seed, swap_memory, skip, dtype):
+            seed, swap_memory, skip, precompute_normal_draws, dtype):
   """Returns a sample of paths from the process using Euler method."""
   dt = times[1:] - times[:-1]
   sqrt_dt = tf.sqrt(dt)
@@ -158,9 +165,10 @@ def _sample(*, dim, drift_fn, volatility_fn, times, time_step, keep_mask,
 
   # In order to use low-discrepancy random_type we need to generate the sequence
   # of independent random normals upfront.
-  if random_type in (random.RandomType.SOBOL,
-                     random.RandomType.HALTON,
-                     random.RandomType.HALTON_RANDOMIZED):
+  if precompute_normal_draws or random_type in (
+      random.RandomType.SOBOL,
+      random.RandomType.HALTON,
+      random.RandomType.HALTON_RANDOMIZED):
     normal_draws = utils.generate_mc_normal_draws(
         num_normal_draws=dim, num_time_steps=steps_num,
         num_sample_paths=num_samples, random_type=random_type,

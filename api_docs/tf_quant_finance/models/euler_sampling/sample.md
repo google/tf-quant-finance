@@ -26,7 +26,7 @@ Returns a sample paths from the process using Euler method.
 tf_quant_finance.models.euler_sampling.sample(
     dim, drift_fn, volatility_fn, times, time_step, num_samples=1,
     initial_state=None, random_type=None, seed=None, swap_memory=True, skip=0,
-    dtype=None, name=None
+    precompute_normal_draws=True, dtype=None, name=None
 )
 ```
 
@@ -94,6 +94,11 @@ https://en.wikipedia.org/wiki/Euler-Maruyama_method
   Halton sequence to skip. Used only when `random_type` is 'SOBOL',
   'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
   Default value: `0`.
+* <b>`precompute_normal_draws`</b>: Python bool. Indicates whether the noise increments
+  `N(0, t_{n+1}) - N(0, t_n)` are precomputed. For `HALTON` and `SOBOL`
+  random types the increments are always precomputed. While the resulting
+  graph consumes more memory, the performance gains might be significant.
+  Default value: `True`.
 * <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
   Default value: None which means that the dtype implied by `times` is
   used.

@@ -172,7 +172,8 @@ class GenericItoProcess(ito_process.ItoProcess):
                    seed=None,
                    swap_memory=True,
                    name=None,
-                   time_step=None):
+                   time_step=None,
+                   precompute_normal_draws=True):
     """Returns a sample of paths from the process using Euler sampling.
 
     The default implementation uses the Euler scheme. However, for particular
@@ -200,6 +201,12 @@ class GenericItoProcess(ito_process.ItoProcess):
         Default value: `None` which maps to `sample_paths` is used.
       time_step: Real scalar `Tensor`. The maximal distance between time points
         in grid in Euler scheme.
+      precompute_normal_draws: Python bool. Indicates whether the noise
+        increments in Euler scheme are precomputed upfront (see
+        `models.euler_sampling.sample`). For `HALTON` and `SOBOL` random types
+        the increments are always precomputed. While the resulting graph
+        consumes more memory, the performance gains might be significant.
+        Default value: `True`.
 
     Returns:
      A real `Tensor` of shape `[num_samples, k, n]` where `k` is the size of the
@@ -224,6 +231,7 @@ class GenericItoProcess(ito_process.ItoProcess):
           time_step=time_step,
           seed=seed,
           swap_memory=swap_memory,
+          precompute_normal_draws=precompute_normal_draws,
           dtype=self._dtype,
           name=name)
 

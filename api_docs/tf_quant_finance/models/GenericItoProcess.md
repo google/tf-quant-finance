@@ -460,7 +460,7 @@ The name to give to ops created by this class.
 ```python
 sample_paths(
     times, num_samples=1, initial_state=None, random_type=None, seed=None,
-    swap_memory=True, name=None, time_step=None
+    swap_memory=True, name=None, time_step=None, precompute_normal_draws=True
 )
 ```
 
@@ -493,6 +493,12 @@ types of Ito processes more efficient schemes can be used.
   Default value: `None` which maps to `sample_paths` is used.
 * <b>`time_step`</b>: Real scalar `Tensor`. The maximal distance between time points
   in grid in Euler scheme.
+* <b>`precompute_normal_draws`</b>: Python bool. Indicates whether the noise
+  increments in Euler scheme are precomputed upfront (see
+  <a href="../../tf_quant_finance/models/euler_sampling/sample.md"><code>models.euler_sampling.sample</code></a>). For `HALTON` and `SOBOL` random types
+  the increments are always precomputed. While the resulting graph
+  consumes more memory, the performance gains might be significant.
+  Default value: `True`.
 
 
 #### Returns:

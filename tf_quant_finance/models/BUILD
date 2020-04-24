@@ -41,6 +41,7 @@ py_test(
     timeout = "moderate",
     srcs = ["generic_ito_process_test.py"],
     python_version = "PY3",
+    shard_count = 4,
     deps = [
         "//tf_quant_finance",
         # test util,
