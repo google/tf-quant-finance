@@ -88,24 +88,28 @@ class ConjugateGradientTest(tf.test.TestCase):
     f_call_ctr = self.evaluate(f_call_ctr)
 
     # Check that minimum is found.
-    self.assertAllClose(result.position, expected_argmin, rtol=1e-3, atol=1e-3)
-
+    with self.subTest(name="Position"):
+      self.assertAllClose(result.position, expected_argmin, rtol=1e-3,
+                          atol=1e-3)
     # Check that gradient norm is below tolerance.
     grad_norm = np.max(result.objective_gradient)
-    self.assertLessEqual(grad_norm, gtol)
-
+    with self.subTest(name="GradientNorm"):
+      self.assertLessEqual(grad_norm, gtol)
     # Check that number of function calls, declared by algorithm, is correct.
-    self.assertEqual(result.num_objective_evaluations, f_call_ctr)
-
+    with self.subTest(name="NumberOfEvals"):
+      self.assertEqual(result.num_objective_evaluations, f_call_ctr)
     # Check returned function and gradient values.
     pos = tf.constant(result.position, dtype=tf.float64)
     f_at_pos, grad_at_pos = self.evaluate(val_grad_func(pos))
-    self.assertAllClose(result.objective_value, f_at_pos)
-    self.assertAllClose(result.objective_gradient, grad_at_pos)
-
+    with self.subTest(name="ObjectiveValue"):
+      self.assertAllClose(result.objective_value, f_at_pos)
+    with self.subTest(name="ObjectiveGradient"):
+      self.assertAllClose(result.objective_gradient, grad_at_pos)
     # Check that all converged and none failed.
-    self.assertTrue(np.all(result.converged))
-    self.assertFalse(np.any(result.failed))
+    with self.subTest(name="AllConverged"):
+      self.assertTrue(np.all(result.converged))
+    with self.subTest("NoneFailed"):
+      self.assertFalse(np.any(result.failed))
 
   def test_univariate(self):
     self._check_algorithm(
@@ -127,7 +131,7 @@ class ConjugateGradientTest(tf.test.TestCase):
       b = tf.constant(b)
 
       def paraboloid(x):
-        return 0.5 * tf.einsum('i,ij,j->', x, a, x) + tf.einsum('i,i->', b, x)
+        return 0.5 * tf.einsum("i,ij,j->", x, a, x) + tf.einsum("i,i->", b, x)
 
       self._check_algorithm(
           start_point=np.random.uniform(size=(dim,)),
@@ -170,8 +174,7 @@ class ConjugateGradientTest(tf.test.TestCase):
       l2_penalty = regularization * tf.reduce_sum(beta**2)
       total_loss = log_likelihood + l2_penalty
       return total_loss
-
-    start_point = np.random.randn(dim + 1)
+    start_point = np.ones(dim + 1)
     argmin = [
         -2.38636155, 1.61778325, -0.60694238, -0.51523609, -1.09832275,
         0.88892742
@@ -350,5 +353,5 @@ class ConjugateGradientTest(tf.test.TestCase):
     self.assertArrayNear(self.evaluate(result.position), minimum, 1e-5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
   tf.test.main()
