@@ -12,17 +12,41 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for holiday_calendar.py."""
+"""Tests for HolidayCalendar implementations."""
 
 import datetime
+import functools
 
 from absl.testing import parameterized
 import numpy as np
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.experimental import dates
+from tf_quant_finance.experimental.dates import bounded_holiday_calendar
 from tf_quant_finance.experimental.dates import test_data
+from tf_quant_finance.experimental.dates import unbounded_holiday_calendar
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+
+
+def test_both_impls(test_fn):
+  # Decorator to run the test with both BoundedHolidayCalendar and
+  # UnboundedHolidayCalendar.
+  # Create the calendar as `self.impl(args)`.
+  def create_unbounded_calendar(**kwargs):
+    kwargs.pop("start_year", None)
+    kwargs.pop("end_year", None)
+    return unbounded_holiday_calendar.UnboundedHolidayCalendar(**kwargs)
+
+  @functools.wraps(test_fn)
+  def wrapped(*args, **kwargs):
+    self = args[0]
+    with self.subTest("Bounded"):
+      self.impl = bounded_holiday_calendar.BoundedHolidayCalendar
+      test_fn(*args, **kwargs)
+    with self.subTest("Unbounded"):
+      self.impl = create_unbounded_calendar
+      test_fn(*args, **kwargs)
+  return wrapped
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -63,36 +87,38 @@ class HolidayCalendarTest(tf.test.TestCase, parameterized.TestCase):
       "holidays": np.array(["2020-01-01", "2020-12-25", "2021-01-01"],
                            dtype=np.datetime64),
   })
+  @test_both_impls
   def test_providing_holidays(self, holidays):
-    cal = dates.HolidayCalendar(
+    cal = self.impl(
         weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY, holidays=holidays)
     date_tensor = dates.from_tuples([(2020, 1, 1), (2020, 5, 1), (2020, 12, 25),
                                      (2021, 3, 8), (2021, 1, 1)])
     self.assertAllEqual([False, True, False, True, False],
                         cal.is_business_day(date_tensor))
 
+  @test_both_impls
   def test_custom_weekend_mask(self):
     weekend_mask = [0, 0, 0, 0, 1, 0, 1]  # Work Saturdays instead of Fridays.
-    cal = dates.HolidayCalendar(start_year=2020,
-                                end_year=2021,
-                                weekend_mask=weekend_mask)
+    cal = self.impl(start_year=2020, end_year=2021, weekend_mask=weekend_mask)
     date_tensor = dates.from_tuples([(2020, 1, 2), (2020, 1, 3), (2020, 1, 4),
                                      (2020, 1, 5), (2020, 1, 6), (2020, 5, 1),
                                      (2020, 5, 2)])
     self.assertAllEqual([True, False, True, False, True, False, True],
                         cal.is_business_day(date_tensor))
 
+  @test_both_impls
   def test_holidays_intersect_with_weekends(self):
     holidays = [(2020, 1, 4)]  # Saturday.
-    cal = dates.HolidayCalendar(
+    cal = self.impl(
         weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY, holidays=holidays)
     date_tensor = dates.from_tuples([(2020, 1, 3), (2020, 1, 4), (2020, 1, 5),
                                      (2020, 1, 6)])
     self.assertAllEqual([True, False, False, True],
                         cal.is_business_day(date_tensor))
 
+  @test_both_impls
   def test_no_holidays_specified(self):
-    cal = dates.HolidayCalendar(
+    cal = self.impl(
         weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
         start_year=2020,
         end_year=2021)
@@ -101,8 +127,8 @@ class HolidayCalendarTest(tf.test.TestCase, parameterized.TestCase):
     self.assertAllEqual([True, False, True, False],
                         cal.is_business_day(date_tensor))
 
-  def test_tensor_caching(self):
-    cal = dates.HolidayCalendar(
+  def test_tensor_caching_in_bounded_calendar(self):
+    cal = bounded_holiday_calendar.BoundedHolidayCalendar(
         weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
         holidays=test_data.holidays)
     conv = dates.BusinessDayConvention.FOLLOWING
@@ -129,12 +155,13 @@ class HolidayCalendarTest(tf.test.TestCase, parameterized.TestCase):
     self.assertAllEqual([True, False, False, False], bar()[0])
 
   @parameterized.named_parameters(*rolling_test_parameters)
+  @test_both_impls
   def test_roll_to_business_days(self, rolling_enum_value, data_key):
     data = test_data.adjusted_dates_data
     date_tensor = dates.from_tuples([item["date"] for item in data])
     expected_dates = dates.from_tuples([item[data_key] for item in data])
 
-    cal = dates.HolidayCalendar(
+    cal = self.impl(
         weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
         holidays=test_data.holidays)
     actual_dates = cal.roll_to_business_day(date_tensor,
@@ -142,25 +169,27 @@ class HolidayCalendarTest(tf.test.TestCase, parameterized.TestCase):
     self.assertAllEqual(expected_dates.ordinal(), actual_dates.ordinal())
 
   @parameterized.named_parameters(*rolling_test_parameters)
+  @test_both_impls
   def test_add_months_and_roll(self, rolling_enum_value, data_key):
     data = test_data.add_months_data
     date_tensor = dates.from_tuples([item["date"] for item in data])
     periods = dates.periods.PeriodTensor([item["months"] for item in data],
                                          dates.PeriodType.MONTH)
     expected_dates = dates.from_tuples([item[data_key] for item in data])
-    cal = dates.HolidayCalendar(
+    cal = self.impl(
         weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
         holidays=test_data.holidays)
     actual_dates = cal.add_period_and_roll(date_tensor, periods,
                                            roll_convention=rolling_enum_value)
     self.assertAllEqual(expected_dates.ordinal(), actual_dates.ordinal())
 
+  @test_both_impls
   def test_add_business_days(self):
     data = test_data.add_days_data
     date_tensor = dates.from_tuples([item["date"] for item in data])
     days = tf.constant([item["days"] for item in data])
     expected_dates = dates.from_tuples([item["shifted_date"] for item in data])
-    cal = dates.HolidayCalendar(
+    cal = self.impl(
         weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
         holidays=test_data.holidays)
     actual_dates = cal.add_business_days(
@@ -168,11 +197,12 @@ class HolidayCalendarTest(tf.test.TestCase, parameterized.TestCase):
         roll_convention=dates.BusinessDayConvention.MODIFIED_FOLLOWING)
     self.assertAllEqual(expected_dates.ordinal(), actual_dates.ordinal())
 
+  @test_both_impls
   def test_add_business_days_raises_on_invalid_input(self):
     data = test_data.add_days_data  # Contains some holidays.
     date_tensor = dates.from_tuples([item["date"] for item in data])
     days = tf.constant([item["days"] for item in data])
-    cal = dates.HolidayCalendar(
+    cal = self.impl(
         weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
         holidays=test_data.holidays)
     with self.assertRaises(tf.errors.InvalidArgumentError):
@@ -181,22 +211,24 @@ class HolidayCalendarTest(tf.test.TestCase, parameterized.TestCase):
           roll_convention=dates.BusinessDayConvention.NONE)
       self.evaluate(new_dates.ordinal())
 
+  @test_both_impls
   def test_business_days_between(self):
     data = test_data.days_between_data
     date_tensor1 = dates.from_tuples([item["date1"] for item in data])
     date_tensor2 = dates.from_tuples([item["date2"] for item in data])
     expected_days_between = [item["days"] for item in data]
-    cal = dates.HolidayCalendar(
+    cal = self.impl(
         weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
         holidays=test_data.holidays)
     actual_days_between = cal.business_days_between(date_tensor1, date_tensor2)
     self.assertAllEqual(expected_days_between, actual_days_between)
 
+  @test_both_impls
   def test_is_business_day(self):
     data = test_data.is_business_day_data
     date_tensor = dates.from_tuples([item[0] for item in data])
     expected = [item[1] for item in data]
-    cal = dates.HolidayCalendar(
+    cal = self.impl(
         weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
         holidays=test_data.holidays)
     actual = cal.is_business_day(date_tensor)

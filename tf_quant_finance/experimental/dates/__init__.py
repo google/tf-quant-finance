@@ -34,7 +34,7 @@ from tf_quant_finance.experimental.dates.date_tensor import from_year_month_day
 from tf_quant_finance.experimental.dates.date_tensor import random_dates
 
 from tf_quant_finance.experimental.dates.holiday_calendar import HolidayCalendar
-from tf_quant_finance.experimental.dates.holiday_calendar_v2 import HolidayCalendar as HolidayCalendar2
+from tf_quant_finance.experimental.dates.holiday_calendar_factory import create_holiday_calendar
 
 from tf_quant_finance.experimental.dates.schedules import BusinessDaySchedule
 from tf_quant_finance.experimental.dates.schedules import PeriodicSchedule
@@ -47,7 +47,7 @@ _allowed_symbols = [
     'BusinessDaySchedule',
     'DateTensor',
     'HolidayCalendar',
-    'HolidayCalendar2',
+    'create_holiday_calendar',
     'Month',
     'PeriodType',
     'WeekDay',

@@ -143,7 +143,7 @@ class Bond:
     self._name = name or 'bond'
 
     if holiday_calendar is None:
-      holiday_calendar = dates.HolidayCalendar2(
+      holiday_calendar = dates.create_holiday_calendar(
           weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY)
 
     with tf.name_scope(self._name):

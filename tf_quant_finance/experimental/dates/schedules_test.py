@@ -42,7 +42,7 @@ class SchedulesTest(tf.test.TestCase, parameterized.TestCase):
         start_date=start_dates,
         end_date=end_dates,
         tenor=tenors,
-        holiday_calendar=dates.HolidayCalendar(
+        holiday_calendar=dates.create_holiday_calendar(
             weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
             start_year=2020,
             end_year=2028),
@@ -56,7 +56,7 @@ class SchedulesTest(tf.test.TestCase, parameterized.TestCase):
                                  backward, expected_schedule):
     start_dates = dates.from_np_datetimes(_to_np_datetimes(start_dates))
     end_dates = dates.from_np_datetimes(_to_np_datetimes(end_dates))
-    holiday_calendar = dates.HolidayCalendar(
+    holiday_calendar = dates.create_holiday_calendar(
         weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
         holidays=holidays,
         start_year=2020,

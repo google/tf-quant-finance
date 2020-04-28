@@ -33,7 +33,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
       ('DoublePrecision', np.float64),
   )
   def test_fut_compounded(self, dtype):
-    cal = dates.HolidayCalendar2(weekend_mask=dates.WeekendMask.NONE)
+    cal = dates.create_holiday_calendar(weekend_mask=dates.WeekendMask.NONE)
 
     start_date = dates.convert_to_date_tensor([(2020, 5, 1)])
     end_date = dates.convert_to_date_tensor([(2020, 5, 31)])
@@ -62,7 +62,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
       ('DoublePrecision', np.float64),
   )
   def test_fut_averaged(self, dtype):
-    cal = dates.HolidayCalendar2(weekend_mask=dates.WeekendMask.NONE)
+    cal = dates.create_holiday_calendar(weekend_mask=dates.WeekendMask.NONE)
 
     start_date = dates.convert_to_date_tensor([(2020, 5, 1)])
     end_date = dates.convert_to_date_tensor([(2020, 5, 31)])
@@ -91,7 +91,8 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
       ('DoublePrecision', np.float64),
   )
   def test_fut_compounded_calendar(self, dtype):
-    cal = dates.HolidayCalendar2(weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY)
+    cal = dates.create_holiday_calendar(
+        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY)
 
     start_date = dates.convert_to_date_tensor([(2020, 5, 1)])
     end_date = dates.convert_to_date_tensor([(2020, 5, 31)])
@@ -120,7 +121,8 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
       ('DoublePrecision', np.float64),
   )
   def test_fut_averaged_calendar(self, dtype):
-    cal = dates.HolidayCalendar2(weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY)
+    cal = dates.create_holiday_calendar(
+        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY)
 
     start_date = dates.convert_to_date_tensor([(2020, 5, 1)])
     end_date = dates.convert_to_date_tensor([(2020, 5, 31)])
@@ -149,7 +151,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
       ('DoublePrecision', np.float64),
   )
   def test_fut_many(self, dtype):
-    cal = dates.HolidayCalendar2(weekend_mask=dates.WeekendMask.NONE)
+    cal = dates.create_holiday_calendar(weekend_mask=dates.WeekendMask.NONE)
 
     start_date = dates.convert_to_date_tensor([(2020, 5, 1), (2020, 5, 1)])
     end_date = dates.convert_to_date_tensor([(2020, 5, 31), (2020, 5, 31)])

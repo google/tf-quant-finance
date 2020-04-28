@@ -14,7 +14,7 @@ py_library(
         ":date_utils",
         ":daycounts",
         ":holiday_calendar",
-        ":holiday_calendar_v2",
+        ":holiday_calendar_factory",
         ":periods",
         ":schedules",
     ],
@@ -70,8 +70,8 @@ py_library(
 )
 
 py_library(
-    name = "holiday_calendar",
-    srcs = ["holiday_calendar.py"],
+    name = "bounded_holiday_calendar",
+    srcs = ["bounded_holiday_calendar.py"],
     srcs_version = "PY3",
     deps = [
         ":constants",
@@ -93,8 +93,8 @@ py_library(
 )
 
 py_library(
-    name = "holiday_calendar_v2",
-    srcs = ["holiday_calendar_v2.py"],
+    name = "unbounded_holiday_calendar",
+    srcs = ["unbounded_holiday_calendar.py"],
     srcs_version = "PY3",
     deps = [
         ":constants",
@@ -102,6 +102,28 @@ py_library(
         ":date_utils",
         ":holiday_utils",
         ":periods",
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "holiday_calendar",
+    srcs = ["holiday_calendar.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":constants",
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "holiday_calendar_factory",
+    srcs = ["holiday_calendar_factory.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":bounded_holiday_calendar",
+        ":unbounded_holiday_calendar",
+        # numpy dep,
         # tensorflow dep,
     ],
 )
@@ -154,25 +176,10 @@ py_test(
     srcs = ["holiday_calendar_test.py"],
     python_version = "PY3",
     deps = [
+        ":bounded_holiday_calendar",
         ":dates",
         ":test_data",
-        # test util,
-        # absl/testing:parameterized dep,
-        # numpy dep,
-        # tensorflow dep,
-    ],
-)
-
-py_test(
-    name = "holiday_calendar_v2_test",
-    size = "small",
-    timeout = "moderate",
-    srcs = ["holiday_calendar_v2_test.py"],
-    python_version = "PY3",
-    deps = [
-        ":dates",
-        ":periods",
-        ":test_data",
+        ":unbounded_holiday_calendar",
         # test util,
         # absl/testing:parameterized dep,
         # numpy dep,

@@ -18,20 +18,18 @@ import tensorflow.compat.v2 as tf
 from tf_quant_finance.experimental.dates import constants
 from tf_quant_finance.experimental.dates import date_tensor as dt
 from tf_quant_finance.experimental.dates import date_utils as du
+from tf_quant_finance.experimental.dates import holiday_calendar
 from tf_quant_finance.experimental.dates import holiday_utils as hol
 from tf_quant_finance.experimental.dates import periods
 
 
-class HolidayCalendar(object):
-  """Represents a holiday calendar.
+class UnboundedHolidayCalendar(holiday_calendar.HolidayCalendar):
+  """HolidayCalendar implementation.
 
-  Differs from dates.HolidayCalendar in implementation. This implementation
+  Unlike BoundedHolidayCalendar, doesn't require specifying calendar bounds, and
   supports weekends and holiday supplied as `Tensor`s. However, it is
   (potentially significantly) slower than the dates.HolidayCalendar
   implementation.
-
-  Provides methods for manipulating the dates taking into account the holidays,
-  and the business day roll conventions. Weekends are treated as holidays.
   """
 
   def __init__(self, weekend_mask=None, holidays=None):

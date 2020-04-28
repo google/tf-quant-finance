@@ -154,7 +154,7 @@ class OvernightIndexLinkedFutures:
         averaging_type = rc.AverageType.COMPOUNDING
 
       if holiday_calendar is None:
-        holiday_calendar = dates.HolidayCalendar2(
+        holiday_calendar = dates.create_holiday_calendar(
             weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY)
 
       self._daycount_convention = daycount_convention
