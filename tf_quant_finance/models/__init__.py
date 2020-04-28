@@ -17,7 +17,8 @@
 from tf_quant_finance.models import euler_sampling
 from tf_quant_finance.models import hull_white
 from tf_quant_finance.models.generic_ito_process import GenericItoProcess
-from tf_quant_finance.models.geometric_brownian_motion import GeometricBrownianMotion
+from tf_quant_finance.models.geometric_brownian_motion.multivariate_geometric_brownian_motion import MultivariateGeometricBrownianMotion
+from tf_quant_finance.models.geometric_brownian_motion.univariate_geometric_brownian_motion import GeometricBrownianMotion
 from tf_quant_finance.models.heston_model import HestonModel
 from tf_quant_finance.models.ito_process import ItoProcess
 from tf_quant_finance.models.joined_ito_process import JoinedItoProcess
@@ -29,6 +30,7 @@ _allowed_symbols = [
     'HestonModel',
     'hull_white',
     'GenericItoProcess',
+    'MultivariateGeometricBrownianMotion',
     'GeometricBrownianMotion',
     'ItoProcess',
     'JoinedItoProcess',

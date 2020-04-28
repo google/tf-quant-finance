@@ -28,18 +28,18 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
   Represents the 1-dimensional Ito process:
 
   ```None
-    dX(t) = mu * X(t) * dt + sigma * X_t * dW_t,
+    dX(t) = mu * X(t) * dt + sigma * X(t) * dW(t),
   ```
 
-  where `W_t` is a 1D Brownian motion, `mu` and `sigma` are constant `Tensor`s.
+  where `W(t)` is a 1D Brownian motion, `mu` and `sigma` are constant `Tensor`s.
 
   ## Example
 
   ```python
   import tf_quant_finance as tff
-  import numpy as np
-  process = GeometricBrownianMotion(0.05, 1.0, dtype=np.float64)
-  samples = process.sample_paths([0.1, 0.5, 1.0], initial_state=1.0,
+  process = GeometricBrownianMotion(0.05, 1.0, dtype=tf.float64)
+  samples = process.sample_paths([0.1, 0.5, 1.0],
+                                 initial_state=1.5,
                                  random_type=random.RandomType.SOBOL,
                                  num_samples=1000000)
   ```
@@ -53,7 +53,7 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
     """Initializes the Geometric Brownian Motion.
 
     Args:
-      mu: Scalar real `Tensor`  Corresponds to the mean of the Ito process.
+      mu: Scalar real `Tensor`. Corresponds to the mean of the Ito process.
       sigma: Scalar real `Tensor` of the same `dtype` as `mu`. Corresponds to
         the volatility of the process.
       dtype: The default dtype to use when converting values to `Tensor`s.
@@ -68,6 +68,7 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
       self._mu = tf.convert_to_tensor(mu, dtype=dtype, name="mu")
       self._dtype = self._mu.dtype
       self._sigma = tf.convert_to_tensor(sigma, dtype=self._dtype, name="sigma")
+      self._dim = 1
 
   def dim(self):
     """The dimension of the process."""
@@ -94,7 +95,7 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
     def _vol_fn(t, x):
       """Volatility function of the GBM."""
       del t
-      vol = self._sigma * tf.expand_dims(tf.expand_dims(x, -1), -1)
+      vol = self._sigma * tf.expand_dims(x, -1)
       return vol
     return _vol_fn
 
@@ -113,8 +114,8 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
         path points are to be evaluated.
       initial_state: A `Tensor` of the same `dtype` as `times` and of shape
         broadcastable with `[num_samples]`. Represents the initial state of the
-        Ito Process.
-      Default value: None which maps to a initial state of ones.
+        Ito process.
+      Default value: `None` which maps to a initial state of ones.
       num_samples: Positive scalar `int`. The number of paths to draw.
       random_type: Enum value of `RandomType`. The type of (quasi)-random
         number generator to use to generate the paths.
@@ -124,7 +125,7 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
       skip: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
         Halton sequence to skip. Used only when `random_type` is 'SOBOL',
         'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
-      Default value: 1e-6.
+        Default value: 0.
       name: Str. The name to give this op.
         Default value: `sample_paths`.
 

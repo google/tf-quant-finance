@@ -182,6 +182,7 @@ For open-source contributions the docs will be updated automatically.
 *  <a href="./tf_quant_finance/models/HestonModel.md"><code>tf_quant_finance.models.HestonModel</code></a>
 *  <a href="./tf_quant_finance/models/ItoProcess.md"><code>tf_quant_finance.models.ItoProcess</code></a>
 *  <a href="./tf_quant_finance/models/JoinedItoProcess.md"><code>tf_quant_finance.models.JoinedItoProcess</code></a>
+*  <a href="./tf_quant_finance/models/MultivariateGeometricBrownianMotion.md"><code>tf_quant_finance.models.MultivariateGeometricBrownianMotion</code></a>
 *  <a href="./tf_quant_finance/models/euler_sampling.md"><code>tf_quant_finance.models.euler_sampling</code></a>
 *  <a href="./tf_quant_finance/models/euler_sampling/sample.md"><code>tf_quant_finance.models.euler_sampling.sample</code></a>
 *  <a href="./tf_quant_finance/models/hull_white.md"><code>tf_quant_finance.models.hull_white</code></a>

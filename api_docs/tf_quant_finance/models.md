@@ -43,3 +43,5 @@ TensorFlow Quantitative Finance tools to build Diffusion Models.
 
 [`class JoinedItoProcess`](../tf_quant_finance/models/JoinedItoProcess.md): Join of Ito Processes with specified time dependent correlations.
 
+[`class MultivariateGeometricBrownianMotion`](../tf_quant_finance/models/MultivariateGeometricBrownianMotion.md): Multivariate Geometric Brownian Motion.
+

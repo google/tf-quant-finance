@@ -6,7 +6,7 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2020-04-28.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.models.GeometricBrownianMotion" />
+<meta itemprop="name" content="tf_quant_finance.models.MultivariateGeometricBrownianMotion" />
 <meta itemprop="path" content="Stable" />
 <meta itemprop="property" content="__init__"/>
 <meta itemprop="property" content="dim"/>
@@ -19,24 +19,24 @@ For open-source contributions the docs will be updated automatically.
 <meta itemprop="property" content="volatility_fn"/>
 </div>
 
-# tf_quant_finance.models.GeometricBrownianMotion
+# tf_quant_finance.models.MultivariateGeometricBrownianMotion
 
 <!-- Insert buttons and diff -->
 
 <table class="tfo-notebook-buttons tfo-api" align="left">
 </table>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/univariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
 
 
 
-Geometric Brownian Motion.
+Multivariate Geometric Brownian Motion.
 
 Inherits From: [`ItoProcess`](../../tf_quant_finance/models/ItoProcess.md)
 
 ```python
-tf_quant_finance.models.GeometricBrownianMotion(
-    mu, sigma, dtype=None, name=None
+tf_quant_finance.models.MultivariateGeometricBrownianMotion(
+    dim, means, volatilities, corr_matrix=None, dtype=None, name=None
 )
 ```
 
@@ -44,43 +44,62 @@ tf_quant_finance.models.GeometricBrownianMotion(
 
 <!-- Placeholder for "Used in" -->
 
-Represents the 1-dimensional Ito process:
+Represents a d-dimensional Ito process:
 
 ```None
-  dX(t) = mu * X(t) * dt + sigma * X(t) * dW(t),
+  dX_i(t) = means_i * X_i(t) * dt + volatilities_i * X_i(t) * dW_i(t),
+  1 <= i <= d
 ```
 
-where `W(t)` is a 1D Brownian motion, `mu` and `sigma` are constant `Tensor`s.
+where `W(t) = (W_1(t), .., W_d(t))` is a d-dimensional Brownian motion with
+a correlation matrix `corr_matrix`, `meams` and `sigmas` are `Tensor`s that
+correspond to mean and volatility of a Geometric Brownian Motion `X_i`
 
 ## Example
 
 ```python
 import tf_quant_finance as tff
-process = GeometricBrownianMotion(0.05, 1.0, dtype=tf.float64)
-samples = process.sample_paths([0.1, 0.5, 1.0],
-                               initial_state=1.5,
+corr_matrix = [[1, 0.1], [0.1, 1]]
+process = tff.MultivariateGeometricBrownianMotion(
+    means=1, volatilities=[0.1, 0.2],
+    corr_matrix=corr_matrix,
+    dtype=tf.float64)
+samples = process.sample_paths([0.1, 0.2, 1.0],
+                               initial_state=[1.0, 2.0],
                                random_type=random.RandomType.SOBOL,
-                               num_samples=1000000)
+                               num_samples=100000)
 ```
 
 #### Args:
 
 
-* <b>`mu`</b>: Scalar real `Tensor`. Corresponds to the mean of the Ito process.
-* <b>`sigma`</b>: Scalar real `Tensor` of the same `dtype` as `mu`. Corresponds to
-  the volatility of the process.
+* <b>`dim`</b>: A Python scalar. The dimensionality of the process
+* <b>`means`</b>:  A real `Tensor` of shape broadcastable to `[dim]`.
+  Corresponds to the vector of means of the GBM components `X_i`.
+* <b>`volatilities`</b>: A `Tensor` of the same `dtype` as `means` and of shape
+  broadcastable to `[dim]`. Corresponds to the volatilities of the GBM
+  components `X_i`.
+* <b>`corr_matrix`</b>: An optional `Tensor` of the same `dtype` as `means` and of
+  shape `[dim, dim]`. Correlation of the GBM components `W_i`.
+  Default value: `None` which maps to independent to a process with
+  independent GBM components `X_i`.
 * <b>`dtype`</b>: The default dtype to use when converting values to `Tensor`s.
   Default value: `None` which means that default dtypes inferred by
     TensorFlow are used.
 * <b>`name`</b>: Python string. The name to give to the ops created by this class.
   Default value: `None` which maps to the default name
-  'geometric_brownian_motion'.
+  'multivariate_geometric_brownian_motion'.
+
+#### Raises:
+
+
+* <b>`ValueError`</b>: If `corr_matrix` is supplied and is not of shape `[dim, dim]`
 
 ## Methods
 
 <h3 id="dim"><code>dim</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/univariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
 
 ```python
 dim()
@@ -91,7 +110,7 @@ The dimension of the process.
 
 <h3 id="drift_fn"><code>drift_fn</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/univariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
 
 ```python
 drift_fn()
@@ -102,7 +121,7 @@ Python callable calculating instantaneous drift.
 
 <h3 id="dtype"><code>dtype</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/univariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
 
 ```python
 dtype()
@@ -113,7 +132,7 @@ The data type of process realizations.
 
 <h3 id="fd_solver_backward"><code>fd_solver_backward</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/univariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
 
 ```python
 fd_solver_backward(
@@ -281,7 +300,7 @@ A tuple object containing at least the following attributes:
 
 <h3 id="fd_solver_forward"><code>fd_solver_forward</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/univariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
 
 ```python
 fd_solver_forward(
@@ -432,7 +451,7 @@ A tuple object containing at least the following attributes:
 
 <h3 id="name"><code>name</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/univariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
 
 ```python
 name()
@@ -443,7 +462,7 @@ The name to give to ops created by this class.
 
 <h3 id="sample_paths"><code>sample_paths</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/univariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
 
 ```python
 sample_paths(
@@ -461,8 +480,8 @@ Returns a sample of paths from the process.
 * <b>`times`</b>: Rank 1 `Tensor` of positive real values. The times at which the
   path points are to be evaluated.
 * <b>`initial_state`</b>: A `Tensor` of the same `dtype` as `times` and of shape
-  broadcastable with `[num_samples]`. Represents the initial state of the
-  Ito process.
+  broadcastable with `[num_samples, dim]`. Represents the initial state of
+  the Ito process.
 Default value: `None` which maps to a initial state of ones.
 * <b>`num_samples`</b>: Positive scalar `int`. The number of paths to draw.
 * <b>`random_type`</b>: Enum value of `RandomType`. The type of (quasi)-random
@@ -480,13 +499,13 @@ Default value: `None` which maps to a initial state of ones.
 
 #### Returns:
 
-A `Tensor`s of shape [num_samples, k, 1] where `k` is the size
+A `Tensor`s of shape [num_samples, k, dim] where `k` is the size
 of the `times`.
 
 
 <h3 id="volatility_fn"><code>volatility_fn</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/univariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
 
 ```python
 volatility_fn()
