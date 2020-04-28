@@ -14,6 +14,15 @@ from typing import Dict, Callable, Optional
 import numpy as np
 import tensorflow.compat.v2 as tf
 
+
+__all__ = [
+    'encode_array',
+    'decode_array',
+    'ArrayDictReader',
+    'ArrayDictWriter'
+]
+
+
 # Needed for decoding serialized arrays.
 _CLS = type(tf.make_tensor_proto([0]))
 
@@ -177,3 +186,4 @@ def _make_example(d: Dict[str, np.ndarray],
   }
   return tf.train.Example(features=tf.train.Features(
       feature=features_dict)).SerializeToString()
+
