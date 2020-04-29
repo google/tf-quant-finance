@@ -14,11 +14,7 @@
 # limitations under the License.
 """HolidayCalendar definition."""
 
-import collections
-import datetime
-
 import attr
-import numpy as np
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.experimental.dates import constants
@@ -28,6 +24,7 @@ from tf_quant_finance.experimental.dates import periods
 
 
 _ORDINAL_OF_1_1_1970 = 719163
+_OUT_OF_BOUNDS_MSG = "Went out of calendar boundaries!"
 
 
 class BoundedHolidayCalendar(holiday_calendar.HolidayCalendar):
@@ -47,53 +44,16 @@ class BoundedHolidayCalendar(holiday_calendar.HolidayCalendar):
     """Initializer.
 
     Args:
-      weekend_mask: Sequence of 7 elements, where "0" means work day and "1" -
+      weekend_mask: Tensor of 7 elements, where "0" means work day and "1" -
         day off. The first element is Monday. By default, no weekends are
         applied. Some of the common weekend patterns are defined in
         `dates.WeekendMask`.
         Default value: None which maps to no weekend days.
       holidays: Defines the holidays that are added to the weekends defined by
-        `weekend_mask`. Can be provided in following forms:
-        - Iterable of tuples containing dates in (year, month, day) format:
-          ```python
-          holidays = [(2020, 1, 1), (2020, 12, 25),
-                      (2021, 1, 1), (2021, 12, 24)]
-          ```
-        - Iterable of datetime.date objects:
-          ```python
-          holidays = [datetime.date(2020, 1, 1), datetime.date(2020, 12, 25),
-                      datetime.date(2021, 1, 1), datetime.date(2021, 12, 24)]
-          ```
-        - A numpy array of type np.datetime64:
-
-          ```python
-          holidays = np.array(['2020-01-01', '2020-12-25', '2021-01-01',
-                               '2020-12-24'], dtype=np.datetime64)
-          ```
-
-        Note that it is necessary to provide holidays for each year, and also
-        adjust the holidays that fall on the weekends if required, like
-        2021-12-25 to 2021-12-24 in the example above. To avoid doing this
-        manually one can use AbstractHolidayCalendar from Pandas:
-
-        ```python
-        from pandas.tseries.holiday import AbstractHolidayCalendar
-        from pandas.tseries.holiday import Holiday
-        from pandas.tseries.holiday import nearest_workday
-
-        class MyCalendar(AbstractHolidayCalendar):
-            rules = [
-                Holiday('NewYear', month=1, day=1, observance=nearest_workday),
-                Holiday('Christmas', month=12, day=25,
-                         observance=nearest_workday)
-            ]
-
-        calendar = MyCalendar()
-        holidays_index = holidays.holidays(
-            start=datetime.date(2020, 1, 1),
-            end=datetime.date(2030, 12, 31))
-        holidays = np.array(holidays_index.to_pydatetime(), dtype="<M8[D]")
-        ```
+      `weekend_mask`. An instance of `dates.DateTensor` or an object
+       convertible to `DateTensor`.
+       Default value: None which means no holidays other than those implied by
+       the weekends (if any).
       start_year: Integer giving the earliest year this calendar includes. If
         `holidays` is specified, then `start_year` and `end_year` are ignored,
         and the boundaries are derived from `holidays`. If `holidays` is `None`,
@@ -103,19 +63,25 @@ class BoundedHolidayCalendar(holiday_calendar.HolidayCalendar):
         and the boundaries are derived from `holidays`. If `holidays` is `None`,
         both `start_year` and `end_year` must be specified.
     """
-    self._weekend_mask = np.array(weekend_mask or constants.WeekendMask.NONE)
-    self._holidays_np = _to_np_holidays_array(holidays)
-    start_year, end_year = _resolve_calendar_boundaries(self._holidays_np,
+    self._weekend_mask = tf.convert_to_tensor(weekend_mask or
+                                              constants.WeekendMask.NONE)
+    if holidays is None:
+      self._holidays = None
+    else:
+      self._holidays = dt.convert_to_date_tensor(holidays)
+    start_year, end_year = _resolve_calendar_boundaries(self._holidays,
                                                         start_year, end_year)
-    self._dates_np = np.arange(
-        datetime.date(start_year, 1, 1), datetime.date(end_year + 1, 1, 1),
-        datetime.timedelta(days=1)).astype("<M8[D]")
-    self._ordinal_offset = datetime.date(start_year, 1, 1).toordinal()
+    self._ordinal_offset = dt.from_year_month_day(start_year, 1, 1).ordinal()
+    self._calendar_size = (
+        dt.from_year_month_day(end_year + 1, 1, 1).ordinal() -
+        self._ordinal_offset)
 
     # Precomputed tables. These are constant 1D Tensors, mapping each day in the
     # [start_year, end_year] period to some quantity of interest, e.g. next
     # business day. The tables should be indexed with
     # `date.ordinal - self._offset`. All tables are computed lazily.
+    # All tables have an extra element at the beginning and the end, see comment
+    # in _compute_is_bus_day_table().
     self._table_cache = _TableCache()
 
   def is_business_day(self, date_tensor):
@@ -123,8 +89,10 @@ class BoundedHolidayCalendar(holiday_calendar.HolidayCalendar):
     is_bus_day_table = self._compute_is_bus_day_table()
     is_bus_day_int32 = self._gather(
         is_bus_day_table,
-        date_tensor.ordinal() - self._ordinal_offset)
-    return tf.cast(is_bus_day_int32, dtype=tf.bool)
+        date_tensor.ordinal() - self._ordinal_offset + 1)
+    with tf.control_dependencies(
+        self._assert_ordinals_in_bounds(date_tensor.ordinal())):
+      return tf.cast(is_bus_day_int32, dtype=tf.bool)
 
   def roll_to_business_day(self, date_tensor, roll_convention):
     """Rolls the given dates to business dates according to given convention.
@@ -139,11 +107,12 @@ class BoundedHolidayCalendar(holiday_calendar.HolidayCalendar):
     """
     if roll_convention == constants.BusinessDayConvention.NONE:
       return date_tensor
-    adjusted_ordinals_table = self._compute_rolled_dates_table(roll_convention)
-    ordinals_with_offset = date_tensor.ordinal() - self._ordinal_offset
-    adjusted_ordinals = self._gather(adjusted_ordinals_table,
-                                     ordinals_with_offset)
-    return dt.from_ordinals(adjusted_ordinals, validate=False)
+    rolled_ordinals_table = self._compute_rolled_dates_table(roll_convention)
+    ordinals_with_offset = date_tensor.ordinal() - self._ordinal_offset + 1
+    rolled_ordinals = self._gather(rolled_ordinals_table, ordinals_with_offset)
+    with tf.control_dependencies(
+        self._assert_ordinals_in_bounds(rolled_ordinals)):
+      return dt.from_ordinals(rolled_ordinals, validate=False)
 
   def add_period_and_roll(self,
                           date_tensor,
@@ -200,16 +169,17 @@ class BoundedHolidayCalendar(holiday_calendar.HolidayCalendar):
     else:
       date_tensor = self.roll_to_business_day(date_tensor, roll_convention)
 
-    with tf.compat.v1.control_dependencies(control_deps):
+    with tf.control_dependencies(control_deps):
       cumul_bus_days_table = self._compute_cumul_bus_days_table()
       cumul_bus_days = self._gather(
           cumul_bus_days_table,
-          date_tensor.ordinal() - self._ordinal_offset)
+          date_tensor.ordinal() - self._ordinal_offset + 1)
       target_cumul_bus_days = cumul_bus_days + num_days
 
       bus_day_ordinals_table = self._compute_bus_day_ordinals_table()
       ordinals = self._gather(bus_day_ordinals_table, target_cumul_bus_days)
-      return dt.from_ordinals(ordinals, validate=False)
+      with tf.control_dependencies(self._assert_ordinals_in_bounds(ordinals)):
+        return dt.from_ordinals(ordinals, validate=False)
 
   def subtract_period_and_roll(
       self,
@@ -297,63 +267,95 @@ class BoundedHolidayCalendar(holiday_calendar.HolidayCalendar):
     """
     cumul_bus_days_table = self._compute_cumul_bus_days_table()
     ordinals_1, ordinals_2 = from_dates.ordinal(), to_dates.ordinal()
-    ordinals_2 = tf.broadcast_to(ordinals_2, ordinals_1.shape)
-    cumul_bus_days_1 = self._gather(cumul_bus_days_table,
-                                    ordinals_1 - self._ordinal_offset)
-    cumul_bus_days_2 = self._gather(cumul_bus_days_table,
-                                    ordinals_2 - self._ordinal_offset)
-    return tf.math.maximum(cumul_bus_days_2 - cumul_bus_days_1, 0)
+    with tf.control_dependencies(
+        self._assert_ordinals_in_bounds(ordinals_1) +
+        self._assert_ordinals_in_bounds(ordinals_2)):
+      ordinals_2 = tf.broadcast_to(ordinals_2, ordinals_1.shape)
+      cumul_bus_days_1 = self._gather(cumul_bus_days_table,
+                                      ordinals_1 - self._ordinal_offset + 1)
+      cumul_bus_days_2 = self._gather(cumul_bus_days_table,
+                                      ordinals_2 - self._ordinal_offset + 1)
+      return tf.math.maximum(cumul_bus_days_2 - cumul_bus_days_1, 0)
 
-  def _compute_rolled_dates_table(self, roll_convention):
+  def _compute_rolled_dates_table(self, convention):
     """Computes and caches rolled dates table."""
-    already_computed = self._table_cache.rolled_dates.get(roll_convention, None)
+    already_computed = self._table_cache.rolled_dates.get(convention, None)
     if already_computed is not None:
       return already_computed
-
-    roll_convention_np = _to_np_roll_convention(roll_convention)
-    holidays_arg = self._holidays_np
-    if holidays_arg is None:
-      holidays_arg = []  # np.busday_offset doesn't accept None
-    adjusted_np = np.busday_offset(
-        dates=self._dates_np,
-        offsets=0,
-        roll=roll_convention_np,
-        weekmask=1 - self._weekend_mask,
-        holidays=holidays_arg)
-    rolled_date_table = adjusted_np.astype(np.int32) + _ORDINAL_OF_1_1_1970
 
     # To make tensor caching safe, lift the ops out of the current scope using
     # tf.init_scope(). This allows e.g. to cache these tensors in one
     # tf.function and reuse them in another tf.function.
     with tf.init_scope():
-      rolled_date_table = tf.convert_to_tensor(rolled_date_table,
-                                               name="rolled_date_table")
-    self._table_cache.rolled_dates[roll_convention] = rolled_date_table
+      rolled_date_table = (
+          self._compute_rolled_dates_table_without_cache(convention))
+      self._table_cache.rolled_dates[convention] = rolled_date_table
     return rolled_date_table
+
+  def _compute_rolled_dates_table_without_cache(self, convention):
+    is_bus_day = self._compute_is_bus_day_table()
+    cumul_bus_days = self._compute_cumul_bus_days_table()
+    bus_day_ordinals = self._compute_bus_day_ordinals_table()
+
+    if convention == constants.BusinessDayConvention.FOLLOWING:
+      return tf.gather(bus_day_ordinals, cumul_bus_days)
+
+    if convention == constants.BusinessDayConvention.PRECEDING:
+      return tf.gather(bus_day_ordinals,
+                       cumul_bus_days - (1 - is_bus_day))
+
+    following = self._compute_rolled_dates_table(
+        constants.BusinessDayConvention.FOLLOWING)
+    preceding = self._compute_rolled_dates_table(
+        constants.BusinessDayConvention.PRECEDING)
+    dates_following = dt.from_ordinals(following)
+    dates_preceding = dt.from_ordinals(preceding)
+    original_dates = dt.from_ordinals(
+        tf.range(self._ordinal_offset - 1,
+                 self._ordinal_offset + self._calendar_size + 1))
+
+    if convention == constants.BusinessDayConvention.MODIFIED_FOLLOWING:
+      return tf.where(tf.equal(dates_following.month(), original_dates.month()),
+                      following, preceding)
+
+    if convention == constants. BusinessDayConvention.MODIFIED_PRECEDING:
+      return tf.where(tf.equal(dates_preceding.month(), original_dates.month()),
+                      preceding, following)
+
+    raise ValueError("Unrecognized convention: {}".format(convention))
 
   def _compute_is_bus_day_table(self):
     """Computes and caches "is business day" table."""
     if self._table_cache.is_bus_day is not None:
       return self._table_cache.is_bus_day
 
-    is_bus_day_table = np.ones_like(self._dates_np, dtype=np.int32)
-
-    ordinals = np.arange(self._ordinal_offset,
-                         self._ordinal_offset + len(is_bus_day_table))
-    # Apply week mask
-    week_days = (ordinals - 1) % 7
-    is_bus_day_table[self._weekend_mask[week_days] == 1] = 0
-
-    # Apply holidays
-    if self._holidays_np is not None:
-      holiday_ordinals = (
-          np.array(self._holidays_np, dtype=np.int32) + _ORDINAL_OF_1_1_1970)
-      is_bus_day_table[holiday_ordinals - self._ordinal_offset] = 0
-
     with tf.init_scope():
-      is_bus_day_table = tf.convert_to_tensor(is_bus_day_table,
-                                              name="is_bus_day_table")
-    self._table_cache.is_bus_day = is_bus_day_table
+      ordinals = tf.range(self._ordinal_offset,
+                          self._ordinal_offset + self._calendar_size)
+      # Apply weekend mask
+      week_days = (ordinals - 1) % 7
+      is_holiday = tf.gather(self._weekend_mask, week_days)
+
+      # Apply holidays
+      if self._holidays is not None:
+        indices = self._holidays.ordinal() - self._ordinal_offset
+        ones_at_indices = tf.scatter_nd(
+            tf.expand_dims(indices, axis=-1), tf.ones_like(indices),
+            is_holiday.shape)
+        is_holiday = tf.bitwise.bitwise_or(is_holiday, ones_at_indices)
+
+      # Add a business day at the beginning and at the end, i.e. at 31 Dec of
+      # start_year-1 and at 1 Jan of end_year+1. This trick is to avoid dealing
+      # with special cases on boundaries.
+      # For example, for Following and Preceding conventions we'd need a special
+      # value that means "unknown" in the tables. More complicated conventions
+      # then combine the Following and Preceding tables, and would need special
+      # treatment of the "unknown" values.
+      # With these "fake" business days, all computations are automatically
+      # correct, unless we land on those extra days - for this reason we add
+      # assertions in all API calls before returning.
+      is_bus_day_table = tf.concat([[1], 1 - is_holiday, [1]], axis=0)
+      self._table_cache.is_bus_day = is_bus_day_table
     return is_bus_day_table
 
   def _compute_cumul_bus_days_table(self):
@@ -375,67 +377,40 @@ class BoundedHolidayCalendar(holiday_calendar.HolidayCalendar):
 
     is_bus_day_table = self._compute_is_bus_day_table()
     with tf.init_scope():
-      bus_day_ordinals_table = tf.cast(
-          tf.compat.v2.where(is_bus_day_table)[:, 0] + self._ordinal_offset,
-          tf.int32, name="bus_day_ordinals_table")
+      bus_day_ordinals_table = (
+          tf.cast(tf.where(is_bus_day_table)[:, 0], tf.int32) +
+          self._ordinal_offset - 1)
       self._table_cache.bus_day_ordinals = bus_day_ordinals_table
     return bus_day_ordinals_table
 
   def _gather(self, table, indices):
-    message = "Went out of calendar boundaries!"
-    assert1 = tf.debugging.assert_greater_equal(indices, 0, message=message)
-    assert2 = tf.debugging.assert_less(indices, len(self._dates_np),
-                                       message=message)
-    with tf.compat.v1.control_dependencies([assert1, assert2]):
+    table_size = self._calendar_size + 2
+    assert1 = tf.debugging.assert_greater_equal(
+        indices, 0, message=_OUT_OF_BOUNDS_MSG)
+    assert2 = tf.debugging.assert_less(
+        indices, table_size, message=_OUT_OF_BOUNDS_MSG)
+    with tf.control_dependencies([assert1, assert2]):
       return tf.gather(table, indices)
 
-
-def can_handle_args(holidays, weekend_mask):
-  """Whether this implementation can handle the args in the given format."""
-  if holidays is not None and not isinstance(
-      holidays, (collections.Iterable, np.ndarray)):
-    return False
-  if weekend_mask is not None and isinstance(weekend_mask, tf.Tensor):
-    return False
-  return True
-
-
-def _to_np_holidays_array(holidays):
-  """Converts holidays from any acceptable format to np.datetime64 array."""
-  if holidays is None:
-    return None
-  if isinstance(holidays, collections.Iterable):
-    if all(isinstance(h, datetime.date) for h in holidays):
-      return np.array(list(holidays), "<M8[D]")
-    if all(isinstance(h, tuple) for h in holidays):
-      datetimes = [datetime.date(*t) for t in holidays]
-      return np.array(datetimes, "<M8[D]")
-  if isinstance(holidays, np.ndarray):
-    return holidays.astype("<M8[D]")
-  raise ValueError("Unrecognized format of holidays")
+  def _assert_ordinals_in_bounds(self, ordinals):
+    assert1 = tf.debugging.assert_greater_equal(
+        ordinals, self._ordinal_offset, message=_OUT_OF_BOUNDS_MSG)
+    assert2 = tf.debugging.assert_less(
+        ordinals,
+        self._ordinal_offset + self._calendar_size,
+        message=_OUT_OF_BOUNDS_MSG)
+    return [assert1, assert2]
 
 
-def _to_np_roll_convention(convention):
-  if convention == constants.BusinessDayConvention.FOLLOWING:
-    return "following"
-  if convention == constants.BusinessDayConvention.PRECEDING:
-    return "preceding"
-  if convention == constants.BusinessDayConvention.MODIFIED_FOLLOWING:
-    return "modifiedfollowing"
-  if convention == constants. BusinessDayConvention.MODIFIED_PRECEDING:
-    return "modifiedpreceding"
-  raise ValueError("Unrecognized convention: {}".format(convention))
-
-
-def _resolve_calendar_boundaries(holidays_np, start_year, end_year):
-  if holidays_np is None or holidays_np.size == 0:
+def _resolve_calendar_boundaries(holidays, start_year, end_year):
+  if holidays is None or holidays.shape.num_elements() in [None, 0]:
     if start_year is None or end_year is None:
-      raise ValueError("Please specify either holidays or both start_year and"
+      raise ValueError("Please specify either holidays or both start_year and "
                        "end_year arguments")
     return start_year, end_year
 
-  years = [date.year for date in holidays_np.astype(object)]
-  return np.min(years), np.max(years)
+  return tf.math.reduce_min(holidays.year()), tf.math.reduce_max(
+      holidays.year())
 
 
 @attr.s

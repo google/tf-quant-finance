@@ -41,6 +41,30 @@ def create_holiday_calendar(
       convertible to `DateTensor`.
       Default value: None which means no holidays other than those implied by
       the weekends (if any).
+      Note that it is necessary to provide holidays for each year, and also
+      adjust the holidays that fall on the weekends if required, e.g.
+      2021-12-25 to 2021-12-24. To avoid doing this manually one can use
+      AbstractHolidayCalendar from Pandas:
+
+      ```python
+      from pandas.tseries.holiday import AbstractHolidayCalendar
+      from pandas.tseries.holiday import Holiday
+      from pandas.tseries.holiday import nearest_workday
+
+      class MyCalendar(AbstractHolidayCalendar):
+          rules = [
+              Holiday('NewYear', month=1, day=1, observance=nearest_workday),
+              Holiday('Christmas', month=12, day=25,
+                       observance=nearest_workday)
+          ]
+
+      calendar = MyCalendar()
+      holidays_index = holidays.holidays(
+          start=datetime.date(2020, 1, 1),
+          end=datetime.date(2030, 12, 31))
+      holidays = np.array(holidays_index.to_pydatetime(), dtype="<M8[D]")
+      ```
+
     start_year: Integer giving the earliest year this calendar includes. If
       `holidays` is specified, then `start_year` and `end_year` are ignored,
       and the boundaries are derived from `holidays`.
@@ -59,12 +83,7 @@ def create_holiday_calendar(
   # choose UnboundedHolidayCalendar.
   is_bounded = (_tensor_is_not_empty(holidays) or
                 (start_year is not None and end_year is not None))
-
-  # TODO(b/152734875): make BoundedHolidayCalendar accept Tensors.
-  bounded_cal_can_handle_args = bounded_holiday_calendar.can_handle_args(
-      holidays, weekend_mask)
-
-  if is_bounded and bounded_cal_can_handle_args:
+  if is_bounded:
     return bounded_holiday_calendar.BoundedHolidayCalendar(
         weekend_mask, holidays, start_year, end_year)
   return unbounded_holiday_calendar.UnboundedHolidayCalendar(

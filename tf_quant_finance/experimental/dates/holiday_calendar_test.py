@@ -86,9 +86,15 @@ class HolidayCalendarTest(tf.test.TestCase, parameterized.TestCase):
       "testcase_name": "as_numpy_array",
       "holidays": np.array(["2020-01-01", "2020-12-25", "2021-01-01"],
                            dtype=np.datetime64),
+  }, {
+      "testcase_name": "as_date_tensors",
+      "holidays": [(2020, 1, 1), (2020, 12, 25), (2021, 1, 1)],
+      "convert_to_date_tensor": True,  # Can't do this in parameter definition.
   })
   @test_both_impls
-  def test_providing_holidays(self, holidays):
+  def test_providing_holidays(self, holidays, convert_to_date_tensor=False):
+    if convert_to_date_tensor:
+      holidays = dates.convert_to_date_tensor(holidays)
     cal = self.impl(
         weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY, holidays=holidays)
     date_tensor = dates.from_tuples([(2020, 1, 1), (2020, 5, 1), (2020, 12, 25),
@@ -234,6 +240,47 @@ class HolidayCalendarTest(tf.test.TestCase, parameterized.TestCase):
     actual = cal.is_business_day(date_tensor)
     self.assertEqual(tf.bool, actual.dtype)
     self.assertAllEqual(expected, actual)
+
+  def test_bounded_impl_near_boundaries(self):
+    cal = bounded_holiday_calendar.BoundedHolidayCalendar(
+        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
+        start_year=2017,
+        end_year=2022)
+
+    def assert_roll_raises(roll_convention, date):
+      with self.assertRaises(tf.errors.InvalidArgumentError):
+        self.evaluate(cal.roll_to_business_day(date, roll_convention).year())
+
+    def assert_rolls_to(roll_convention, date, expected_date):
+      rolled = cal.roll_to_business_day(date, roll_convention)
+      self.assertAllEqual(rolled.ordinal(), expected_date.ordinal())
+
+    date = dates.from_tuples([(2022, 12, 31)])  # Saturday
+    preceding = dates.from_tuples([(2022, 12, 30)])
+    with self.subTest("following_upper_bound"):
+      assert_roll_raises(dates.BusinessDayConvention.FOLLOWING, date)
+    with self.subTest("preceding_upper_bound"):
+      assert_rolls_to(dates.BusinessDayConvention.PRECEDING, date, preceding)
+    with self.subTest("modified_following_upper_bound"):
+      assert_rolls_to(dates.BusinessDayConvention.MODIFIED_FOLLOWING,
+                      date, preceding)
+    with self.subTest("modified_preceding_upper_bound"):
+      assert_rolls_to(dates.BusinessDayConvention.MODIFIED_PRECEDING,
+                      date, preceding)
+
+    date = dates.from_tuples([(2017, 1, 1)])  # Sunday
+    following = dates.from_tuples([(2017, 1, 2)])
+
+    with self.subTest("following_lower_bound"):
+      assert_rolls_to(dates.BusinessDayConvention.FOLLOWING, date, following)
+    with self.subTest("preceding_lower_bound"):
+      assert_roll_raises(dates.BusinessDayConvention.PRECEDING, date)
+    with self.subTest("modified_following_lower_bound"):
+      assert_rolls_to(dates.BusinessDayConvention.MODIFIED_FOLLOWING,
+                      date, following)
+    with self.subTest("modified_preceding_lower_bound"):
+      assert_rolls_to(dates.BusinessDayConvention.MODIFIED_PRECEDING,
+                      date, following)
 
 if __name__ == "__main__":
   tf.test.main()
