@@ -44,6 +44,7 @@ FixedCouponSpecs = rates_common.FixedCouponSpecs
 FloatCouponSpecs = rates_common.FloatCouponSpecs
 AverageType = rates_common.AverageType
 InterestRateModelType = rates_common.InterestRateModelType
+ratecurve_from_discounting_function = rate_curve.ratecurve_from_discounting_function
 
 _allowed_symbols = [
     'Bond',
@@ -63,6 +64,7 @@ _allowed_symbols = [
     'FixedCouponSpecs',
     'FloatCouponSpecs',
     'AverageType',
+    'ratecurve_from_discounting_function',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

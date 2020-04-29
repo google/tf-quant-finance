@@ -100,7 +100,7 @@ class RateCurve(object):
     times = self._get_time(idates)
     return tf.math.exp(-self.get_rates(idates) * times)
 
-  def get_forward_rate(self, start_date, maturity_date, daycount_fraction):
+  def get_forward_rate(self, start_date, maturity_date, daycount_fraction=None):
     """Returns the simply accrued forward rate between [start_dt, maturity_dt].
 
     Args:
@@ -109,16 +109,24 @@ class RateCurve(object):
       maturity_date: A `DateTensor` specifying the end of the accrual period
         for the forward rate. The shape of `maturity_date` must be the same
         as the shape of the `DateTensor` `start_date`.
-      daycount_fraction: A `Tensor` of real dtype specifying the a time between
-        `start_date` and `maturity_date` in years computed using the forward
-        rate's day count basis. The shape of the input should be the same as
-        that if `start_date` and `maturity_date`.
+      daycount_fraction: An optional `Tensor` of real dtype specifying the
+        time between `start_date` and `maturity_date` in years computed using
+        the forward rate's day count basis. The shape of the input should be
+        the same as that of `start_date` and `maturity_date`.
+        Default value: `None`, in which case the daycount fraction is computed
+        using `ACTUAL_365` convention.
 
     Returns:
       A real tensor of same shape as the inputs containing the simply compounded
       forward rate.
     """
-
+    start_date = dates.convert_to_date_tensor(start_date)
+    maturity_date = dates.convert_to_date_tensor(maturity_date)
+    if daycount_fraction is None:
+      daycount_fraction = dates.daycounts.actual_365_fixed(
+          start_date=start_date, end_date=maturity_date, dtype=self._dtype)
+    else:
+      daycount_fraction = tf.convert_to_tensor(daycount_fraction, self._dtype)
     dfstart = self.get_discount_factor(start_date)
     dfmaturity = self.get_discount_factor(maturity_date)
     return (dfstart / dfmaturity - 1.) / daycount_fraction
@@ -134,3 +142,40 @@ class RateCurve(object):
         start_date=self._valuation_date,
         end_date=desired_dates,
         dtype=self._dtype)
+
+
+class RateCurveFromDiscountingFunction(RateCurve):
+  """Implements `RateCurve` class using discounting function."""
+
+  def __init__(self, maturity_dates, rates, valuation_date, discount_fn,
+               dtype):
+    super(RateCurveFromDiscountingFunction, self).__init__(
+        maturity_dates, rates, valuation_date, dtype=dtype)
+    self._discount_fn = discount_fn
+
+  def get_discount_factor(self, interpolation_dates):
+    return self._discount_fn(interpolation_dates)
+
+
+def ratecurve_from_discounting_function(discount_fn, dtype=None):
+  """Returns `RateCurve` object using the supplied function for discounting.
+
+  Args:
+    discount_fn: A python callable which takes a `DateTensor` as an input and
+      returns the corresponding discount factor as an output.
+    dtype: `tf.Dtype`. Optional input specifying the dtype of the real tensors
+      and ops.
+
+  Returns:
+    An object of class `RateCurveFromDiscountingFunction` which uses the
+    supplied function for discounting.
+  """
+
+  dtype = dtype or tf.constant(0.0).dtype
+  pseudo_maturity_dates = dates.convert_to_date_tensor([(2020, 1, 1)])
+  pseudo_rates = tf.convert_to_tensor([0.0], dtype=dtype)
+  pseudo_valuation_date = dates.convert_to_date_tensor((2020, 1, 1))
+
+  return RateCurveFromDiscountingFunction(
+      pseudo_maturity_dates, pseudo_rates, pseudo_valuation_date,
+      discount_fn, dtype)

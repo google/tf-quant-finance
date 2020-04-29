@@ -309,3 +309,18 @@ py_test(
         # tensorflow dep,
     ],
 )
+
+py_test(
+    name = "rate_curve_test",
+    size = "small",
+    timeout = "moderate",
+    srcs = ["rate_curve_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":rate_curve",
+        "//tf_quant_finance",
+        "//tf_quant_finance/experimental/dates",
+        # test util,
+        # tensorflow dep,
+    ],
+)
