@@ -191,7 +191,8 @@ class FixedCashflowStream(CashflowStream):
 
       self._setup(coupon_spec)
 
-  def price(self, valuation_date, market, model=None, name=None):
+  def price(self, valuation_date, market, model=None, pricing_context=None,
+            name=None):
     """Returns the present value of the stream on the valuation date.
 
     Args:
@@ -200,6 +201,7 @@ class FixedCashflowStream(CashflowStream):
       market: A namedtuple of type `InterestRateMarket` which contains the
         necessary information for pricing the cashflow stream.
       model: Reserved for future use.
+      pricing_context: Additional context relevant for pricing.
       name: Python str. The name to give to the ops created by this function.
         Default value: `None` which maps to 'price'.
 
@@ -208,7 +210,7 @@ class FixedCashflowStream(CashflowStream):
       based on the input market data.
     """
 
-    del model
+    del model, pricing_context
     name = name or (self._name + '_price')
     with tf.name_scope(name):
       discount_curve = market.discount_curve
@@ -401,7 +403,8 @@ class FloatingCashflowStream(CashflowStream):
 
       self._setup(coupon_spec)
 
-  def price(self, valuation_date, market, model=None, name=None):
+  def price(self, valuation_date, market, model=None, pricing_context=None,
+            name=None):
     """Returns the present value of the stream on the valuation date.
 
     Args:
@@ -410,6 +413,7 @@ class FloatingCashflowStream(CashflowStream):
       market: A namedtuple of type `InterestRateMarket` which contains the
         necessary information for pricing the cashflow stream.
       model: Reserved for future use.
+      pricing_context: Additional context relevant for pricing.
       name: Python str. The name to give to the ops created by this function.
         Default value: `None` which maps to 'price'.
 
@@ -418,7 +422,7 @@ class FloatingCashflowStream(CashflowStream):
       contract based on the input market data.
     """
 
-    del model
+    del model, pricing_context
     name = name or (self._name + '_price')
     with tf.name_scope(name):
       discount_curve = market.discount_curve

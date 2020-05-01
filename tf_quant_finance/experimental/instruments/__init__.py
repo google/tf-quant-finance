@@ -17,6 +17,7 @@
 from tf_quant_finance.experimental.instruments import bond
 from tf_quant_finance.experimental.instruments import cap_floor
 from tf_quant_finance.experimental.instruments import cashflow_stream
+from tf_quant_finance.experimental.instruments import cms_swap
 from tf_quant_finance.experimental.instruments import eurodollar_futures
 from tf_quant_finance.experimental.instruments import floating_rate_note
 from tf_quant_finance.experimental.instruments import forward_rate_agreement
@@ -39,9 +40,12 @@ InterestRateMarket = rates_common.InterestRateMarket
 DayCountConvention = rates_common.DayCountConvention
 FixedCashflowStream = cashflow_stream.FixedCashflowStream
 FloatingCashflowStream = cashflow_stream.FloatingCashflowStream
+CMSCashflowStream = cms_swap.CMSCashflowStream
+CMSSwap = cms_swap.CMSSwap
 InterestRateSwap = interest_rate_swap.InterestRateSwap
 FixedCouponSpecs = rates_common.FixedCouponSpecs
 FloatCouponSpecs = rates_common.FloatCouponSpecs
+CMSCouponSpecs = rates_common.CMSCouponSpecs
 AverageType = rates_common.AverageType
 InterestRateModelType = rates_common.InterestRateModelType
 ratecurve_from_discounting_function = rate_curve.ratecurve_from_discounting_function
@@ -49,6 +53,9 @@ ratecurve_from_discounting_function = rate_curve.ratecurve_from_discounting_func
 _allowed_symbols = [
     'Bond',
     'CapAndFloor',
+    'CMSCashflowStream',
+    'CMSCouponSpecs',
+    'CMSSwap',
     'EurodollarFutures',
     'FloatingRateNote',
     'ForwardRateAgreement',

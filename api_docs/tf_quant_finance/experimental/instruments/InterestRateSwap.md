@@ -243,7 +243,7 @@ Returns the par swap rate for the swap.
 
 ```python
 price(
-    valuation_date, market, model=None
+    valuation_date, market, model=None, pricing_context=None, name=None
 )
 ```
 
@@ -258,6 +258,9 @@ Returns the present value of the instrument on the valuation date.
 * <b>`market`</b>: A namedtuple of type `InterestRateMarket` which contains the
   necessary information for pricing the interest rate swap.
 * <b>`model`</b>: Reserved for future use.
+* <b>`pricing_context`</b>: Additional context relevant for pricing.
+* <b>`name`</b>: Python str. The name to give to the ops created by this function.
+  Default value: `None` which maps to 'price'.
 
 
 #### Returns:

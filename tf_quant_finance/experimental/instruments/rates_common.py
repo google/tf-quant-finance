@@ -31,10 +31,12 @@ InterestRateMarket = collections.namedtuple(
         'discount_curve',
         # Scalar of real dtype containing the past fixing of libor rate
         'libor_rate',
+        # Scalar of real dtype containing the past fixing of swap rate
+        'swap_rate',
         # Instance of class VolatiltyCube. Market implied black volatilities.
         'volatility_curve'
     ])
-InterestRateMarket.__new__.__defaults__ = (None, None, None, None)
+InterestRateMarket.__new__.__defaults__ = (None, None, None, None, None)
 
 # TODO(b/151954834): Change to `attrs` or `dataclasses`
 FixedCouponSpecs = collections.namedtuple(
@@ -81,10 +83,38 @@ FloatCouponSpecs = collections.namedtuple(
         # Scalar of type `BusinessDayConvention` specifying how dates are rolled
         # if they fall on holidays
         'businessday_rule',
-        # Scalar of real dtype
+        # Scalar of real dtype specifying the fixed basis (in decimals)
         'coupon_basis',
         # Scalar of real dtype
         'coupon_multiplier'
+    ])
+
+CMSCouponSpecs = collections.namedtuple(
+    'CMSCouponSpecs',
+    [
+        # Scalar of type `dates.PeriodTensor` specifying the frequency of
+        # the cashflow payments
+        'coupon_frequency',
+        # Scalar `dates.PeriodTensor` specifying the tenor of the CMS rate
+        'tenor',
+        # Scalar of type `instruments.FloatCouponSpecs` specifying the floating
+        # leg of the CMS
+        'float_leg',
+        # Scalar of type `instruments.FixedCouponSpecs` specifying the fixed
+        # leg of the CMS
+        'fixed_leg',
+        # Scalar of real dtype specifying the notional for the payments
+        'notional',
+        # Scalar of type `DayCountConvention` specifying the daycount
+        # convention of the underlying rate
+        'daycount_convention',
+        # Scalar of real dtype specifying the fixed basis (in decimals)
+        'coupon_basis',
+        # Scalar of real dtype
+        'coupon_multiplier',
+        # Scalar of type `BusinessDayConvention` specifying how dates are rolled
+        # if they fall on holidays
+        'businessday_rule'
     ])
 
 
@@ -111,12 +141,26 @@ class DayCountConvention(enum.Enum):
 
 class RateIndexType(enum.Enum):
   """Interest rate indexes."""
+  # LIBOR rates
   LIBOR = 1
+
+  # Swap rates
+  SWAP = 2
 
 
 class InterestRateModelType(enum.Enum):
   """Models for pricing interest rate derivatives."""
+  # Lognormal model for the underlying rate
   LOGNORMAL_RATE = 1
+
+  # Normal model for the underlying rate
+  NORMAL_RATE = 2
+
+  # Smile consistent replication (lognormal vols)
+  LOGNORMAL_SMILE_CONSISTENT_REPLICATION = 3
+
+  # Smile consistent replication (normal vols)
+  NORMAL_SMILE_CONSISTENT_REPLICATION = 4
 
 
 def elapsed_time(date_1, date_2, dtype):
@@ -148,8 +192,13 @@ def get_rate_index(market,
                    currency=None,
                    dtype=None):
   """Return the relevant rate from the market data."""
-  del rate_type, currency
-  rate = market.libor_rate or tf.zeros(valuation_date.shape, dtype=dtype)
+  del currency
+  if rate_type == RateIndexType.LIBOR:
+    rate = market.libor_rate or tf.zeros(valuation_date.shape, dtype=dtype)
+  elif rate_type == RateIndexType.SWAP:
+    rate = market.swap_rate or tf.zeros(valuation_date.shape, dtype=dtype)
+  else:
+    raise ValueError('Unrecognized rate type.')
   return rate
 
 

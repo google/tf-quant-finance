@@ -1,0 +1,151 @@
+<div itemscope itemtype="http://developers.google.com/ReferenceObject">
+<meta itemprop="name" content="tf_quant_finance.experimental.instruments.CMSCashflowStream" />
+<meta itemprop="path" content="Stable" />
+<meta itemprop="property" content="__init__"/>
+<meta itemprop="property" content="price"/>
+</div>
+
+# tf_quant_finance.experimental.instruments.CMSCashflowStream
+
+<!-- Insert buttons and diff -->
+
+<table class="tfo-notebook-buttons tfo-api" align="left">
+</table>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/instruments/cms_swap.py">View source</a>
+
+
+
+Represents a batch of cashflows indexed to a CMS rate.
+
+```python
+tf_quant_finance.experimental.instruments.CMSCashflowStream(
+    start_date, end_date, coupon_spec, dtype=None, name=None
+)
+```
+
+
+
+<!-- Placeholder for "Used in" -->
+
+#### Example:
+```python
+import numpy as np
+import tensorflow as tf
+import tf_quant_finance as tff
+dates = tff.experimental.dates
+instruments = tff.experimental.instruments
+
+start_date = dates.convert_to_date_tensor([(2021, 1, 1)])
+maturity_date = dates.convert_to_date_tensor([(2023, 1, 1)])
+valuation_date = dates.convert_to_date_tensor([(2021, 1, 1)])
+p3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
+p6m = dates.periods.PeriodTensor(6, dates.PeriodType.MONTH)
+p1y = dates.periods.PeriodTensor(1, dates.PeriodType.YEAR)
+fix_spec = instruments.FixedCouponSpecs(
+    coupon_frequency=p6m,
+    currency='usd',
+    notional=1.,
+    coupon_rate=0.0,  # Not needed
+    daycount_convention=instruments.DayCountConvention.ACTUAL_365,
+    businessday_rule=dates.BusinessDayConvention.NONE)
+flt_spec = instruments.FloatCouponSpecs(
+    coupon_frequency=p3m,
+    reference_rate_term=p3m,
+    reset_frequency=p3m,
+    currency='usd',
+    notional=1.,
+    businessday_rule=dates.BusinessDayConvention.NONE,
+    coupon_basis=0.,
+    coupon_multiplier=1.,
+    daycount_convention=instruments.DayCountConvention.ACTUAL_365)
+cms_spec = instruments.CMSCouponSpecs(
+    coupon_frequency=p3m,
+    tenor=p1y,
+    float_leg=flt_spec,
+    fixed_leg=fix_spec,
+    notional=1.,
+    coupon_basis=0.,
+    coupon_multiplier=1.,
+    businessday_rule=None,
+    daycount_convention=instruments.DayCountConvention.ACTUAL_365)
+
+cms = instruments.CMSCashflowStream(
+    start_date, maturity_date, [cms_spec], dtype=dtype)
+
+curve_dates = valuation_date + dates.periods.PeriodTensor(
+    [0, 1, 2, 3, 5], dates.PeriodType.YEAR)
+reference_curve = instruments.RateCurve(
+    curve_dates,
+    np.array([
+        0.02, 0.02, 0.025, 0.03, 0.035
+    ], dtype=np.float64),
+    valuation_date=valuation_date,
+    dtype=np.float64)
+market = instruments.InterestRateMarket(
+    reference_curve=reference_curve, discount_curve=reference_curve)
+
+price = cms.price(valuation_date, market)
+# Expected result: 55512.6295434207
+```
+
+#### Args:
+
+
+* <b>`start_date`</b>: A rank 1 `DateTensor` specifying the starting dates of the
+  accrual of the first coupon of the cashflow stream. The shape of the
+  input correspond to the numbercof streams being created.
+* <b>`end_date`</b>: A rank 1 `DateTensor` specifying the end dates for accrual of
+  the last coupon in each cashflow stream. The shape of the input should
+  be the same as that of `start_date`.
+* <b>`coupon_spec`</b>: A list of `CMSCouponSpecs` specifying the details of the
+  coupon payment for the cashflow stream. The length of the list should
+  be the same as the number of streams being created. Each coupon within
+  the list must have the same daycount_convention and businessday_rule.
+* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the real variables or ops
+  either supplied to the FloatingCashflowStream object or created by the
+  object.
+  Default value: None which maps to the default dtype inferred by
+  TensorFlow.
+* <b>`name`</b>: Python str. The name to give to the ops created by this class.
+  Default value: `None` which maps to 'floating_cashflow_stream'.
+
+## Methods
+
+<h3 id="price"><code>price</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/instruments/cms_swap.py">View source</a>
+
+```python
+price(
+    valuation_date, market, model=None, pricing_context=None, name=None
+)
+```
+
+Returns the present value of the stream on the valuation date.
+
+
+#### Args:
+
+
+* <b>`valuation_date`</b>: A scalar `DateTensor` specifying the date on which
+  valuation is being desired.
+* <b>`market`</b>: A namedtuple of type `InterestRateMarket` which contains the
+  necessary information for pricing the cashflow stream.
+* <b>`model`</b>: An optional input of type `InterestRateModelType` to specify which
+  model to use for pricing.
+  Default value: `None` in which case `NORMAL_RATE` model is used.
+* <b>`pricing_context`</b>: An optional input to provide additional parameters (such
+  as model parameters) relevant for pricing.
+* <b>`name`</b>: Python str. The name to give to the ops created by this function.
+  Default value: `None` which maps to 'price'.
+
+
+#### Returns:
+
+A Rank 1 `Tensor` of real type containing the modeled price of each stream
+contract based on the input market data.
+
+
+
+

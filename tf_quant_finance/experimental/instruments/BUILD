@@ -12,6 +12,7 @@ py_library(
         ":bond",
         ":cap_floor",
         ":cashflow_stream",
+        ":cms_swap",
         ":eurodollar_futures",
         ":floating_rate_note",
         ":forward_rate_agreement",
@@ -301,6 +302,35 @@ py_test(
     timeout = "moderate",
     srcs = ["floating_rate_note_test.py"],
     python_version = "PY3",
+    deps = [
+        ":instruments",
+        "//tf_quant_finance",
+        "//tf_quant_finance/experimental/dates",
+        # test util,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "cms_swap",
+    srcs = [
+        "cms_swap.py",
+    ],
+    srcs_version = "PY3",
+    deps = [
+        # attr dep,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "cms_swap_test",
+    size = "small",
+    timeout = "long",
+    srcs = ["cms_swap_test.py"],
+    python_version = "PY3",
+    shard_count = 10,
     deps = [
         ":instruments",
         "//tf_quant_finance",

@@ -9,6 +9,9 @@ For open-source contributions the docs will be updated automatically.
 <meta itemprop="name" content="tf_quant_finance.experimental.instruments.InterestRateModelType" />
 <meta itemprop="path" content="Stable" />
 <meta itemprop="property" content="LOGNORMAL_RATE"/>
+<meta itemprop="property" content="LOGNORMAL_SMILE_CONSISTENT_REPLICATION"/>
+<meta itemprop="property" content="NORMAL_RATE"/>
+<meta itemprop="property" content="NORMAL_SMILE_CONSISTENT_REPLICATION"/>
 </div>
 
 # tf_quant_finance.experimental.instruments.InterestRateModelType
@@ -30,3 +33,6 @@ Models for pricing interest rate derivatives.
 ## Class Variables
 
 * `LOGNORMAL_RATE` <a id="LOGNORMAL_RATE"></a>
+* `LOGNORMAL_SMILE_CONSISTENT_REPLICATION` <a id="LOGNORMAL_SMILE_CONSISTENT_REPLICATION"></a>
+* `NORMAL_RATE` <a id="NORMAL_RATE"></a>
+* `NORMAL_SMILE_CONSISTENT_REPLICATION` <a id="NORMAL_SMILE_CONSISTENT_REPLICATION"></a>

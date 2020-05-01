@@ -213,7 +213,8 @@ class InterestRateSwap:
       self._receive_leg = self._setup_leg(receive_leg)
       self._is_payer = isinstance(self._pay_leg, cs.FixedCashflowStream)
 
-  def price(self, valuation_date, market, model=None):
+  def price(self, valuation_date, market, model=None, pricing_context=None,
+            name=None):
     """Returns the present value of the instrument on the valuation date.
 
     Args:
@@ -222,16 +223,23 @@ class InterestRateSwap:
       market: A namedtuple of type `InterestRateMarket` which contains the
         necessary information for pricing the interest rate swap.
       model: Reserved for future use.
+      pricing_context: Additional context relevant for pricing.
+      name: Python str. The name to give to the ops created by this function.
+        Default value: `None` which maps to 'price'.
 
     Returns:
       A Rank 1 `Tensor` of real type containing the modeled price of each IRS
       contract based on the input market data.
     """
 
-    valuation_date = dates.convert_to_date_tensor(valuation_date)
-    pay_cf = self._pay_leg.price(valuation_date, market, model)
-    receive_cf = self._receive_leg.price(valuation_date, market, model)
-    return receive_cf - pay_cf
+    name = name or (self._name + '_price')
+    with tf.name_scope(name):
+      valuation_date = dates.convert_to_date_tensor(valuation_date)
+      pay_cf = self._pay_leg.price(valuation_date, market, model,
+                                   pricing_context)
+      receive_cf = self._receive_leg.price(valuation_date, market, model,
+                                           pricing_context)
+      return receive_cf - pay_cf
 
   def annuity(self, valuation_date, market, model=None):
     """Returns the annuity of each swap on the vauation date."""

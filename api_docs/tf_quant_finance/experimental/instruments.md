@@ -31,6 +31,12 @@ Instruments.
 
 [`class Bond`](../../tf_quant_finance/experimental/instruments/Bond.md): Represents a batch of fixed coupon bonds.
 
+[`class CMSCashflowStream`](../../tf_quant_finance/experimental/instruments/CMSCashflowStream.md): Represents a batch of cashflows indexed to a CMS rate.
+
+[`class CMSCouponSpecs`](../../tf_quant_finance/experimental/instruments/CMSCouponSpecs.md): CMSCouponSpecs(coupon_frequency, tenor, float_leg, fixed_leg, notional, daycount_convention, coupon_basis, coupon_multiplier, businessday_rule)
+
+[`class CMSSwap`](../../tf_quant_finance/experimental/instruments/CMSSwap.md): Represents a batch of CMS Swaps.
+
 [`class CapAndFloor`](../../tf_quant_finance/experimental/instruments/CapAndFloor.md): Represents a batch of Caps and/or Floors.
 
 [`class DayCountConvention`](../../tf_quant_finance/experimental/instruments/DayCountConvention.md): Day count conventions for accrual.
@@ -49,7 +55,7 @@ Instruments.
 
 [`class ForwardRateAgreement`](../../tf_quant_finance/experimental/instruments/ForwardRateAgreement.md): Represents a batch of Forward Rate Agreements (FRA).
 
-[`class InterestRateMarket`](../../tf_quant_finance/experimental/instruments/InterestRateMarket.md): InterestRateMarket(reference_curve, discount_curve, libor_rate, volatility_curve)
+[`class InterestRateMarket`](../../tf_quant_finance/experimental/instruments/InterestRateMarket.md): InterestRateMarket(reference_curve, discount_curve, libor_rate, swap_rate, volatility_curve)
 
 [`class InterestRateModelType`](../../tf_quant_finance/experimental/instruments/InterestRateModelType.md): Models for pricing interest rate derivatives.
 
