@@ -29,6 +29,7 @@ from tf_quant_finance.experimental.dates.date_tensor import DateTensor
 from tf_quant_finance.experimental.dates.date_tensor import from_datetimes
 from tf_quant_finance.experimental.dates.date_tensor import from_np_datetimes
 from tf_quant_finance.experimental.dates.date_tensor import from_ordinals
+from tf_quant_finance.experimental.dates.date_tensor import from_tensor
 from tf_quant_finance.experimental.dates.date_tensor import from_tuples
 from tf_quant_finance.experimental.dates.date_tensor import from_year_month_day
 from tf_quant_finance.experimental.dates.date_tensor import random_dates
@@ -56,6 +57,7 @@ _allowed_symbols = [
     'from_datetimes',
     'from_np_datetimes',
     'from_ordinals',
+    'from_tensor',
     'from_tuples',
     'from_year_month_day',
     'date_utils',

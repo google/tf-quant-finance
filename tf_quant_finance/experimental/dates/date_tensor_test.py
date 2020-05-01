@@ -105,6 +105,21 @@ class DateTensorTest(tf.test.TestCase):
     date_tensor = dateslib.from_ordinals(o)
     self.assert_date_tensor_components(date_tensor, y, m, d, o)
 
+  def test_to_and_from_tensor(self):
+    dates = [[[2020, 1, 21], [2021, 2, 22], [2022, 3, 23]],
+             [[2023, 4, 24], [2024, 5, 25], [2025, 6, 26]]]
+    date_tensor = dateslib.from_tensor(dates)
+
+    with self.subTest('from_tensor'):
+      self.assert_date_tensor_components(
+          date_tensor,
+          [[2020, 2021, 2022], [2023, 2024, 2025]],
+          [[1, 2, 3], [4, 5, 6]],
+          [[21, 22, 23], [24, 25, 26]])
+
+    with self.subTest('to_tensor'):
+      self.assertAllEqual(dates, date_tensor.to_tensor())
+
   def test_validation(self):
     not_raised = []
     for y, m, d in test_data.invalid_dates:
@@ -239,7 +254,7 @@ class DateTensorTest(tf.test.TestCase):
 
   def assert_date_tensor_components(self, date_tensor, expected_years_np,
                                     expected_months_np, expected_days_np,
-                                    expected_ordinals_np):
+                                    expected_ordinals_np=None):
     """Asserts given DateTensor has expected components."""
     self.assertAllEqual(expected_years_np, date_tensor.year())
     self.assertAllEqual(expected_months_np, date_tensor.month())

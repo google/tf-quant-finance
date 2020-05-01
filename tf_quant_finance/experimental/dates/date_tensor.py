@@ -116,7 +116,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     #### Example
 
     ```python
-    dates = DateTensor([(2019, 1, 25), (2020, 3, 2)])
+    dates = from_tuples([(2019, 1, 25), (2020, 3, 2)])
     dates.day()  # [25, 2]
     ```
     """
@@ -130,7 +130,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dates = DateTensor([(2019, 1, 25), (2020, 3, 2)])
+    dates = from_tuples([(2019, 1, 25), (2020, 3, 2)])
     dates.days_of_week()  # [5, 1]
     ```
     """
@@ -143,7 +143,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dates = DateTensor([(2019, 1, 25), (2020, 3, 2)])
+    dates = from_tuples([(2019, 1, 25), (2020, 3, 2)])
     dates.month()  # [1, 3]
     ```
     """
@@ -154,7 +154,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dates = DateTensor([(2019, 1, 25), (2020, 3, 2)])
+    dates = from_tuples([(2019, 1, 25), (2020, 3, 2)])
     dates.year()  # [2019, 2020]
     ```
     """
@@ -167,11 +167,33 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dates = DateTensor([(2019, 3, 25), (1, 1, 1)])
+    dates = from_tuples([(2019, 3, 25), (1, 1, 1)])
     dates.ordinal()  # [737143, 1]
     ```
     """
     return self._ordinals
+
+  def to_tensor(self):
+    """Packs the dates into a single Tensor.
+
+    The Tensor has shape `date_tensor.shape() + (3,)`, where the last dimension
+    represents years, months and days, in this order.
+
+    This can be convenient when the dates are the final result of a computation
+    in the graph mode: a `tf.function` can return `date_tensor.to_tensor()`, or,
+    if one uses `tf.compat.v1.Session`, they can call
+    `session.run(date_tensor.to_tensor())`.
+
+    #### Example
+    ```python
+    dates = from_tuples([(2019, 1, 25), (2020, 3, 2)])
+    dates.to_tensor()  # tf.Tensor with contents [[2019, 1, 25], [2020, 3, 2]].
+    ```
+
+    Returns:
+      A Tensor of shape `date_tensor.shape() + (3,)`.
+    """
+    return tf.stack((self.year(), self.month(), self.day()), axis=-1)
 
   def day_of_year(self):
     """Calculates the number of days since the beginning of the year.
@@ -182,7 +204,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dt = dates.from_tuples([(2019, 1, 25), (2020, 3, 2)])
+    dt = from_tuples([(2019, 1, 25), (2020, 3, 2)])
     dt.day_of_year()  # [25, 62]
     ```
     """
@@ -210,11 +232,11 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dates = DateTensor([(2020, 1, 25), (2020, 3, 2)])
-    target = DateTensor([(2020, 3, 5)])
+    dates = from_tuples([(2020, 1, 25), (2020, 3, 2)])
+    target = from_tuples([(2020, 3, 5)])
     dates.days_until(target)  # [40, 3]
 
-    targets = DateTensor([(2020, 2, 5), (2020, 3, 5)])
+    targets = from_tuples([(2020, 2, 5), (2020, 3, 5)])
     dates.days_until(targets)  # [11, 3]
     ```
     """
@@ -229,7 +251,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dates = DateTensor([(2020, 2, 25), (2020, 3, 2)])
+    dates = from_tuples([(2020, 2, 25), (2020, 3, 2)])
     dates.period_length_in_days(period.month())  # [29, 31]
 
     periods = periods.months([1, 2])
@@ -272,7 +294,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dates = DateTensor([(2020, 2, 25), (2020, 3, 31)])
+    dates = from_tuples([(2020, 2, 25), (2020, 3, 31)])
     new_dates = dates + period.month()
     # DateTensor([(2020, 3, 25), (2020, 4, 30)])
 
@@ -604,6 +626,34 @@ def from_ordinals(ordinals, validate=True):
   with tf.compat.v1.control_dependencies(control_deps):
     years, months, days = date_utils.ordinal_to_year_month_day(ordinals)
     return DateTensor(ordinals, years, months, days)
+
+
+def from_tensor(tensor, validate=True):
+  """Creates DateTensor from a single tensor containing years, months and days.
+
+  This function is complementary to DateTensor.to_tensor: given an int32 Tensor
+  of shape (..., 3), creates a DateTensor. The three elements of the last
+  dimension are years, months and days, in this order.
+
+  Args:
+    tensor: Tensor of type int32 and shape (..., 3).
+    validate: Whether to validate the dates.
+
+  Returns:
+    DateTensor object.
+
+  #### Example
+  ```python
+
+  tensor = tf.constant([[2015, 4, 15], [2017, 12, 30]], dtype=tf.int32)
+  date_tensor = from_tensor(tensor)
+  ```
+  """
+  tensor = tf.convert_to_tensor(tensor, dtype=tf.int32)
+  return from_year_month_day(year=tensor[..., 0],
+                             month=tensor[..., 1],
+                             day=tensor[..., 2],
+                             validate=validate)
 
 
 # TODO(b/149829315): Move this to a better location once dates module has
