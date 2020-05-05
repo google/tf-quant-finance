@@ -139,6 +139,31 @@ py_test(
     ],
 )
 
+py_library(
+    name = "custom_loops",
+    srcs = ["custom_loops.py"],
+    srcs_version = "PY3",
+    deps = [
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "custom_loops_test",
+    size = "small",
+    srcs = ["custom_loops_test.py"],
+    python_version = "PY3",
+    shard_count = 3,
+    deps = [
+        ":custom_loops",
+        # test util,
+        # absl/testing:parameterized dep,
+        # numpy dep,
+        # tensorflow dep,
+        # xla_cpu_jit xla dep,
+    ],
+)
+
 filegroup(
     name = "docs",
     srcs = [
