@@ -1,0 +1,2 @@
+attrs >= 18.2.0
+tff-nightly

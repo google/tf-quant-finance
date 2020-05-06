@@ -1,11 +1,29 @@
 # Lint as: python3
-"""A binary to generates random options data.
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""A binary to generate random options data.
 
 Note that Google Cloud SDK, storage client library and tf_quant_finance should
 already be installed (see `requirements.txt`). In case the generated data needs
 to be written to GCS, authentication steps must be performed prior to running
 this script as described at:
 https://cloud.google.com/storage/docs/reference/libraries
+
+This script is meant to be run from inside a docker container
+(see the Dockerfile). If running outside a container, the PYTHONPATH must be
+modified to include the parent folder so the modules in the `common` folder are
+visible. For example, `PYTHONPATH=$PYTHONPATH:/my/path/option_pricing_basic/`.
 """
 
 import datetime
@@ -16,6 +34,7 @@ from typing import Tuple, List
 from absl import app
 from absl import flags
 from absl import logging
+from common import datatypes
 import dataclasses
 import numpy as np
 import tf_quant_finance as tff
@@ -48,37 +67,16 @@ flags.DEFINE_integer('random_seed', None,
                      'An optional random seed to control the data generation.')
 
 
-@dataclasses.dataclass
-class OptionBatch:
-  """Represents a batch of options."""
-
-  strike: np.ndarray  # float64 array.
-  call_put_flag: np.ndarray  # Boolean array. True if Call, False otherwise.
-  expiry_date: np.ndarray  # int array containing date ordinals.
-  trade_id: np.ndarray  # int32 array.
-  underlier_id: np.ndarray  # int32 array. The identifier for the underlying.
-
-
-@dataclasses.dataclass
-class OptionMarketData:
-  """Represents market data to be used to price the batch of options."""
-
-  underlier_id: np.ndarray  # int32 array. The identifier for an underlying.
-  spot: np.ndarray  # double array. The spot price of the underlier.
-  volatility: np.ndarray  # double array. The volatility of the underlier.
-  rate: np.ndarray  # double array. The risk free rate.
-
-
 def is_gcs_path(gcs_path: str) -> bool:
   return gcs_path.startswith('gs://')
 
 
-def generate_market_data(num_underliers: int) -> OptionMarketData:
+def generate_market_data(num_underliers: int) -> datatypes.OptionMarketData:
   spots = np.random.rand(num_underliers) * 900 + 100  # Between 100.0 and 1000.0
   volatility = np.random.rand(
       num_underliers) * 0.57 + 0.03  # Between 3% and 60%
   rate = np.random.rand(num_underliers) * 0.15  # Between 0% and 15%.
-  return OptionMarketData(
+  return datatypes.OptionMarketData(
       underlier_id=np.arange(num_underliers),
       spot=spots,
       volatility=volatility,
@@ -86,8 +84,8 @@ def generate_market_data(num_underliers: int) -> OptionMarketData:
 
 
 def generate_portfolio(num_instruments: int,
-                       market_data: OptionMarketData,
-                       start_instrument_id: int = 0) -> OptionBatch:
+                       market_data: datatypes.OptionMarketData,
+                       start_instrument_id: int = 0) -> datatypes.OptionBatch:
   """Generates a random portfolio."""
   underlier_ids = np.random.choice(
       market_data.underlier_id, size=num_instruments)
@@ -101,7 +99,7 @@ def generate_portfolio(num_instruments: int,
   underlier_spots = market_data.spot[underlier_ids]
   strikes = underlier_spots * strike_multipliers
   trade_ids = np.arange(num_instruments) + start_instrument_id
-  return OptionBatch(
+  return datatypes.OptionBatch(
       strike=strikes,
       call_put_flag=call_put_flags,
       expiry_date=expiry_date,
