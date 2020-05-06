@@ -6,11 +6,11 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2020-05-06.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.experimental.dates.from_ordinals" />
+<meta itemprop="name" content="tf_quant_finance.experimental.dates.from_tensor" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.experimental.dates.from_ordinals
+# tf_quant_finance.experimental.dates.from_tensor
 
 <!-- Insert buttons and diff -->
 
@@ -21,11 +21,11 @@ For open-source contributions the docs will be updated automatically.
 
 
 
-Creates DateTensor from tensors of ordinals.
+Creates DateTensor from a single tensor containing years, months and days.
 
 ```python
-tf_quant_finance.experimental.dates.from_ordinals(
-    ordinals, validate=True
+tf_quant_finance.experimental.dates.from_tensor(
+    tensor, validate=True
 )
 ```
 
@@ -33,12 +33,14 @@ tf_quant_finance.experimental.dates.from_ordinals(
 
 <!-- Placeholder for "Used in" -->
 
+This function is complementary to DateTensor.to_tensor: given an int32 Tensor
+of shape (..., 3), creates a DateTensor. The three elements of the last
+dimension are years, months and days, in this order.
 
 #### Args:
 
 
-* <b>`ordinals`</b>: Tensor of type int32. Each value is number of days since 1 Jan
-  0001. 1 Jan 0001 has `ordinal=1`.
+* <b>`tensor`</b>: Tensor of type int32 and shape (..., 3).
 * <b>`validate`</b>: Whether to validate the dates.
 
 
@@ -50,10 +52,6 @@ DateTensor object.
 #### Example
 ```python
 
-ordinals = tf.constant([
-  735703,  # 2015-4-12
-  736693   # 2017-12-30
-], dtype=tf.int32)
-
-date_tensor = from_ordinals(ordinals)
+tensor = tf.constant([[2015, 4, 15], [2017, 12, 30]], dtype=tf.int32)
+date_tensor = from_tensor(tensor)
 ```
