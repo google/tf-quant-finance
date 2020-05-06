@@ -58,7 +58,6 @@ class InterestRateSwap:
   import tf_quant_finance as tff
   dates = tff.experimental.dates
   instruments = tff.experimental.instruments
-  rc = tff.experimental.instruments.rates_common
 
   dtype = np.float64
   start_date = dates.convert_to_date_tensor([(2020, 2, 8)])
@@ -69,15 +68,15 @@ class InterestRateSwap:
   fix_spec = instruments.FixedCouponSpecs(
               coupon_frequency=period_6m, currency='usd',
               notional=1., coupon_rate=0.03134,
-              daycount_convention=rc.DayCountConvention.ACTUAL_365,
+              daycount_convention=instruments.DayCountConvention.ACTUAL_365,
               businessday_rule=dates.BusinessDayConvention.NONE)
 
   flt_spec = instruments.FloatCouponSpecs(
-              coupon_frequency=periods_3m, reference_rate_term=periods_3m,
-              reset_frequency=periods_3m, currency='usd', notional=1.,
+              coupon_frequency=period_3m, reference_rate_term=period_3m,
+              reset_frequency=period_3m, currency='usd', notional=1.,
               businessday_rule=dates.BusinessDayConvention.NONE,
               coupon_basis=0., coupon_multiplier=1.,
-              daycount_convention=rc.DayCountConvention.ACTUAL_365)
+              daycount_convention=instruments.DayCountConvention.ACTUAL_365)
 
   swap = instruments.InterestRateSwap([(2020,2,2)], [(2023,2,2)], [fix_spec],
                                       [flt_spec], dtype=np.float64)
@@ -90,6 +89,7 @@ class InterestRateSwap:
         0.02834814, 0.03077457, 0.03113739, 0.03130794, 0.03160892,
         0.03213901, 0.03257991
         ], dtype=dtype),
+      valuation_date=valuation_date,
       dtype=dtype)
   market = instruments.InterestRateMarket(
       reference_curve=reference_curve, discount_curve=reference_curve)
@@ -108,7 +108,6 @@ class InterestRateSwap:
   import tf_quant_finance as tff
   dates = tff.experimental.dates
   instruments = tff.experimental.instruments
-  rc = tff.experimental.instruments.rates_common
 
   dtype = np.float64
   notional = 1.0
@@ -143,6 +142,7 @@ class InterestRateSwap:
         0.02834814, 0.03077457, 0.03113739, 0.03130794, 0.03160892,
         0.03213901, 0.03257991
         ], dtype=dtype),
+        valuation_date=valuation_date,
       dtype=dtype)
   market = instruments.InterestRateMarket(
       reference_curve=reference_curve, discount_curve=reference_curve)
