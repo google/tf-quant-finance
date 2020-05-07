@@ -1,6 +1,5 @@
-# Builds an image for the container that receives job requests and downloads
+# Builds an image for a container that receives job requests and downloads
 # portfolio and market data files from GCS.
-
 
 # To build the image, it is necessary that docker build be invoked from the
 # parent folder of this file (i.e. from inside option_pricing_basic.).
@@ -16,7 +15,7 @@ COPY ./downloader/requirements.txt /app/
 
 RUN pip install -r /app/requirements.txt
 
-COPY ./app /app/
+COPY ./downloader/app /app/
 COPY ./common /app/common/
 
 VOLUME ["/var/tmp/downloads", "/var/tmp/ipc"]
