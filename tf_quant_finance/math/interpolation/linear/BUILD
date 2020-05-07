@@ -9,6 +9,7 @@ py_library(
     srcs = ["__init__.py"],
     deps = [
         ":linear_interpolation",
+        ":linear_interpolation_v2",
         # tensorflow dep,
     ],
 )
@@ -16,6 +17,16 @@ py_library(
 py_library(
     name = "linear_interpolation",
     srcs = ["linear_interpolation.py"],
+    deps = [
+        "//tf_quant_finance/math:piecewise",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "linear_interpolation_v2",
+    srcs = ["linear_interpolation_v2.py"],
     deps = [
         "//tf_quant_finance/math:piecewise",
         # numpy dep,
