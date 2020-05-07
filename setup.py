@@ -44,19 +44,21 @@ if '--nightly' in sys.argv:
   sys.argv.remove('--nightly')
   project_name = 'tff-nightly'
   release_suffix = datetime.datetime.utcnow().strftime('.dev%Y%m%d')
+  tfp_package = 'tfp-nightly'
 else:
   project_name = 'tf-quant-finance'
   # The suffix should be replaced with 'aN', 'bN', or 'rcN' (note: no dots) for
   # respective alpha releases, beta releases, and release candidates. And it
   # should be cleared, i.e. set to '', for stable releases (c.f. PEP 440).
   release_suffix = '.dev19'
+  tfp_package = 'tensorflow-probability >= 0.8.0'
 
 __version__ = '.'.join([major_version, minor_version, patch_version])
 if release_suffix:
   __version__ += release_suffix
 
 REQUIRED_PACKAGES = [
-    'attrs >= 18.2.0', 'tensorflow-probability >= 0.8.0', 'numpy >= 1.16.0'
+    'attrs >= 18.2.0', tfp_package, 'numpy >= 1.16.0'
 ]
 
 
