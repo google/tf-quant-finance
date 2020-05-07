@@ -16,8 +16,8 @@ COPY ./data_generator/requirements_nodeps.txt /app/
 
 # Splitting of requirements into two pieces is necessary to ensure that the
 # tfp-nightly gets installed with TFF.
-RUN pip install -r /tmp/requirements.txt
-RUN pip install --no-deps -r /tmp/requirements_nodeps.txt
+RUN pip install -r /app/requirements.txt
+RUN pip install --no-deps -r /app/requirements_nodeps.txt
 
 COPY ./data_generator/*.py /app/
 COPY ./common /app/common/
