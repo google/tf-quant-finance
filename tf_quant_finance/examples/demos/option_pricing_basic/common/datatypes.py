@@ -37,3 +37,11 @@ class OptionMarketData:
   spot: np.ndarray  # double array. The spot price of the underlier.
   volatility: np.ndarray  # double array. The volatility of the underlier.
   rate: np.ndarray  # double array. The risk free rate.
+
+
+@dataclasses.dataclass
+class ComputeData:
+  """Carries a compute request from the downloader to the calculator."""
+
+  market_data_path: str  # Path to the market data file to use.
+  portfolio_path: str  # Path to the portfolio file to compute.

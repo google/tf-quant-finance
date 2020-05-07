@@ -7,8 +7,6 @@ This binary does two main things:
   market data files to be processed.
 2. It downloads those file and queues it for downstream processing.
 
-# TODO: implement queueing.
-
 An example call using curl
 curl --header "Content-Type: application/json" --request POST \
   --data '{"market-data-file": "gs://BUCKET_NAME/market_data_file_name", \
@@ -22,22 +20,40 @@ import time
 from typing import Dict, List, Tuple, Union
 
 from absl import logging
+from common import datatypes
 import dataclasses
 import flask
+import zmq
 
 from google.cloud import storage
 
 app = flask.Flask(__name__)
 
-DOWNLOAD_FILES_LOC = (os.environ.get('APP_DOWNLOAD_FILES_LOC') or
-                      '/var/tmp/app_downloads')
+DOWNLOAD_FILES_LOC = '/var/tmp/downloads'
 
+# Communicates with the container doing the calculations at IPC_PATH + IPC_NAME.
+# To use shared memory, IPC_PATH can be changed to /dev/shm (and enabling it in
+# docker run).
+IPC_PATH = '/var/tmp/ipc'
+IPC_NAME = 'jobs'
+
+# Port at which it receives requests.
 PORT = os.environ.get('PORT') or 8080
 
 if not path.exists(DOWNLOAD_FILES_LOC):
   os.makedirs(DOWNLOAD_FILES_LOC)
 
+if not path.exists(IPC_PATH):
+  os.makedirs(IPC_PATH)
+
 logging.set_stderrthreshold('info')
+
+# Initialize the IPC socket.
+context = zmq.Context()
+sender = context.socket(zmq.PUSH)
+channel = 'ipc://' + path.join(IPC_PATH, IPC_NAME)
+logging.info('IPC requests will be sent to %s', channel)
+sender.bind(channel)
 
 
 @dataclasses.dataclass
@@ -138,12 +154,18 @@ def _make_response(status, message):
 
 @app.route('/jobreq', methods=['POST'])
 def process_request():
+  """Processes incoming job requests."""
   request_data = flask.request.get_json()
   request = JobRequest.from_dict(request_data)
   err = request.download_if_needed()
   if err:
     return _make_response('Error', err), 400
   else:
+    # Send work to the compute process.
+    sender.send_pyobj(
+        datatypes.ComputeData(
+            market_data_path=request.market_data_local_path(),
+            portfolio_path=request.portfolio_local_path()))
     return _make_response('OK', ''), 201
 
 

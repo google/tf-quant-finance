@@ -1,17 +1,25 @@
 # Builds an image for the container that receives job requests and downloads
 # portfolio and market data files from GCS.
 
+
+# To build the image, it is necessary that docker build be invoked from the
+# parent folder of this file (i.e. from inside option_pricing_basic.).
 # Example container execution command:
-# docker build -t downloader .
-# docker run --name <ContainerName> -p <HostPort>:8080 \
-# -v <LocalServiceAccountKeyFilePath>:/tmp/google_app_creds -it downloader
+# $ docker build -f ./downloader/Dockerfile -t downloader .
+# $ docker run --name download-app \
+#   -v <PathToTheKeyFileFolder>:/tmp/google_app_creds \
+#   -v /var/tmp:/var/tmp -p 8080:8080 -it downloader
 
 FROM python:3
 
-COPY requirements.txt /tmp/
-RUN pip install -r /tmp/requirements.txt
+COPY ./downloader/requirements.txt /app/
 
-COPY ./app /app
+RUN pip install -r /app/requirements.txt
+
+COPY ./app /app/
+COPY ./common /app/common/
+
+VOLUME ["/var/tmp/downloads", "/var/tmp/ipc"]
 
 # Set this so the gcs client API can use the credentials.
 # User has to ensure that the keyfile is called keyfile.json and the path
