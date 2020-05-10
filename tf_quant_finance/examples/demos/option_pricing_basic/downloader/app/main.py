@@ -1,4 +1,17 @@
 # Lint as: python3
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Script to handle file processing requests and queuing work.
 
 This binary does two main things:
@@ -19,7 +32,6 @@ from os import path
 import time
 from typing import Dict, List, Tuple, Union
 
-from absl import logging
 from common import datatypes
 import dataclasses
 import flask
@@ -29,7 +41,7 @@ from google.cloud import storage
 
 app = flask.Flask(__name__)
 
-DOWNLOAD_FILES_LOC = '/var/tmp/downloads'
+DOWNLOAD_BASE_PATH = '/var/tmp/downloads'
 
 # Communicates with the container doing the calculations at IPC_PATH + IPC_NAME.
 # To use shared memory, IPC_PATH can be changed to /dev/shm (and enabling it in
@@ -40,20 +52,27 @@ IPC_NAME = 'jobs'
 # Port at which it receives requests.
 PORT = os.environ.get('PORT') or 8080
 
-if not path.exists(DOWNLOAD_FILES_LOC):
-  os.makedirs(DOWNLOAD_FILES_LOC)
+app.logger.setLevel('INFO')
+app.logger.info(f'Downloaded files will be saved at {DOWNLOAD_BASE_PATH}')
+
+if not path.exists(DOWNLOAD_BASE_PATH):
+  os.makedirs(DOWNLOAD_BASE_PATH)
 
 if not path.exists(IPC_PATH):
   os.makedirs(IPC_PATH)
 
-logging.set_stderrthreshold('info')
 
 # Initialize the IPC socket.
-context = zmq.Context()
-sender = context.socket(zmq.PUSH)
-channel = 'ipc://' + path.join(IPC_PATH, IPC_NAME)
-logging.info('IPC requests will be sent to %s', channel)
-sender.bind(channel)
+def init_socket():
+  context = zmq.Context()
+  sender = context.socket(zmq.PUSH)
+  channel = 'ipc://' + path.join(IPC_PATH, IPC_NAME)
+  app.logger.info(f'Pricer requests will be sent at {channel}')
+  sender.bind(channel)
+  return sender
+
+
+SENDER = init_socket()
 
 
 @dataclasses.dataclass
@@ -62,22 +81,27 @@ class JobRequest:
 
   Note that all underscores in field names are replaced by dashes in the JSON.
   """
-  portfolio_file: str  # Full GCS path (with gs:// prefix) to portfolio file.
-  market_data_file: str  # Full GCS path (with gs:// prefix) to market data.
-  force_refresh: bool = False  # Whether to force download of the files even if
-                               # they exist locally.
+  # Full GCS path (with gs:// prefix) to portfolio file.
+  portfolio_file: str
+  # Full GCS path (with gs:// prefix) to market data.
+  market_data_file: str
+  # Whether to force download of the files even if they exist locally.
+  force_refresh: bool = False
 
   @classmethod
   def from_dict(cls, data: Dict[str, Union[str, bool]]) -> 'JobRequest':
     del cls
-    return JobRequest(portfolio_file=data.get('portfolio-file', ''),
-                      market_data_file=data.get('market-data-file', ''),
-                      force_refresh=data.get('force-refresh', False))
+    return JobRequest(
+        portfolio_file=data.get('portfolio-file', ''),
+        market_data_file=data.get('market-data-file', ''),
+        force_refresh=data.get('force-refresh', False))
 
   def to_dict(self) -> Dict[str, Union[str, bool]]:
-    return {'portfolio-file': self.portfolio_file,
-            'market-data-file': self.market_data_file,
-            'force-refresh': self.force_refresh}
+    return {
+        'portfolio-file': self.portfolio_file,
+        'market-data-file': self.market_data_file,
+        'force-refresh': self.force_refresh
+    }
 
   def validate(self) -> Tuple[bool, str]:
     """Validates the data in the request."""
@@ -95,7 +119,7 @@ class JobRequest:
     return self._local_path_from_gcs_path(self.market_data_file)
 
   def portfolio_local_path(self) -> str:
-    return self._local_path_from_gcs_path(self.market_data_file)
+    return self._local_path_from_gcs_path(self.portfolio_file)
 
   def market_data_exists_locally(self) -> bool:
     return path.exists(self.market_data_local_path())
@@ -108,8 +132,7 @@ class JobRequest:
     is_valid, err_message = self.validate()
     if not is_valid:
       return err_message
-    if (not self.force_refresh and
-        self.market_data_exists_locally() and
+    if (not self.force_refresh and self.market_data_exists_locally() and
         self.portfolio_exists_locally()):
       return ''
     market_data_path = self.market_data_local_path()
@@ -140,12 +163,11 @@ class JobRequest:
     start_time = time.time()
     target_blob.download_to_filename(local_file)
     end_time = time.time()
-    logging.info('Downloaded %s to %s in %f seconds.',
-                 gcs_file, local_file, end_time - start_time)
+    app.logger.info('Downloaded %s to %s in %f seconds.', gcs_file, local_file,
+                    end_time - start_time)
 
   def _local_path_from_gcs_path(self, gcs_path: str) -> str:
-    return path.join(DOWNLOAD_FILES_LOC,
-                     gcs_path.replace('gs://', ''))
+    return path.join(DOWNLOAD_BASE_PATH, gcs_path.replace('gs://', ''))
 
 
 def _make_response(status, message):
@@ -153,19 +175,21 @@ def _make_response(status, message):
 
 
 @app.route('/jobreq', methods=['POST'])
-def process_request():
-  """Processes incoming job requests."""
+def forward_request():
+  """Forwards incoming job requests to the pricer."""
   request_data = flask.request.get_json()
-  request = JobRequest.from_dict(request_data)
-  err = request.download_if_needed()
+  job_request = JobRequest.from_dict(request_data)
+  err = job_request.download_if_needed()
   if err:
     return _make_response('Error', err), 400
   else:
     # Send work to the compute process.
-    sender.send_pyobj(
-        datatypes.ComputeData(
-            market_data_path=request.market_data_local_path(),
-            portfolio_path=request.portfolio_local_path()))
+    app.logger.info('Forwarding compute request to backend.')
+    data_obj = datatypes.ComputeData(
+        market_data_path=job_request.market_data_local_path(),
+        portfolio_path=job_request.portfolio_local_path())
+    SENDER.send_pyobj(data_obj)
+    app.logger.info('Sent request to backend.')
     return _make_response('OK', ''), 201
 
 
@@ -175,4 +199,4 @@ def is_alive():
 
 
 if __name__ == '__main__':
-  app.run(debug=True, host='0.0.0.0', port=PORT)
+  app.run(debug=False, host='0.0.0.0', port=PORT)
