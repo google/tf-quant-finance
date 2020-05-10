@@ -136,3 +136,5 @@ def neumann(boundary_normal_derivative_fn):
     return None, 1, boundary_normal_derivative_fn(t, x)
 
   return fn
+
+__all__ = ["dirichlet", "neumann"]

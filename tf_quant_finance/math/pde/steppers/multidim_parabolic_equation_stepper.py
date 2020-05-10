@@ -205,7 +205,7 @@ def multidim_parabolic_equation_step(
     as`values_grid` and represents an approximate solution of the equation after
     one iteration.
 
-  ### References:
+  #### References:
   [1] Tinne Haentjens, Karek J. in't Hout. ADI finite difference schemes
   for the Heston-Hull-White PDE. https://arxiv.org/abs/1111.4087
   """
@@ -726,3 +726,6 @@ def _trim_boundaries(tensor, from_dim, shifts=None):
     if shifts is not None:
       slice_begin[i] += shifts[i - from_dim]
   return tf.slice(tensor, slice_begin, slice_size)
+
+
+__all__ = ['multidim_parabolic_equation_step']

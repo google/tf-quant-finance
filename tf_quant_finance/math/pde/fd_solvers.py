@@ -80,7 +80,7 @@ def solve_backward(start_time,
   The mapping between the arguments of this method and the above
   equation are described in the Args section below.
 
-  ### Example. European call option pricing.
+  #### Example. European call option pricing.
   ```python
   import tensorflow.compat.v2 as tf
   import tf_quant_finance as tff
@@ -736,3 +736,6 @@ def _time_direction_forward_fn(t, dt, end_time):
 def _time_direction_backward_fn(t, dt, end_time):
   t_next = tf.math.maximum(end_time, t - dt)
   return t_next <= end_time, t_next
+
+
+__all__ = ['solve_backward', 'solve_forward']

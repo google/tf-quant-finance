@@ -35,21 +35,24 @@ def option_price(*,
   #### Example
 
   ```python
-  forwards = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-  strikes = np.array([3.0, 3.0, 3.0, 3.0, 3.0])
-  volatilities = np.array([0.0001, 102.0, 2.0, 0.1, 0.4])
-  expiries = 1.0
-  computed_prices = option_price(
-      volatilities,
-      strikes,
-      expiries,
-      forwards=forwards,
-      dtype=tf.float64)
+    # Price a batch of 5 vanilla call options.
+    volatilities = np.array([0.0001, 102.0, 2.0, 0.1, 0.4])
+    forwards = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    # Strikes will automatically be broadcasted to shape [5].
+    strikes = np.array([3.0])
+    # Expiries will be broadcast to shape [5], i.e. each option has strike=3
+    # and expiry = 1.
+    expiries = 1.0
+    computed_prices = tff.black_scholes.option_price(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        forwards=forwards)
   # Expected print output of computed prices:
   # [ 0.          2.          2.04806848  1.00020297  2.07303131]
   ```
 
-  ## References:
+  #### References:
   [1] Hull, John C., Options, Futures and Other Derivatives. Pearson, 2018.
   [2] Wikipedia contributors. Black-Scholes model. Available at:
     https://en.wikipedia.org/w/index.php?title=Black%E2%80%93Scholes_model
@@ -166,10 +169,9 @@ def option_price(*,
       spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
       forwards = spots * tf.exp(cost_of_carries * expiries)
 
-    total_var = volatilities * tf.math.sqrt(expiries)
-    d1 = (tf.math.log(forwards / strikes)
-          + total_var * total_var / 2) / total_var
-    d2 = d1 - total_var
+    sqrt_var = volatilities * tf.math.sqrt(expiries)
+    d1 = (tf.math.log(forwards / strikes) + sqrt_var * sqrt_var / 2) / sqrt_var
+    d2 = d1 - sqrt_var
     undiscounted_calls = forwards * _ncdf(d1) - strikes * _ncdf(d2)
     if is_call_options is None:
       return discount_factors * undiscounted_calls
@@ -180,6 +182,8 @@ def option_price(*,
                                        undiscounted_puts)
 
 
+# TODO(b/154806390): Binary price signature should be the same as that of the
+# vanilla price.
 def binary_price(*,
                  volatilities,
                  strikes,
@@ -198,24 +202,27 @@ def binary_price(*,
   probability that the asset will end up higher (resp. lower) than the
   strike price at expiry.
 
-  ## Example
+  #### Example
 
   ```python
-  forwards = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-  strikes = np.array([3.0, 3.0, 3.0, 3.0, 3.0])
-  volatilities = np.array([0.0001, 102.0, 2.0, 0.1, 0.4])
-  expiries = 1.0
-  prices = binary_price(
-      volatilities,
-      strikes,
-      expiries,
-      forwards=forwards,
-      dtype=tf.float64)
+    # Price a batch of 5 binary call options.
+    volatilities = np.array([0.0001, 102.0, 2.0, 0.1, 0.4])
+    forwards = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    # Strikes will automatically be broadcasted to shape [5].
+    strikes = np.array([3.0])
+    # Expiries will be broadcast to shape [5], i.e. each option has strike=3
+    # and expiry = 1.
+    expiries = 1.0
+    computed_prices = tff.black_scholes.binary_price(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        forwards=forwards)
   # Expected print output of prices:
   # [0.         0.         0.15865525 0.99764937 0.85927418]
   ```
 
-  ## References:
+  #### References:
 
   [1] Hull, John C., Options, Futures and Other Derivatives. Pearson, 2018.
   [2] Wikipedia contributors. Binary option. Available at:

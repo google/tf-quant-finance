@@ -15,14 +15,77 @@
 """Cashflow streams."""
 
 import tensorflow.compat.v2 as tf
-from tf_quant_finance.experimental import dates
+from tf_quant_finance import datetime as dates
 from tf_quant_finance.experimental.instruments import rates_common as rc
 
 
-class FixedCashflowStream:
+class CashflowStream:
+  """Base class for Fixed or Floating cashflow streams."""
+
+  def _generate_schedule(self, cpn_frequency, roll_convention):
+    """Method to generate coupon dates.
+
+    Args:
+      cpn_frequency: A `PeriodTensor` specifying the frequency of coupon
+        payments.
+      roll_convention: Scalar of type `BusinessDayConvention` specifying how
+        dates are rolled if they fall on holidays.
+
+    Returns:
+      A tuple containing the generated date schedule and a boolean `Tensor`
+      of the same shape as the schedule specifying whether the coupons are
+      regular coupons.
+    """
+    if (self._first_coupon_date is None) and (self._penultimate_coupon_date is
+                                              None):
+      cpn_dates = dates.PeriodicSchedule(
+          start_date=self._start_date,
+          end_date=self._end_date,
+          tenor=cpn_frequency,
+          roll_convention=roll_convention).dates()
+      is_regular_cpn = tf.constant(
+          True, dtype=bool, shape=cpn_dates[:, :-1].shape)
+    elif self._first_coupon_date is not None:
+      cpn_dates = dates.PeriodicSchedule(
+          start_date=self._first_coupon_date,
+          end_date=self._end_date,
+          tenor=cpn_frequency,
+          roll_convention=roll_convention).dates()
+      cpn_dates = dates.DateTensor.concat(
+          [self._start_date.expand_dims(-1), cpn_dates], axis=1)
+
+      is_irregular_cpn = tf.constant(
+          False, dtype=bool, shape=self._start_date.shape)
+      is_regular_cpn = tf.concat([
+          tf.expand_dims(is_irregular_cpn, axis=-1),
+          tf.constant(True, dtype=bool, shape=cpn_dates[:, :-2].shape)
+      ],
+                                 axis=1)
+    else:
+      cpn_dates = dates.PeriodicSchedule(
+          start_date=self._start_date,
+          end_date=self._penultimate_coupon_date,
+          backward=True,
+          tenor=cpn_frequency,
+          roll_convention=roll_convention).dates()
+      cpn_dates = dates.DateTensor.concat(
+          [cpn_dates, self._end_date.expand_dims(-1)], axis=1)
+
+      is_irregular_cpn = tf.constant(
+          False, dtype=bool, shape=self._end_date.shape)
+      is_regular_cpn = tf.concat([
+          tf.constant(True, dtype=bool, shape=cpn_dates[:, :-2].shape),
+          tf.expand_dims(is_irregular_cpn, axis=-1)
+      ],
+                                 axis=1)
+
+    return cpn_dates, is_regular_cpn
+
+
+class FixedCashflowStream(CashflowStream):
   """Represents a batch of fixed stream of cashflows.
 
-  ### Example:
+  #### Example:
   The following example illustrates the construction of an FixedCashflowStream
   and calculating its present value.
 
@@ -30,7 +93,7 @@ class FixedCashflowStream:
   import numpy as np
   import tensorflow as tf
   import tf_quant_finance as tff
-  dates = tff.experimental.dates
+  dates = tff.datetime
   instruments = tff.experimental.instruments
   rc = tff.experimental.instruments.rates_common
 
@@ -38,7 +101,7 @@ class FixedCashflowStream:
   start_date = dates.convert_to_date_tensor([(2020, 2, 2)])
   maturity_date = dates.convert_to_date_tensor([(2023, 2, 2)])
   valuation_date = dates.convert_to_date_tensor([(2020, 2, 2)])
-  period_6m = dates.periods.PeriodTensor(6, dates.PeriodType.MONTH)
+  period_6m = dates.months(6)
   fix_spec = instruments.FixedCouponSpecs(
               coupon_frequency=period_6m, currency='usd',
               notional=1.e6, coupon_rate=0.03134,
@@ -48,8 +111,7 @@ class FixedCashflowStream:
   cf_stream = instruments.FixedCashflowStream([start_date], [maturity_date],
                                               [fix_spec], dtype=dtype)
 
-  curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 3, 5, 7, 10, 30], dates.PeriodType.YEAR)
+  curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([
@@ -69,6 +131,8 @@ class FixedCashflowStream:
                start_date,
                end_date,
                coupon_spec,
+               first_coupon_date=None,
+               penultimate_coupon_date=None,
                dtype=None,
                name=None):
     """Initialize a batch of fixed cashflow streams.
@@ -80,10 +144,21 @@ class FixedCashflowStream:
       end_date: A rank 1 `DateTensor` specifying the end dates for accrual of
         the last coupon in each cashflow stream. The shape of the input should
         be the same as that of `start_date`.
-      coupon_spec: A list of `FixedCouponSpecs` specifying the details of the
-        coupon payment for the cashflow stream. The length of the list should
-        be the same as the number of streams being created. Each coupon within
-        the list must have the same daycount_convention and businessday_rule.
+      coupon_spec: A scalar or a list of `FixedCouponSpecs` specifying the
+        details of the coupon payment for the cashflow stream. If specified as
+        a list then the length of the list should be the same as the number of
+        streams being created and each coupon within the list must have the
+        same daycount_convention and businessday_rule. If specified as
+        a scalar, then the elements of the namedtuple must be of the same shape
+        as (or compatible to) the shape of `start_date`.
+      first_coupon_date: An optional rank 1 `DateTensor` specifying the payment
+        dates of the first coupon of the cashflow stream. Use this input for
+        cashflows with irregular first coupon.
+        Default value: None which implies regular first coupon.
+      penultimate_coupon_date: An optional rank 1 `DateTensor` specifying the
+        payment date of the penultimate (next to last) coupon of the cashflow
+        stream. Use this input for cashflows with irregular last coupon.
+        Default value: None which implies regular last coupon.
       dtype: `tf.Dtype`. If supplied the dtype for the real variables or ops
         either supplied to the FixedCashflowStream object or created by the
         object.
@@ -93,6 +168,7 @@ class FixedCashflowStream:
         Default value: `None` which maps to 'fixed_cashflow_stream'.
     """
 
+    super(FixedCashflowStream, self).__init__()
     self._name = name or 'fixed_cashflow_stream'
 
     with tf.name_scope(self._name):
@@ -100,9 +176,22 @@ class FixedCashflowStream:
       self._end_date = dates.convert_to_date_tensor(end_date)
       self._batch_size = self._start_date.shape[0]
       self._dtype = dtype
+      if first_coupon_date is None:
+        self._first_coupon_date = None
+      else:
+        self._first_coupon_date = dates.convert_to_date_tensor(
+            first_coupon_date)
+
+      if penultimate_coupon_date is None:
+        self._penultimate_coupon_date = None
+      else:
+        self._penultimate_coupon_date = dates.convert_to_date_tensor(
+            penultimate_coupon_date)
+
       self._setup(coupon_spec)
 
-  def price(self, valuation_date, market, model=None, name=None):
+  def price(self, valuation_date, market, model=None, pricing_context=None,
+            name=None):
     """Returns the present value of the stream on the valuation date.
 
     Args:
@@ -111,6 +200,7 @@ class FixedCashflowStream:
       market: A namedtuple of type `InterestRateMarket` which contains the
         necessary information for pricing the cashflow stream.
       model: Reserved for future use.
+      pricing_context: Additional context relevant for pricing.
       name: Python str. The name to give to the ops created by this function.
         Default value: `None` which maps to 'price'.
 
@@ -119,7 +209,7 @@ class FixedCashflowStream:
       based on the input market data.
     """
 
-    del model
+    del model, pricing_context
     name = name or (self._name + '_price')
     with tf.name_scope(name):
       discount_curve = market.discount_curve
@@ -130,7 +220,9 @@ class FixedCashflowStream:
       cashflow_pvs = self._notional * (
           future_cashflows * self._daycount_fractions * self._coupon_rate *
           discount_factors)
-      return tf.math.segment_sum(cashflow_pvs, self._contract_index)
+      return tf.math.reduce_sum(
+          tf.reshape(cashflow_pvs, (self._batch_size, self._num_cashflows)),
+          axis=1)
 
   @property
   def payment_dates(self):
@@ -148,47 +240,61 @@ class FixedCashflowStream:
   def fixed_rate(self):
     return self._fixed_rate
 
+  @property
+  def notional(self):
+    return self._notional
+
   def _setup(self, coupon_spec):
     """Setup tensors for efficient computations."""
 
-    cpn_frequency = dates.periods.PeriodTensor.stack(
-        [x.coupon_frequency for x in coupon_spec], axis=0)
-    cpn_dates = dates.PeriodicSchedule(
-        start_date=self._start_date,
-        end_date=self._end_date,
-        tenor=cpn_frequency,
-        roll_convention=coupon_spec[-1].businessday_rule).dates()
+    if isinstance(coupon_spec, list):
+      cpn_frequency = dates.PeriodTensor.stack(
+          [x.coupon_frequency for x in coupon_spec], axis=0)
+      businessday_rule = coupon_spec[-1].businessday_rule
+      notional = tf.convert_to_tensor([x.notional for x in coupon_spec],
+                                      dtype=self._dtype)
+      fixed_rate = tf.convert_to_tensor([x.coupon_rate for x in coupon_spec],
+                                        dtype=self._dtype)
+      daycount_convention = coupon_spec[-1].daycount_convention
+    else:
+      cpn_frequency = coupon_spec.coupon_frequency
+      businessday_rule = coupon_spec.businessday_rule
+      notional = tf.broadcast_to(
+          tf.convert_to_tensor(coupon_spec.notional, dtype=self._dtype),
+          self._start_date.shape)
+      fixed_rate = tf.broadcast_to(
+          tf.convert_to_tensor(coupon_spec.coupon_rate, dtype=self._dtype),
+          self._start_date.shape)
+      daycount_convention = coupon_spec.daycount_convention
+
+    cpn_dates, _ = self._generate_schedule(cpn_frequency, businessday_rule)
     payment_dates = cpn_dates[:, 1:]
-    notional = tf.expand_dims(
-        tf.convert_to_tensor([x.notional for x in coupon_spec],
-                             dtype=self._dtype),
-        axis=-1)
-    notional = tf.repeat(notional, payment_dates.shape.as_list()[-1], axis=-1)
+
+    notional = tf.repeat(notional, payment_dates.shape.as_list()[-1])
     daycount_fractions = rc.get_daycount_fraction(
         cpn_dates[:, :-1],
         cpn_dates[:, 1:],
-        coupon_spec[-1].daycount_convention,
+        daycount_convention,
         dtype=self._dtype)
-    fixed_rate = tf.convert_to_tensor([x.coupon_rate for x in coupon_spec],
-                                      dtype=self._dtype)
-    coupon_rate = tf.expand_dims(fixed_rate, axis=-1)
-    coupon_rate = tf.repeat(coupon_rate, payment_dates.shape.as_list()[-1],
-                            axis=-1)
-    contract_index = tf.repeat(tf.range(0, len(coupon_spec)),
-                               notional.shape.as_list()[-1])
 
+    coupon_rate = tf.expand_dims(fixed_rate, axis=-1)
+    coupon_rate = tf.repeat(coupon_rate, payment_dates.shape.as_list()[-1])
+    contract_index = tf.repeat(tf.range(0, self._batch_size),
+                               payment_dates.shape.as_list()[-1])
+
+    self._num_cashflows = payment_dates.shape.as_list()[-1]
     self._payment_dates = payment_dates.reshape([-1])
-    self._notional = tf.reshape(notional, [-1])
+    self._notional = notional
     self._daycount_fractions = tf.reshape(daycount_fractions, [-1])
-    self._coupon_rate = tf.reshape(coupon_rate, [-1])
+    self._coupon_rate = coupon_rate
     self._fixed_rate = tf.convert_to_tensor(fixed_rate, dtype=self._dtype)
     self._contract_index = contract_index
 
 
-class FloatingCashflowStream:
+class FloatingCashflowStream(CashflowStream):
   """Represents a batch of cashflows indexed to a floating rate.
 
-  ### Example:
+  #### Example:
   The following example illustrates the construction of an floating
   cashflow stream and calculating its present value.
 
@@ -196,7 +302,7 @@ class FloatingCashflowStream:
   import numpy as np
   import tensorflow as tf
   import tf_quant_finance as tff
-  dates = tff.experimental.dates
+  dates = tff.datetime
   instruments = tff.experimental.instruments
   rc = tff.experimental.instruments.rates_common
 
@@ -204,7 +310,7 @@ class FloatingCashflowStream:
   start_date = dates.convert_to_date_tensor([(2020, 2, 2)])
   maturity_date = dates.convert_to_date_tensor([(2023, 2, 2)])
   valuation_date = dates.convert_to_date_tensor([(2020, 2, 2)])
-  period_3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
+  period_3m = dates.months(3)
   flt_spec = instruments.FloatCouponSpecs(
               coupon_frequency=periods_3m, reference_rate_term=periods_3m,
               reset_frequency=periods_3m, currency='usd', notional=1.,
@@ -215,8 +321,7 @@ class FloatingCashflowStream:
   cf_stream = instruments.FloatingCashflowStream([start_date], [maturity_date],
                                                  [flt_spec], dtype=dtype)
 
-  curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 3, 5, 7, 10, 30], dates.PeriodType.YEAR)
+  curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([
@@ -236,6 +341,8 @@ class FloatingCashflowStream:
                start_date,
                end_date,
                coupon_spec,
+               first_coupon_date=None,
+               penultimate_coupon_date=None,
                dtype=None,
                name=None):
     """Initialize a batch of floating cashflow streams.
@@ -247,10 +354,21 @@ class FloatingCashflowStream:
       end_date: A rank 1 `DateTensor` specifying the end dates for accrual of
         the last coupon in each cashflow stream. The shape of the input should
         be the same as that of `start_date`.
-      coupon_spec: A list of `FloatCouponSpecs` specifying the details of the
-        coupon payment for the cashflow stream. The length of the list should
-        be the same as the number of streams being created. Each coupon within
-        the list must have the same daycount_convention and businessday_rule.
+      coupon_spec: A scalar or a list of `FloatCouponSpecs` specifying the
+        details of the coupon payment for the cashflow stream. If specified as
+        a list then the length of the list should be the same as the number of
+        streams being created and each coupon within the list must have the
+        same daycount_convention and businessday_rule. If specified as
+        a scalar, then the elements of the namedtuple must be of the same shape
+        as (or compatible to) the shape of `start_date`.
+      first_coupon_date: An optional rank 1 `DateTensor` specifying the payment
+        dates of the first coupon of the cashflow stream. Use this input for
+        cashflows with irregular first coupon.
+        Default value: None which implies regular first coupon.
+      penultimate_coupon_date: An optional rank 1 `DateTensor` specifying the
+        payment date of the penultimate (next to last) coupon of the cashflow
+        stream. Use this input for cashflows with irregular last coupon.
+        Default value: None which implies regular last coupon.
       dtype: `tf.Dtype`. If supplied the dtype for the real variables or ops
         either supplied to the FloatingCashflowStream object or created by the
         object.
@@ -260,17 +378,31 @@ class FloatingCashflowStream:
         Default value: `None` which maps to 'floating_cashflow_stream'.
     """
 
+    super(FloatingCashflowStream, self).__init__()
     self._name = name or 'floating_cashflow_stream'
 
     with tf.name_scope(self._name):
       self._start_date = dates.convert_to_date_tensor(start_date)
       self._end_date = dates.convert_to_date_tensor(end_date)
       self._batch_size = self._start_date.shape[0]
+      if first_coupon_date is None:
+        self._first_coupon_date = None
+      else:
+        self._first_coupon_date = dates.convert_to_date_tensor(
+            first_coupon_date)
+
+      if penultimate_coupon_date is None:
+        self._penultimate_coupon_date = None
+      else:
+        self._penultimate_coupon_date = dates.convert_to_date_tensor(
+            penultimate_coupon_date)
+
       self._dtype = dtype
 
       self._setup(coupon_spec)
 
-  def price(self, valuation_date, market, model=None, name=None):
+  def price(self, valuation_date, market, model=None, pricing_context=None,
+            name=None):
     """Returns the present value of the stream on the valuation date.
 
     Args:
@@ -279,6 +411,7 @@ class FloatingCashflowStream:
       market: A namedtuple of type `InterestRateMarket` which contains the
         necessary information for pricing the cashflow stream.
       model: Reserved for future use.
+      pricing_context: Additional context relevant for pricing.
       name: Python str. The name to give to the ops created by this function.
         Default value: `None` which maps to 'price'.
 
@@ -287,7 +420,7 @@ class FloatingCashflowStream:
       contract based on the input market data.
     """
 
-    del model
+    del model, pricing_context
     name = name or (self._name + '_price')
     with tf.name_scope(name):
       discount_curve = market.discount_curve
@@ -320,52 +453,71 @@ class FloatingCashflowStream:
 
       cashflow_pvs = self._notional * (
           self._daycount_fractions * coupon_rate * discount_factors)
-      return tf.math.segment_sum(cashflow_pvs, self._contract_index)
+      return tf.math.reduce_sum(
+          tf.reshape(cashflow_pvs, (self._batch_size, self._num_cashflows)),
+          axis=1)
+
+  @property
+  def notional(self):
+    return self._notional
 
   def _setup(self, coupon_spec):
     """Setup tensors for efficient computations."""
 
-    cpn_frequency = dates.periods.PeriodTensor.stack(
-        [x.coupon_frequency for x in coupon_spec], axis=0)
-    cpn_dates = dates.PeriodicSchedule(
-        start_date=self._start_date,
-        end_date=self._end_date,
-        tenor=cpn_frequency,
-        roll_convention=coupon_spec[-1].businessday_rule).dates()
-    accrual_start_dates = cpn_dates[:, :-1]
-    ref_term = dates.periods.PeriodTensor.stack(
-        [x.reference_rate_term for x in coupon_spec], axis=0)
+    if isinstance(coupon_spec, list):
+      cpn_frequency = dates.PeriodTensor.stack(
+          [x.coupon_frequency for x in coupon_spec], axis=0)
+      businessday_rule = coupon_spec[-1].businessday_rule
+      ref_term = dates.PeriodTensor.stack(
+          [x.reference_rate_term for x in coupon_spec], axis=0)
+      daycount_convention = coupon_spec[-1].daycount_convention
+      notional = tf.convert_to_tensor([x.notional for x in coupon_spec],
+                                      dtype=self._dtype)
+      coupon_basis = tf.convert_to_tensor(
+          [x.coupon_basis for x in coupon_spec], dtype=self._dtype)
+      coupon_multiplier = tf.convert_to_tensor(
+          [x.coupon_multiplier for x in coupon_spec], dtype=self._dtype)
+    else:
+      cpn_frequency = coupon_spec.coupon_frequency
+      businessday_rule = coupon_spec.businessday_rule
+      ref_term = coupon_spec.reference_rate_term
+      daycount_convention = coupon_spec.daycount_convention
+      notional = tf.broadcast_to(
+          tf.convert_to_tensor(coupon_spec.notional, dtype=self._dtype),
+          self._start_date.shape)
+      coupon_basis = tf.broadcast_to(
+          tf.convert_to_tensor(coupon_spec.coupon_basis, dtype=self._dtype),
+          self._start_date.shape)
+      coupon_multiplier = tf.broadcast_to(
+          tf.convert_to_tensor(coupon_spec.coupon_multiplier,
+                               dtype=self._dtype), self._start_date.shape)
 
-    accrual_end_dates = cpn_dates[:, :
-                                  -1] + dates.periods.PeriodTensor.expand_dims(
-                                      ref_term, axis=-1).broadcast_to(
-                                          accrual_start_dates.shape)
+    cpn_dates, is_regular_cpn = self._generate_schedule(cpn_frequency,
+                                                        businessday_rule)
+    accrual_start_dates = cpn_dates[:, :-1]
+
+    accrual_end_dates = cpn_dates[:, :-1] + ref_term.expand_dims(
+        axis=-1).broadcast_to(accrual_start_dates.shape)
     coupon_start_dates = cpn_dates[:, :-1]
     coupon_end_dates = cpn_dates[:, 1:]
+    accrual_end_dates = dates.DateTensor.where(is_regular_cpn,
+                                               accrual_end_dates,
+                                               coupon_end_dates)
     payment_dates = cpn_dates[:, 1:]
 
     daycount_fractions = rc.get_daycount_fraction(
         cpn_dates[:, :-1],
         cpn_dates[:, 1:],
-        coupon_spec[-1].daycount_convention,
+        daycount_convention,
         dtype=self._dtype)
 
-    notional = tf.repeat(
-        tf.convert_to_tensor([x.notional for x in coupon_spec],
-                             dtype=self._dtype),
-        payment_dates.shape.as_list()[-1])
-
-    coupon_basis = tf.repeat(tf.convert_to_tensor(
-        [x.coupon_basis for x in coupon_spec], dtype=self._dtype),
-                             payment_dates.shape.as_list()[-1])
-
-    coupon_multiplier = tf.repeat(tf.convert_to_tensor(
-        [x.coupon_multiplier for x in coupon_spec], dtype=self._dtype),
+    notional = tf.repeat(notional, payment_dates.shape.as_list()[-1])
+    coupon_basis = tf.repeat(coupon_basis, payment_dates.shape.as_list()[-1])
+    coupon_multiplier = tf.repeat(coupon_multiplier,
                                   payment_dates.shape.as_list()[-1])
 
-    contract_index = tf.repeat(
-        tf.range(0, len(coupon_spec)),
-        payment_dates.shape.as_list()[-1])
+    contract_index = tf.repeat(tf.range(0, self._batch_size),
+                               payment_dates.shape.as_list()[-1])
 
     self._num_cashflows = daycount_fractions.shape.as_list()[-1]
     self._coupon_start_dates = coupon_start_dates.reshape([-1])
@@ -378,3 +530,4 @@ class FloatingCashflowStream:
     self._coupon_basis = coupon_basis
     self._coupon_multiplier = coupon_multiplier
     self._contract_index = contract_index
+    self._is_regular_coupon = tf.reshape(is_regular_cpn, [-1])

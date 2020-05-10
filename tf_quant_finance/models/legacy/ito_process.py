@@ -28,7 +28,7 @@ taking values in `n x n` matrices. For a complete mathematical definition,
 including the regularity conditions that must be imposed on the coefficients
 `a(t, X)` and `b(t, X)`, see Ref [1].
 
-### References:
+#### References:
   [1]: Brent Oksendal. Stochastic Differential Equations: An Introduction with
     Applications. Springer. 2010.
 """
@@ -56,7 +56,7 @@ class ItoProcess(object):
   which may be found in Ref. [1]. The vector `dW_j` represents independent
   Brownian increments.
 
-  ### Example. 2-dimensional Ito process of the form
+  #### Example. 2-dimensional Ito process of the form
 
   ```none
   dX_1 = mu_1 * sqrt(t) dt + s11 * dW_1 + s12 * dW_2
@@ -113,7 +113,7 @@ class ItoProcess(object):
             grid_step=0.01,
             seed=42)
 
-  ### References
+  #### References
   [1]: Brent Oksendal. Stochastic Differential Equations: An Introduction with
     Applications. Springer. 2010.
   """

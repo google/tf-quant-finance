@@ -28,7 +28,7 @@ taking values in `n x n` matrices. For a complete mathematical definition,
 including the regularity conditions that must be imposed on the coefficients
 `a(t, X)` and `b(t, X)`, see Ref [1].
 
-### References:
+#### References:
   [1]: Brent Oksendal. Stochastic Differential Equations: An Introduction with
     Applications. Springer. 2010.
 """
@@ -56,7 +56,7 @@ class ItoProcess(object):
   For a simple and instructive example of the implementation of this interface,
   see `models.GenericItoProcess`.
 
-  ### References
+  #### References
   [1]: Brent Oksendal. Stochastic Differential Equations: An Introduction with
     Applications. Springer. 2010.
   """
@@ -211,7 +211,7 @@ class ItoProcess(object):
     For a simple instructive example of implementation of this method, see
     `models.GenericItoProcess.fd_solver_backward`.
 
-    # TODO(b/142309558): Complete documentation.
+    TODO(b/142309558): Complete documentation.
 
     Args:
       start_time: Real positive scalar `Tensor`. The start time of the grid.
@@ -358,7 +358,7 @@ class ItoProcess(object):
     For a simple instructive example of implementation of this method, see
     `models.GenericItoProcess.fd_solver_forward`.
 
-    # TODO(b/142309558): Complete documentation.
+    TODO(b/142309558): Complete documentation.
 
     Args:
       start_time: Real positive scalar `Tensor`. The start time of the grid.

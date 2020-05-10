@@ -336,7 +336,7 @@ def _make_black_objective_and_vega_func(prices, forwards, strikes, expiries,
   information necessary for finding the volatility implied by observed market
   prices for options with given terms using first order methods.
 
-  ### References
+  #### References
   [1] Hull, J., 2018. Options, Futures, and Other Derivatives. Harlow, England.
   Pearson. (p.358 - 361)
 

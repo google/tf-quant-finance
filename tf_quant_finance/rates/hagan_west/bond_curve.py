@@ -29,7 +29,7 @@ information.
 The algorithm implemented here is based on the Monotone Convex Interpolation
 method described by Hagan and West in Ref [1, 2].
 
-### References:
+#### References:
 
 [1]: Patrick Hagan & Graeme West. Interpolation Methods for Curve Construction.
   Applied Mathematical Finance. Vol 13, No. 2, pp 89-129. June 2006.
@@ -123,9 +123,9 @@ def bond_curve(bond_cashflows,
       the case of bond cashflows, it is an important consideration from a
       mathematical perspective. For the details of the stability and
       convergence of the scheme see the associated technical note.
-      # TODO(b/139052353): Write the technical note and add a reference here.
+      TODO(b/139052353): Write the technical note and add a reference here.
 
-  ### Example:
+  #### Example:
 
   The following example demonstrates the usage by building the implied curve
   from four coupon bearing bonds.
@@ -171,7 +171,7 @@ def bond_curve(bond_cashflows,
                              atol=1e-6)
   ```
 
-  ### References:
+  #### References:
 
   [1]: Patrick Hagan & Graeme West. Interpolation Methods for Curve
     Construction. Applied Mathematical Finance. Vol 13, No. 2, pp 89-129.

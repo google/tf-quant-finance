@@ -21,7 +21,7 @@ import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
-dates = tff.experimental.dates
+dates = tff.datetime
 instruments = tff.experimental.instruments
 
 
@@ -33,7 +33,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
       ('DoublePrecision', np.float64),
   )
   def test_fut_compounded(self, dtype):
-    cal = dates.HolidayCalendar2(weekend_mask=dates.WeekendMask.NONE)
+    cal = dates.create_holiday_calendar(weekend_mask=dates.WeekendMask.NONE)
 
     start_date = dates.convert_to_date_tensor([(2020, 5, 1)])
     end_date = dates.convert_to_date_tensor([(2020, 5, 31)])
@@ -45,8 +45,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
         averaging_type=instruments.AverageType.COMPOUNDING,
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 6], dates.PeriodType.MONTH)
+    curve_dates = valuation_date + dates.months([1, 2, 6])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.015], dtype=dtype),
@@ -62,7 +61,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
       ('DoublePrecision', np.float64),
   )
   def test_fut_averaged(self, dtype):
-    cal = dates.HolidayCalendar2(weekend_mask=dates.WeekendMask.NONE)
+    cal = dates.create_holiday_calendar(weekend_mask=dates.WeekendMask.NONE)
 
     start_date = dates.convert_to_date_tensor([(2020, 5, 1)])
     end_date = dates.convert_to_date_tensor([(2020, 5, 31)])
@@ -74,8 +73,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
         holiday_calendar=cal,
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 6], dates.PeriodType.MONTH)
+    curve_dates = valuation_date + dates.months([1, 2, 6])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.015], dtype=dtype),
@@ -91,7 +89,8 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
       ('DoublePrecision', np.float64),
   )
   def test_fut_compounded_calendar(self, dtype):
-    cal = dates.HolidayCalendar2(weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY)
+    cal = dates.create_holiday_calendar(
+        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY)
 
     start_date = dates.convert_to_date_tensor([(2020, 5, 1)])
     end_date = dates.convert_to_date_tensor([(2020, 5, 31)])
@@ -103,8 +102,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
         averaging_type=instruments.AverageType.COMPOUNDING,
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 6], dates.PeriodType.MONTH)
+    curve_dates = valuation_date + dates.months([1, 2, 6])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.015], dtype=dtype),
@@ -120,7 +118,8 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
       ('DoublePrecision', np.float64),
   )
   def test_fut_averaged_calendar(self, dtype):
-    cal = dates.HolidayCalendar2(weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY)
+    cal = dates.create_holiday_calendar(
+        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY)
 
     start_date = dates.convert_to_date_tensor([(2020, 5, 1)])
     end_date = dates.convert_to_date_tensor([(2020, 5, 31)])
@@ -132,8 +131,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
         holiday_calendar=cal,
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 6], dates.PeriodType.MONTH)
+    curve_dates = valuation_date + dates.months([1, 2, 6])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.015], dtype=dtype),
@@ -149,7 +147,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
       ('DoublePrecision', np.float64),
   )
   def test_fut_many(self, dtype):
-    cal = dates.HolidayCalendar2(weekend_mask=dates.WeekendMask.NONE)
+    cal = dates.create_holiday_calendar(weekend_mask=dates.WeekendMask.NONE)
 
     start_date = dates.convert_to_date_tensor([(2020, 5, 1), (2020, 5, 1)])
     end_date = dates.convert_to_date_tensor([(2020, 5, 31), (2020, 5, 31)])
@@ -161,8 +159,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
         averaging_type=instruments.AverageType.COMPOUNDING,
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 6], dates.PeriodType.MONTH)
+    curve_dates = valuation_date + dates.months([1, 2, 6])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.015], dtype=dtype),

@@ -100,7 +100,7 @@ def douglas_adi_scheme(theta):
   present. More advanced schemes, such as Craig-Sneyd scheme, are needed to
   achieve the second-order accuracy.
 
-  ### References:
+  #### References:
   [1] Douglas Jr., Jim (1962), "Alternating direction methods for three space
     variables", Numerische Mathematik, 4 (1): 41-63
   [2] Tinne Haentjens, Karek J. in't Hout. ADI finite difference schemes for
@@ -324,3 +324,6 @@ def _get_permutation(tensor, n_dims, active_dim):
   perm[rank - 1] = batch_rank + active_dim
   perm[batch_rank + active_dim] = rank - 1
   return perm
+
+
+__all__ = ['douglas_adi_step', 'douglas_adi_scheme']

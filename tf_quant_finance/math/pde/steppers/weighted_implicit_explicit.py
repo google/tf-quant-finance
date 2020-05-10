@@ -114,7 +114,7 @@ def weighted_implicit_explicit_scheme(theta):
   points), and thus the inversion can be efficiently performed using
   `tf.linalg.tridiagonal_solve`.
 
-  ### References:
+  #### References:
   [1] I.V. Puzynin, A.V. Selin, S.I. Vinitsky, A high-order accuracy method for
   numerical solving of the time-dependent Schrodinger equation, Comput. Phys.
   Commun. 123 (1999), 1.
@@ -235,3 +235,9 @@ def _weighted_scheme_implicit_part(vec, diag, upper, lower, theta, t1, t2):
                                      diagonals_format='sequence',
                                      transpose_rhs=True,
                                      partial_pivoting=False)
+
+
+__all__ = [
+    'weighted_implicit_explicit_scheme',
+    'weighted_implicit_explicit_step',
+]

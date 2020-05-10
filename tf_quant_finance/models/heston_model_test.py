@@ -21,7 +21,7 @@ import tf_quant_finance as tff
 
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
-heston_model = tff.models.heston_model
+HestonModel = tff.models.HestonModel
 grids = tff.math.pde.grids
 
 
@@ -31,7 +31,7 @@ class HestonModelTest(tf.test.TestCase):
   def test_volatility(self):
     """Tests volatility stays close to its mean for small vol of vol."""
     theta = 0.05
-    process = heston_model.HestonModel(
+    process = HestonModel(
         kappa=1.0, theta=theta, epsilon=0.00001,
         rho=-0.0, dtype=np.float64)
     years = 1.0
@@ -52,7 +52,7 @@ class HestonModelTest(tf.test.TestCase):
   def test_state(self):
     """Tests state behaves like GBM for small vol of vol."""
     theta = 1.0
-    process = heston_model.HestonModel(
+    process = HestonModel(
         kappa=1.0, theta=theta, epsilon=0.00001,
         rho=-0.0, dtype=np.float64)
     times = [0.0, 0.5, 1.0]
@@ -89,7 +89,7 @@ class HestonModelTest(tf.test.TestCase):
           jump_locations=[0.3], values=[0.1, 0.2], dtype=dtype)
       rho = tff.math.piecewise.PiecewiseConstantFunc(
           jump_locations=[0.5], values=[0.4, 0.6], dtype=dtype)
-      process = heston_model.HestonModel(
+      process = HestonModel(
           kappa=kappa, theta=theta, epsilon=epsilon,
           rho=rho, dtype=dtype)
       times = [0.1, 1.0]
@@ -126,8 +126,8 @@ class HestonModelTest(tf.test.TestCase):
     strike = 15
     discounting = 0.5
 
-    heston = heston_model.HestonModel(kappa=kappa, theta=theta, epsilon=epsilon,
-                                      rho=rho, dtype=dtype)
+    heston = HestonModel(
+        kappa=kappa, theta=theta, epsilon=epsilon, rho=rho, dtype=dtype)
     initial_state = np.array([initial_log_spot, initial_vol])
     samples = heston.sample_paths(
         times=[maturity_time / 2, maturity_time],

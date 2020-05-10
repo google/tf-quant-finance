@@ -43,7 +43,7 @@ class GenericItoProcess(ito_process.ItoProcess):
     conditions which may be found in Ref. [1]. The vector `dW_j` represents
     independent Brownian increments.
 
-    ### Example. Sampling from 2-dimensional Ito process of the form:
+    #### Example. Sampling from 2-dimensional Ito process of the form:
 
     ```none
     dX_1 = mu_1 * sqrt(t) dt + s11 * dW_1 + s12 * dW_2
@@ -80,7 +80,7 @@ class GenericItoProcess(ito_process.ItoProcess):
               seed=42)
     ```
 
-    ### References
+    #### References
     [1]: Brent Oksendal. Stochastic Differential Equations: An Introduction with
       Applications. Springer. 2010.
 
@@ -172,7 +172,8 @@ class GenericItoProcess(ito_process.ItoProcess):
                    seed=None,
                    swap_memory=True,
                    name=None,
-                   time_step=None):
+                   time_step=None,
+                   precompute_normal_draws=True):
     """Returns a sample of paths from the process using Euler sampling.
 
     The default implementation uses the Euler scheme. However, for particular
@@ -200,6 +201,12 @@ class GenericItoProcess(ito_process.ItoProcess):
         Default value: `None` which maps to `sample_paths` is used.
       time_step: Real scalar `Tensor`. The maximal distance between time points
         in grid in Euler scheme.
+      precompute_normal_draws: Python bool. Indicates whether the noise
+        increments in Euler scheme are precomputed upfront (see
+        `models.euler_sampling.sample`). For `HALTON` and `SOBOL` random types
+        the increments are always precomputed. While the resulting graph
+        consumes more memory, the performance gains might be significant.
+        Default value: `True`.
 
     Returns:
      A real `Tensor` of shape `[num_samples, k, n]` where `k` is the size of the
@@ -224,6 +231,7 @@ class GenericItoProcess(ito_process.ItoProcess):
           time_step=time_step,
           seed=seed,
           swap_memory=swap_memory,
+          precompute_normal_draws=precompute_normal_draws,
           dtype=self._dtype,
           name=name)
 
@@ -307,7 +315,7 @@ class GenericItoProcess(ito_process.ItoProcess):
     For a simple instructive example of implementation of this method, see
     `models.GenericItoProcess.fd_solver_backward`.
 
-    # TODO(b/142309558): Complete documentation.
+    TODO(b/142309558): Complete documentation.
 
     Args:
       start_time: Real positive scalar `Tensor`. The start time of the grid.
@@ -480,7 +488,7 @@ class GenericItoProcess(ito_process.ItoProcess):
     For a simple instructive example of implementation of this method, see
     `models.GenericItoProcess.fd_solver_forward`.
 
-    # TODO(b/142309558): Complete documentation.
+    TODO(b/142309558): Complete documentation.
 
     Args:
       start_time: Real positive scalar `Tensor`. The start time of the grid.

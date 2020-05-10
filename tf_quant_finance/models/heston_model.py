@@ -48,7 +48,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
 
   See [1] and [2] for details.
 
-  ## Example
+  #### Example
 
   ```python
   import tf_quant_finance as tff
@@ -67,7 +67,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       random_type=random.RandomType.SOBOL)
   ```
 
-  ### References:
+  #### References:
     [1]: Cristian Homescu. Implied volatility surface: construction
       methodologies and characteristics.
       arXiv: https://arxiv.org/pdf/1107.1834.pdf
@@ -86,7 +86,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
                name=None):
     """Initializes the Heston Model.
 
-    ### References:
+    #### References:
       [1]: Leif Andersen. Efficient Simulation of the Heston Stochastic
         Volatility Models. 2006.
         Link:
@@ -210,7 +210,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
     Raises:
       ValueError: If `time_step` is not supplied.
 
-    ### References:
+    #### References:
       [1]: Leif Andersen. Efficient Simulation of the Heston Stochastic
         Volatility Models. 2006.
     """

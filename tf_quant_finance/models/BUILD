@@ -13,6 +13,7 @@ py_library(
         ":heston_model",
         ":ito_process",
         ":joined_ito_process",
+        "//tf_quant_finance/models/geometric_brownian_motion",
         "//tf_quant_finance/models/hull_white",
     ],
 )
@@ -40,6 +41,7 @@ py_test(
     timeout = "moderate",
     srcs = ["generic_ito_process_test.py"],
     python_version = "PY3",
+    shard_count = 4,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -155,5 +157,15 @@ py_test(
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
+    ],
+)
+
+filegroup(
+    name = "docs",
+    srcs = [
+        "README.md",
+    ],
+    data = [
+        "//tf_quant_finance/models/legacy:docs",
     ],
 )

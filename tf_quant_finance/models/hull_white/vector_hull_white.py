@@ -57,7 +57,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   For `n=1` this class represents Hull-White Model (see
   tff.models.hull_white.HullWhiteModel1F).
 
-  ## Example. Two correlated Hull-White processes.
+  #### Example. Two correlated Hull-White processes.
 
   ```python
   import numpy as np
@@ -102,7 +102,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   #                  [0.0914114, 1.       ]]
   ```
 
-  ### References:
+  #### References:
     [1]: D. Brigo, F. Mercurio. Interest Rate Models. 2007.
   """
 
@@ -270,11 +270,8 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         Default value: `sample_paths`.
 
     Returns:
-      A `Tensor`s of shape [num_samples, k, dim] where `k` is the size
-      of the `times`, `dim` is the dimension of the process. For each sample and
-      time the first dimension represents the simulated log-state trajectories
-      of the spot price `X(t)`, whereas the second one represents the simulated
-      variance trajectories `V(t)`.
+      A `Tensor` of shape [num_samples, k, dim] where `k` is the size
+      of the `times` and `dim` is the dimension of the process.
 
     Raises:
       ValueError:

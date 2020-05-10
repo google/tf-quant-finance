@@ -45,7 +45,7 @@ def make_polynomial_basis(degree):
   is `1, X, X**2, Y, Y**2, X * Y, X**2 * Y, X * Y**2`, where `X` and `Y` are
   the spatial axes.
 
-  ## Example
+  #### Example
   ```python
   basis = make_polynomial_basis(2)
   x = [1.0, 2.0, 3.0, 4.0]
@@ -109,7 +109,7 @@ def least_square_mc(sample_paths,
   the option is valued as the average payoff assuming optimal exercise
   discounted to present value.
 
-  ## Example. American put option price through Monte Carlo
+  #### Example. American put option price through Monte Carlo
   ```python
   # Let the underlying model be a Black-Scholes process
   # dS_t / S_t = rate dt + sigma**2 dW_t, S_0 = 1.0
@@ -148,7 +148,7 @@ def least_square_mc(sample_paths,
                                  dtype=tf.float64)
   # Expected value: [0.379]
   ```
-  ## References
+  #### References
 
   [1] Longstaff, F.A. and Schwartz, E.S., 2001. Valuing American options by
   simulation: a simple least-squares approach. The review of financial studies,

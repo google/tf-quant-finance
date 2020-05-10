@@ -30,7 +30,7 @@ def pv_from_yields(cashflows,
   to the yield of the bond as defined in Section 4.4 of Ref [1]. This is
   sometimes also referred to as the internal rate of return of a bond.
 
-  ### Example
+  #### Example
 
   The following example demonstrates the present value computation for two
   bonds. Both bonds have 1000 face value with semi-annual coupons. The first
@@ -64,7 +64,7 @@ def pv_from_yields(cashflows,
         cashflows, times, yields_to_maturity, groups=groups, dtype=dtype)
   ```
 
-  ### References:
+  #### References:
 
   [1]: John C. Hull. Options, Futures and Other Derivatives. Ninth Edition.
     June 2006.
@@ -130,7 +130,7 @@ def yields_from_pv(cashflows,
   to the yield of the bond as defined in Section 4.4 of Ref [1]. This is
   sometimes also referred to as the internal rate of return of a bond.
 
-  ### Example
+  #### Example
 
   The following example demonstrates the yield computation for two
   bonds. Both bonds have 1000 face value with semi-annual coupons. The first
@@ -165,7 +165,7 @@ def yields_from_pv(cashflows,
         cashflows, times, present_values, groups=groups, dtype=dtype)
   ```
 
-  ### References:
+  #### References:
 
   [1]: John C. Hull. Options, Futures and Other Derivatives. Ninth Edition.
     June 2006.

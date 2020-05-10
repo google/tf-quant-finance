@@ -117,3 +117,13 @@ py_test(
         # tensorflow dep,
     ],
 )
+
+filegroup(
+    name = "docs",
+    srcs = [
+        "README.md",
+    ],
+    data = [
+        "//tf_quant_finance/rates/hagan_west:docs",
+    ],
+)

@@ -65,7 +65,7 @@ def build(x_data, y_data, validate_args=False, dtype=None, name=None):
   y = cubic_interpolation.interpolate(x_args, spline)
   ```
 
-  ## References:
+  #### References:
   [1]: R. Sedgewick, Algorithms in C, 1990, p. 545-550.
     Link: http://index-of.co.uk/Algorithms/Algorithms%20in%20C.pdf
   [2]: R. Pienaar, M Choudhry. Fitting the term structure of interest rates:
@@ -125,7 +125,7 @@ def interpolate(x_values,
 
   For the interpolation formula refer to p.548 of [1].
 
-  ## References:
+  #### References:
   [1]: R. Sedgewick, Algorithms in C, 1990, p. 545-550.
     Link: http://index-of.co.uk/Algorithms/Algorithms%20in%20C.pdf
 
@@ -256,7 +256,7 @@ def _calculate_spline_coeffs(x_data, y_data):
    and `a`, `b`, `c`, and `d` are functions of `spline_coeffs` and `x_data` and
    are provided in the `interpolate` function.
 
-  ## References:
+  #### References:
   [1]: R. Sedgewick, Algorithms in C, 1990, p. 545-550.
     Link: http://index-of.co.uk/Algorithms/Algorithms%20in%20C.pdf
 

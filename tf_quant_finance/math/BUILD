@@ -82,6 +82,7 @@ py_test(
     size = "small",
     srcs = ["gradient_test.py"],
     python_version = "PY3",
+    shard_count = 4,
     deps = [
         ":math",
         # test util,
@@ -135,5 +136,43 @@ py_test(
         # test util,
         # numpy dep,
         # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "custom_loops",
+    srcs = ["custom_loops.py"],
+    srcs_version = "PY3",
+    deps = [
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "custom_loops_test",
+    size = "small",
+    srcs = ["custom_loops_test.py"],
+    python_version = "PY3",
+    shard_count = 3,
+    deps = [
+        ":custom_loops",
+        # test util,
+        # absl/testing:parameterized dep,
+        # numpy dep,
+        # tensorflow dep,
+        # xla_cpu_jit xla dep,
+    ],
+)
+
+filegroup(
+    name = "docs",
+    srcs = [
+        "README.md",
+    ],
+    data = [
+        "//tf_quant_finance/math/interpolation:docs",
+        "//tf_quant_finance/math/optimizer:docs",
+        "//tf_quant_finance/math/pde:docs",
+        "//tf_quant_finance/math/random_ops:docs",
     ],
 )

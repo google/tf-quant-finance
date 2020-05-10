@@ -70,7 +70,7 @@ def brownian_bridge_double(*,
   #[0.09394963 0.73302813 0.22595022]]
   ```
 
-  ## References
+  #### References
 
   [1] Emmanuel Gobet. Advanced Monte Carlo methods for barrier and related
   exotic options.
@@ -160,7 +160,7 @@ def brownian_bridge_single(*,
   #  [0.69880579 0.86466472 0.32967995]]
   ```
 
-  ## References
+  #### References
 
   [1] Emmanuel Gobet. Advanced Monte Carlo methods for barrier and related
   exotic options.

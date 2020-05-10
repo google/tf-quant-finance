@@ -75,3 +75,6 @@ def composite_scheme_step(first_scheme_steps, first_scheme, second_scheme):
         name=name)
 
   return step_fn
+
+
+__all__ = ['composite_scheme_step']

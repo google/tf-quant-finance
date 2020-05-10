@@ -70,6 +70,7 @@ _check_py_version()
 _ensure_tf_install()
 
 from tf_quant_finance import black_scholes
+from tf_quant_finance import datetime
 from tf_quant_finance import experimental
 from tf_quant_finance import math
 from tf_quant_finance import models
@@ -79,6 +80,7 @@ from tensorflow.python.util.all_util import remove_undocumented  # pylint: disab
 
 _allowed_symbols = [
     "black_scholes",
+    "datetime",
     "experimental",
     "math",
     "models",

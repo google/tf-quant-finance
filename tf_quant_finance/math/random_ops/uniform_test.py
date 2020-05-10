@@ -42,6 +42,20 @@ class UniformTest(tf.test.TestCase):
     np.testing.assert_array_almost_equal(
         np.mean(sample, axis=2), expected_mean, decimal=2)
 
+  def test_stateless(self):
+    """Tests stateless pseudo random numbers."""
+    sample_shape = [2, 3, 5000]
+    dim = 10
+    sample = self.evaluate(
+        tff_rnd.uniform(dim=dim,
+                        sample_shape=sample_shape,
+                        random_type=tff_rnd.RandomType.STATELESS,
+                        seed=[2, 2]))
+    np.testing.assert_array_equal(sample.shape, sample_shape + [dim])
+    expected_mean = 0.5 * np.ones(sample_shape[:-1] + [dim])
+    np.testing.assert_array_almost_equal(
+        np.mean(sample, axis=2), expected_mean, decimal=2)
+
   def test_sobol(self):
     """Tests Sobol samples."""
     # The number of initial points of the Sobol sequence to skip

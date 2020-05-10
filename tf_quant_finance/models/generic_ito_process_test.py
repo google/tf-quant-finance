@@ -53,7 +53,7 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
     @tf.function
     def fn():
       return process.sample_paths(
-          times=times, num_samples=num_samples, seed=42, time_step=0.005)
+          times=times, num_samples=num_samples, seed=42, time_step=0.01)
 
     if use_xla:
       paths = self.evaluate(tf.xla.experimental.compile(fn))[0]
@@ -64,8 +64,10 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
     covars = np.cov(paths.reshape([num_samples, -1]), rowvar=False)
     expected_means = np.zeros((3,))
     expected_covars = np.minimum(times.reshape([-1, 1]), times.reshape([1, -1]))
-    self.assertAllClose(means, expected_means, rtol=1e-2, atol=1e-2)
-    self.assertAllClose(covars, expected_covars, rtol=1e-2, atol=1e-2)
+    with self.subTest(name="Means"):
+      self.assertAllClose(means, expected_means, rtol=1e-2, atol=1e-2)
+    with self.subTest(name="Covar"):
+      self.assertAllClose(covars, expected_covars, rtol=1e-2, atol=1e-2)
 
   def test_sample_paths_2d(self):
     """Tests path properties for 2-dimentional Ito process.

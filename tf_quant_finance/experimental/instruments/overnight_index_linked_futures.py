@@ -16,7 +16,7 @@
 """Futures contracts on overnight rates."""
 
 import tensorflow.compat.v2 as tf
-from tf_quant_finance.experimental import dates
+from tf_quant_finance import datetime as dates
 from tf_quant_finance.experimental.instruments import rates_common as rc
 
 
@@ -56,7 +56,7 @@ class OvernightIndexLinkedFutures:
   contracts simultaneously. However all contracts within an object must be
   priced using a common reference curve.
 
-  ### Example:
+  #### Example:
   The following example illustrates the construction of an overnight index
   future instrument and calculating its price.
 
@@ -66,7 +66,7 @@ class OvernightIndexLinkedFutures:
   import tensorflow as tf
   import tf_quant_finance as tff
 
-  dates = tff.experimental.dates
+  dates = tff.datetime
   instruments = tff.experimental.instruments
 
   dtype = np.float64
@@ -78,8 +78,7 @@ class OvernightIndexLinkedFutures:
   future = instruments.OvernightIndexLinkedFutures(
       contract_start_date, contract_end_date, dtype=dtype)
 
-  curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 3, 12, 24, 60], dates.PeriodType.MONTH)
+  curve_dates = valuation_date + dates.months([1, 2, 3, 12, 24, 60])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),
@@ -90,7 +89,7 @@ class OvernightIndexLinkedFutures:
 
   price = future.price(valuation_date, market)
 
-  ### References:
+  #### References:
   [1]: SOFR futures settlement calculation.
   https://www.cmegroup.com/education/files/sofr-futures-settlement-calculation-methodologies.pdf
   """
@@ -154,13 +153,13 @@ class OvernightIndexLinkedFutures:
         averaging_type = rc.AverageType.COMPOUNDING
 
       if holiday_calendar is None:
-        holiday_calendar = dates.HolidayCalendar2(
+        holiday_calendar = dates.create_holiday_calendar(
             weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY)
 
       self._daycount_convention = daycount_convention
       self._averaging_type = averaging_type
       self._holiday_calendar = holiday_calendar
-      self._rate_tenor = dates.periods.PeriodTensor(1, dates.PeriodType.DAY)
+      self._rate_tenor = dates.day()
 
       self._setup()
 

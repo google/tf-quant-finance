@@ -16,7 +16,7 @@
 """Forward Rate Agreement."""
 
 import tensorflow.compat.v2 as tf
-from tf_quant_finance.experimental import dates
+from tf_quant_finance import datetime as dates
 from tf_quant_finance.experimental.instruments import rates_common as rc
 
 
@@ -34,7 +34,7 @@ class ForwardRateAgreement:
   simultaneously. However all FRAs within a FRA object must be priced using
   a common reference and discount curve.
 
-  ### Example:
+  #### Example:
   The following example illustrates the construction of a FRA instrument and
   calculating its price.
 
@@ -42,7 +42,7 @@ class ForwardRateAgreement:
   import numpy as np
   import tensorflow as tf
   import tf_quant_finance as tff
-  dates = tff.experimental.dates
+  dates = tff.datetime
 
   dtype = np.float64
   notional = 1.
@@ -50,14 +50,12 @@ class ForwardRateAgreement:
   fixing_date = dates.convert_to_date_tensor([(2021, 2, 8)])
   valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
   fixed_rate = 0.02
-  rate_term = rate_term = dates.periods.PeriodTensor(
-        3, dates.PeriodType.MONTH)
+  rate_term = rate_term = dates.months(3)
 
   fra = tff.experimental.instruments.ForwardRateAgreement(
         notional, settlement_date, fixing_date, fixed_rate,
         rate_term=rate_term, dtype=dtype)
-  curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 3, 12, 24, 60], dates.PeriodType.MONTH)
+  curve_dates = valuation_date + dates.months([1, 2, 3, 12, 24, 60])
   reference_curve = tff.experimental.instruments.RateCurve(
       curve_dates,
       np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),
@@ -69,7 +67,7 @@ class ForwardRateAgreement:
   # Expected result: 0.00378275
   ```
 
-  ### References:
+  #### References:
   [1]: Leif B.G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling,
       Volume I: Foundations and Vanilla Models. Chapter 5. 2010.
   """

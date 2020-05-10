@@ -42,11 +42,18 @@ py_test(
     timeout = "long",
     srcs = ["conjugate_gradient_test.py"],
     python_version = "PY3",
-    shard_count = 5,
+    shard_count = 10,
     deps = [
         "//tf_quant_finance",
         # test util,
         # numpy dep,
         # tensorflow dep,
+    ],
+)
+
+filegroup(
+    name = "docs",
+    srcs = [
+        "README.md",
     ],
 )

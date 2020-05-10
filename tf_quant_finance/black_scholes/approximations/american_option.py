@@ -61,7 +61,7 @@ def adesi_whaley(*,
   # [0.03, 0.59, 3.52, 10.31, 20.0]
   ```
 
-  ## References:
+  #### References:
   [1] Baron-Adesi, Whaley, Efficient Analytic Approximation of American Option
     Values, The Journal of Finance, Vol XLII, No. 2, June 1987
     https://deriscope.com/docs/Barone_Adesi_Whaley_1987.pdf

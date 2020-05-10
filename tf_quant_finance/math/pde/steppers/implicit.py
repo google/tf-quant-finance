@@ -76,3 +76,6 @@ def implicit_step():
   return step_fn
 
 implicit_scheme = weighted_implicit_explicit_scheme(theta=0)
+
+
+__all__ = ['implicit_scheme', 'implicit_step']
