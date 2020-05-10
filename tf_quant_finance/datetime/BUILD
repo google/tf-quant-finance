@@ -3,7 +3,7 @@ licenses(["notice"])
 package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 
 py_library(
-    name = "dates",
+    name = "datetime",
     srcs = [
         "__init__.py",
     ],
@@ -146,8 +146,8 @@ py_test(
     srcs = ["date_tensor_test.py"],
     python_version = "PY3",
     deps = [
-        ":dates",
         ":test_data",
+        "//tf_quant_finance",
         # test util,
         # numpy dep,
         # tensorflow dep,
@@ -163,6 +163,7 @@ py_test(
     deps = [
         ":date_utils",
         ":test_data",
+        "//tf_quant_finance",
         # test util,
         # numpy dep,
         # tensorflow dep,
@@ -177,9 +178,9 @@ py_test(
     python_version = "PY3",
     deps = [
         ":bounded_holiday_calendar",
-        ":dates",
         ":test_data",
         ":unbounded_holiday_calendar",
+        "//tf_quant_finance",
         # test util,
         # absl/testing:parameterized dep,
         # numpy dep,
@@ -194,8 +195,8 @@ py_test(
     srcs = ["schedules_test.py"],
     python_version = "PY3",
     deps = [
-        ":dates",
         ":test_data",
+        "//tf_quant_finance",
         # test util,
         # absl/testing:parameterized dep,
         # numpy dep,
@@ -210,7 +211,7 @@ py_library(
     ],
     srcs_version = "PY3",
     deps = [
-        ":dates",
+        ":datetime",
     ],
 )
 
@@ -234,5 +235,12 @@ py_test(
         "//tf_quant_finance",
         # test util,
         # tensorflow dep,
+    ],
+)
+
+filegroup(
+    name = "docs",
+    srcs = [
+        "README.md",
     ],
 )

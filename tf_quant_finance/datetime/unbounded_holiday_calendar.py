@@ -15,12 +15,12 @@
 
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.experimental.dates import constants
-from tf_quant_finance.experimental.dates import date_tensor as dt
-from tf_quant_finance.experimental.dates import date_utils as du
-from tf_quant_finance.experimental.dates import holiday_calendar
-from tf_quant_finance.experimental.dates import holiday_utils as hol
-from tf_quant_finance.experimental.dates import periods
+from tf_quant_finance.datetime import constants
+from tf_quant_finance.datetime import date_tensor as dt
+from tf_quant_finance.datetime import date_utils as du
+from tf_quant_finance.datetime import holiday_calendar
+from tf_quant_finance.datetime import holiday_utils as hol
+from tf_quant_finance.datetime import periods
 
 
 class UnboundedHolidayCalendar(holiday_calendar.HolidayCalendar):

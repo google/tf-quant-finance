@@ -19,7 +19,7 @@ import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
-dates = tff.experimental.dates
+dates = tff.datetime
 instruments = tff.experimental.instruments
 
 
@@ -34,8 +34,7 @@ class InterestRateSwapTest(tf.test.TestCase):
 
   def get_market(self):
     val_date = dates.convert_to_date_tensor(self.valuation_date)
-    curve_dates = val_date + dates.periods.PeriodTensor(
-        [1, 2, 3, 5, 7, 10, 30], dates.PeriodType.YEAR)
+    curve_dates = val_date + dates.years([1, 2, 3, 5, 7, 10, 30])
 
     reference_curve = instruments.RateCurve(
         curve_dates,
@@ -53,8 +52,8 @@ class InterestRateSwapTest(tf.test.TestCase):
     dtype = np.float64
     notional = 1.
 
-    period3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
-    period6m = dates.periods.PeriodTensor(6, dates.PeriodType.MONTH)
+    period3m = dates.months(3)
+    period6m = dates.months(6)
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=period6m, currency='usd', notional=notional,
         coupon_rate=0.03134,
@@ -78,8 +77,8 @@ class InterestRateSwapTest(tf.test.TestCase):
     dtype = np.float64
     notional = 1.
 
-    period3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
-    period6m = dates.periods.PeriodTensor(6, dates.PeriodType.MONTH)
+    period3m = dates.months(3)
+    period6m = dates.months(6)
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=period6m, currency='usd', notional=notional,
         coupon_rate=0.03134,
@@ -105,8 +104,8 @@ class InterestRateSwapTest(tf.test.TestCase):
     maturity_date = dates.convert_to_date_tensor([(2023, 2, 8), (2027, 2, 8)])
     start_date = dates.convert_to_date_tensor([(2020, 2, 8), (2020, 2, 8)])
 
-    period3m = dates.periods.PeriodTensor([3, 3], dates.PeriodType.MONTH)
-    period6m = dates.periods.PeriodTensor([6, 6], dates.PeriodType.MONTH)
+    period3m = dates.months([3, 3])
+    period6m = dates.months([6, 6])
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=period6m, currency='usd',
         notional=notional,
@@ -132,8 +131,8 @@ class InterestRateSwapTest(tf.test.TestCase):
     dtype = np.float64
     notional = 1.
 
-    period3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
-    period6m = dates.periods.PeriodTensor(6, dates.PeriodType.MONTH)
+    period3m = dates.months(3)
+    period6m = dates.months(6)
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=period6m, currency='usd', notional=notional,
         coupon_rate=0.,
@@ -161,8 +160,8 @@ class InterestRateSwapTest(tf.test.TestCase):
     start_date = dates.convert_to_date_tensor([(2020, 2, 8), (2020, 2, 8)])
     valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
 
-    period3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
-    period6m = dates.periods.PeriodTensor(6, dates.PeriodType.MONTH)
+    period3m = dates.months(3)
+    period6m = dates.months(6)
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=period6m, currency='usd', notional=notional,
         coupon_rate=0.,
@@ -180,8 +179,7 @@ class InterestRateSwapTest(tf.test.TestCase):
                                         [flt_spec, flt_spec],
                                         dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 3, 5, 7, 10, 30], dates.PeriodType.YEAR)
+    curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
 
     reference_curve = instruments.RateCurve(
         curve_dates,

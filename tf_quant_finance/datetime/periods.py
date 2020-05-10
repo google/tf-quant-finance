@@ -16,8 +16,8 @@
 
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.experimental.dates import constants
-from tf_quant_finance.experimental.dates import tensor_wrapper
+from tf_quant_finance.datetime import constants
+from tf_quant_finance.datetime import tensor_wrapper
 
 
 def day():

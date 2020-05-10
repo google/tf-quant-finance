@@ -15,7 +15,7 @@
 
 """Interest rate curve defintion."""
 import tensorflow.compat.v2 as tf
-from tf_quant_finance.experimental import dates
+from tf_quant_finance import datetime as dates
 from tf_quant_finance.math.interpolation import linear
 
 
@@ -123,7 +123,7 @@ class RateCurve(object):
     start_date = dates.convert_to_date_tensor(start_date)
     maturity_date = dates.convert_to_date_tensor(maturity_date)
     if daycount_fraction is None:
-      daycount_fraction = dates.daycounts.actual_365_fixed(
+      daycount_fraction = dates.daycount_actual_365_fixed(
           start_date=start_date, end_date=maturity_date, dtype=self._dtype)
     else:
       daycount_fraction = tf.convert_to_tensor(daycount_fraction, self._dtype)
@@ -138,7 +138,7 @@ class RateCurve(object):
   def _get_time(self, desired_dates):
     """Computes the year fraction from the curve's valuation date."""
 
-    return dates.daycounts.actual_365_fixed(
+    return dates.daycount_actual_365_fixed(
         start_date=self._valuation_date,
         end_date=desired_dates,
         dtype=self._dtype)

@@ -15,7 +15,6 @@
 
 """Experimental modules."""
 
-from tf_quant_finance.experimental import dates
 from tf_quant_finance.experimental import instruments
 from tf_quant_finance.experimental import lsm_algorithm
 import tf_quant_finance.experimental.io
@@ -23,7 +22,6 @@ from tensorflow.python.util.all_util import remove_undocumented  # pylint: disab
 
 
 _allowed_symbols = [
-    'dates',
     'instruments',
     'io',
     'lsm_algorithm',

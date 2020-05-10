@@ -16,7 +16,7 @@
 
 import tensorflow.compat.v2 as tf
 from tf_quant_finance import black_scholes
-from tf_quant_finance.experimental import dates
+from tf_quant_finance import datetime as dates
 from tf_quant_finance.experimental.instruments import rates_common as rc
 
 
@@ -43,7 +43,7 @@ class Swaption:
   import numpy as np
   import tensorflow as tf
   import tf_quant_finance as tff
-  dates = tff.experimental.dates
+  dates = tff.datetime
   instruments = tff.experimental.instruments
   rc = tff.experimental.instruments.rates_common
 
@@ -54,8 +54,8 @@ class Swaption:
   expiry_date = dates.convert_to_date_tensor([(2022, 2, 8)])
   valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
 
-  period3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
-  period6m = dates.periods.PeriodTensor(6, dates.PeriodType.MONTH)
+  period3m = dates.months(3)
+  period6m = dates.months(6)
   fix_spec = instruments.FixedCouponSpecs(
       coupon_frequency=period6m, currency='usd', notional=notional,
       coupon_rate=0.03134,
@@ -73,8 +73,7 @@ class Swaption:
                                       dtype=dtype)
   swaption = instruments.Swaption(swap, expiry_date, dtype=dtype)
 
-  curve_dates = valuation_date + dates.periods.PeriodTensor(
-      [1, 2, 3, 5, 7, 10, 30], dates.PeriodType.YEAR)
+  curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
 
   reference_curve = instruments.RateCurve(
       curve_dates,
@@ -162,7 +161,7 @@ class Swaption:
       forward_swap_rate = self._swap.par_rate(valuation_date, market, model)
       strike = self._swap.fixed_rate
 
-      expiry_time = dates.daycounts.actual_365_fixed(
+      expiry_time = dates.daycount_actual_365_fixed(
           start_date=valuation_date,
           end_date=self._expiry_date,
           dtype=self._dtype)

@@ -23,6 +23,7 @@ py_library(
     visibility = ["//visibility:public"],
     deps = [
         "//tf_quant_finance/black_scholes",
+        "//tf_quant_finance/datetime",
         "//tf_quant_finance/experimental",
         "//tf_quant_finance/math",
         "//tf_quant_finance/models",
@@ -37,6 +38,7 @@ filegroup(
     name = "docs",
     data = [
         "//tf_quant_finance/black_scholes:docs",
+        "//tf_quant_finance/datetime:docs",
         "//tf_quant_finance/experimental:docs",
         "//tf_quant_finance/math:docs",
         "//tf_quant_finance/models:docs",

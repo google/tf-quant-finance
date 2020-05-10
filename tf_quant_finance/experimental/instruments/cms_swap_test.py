@@ -21,7 +21,7 @@ import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
-dates = tff.experimental.dates
+dates = tff.datetime
 instruments = tff.experimental.instruments
 
 
@@ -29,9 +29,9 @@ instruments = tff.experimental.instruments
 class CMSSwapTest(tf.test.TestCase, parameterized.TestCase):
 
   def get_cms_coupon_spec(self, fix_rate, fix_leg_freq='6m'):
-    p3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
-    p6m = dates.periods.PeriodTensor(6, dates.PeriodType.MONTH)
-    p1y = dates.periods.PeriodTensor(1, dates.PeriodType.YEAR)
+    p3m = dates.months(3)
+    p6m = dates.months(6)
+    p1y = dates.year()
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=p6m if fix_leg_freq == '6m' else p3m,
         currency='usd',
@@ -73,8 +73,7 @@ class CMSSwapTest(tf.test.TestCase, parameterized.TestCase):
         start_date, maturity_date, [self.get_cms_coupon_spec(0.0)],
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [0, 1, 2, 3, 5], dates.PeriodType.YEAR)
+    curve_dates = valuation_date + dates.years([0, 1, 2, 3, 5])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([
@@ -100,8 +99,7 @@ class CMSSwapTest(tf.test.TestCase, parameterized.TestCase):
     cms = instruments.CMSCashflowStream(
         start_date, maturity_date, [cms_spec, cms_spec], dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [0, 1, 2, 3, 5], dates.PeriodType.YEAR)
+    curve_dates = valuation_date + dates.years([0, 1, 2, 3, 5])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([
@@ -129,8 +127,7 @@ class CMSSwapTest(tf.test.TestCase, parameterized.TestCase):
         start_date, maturity_date, [self.get_cms_coupon_spec(0.0)], dtype=dtype)
 
     curve_date = dates.convert_to_date_tensor([(2021, 1, 1)])
-    curve_dates = curve_date + dates.periods.PeriodTensor(
-        [0, 1, 2, 3, 5], dates.PeriodType.YEAR)
+    curve_dates = curve_date + dates.years([0, 1, 2, 3, 5])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([
@@ -153,7 +150,7 @@ class CMSSwapTest(tf.test.TestCase, parameterized.TestCase):
     start_date = dates.convert_to_date_tensor([(2021, 1, 1)])
     maturity_date = dates.convert_to_date_tensor([(2023, 1, 1)])
     valuation_date = dates.convert_to_date_tensor([(2021, 1, 1)])
-    p6m = dates.periods.PeriodTensor(6, dates.PeriodType.MONTH)
+    p6m = dates.months(6)
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=p6m,
         currency='usd',
@@ -167,8 +164,7 @@ class CMSSwapTest(tf.test.TestCase, parameterized.TestCase):
         start_date, maturity_date, [fix_spec],
         [cms_spec], dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [0, 1, 2, 3, 5], dates.PeriodType.YEAR)
+    curve_dates = valuation_date + dates.years([0, 1, 2, 3, 5])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([
@@ -199,7 +195,7 @@ class CMSSwapTest(tf.test.TestCase, parameterized.TestCase):
     start_date = dates.convert_to_date_tensor([(2021, 1, 1)])
     maturity_date = dates.convert_to_date_tensor([(2031, 1, 1)])
     valuation_date = dates.convert_to_date_tensor([(2021, 1, 1)])
-    p3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
+    p3m = dates.months(3)
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=p3m,
         currency='usd',
@@ -213,8 +209,7 @@ class CMSSwapTest(tf.test.TestCase, parameterized.TestCase):
         start_date, maturity_date, [fix_spec],
         [cms_spec], dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [0, 360], dates.PeriodType.YEAR)
+    curve_dates = valuation_date + dates.years([0, 360])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([
@@ -247,7 +242,7 @@ class CMSSwapTest(tf.test.TestCase, parameterized.TestCase):
     start_date = dates.convert_to_date_tensor([(2021, 1, 1)])
     maturity_date = dates.convert_to_date_tensor([(2031, 1, 1)])
     valuation_date = dates.convert_to_date_tensor([(2021, 1, 1)])
-    p3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
+    p3m = dates.months(3)
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=p3m,
         currency='usd',
@@ -261,8 +256,7 @@ class CMSSwapTest(tf.test.TestCase, parameterized.TestCase):
         start_date, maturity_date, [fix_spec],
         [cms_spec], dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [0, 360], dates.PeriodType.YEAR)
+    curve_dates = valuation_date + dates.years([0, 360])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([

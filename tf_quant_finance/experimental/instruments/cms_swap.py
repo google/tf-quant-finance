@@ -18,7 +18,7 @@ import itertools
 import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
 from tf_quant_finance import black_scholes
-from tf_quant_finance.experimental import dates
+from tf_quant_finance import datetime as dates
 from tf_quant_finance.experimental.instruments import cashflow_stream as cs
 from tf_quant_finance.experimental.instruments import interest_rate_swap as irs
 from tf_quant_finance.experimental.instruments import rates_common as rc
@@ -33,15 +33,15 @@ class CMSCashflowStream(cs.CashflowStream):
   import numpy as np
   import tensorflow as tf
   import tf_quant_finance as tff
-  dates = tff.experimental.dates
+  dates = tff.datetime
   instruments = tff.experimental.instruments
 
   start_date = dates.convert_to_date_tensor([(2021, 1, 1)])
   maturity_date = dates.convert_to_date_tensor([(2023, 1, 1)])
   valuation_date = dates.convert_to_date_tensor([(2021, 1, 1)])
-  p3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
-  p6m = dates.periods.PeriodTensor(6, dates.PeriodType.MONTH)
-  p1y = dates.periods.PeriodTensor(1, dates.PeriodType.YEAR)
+  p3m = dates.months(3)
+  p6m = dates.months(6)
+  p1y = dates.year()
   fix_spec = instruments.FixedCouponSpecs(
       coupon_frequency=p6m,
       currency='usd',
@@ -73,8 +73,7 @@ class CMSCashflowStream(cs.CashflowStream):
   cms = instruments.CMSCashflowStream(
       start_date, maturity_date, [cms_spec], dtype=dtype)
 
-  curve_dates = valuation_date + dates.periods.PeriodTensor(
-      [0, 1, 2, 3, 5], dates.PeriodType.YEAR)
+  curve_dates = valuation_date + dates.years([0, 1, 2, 3, 5])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([
@@ -200,7 +199,7 @@ class CMSCashflowStream(cs.CashflowStream):
           valuation_date, market, model, cms_rates, pricing_context)
     else:
       level = self._swap.annuity(valuation_date, market, None)
-      expiry_time = dates.daycounts.actual_365_fixed(
+      expiry_time = dates.daycount_actual_365_fixed(
           start_date=valuation_date,
           end_date=self._coupon_start_dates,
           dtype=self._dtype)
@@ -223,7 +222,7 @@ class CMSCashflowStream(cs.CashflowStream):
     normal_model = (
         model == rc.InterestRateModelType.NORMAL_SMILE_CONSISTENT_REPLICATION)
     swap_vol = tf.convert_to_tensor(pricing_context, dtype=self._dtype)
-    expiry_time = dates.daycounts.actual_365_fixed(
+    expiry_time = dates.daycount_actual_365_fixed(
         start_date=valuation_date,
         end_date=self._coupon_start_dates,
         dtype=self._dtype)
@@ -283,16 +282,15 @@ class CMSCashflowStream(cs.CashflowStream):
   def _setup(self, coupon_spec):
     """Setup tensors for efficient computations."""
 
-    cpn_frequency = dates.periods.PeriodTensor.stack(
+    cpn_frequency = dates.PeriodTensor.stack(
         [x.coupon_frequency for x in coupon_spec], axis=0)
     cpn_dates, _ = self._generate_schedule(cpn_frequency,
                                            coupon_spec[-1].businessday_rule)
     cms_start_dates = cpn_dates[:, :-1]
-    cms_term = dates.periods.PeriodTensor.stack([x.tenor for x in coupon_spec],
-                                                axis=0)
+    cms_term = dates.PeriodTensor.stack([x.tenor for x in coupon_spec], axis=0)
 
-    cms_end_dates = cpn_dates[:, :-1] + dates.periods.PeriodTensor.expand_dims(
-        cms_term, axis=-1).broadcast_to(cms_start_dates.shape)
+    cms_end_dates = cpn_dates[:, :-1] + cms_term.expand_dims(
+        axis=-1).broadcast_to(cms_start_dates.shape)
     coupon_start_dates = cpn_dates[:, :-1]
     coupon_end_dates = cpn_dates[:, 1:]
     payment_dates = cpn_dates[:, 1:]
@@ -351,7 +349,7 @@ class CMSCashflowStream(cs.CashflowStream):
                           tf.constant(0., dtype=self._dtype)))
       return frac * tf.cast(t.quantity(), dtype=self._dtype)
 
-    cms_fixed_leg_frequency = dates.periods.PeriodTensor.stack(
+    cms_fixed_leg_frequency = dates.PeriodTensor.stack(
         [x.fixed_leg.coupon_frequency for x in coupon_spec], axis=0)
     self._delta = term_to_years(cpn_frequency)
     self._tau = term_to_years(cms_fixed_leg_frequency)
@@ -419,7 +417,7 @@ class CMSSwap(irs.InterestRateSwap):
   import numpy as np
   import tensorflow as tf
   import tf_quant_finance as tff
-  dates = tff.experimental.dates
+  dates = tff.datetime
   instruments = tff.experimental.instruments
   rc = tff.experimental.instruments.rates_common
 
@@ -427,9 +425,9 @@ class CMSSwap(irs.InterestRateSwap):
   start_date = dates.convert_to_date_tensor([(2021, 1, 1)])
   maturity_date = dates.convert_to_date_tensor([(2023, 1, 1)])
   valuation_date = dates.convert_to_date_tensor([(2021, 1, 1)])
-  p3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
-  p6m = dates.periods.PeriodTensor(6, dates.PeriodType.MONTH)
-  p1y = dates.periods.PeriodTensor(1, dates.PeriodType.YEAR)
+  p3m = dates.months(3)
+  p6m = dates.months(6)
+  p1y = dates.year()
   fix_spec = instruments.FixedCouponSpecs(
       coupon_frequency=p6m,
       currency='usd',
@@ -462,8 +460,7 @@ class CMSSwap(irs.InterestRateSwap):
       start_date, maturity_date, [fix_spec],
       [cms_spec], dtype=dtype)
 
-  curve_dates = valuation_date + dates.periods.PeriodTensor(
-      [0, 1, 2, 3, 5], dates.PeriodType.YEAR)
+  curve_dates = valuation_date + dates.years([0, 1, 2, 3, 5])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([

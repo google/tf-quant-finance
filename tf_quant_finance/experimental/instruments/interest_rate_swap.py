@@ -16,7 +16,7 @@
 """Interest rate swap."""
 
 import tensorflow.compat.v2 as tf
-from tf_quant_finance.experimental import dates
+from tf_quant_finance import datetime as dates
 from tf_quant_finance.experimental.instruments import cashflow_stream as cs
 from tf_quant_finance.experimental.instruments import rates_common as rc
 
@@ -56,15 +56,15 @@ class InterestRateSwap:
   import numpy as np
   import tensorflow as tf
   import tf_quant_finance as tff
-  dates = tff.experimental.dates
+  dates = tff.datetime
   instruments = tff.experimental.instruments
 
   dtype = np.float64
   start_date = dates.convert_to_date_tensor([(2020, 2, 8)])
   maturity_date = dates.convert_to_date_tensor([(2022, 2, 8)])
   valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
-  period_3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
-  period_6m = dates.periods.PeriodTensor(6, dates.PeriodType.MONTH)
+  period_3m = dates.months(3)
+  period_6m = dates.months(6)
   fix_spec = instruments.FixedCouponSpecs(
               coupon_frequency=period_6m, currency='usd',
               notional=1., coupon_rate=0.03134,
@@ -81,8 +81,7 @@ class InterestRateSwap:
   swap = instruments.InterestRateSwap([(2020,2,2)], [(2023,2,2)], [fix_spec],
                                       [flt_spec], dtype=np.float64)
 
-  curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 3, 5, 7, 10, 30], dates.PeriodType.YEAR)
+  curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([
@@ -106,7 +105,7 @@ class InterestRateSwap:
   import numpy as np
   import tensorflow as tf
   import tf_quant_finance as tff
-  dates = tff.experimental.dates
+  dates = tff.datetime
   instruments = tff.experimental.instruments
 
   dtype = np.float64
@@ -115,8 +114,8 @@ class InterestRateSwap:
   start_date = dates.convert_to_date_tensor([(2020, 2, 8), (2020, 2, 8)])
   valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
 
-  period3m = dates.periods.PeriodTensor([3, 3], dates.PeriodType.MONTH)
-  period6m = dates.periods.PeriodTensor([6, 6], dates.PeriodType.MONTH)
+  period3m = dates.months([3, 3])
+  period6m = dates.months([6, 6])
   fix_spec = instruments.FixedCouponSpecs(
       coupon_frequency=period6m, currency='usd',
       notional=notional,
@@ -134,8 +133,7 @@ class InterestRateSwap:
   swap = instruments.InterestRateSwap(start_date, maturity_date,
                                       fix_spec, flt_spec,
                                       dtype=dtype)
-  curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 3, 5, 7, 10, 30], dates.PeriodType.YEAR)
+  curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([

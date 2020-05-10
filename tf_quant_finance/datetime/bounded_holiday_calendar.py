@@ -17,10 +17,10 @@
 import attr
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.experimental.dates import constants
-from tf_quant_finance.experimental.dates import date_tensor as dt
-from tf_quant_finance.experimental.dates import holiday_calendar
-from tf_quant_finance.experimental.dates import periods
+from tf_quant_finance.datetime import constants
+from tf_quant_finance.datetime import date_tensor as dt
+from tf_quant_finance.datetime import holiday_calendar
+from tf_quant_finance.datetime import periods
 
 
 _ORDINAL_OF_1_1_1970 = 719163

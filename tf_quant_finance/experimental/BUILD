@@ -10,7 +10,6 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":io",
-        "//tf_quant_finance/experimental/dates",
         "//tf_quant_finance/experimental/finite_difference",
         "//tf_quant_finance/experimental/instruments",
         "//tf_quant_finance/experimental/lsm_algorithm",

@@ -17,8 +17,8 @@
 import numpy as np
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.experimental.dates import bounded_holiday_calendar
-from tf_quant_finance.experimental.dates import unbounded_holiday_calendar
+from tf_quant_finance.datetime import bounded_holiday_calendar
+from tf_quant_finance.datetime import unbounded_holiday_calendar
 
 
 def create_holiday_calendar(

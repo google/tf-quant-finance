@@ -14,7 +14,9 @@
 # limitations under the License.
 """Test data for tests in this package."""
 
-from tf_quant_finance.experimental import dates
+import tf_quant_finance as tff
+
+dates = tff.datetime
 
 test_dates = [
     (1901, 1, 1),

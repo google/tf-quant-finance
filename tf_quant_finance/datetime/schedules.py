@@ -16,8 +16,8 @@
 
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.experimental.dates import constants
-from tf_quant_finance.experimental.dates import date_tensor
+from tf_quant_finance.datetime import constants
+from tf_quant_finance.datetime import date_tensor
 
 
 _MIN_DAYS_IN_PERIOD = {
@@ -64,8 +64,8 @@ class PeriodicSchedule:
       [`start_date`, `end_date`] interval.
 
     Note that `tenor = PeriodType.DAY` is treated as an actual day, not as
-    a business day. So a schedule with `tenor = periods.days(7)` is the same
-    as one with `tenor = periods.week()`.
+    a business day. So a schedule with `tenor = days(7)` is the same
+    as one with `tenor = week()`.
 
     The `dates()` can create multiple schedules simultaneously.
     The start and end dates may have any (compatible) shape.
@@ -81,18 +81,18 @@ class PeriodicSchedule:
     #### Example Usage (Non-batch)
 
     ```python
-      start_date = dates.from_tuples([(2020, 1, 18)])
-      end_date = dates.from_tuples([(2021, 3, 25)])
-      tenor = dates.periods.months(3)
+      start_date = datetime.dates_from_tuples([(2020, 1, 18)])
+      end_date = datetime.dates_from_tuples([(2021, 3, 25)])
+      tenor = datetime.months(3)
       backward = False
       holiday_calendar = dates.HolidayCalendar(start_year=2020, end_year=2021)
       roll_convention = dates.BusinessDayConvention.FOLLOWING
-      schedule = dates.PeriodicSchedule(
+      schedule = datetime.PeriodicSchedule(
           start_date=start_date,
           end_date=end_date,
           tenor=tenor,
           holiday_calendar=holiday_calendar,
-          roll_convention=dates.BusinessDayConvention.FOLLOWING,
+          roll_convention=datetime.BusinessDayConvention.FOLLOWING,
           backward=backward).dates()
       # schedule is a DateTensor of
       # [[(2020, 1, 18), (2020, 4, 20), (2020, 7, 20), (2020, 10, 19),
@@ -106,15 +106,15 @@ class PeriodicSchedule:
     #### Example Usage (Batch)
 
     ```python
-      start_date = dates.from_tuples([(2020, 1, 15), (2020, 4, 15)])
-      end_date = dates.from_tuples([(2021, 3, 31), (2021, 1, 1)])
-      tenor = dates.months([4, 3])
-      schedule = dates.PeriodicSchedule(
+      start_date = datetime.dates_from_tuples([(2020, 1, 15), (2020, 4, 15)])
+      end_date = datetime.dates_from_tuples([(2021, 3, 31), (2021, 1, 1)])
+      tenor = datetime.months([4, 3])
+      schedule = datetime.PeriodicSchedule(
           start_dates,
           end_dates,
           tenors,
           dates.HolidayCalendar(start_year=2020, end_year=2021),
-          roll_convention=dates.BusinessDayConvention.FOLLOWING,
+          roll_convention=datetime.BusinessDayConvention.FOLLOWING,
           backward=False).dates()
       # Returns DateTensor of
       # [[(2020, 1, 15), (2020, 5, 15), (2020, 9, 15), (2021, 1, 15),
@@ -124,13 +124,13 @@ class PeriodicSchedule:
     ```
 
     Args:
-      start_date: `dates.DateTensor`. Defines the lower boundary of schedule. If
+      start_date: `DateTensor`. Defines the lower boundary of schedule. If
         `backward=True` must be broadcastable to `end_date`, otherwise has
         arbitrary shape.
-      end_date: `dates.DateTensor`. Defines the upper boundary of the schedule.
+      end_date: `DateTensor`. Defines the upper boundary of the schedule.
         If `backward=False` must be broadcastable to `start_date`, otherwise has
         arbitrary shape.
-      tenor: `periods.PeriodTensor`. Defines the frequency of the schedule. Must
+      tenor: `PeriodTensor`. Defines the frequency of the schedule. Must
         be broadcastable to `start_date` if `backward=False`, and to `end_date`
         if `backward=True`.
       holiday_calendar: `dates.HolidayCalendar`. If `None`, the dates in the
@@ -241,14 +241,15 @@ class BusinessDaySchedule:
     #### Example Usage (Non-batch)
 
     ```python
-      start_date = dates.from_tuples([(2020, 3, 19)])
-      end_date = dates.from_tuples([(2021, 3, 25)])
-      holiday_calendar = dates.HolidayCalendar(start_year=2020, end_year=2021)
-      schedule = dates.BusinessDaysSchedule(
+      start_date = datetime.dates_from_tuples([(2020, 3, 19)])
+      end_date = datetime.dates_from_tuples([(2021, 3, 25)])
+      holiday_calendar = datetime.HolidayCalendar(start_year=2020,
+                                                  end_year=2021)
+      schedule = datetime.BusinessDaysSchedule(
           start_date=start_date,
           end_date=end_date,
           holiday_calendar=holiday_calendar,
-          roll_convention=dates.BusinessDayConvention.FOLLOWING,
+          roll_convention=datetime.BusinessDayConvention.FOLLOWING,
           backward=False).dates()
       # schedule is a DateTensor of
       # [[(2020, 3, 19), (2020, 3, 20), (2020, 3, 23), (2020, 3, 24),
@@ -258,12 +259,12 @@ class BusinessDaySchedule:
     #### Example Usage (Batch)
 
     ```python
-      start_date = dates.from_tuples([(2020, 3, 19), (2020, 4, 15)])
-      end_date = dates.from_tuples([(2021, 3, 13), (2021, 3, 17)])
-      schedule = dates.BusinessDaysSchedule(
+      start_date = datetime.dates_from_tuples([(2020, 3, 19), (2020, 4, 15)])
+      end_date = datetime.dates_from_tuples([(2021, 3, 13), (2021, 3, 17)])
+      schedule = datetime.BusinessDaysSchedule(
           start_dates,
           end_dates,
-          dates.HolidayCalendar(start_year=2020, end_year=2021),
+          datetime.HolidayCalendar(start_year=2020, end_year=2021),
           backward=False).dates()
       # Returns DateTensor of
       # [[(2020, 3, 19), (2020, 3, 20), (2020, 3, 23), (2020, 3, 24),

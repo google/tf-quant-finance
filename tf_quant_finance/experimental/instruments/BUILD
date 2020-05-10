@@ -145,7 +145,6 @@ py_test(
     deps = [
         ":instruments",
         "//tf_quant_finance",
-        "//tf_quant_finance/experimental/dates",
         # test util,
         # tensorflow dep,
     ],
@@ -160,7 +159,6 @@ py_test(
     deps = [
         ":instruments",
         "//tf_quant_finance",
-        "//tf_quant_finance/experimental/dates",
         # test util,
         # tensorflow dep,
     ],
@@ -175,7 +173,6 @@ py_test(
     deps = [
         ":instruments",
         "//tf_quant_finance",
-        "//tf_quant_finance/experimental/dates",
         # test util,
         # tensorflow dep,
     ],
@@ -190,7 +187,6 @@ py_test(
     deps = [
         ":instruments",
         "//tf_quant_finance",
-        "//tf_quant_finance/experimental/dates",
         # test util,
         # tensorflow dep,
     ],
@@ -219,7 +215,6 @@ py_test(
     deps = [
         ":instruments",
         "//tf_quant_finance",
-        "//tf_quant_finance/experimental/dates",
         # test util,
         # tensorflow dep,
     ],
@@ -247,7 +242,6 @@ py_test(
     deps = [
         ":instruments",
         "//tf_quant_finance",
-        "//tf_quant_finance/experimental/dates",
         # test util,
         # tensorflow dep,
     ],
@@ -276,7 +270,6 @@ py_test(
     deps = [
         ":instruments",
         "//tf_quant_finance",
-        "//tf_quant_finance/experimental/dates",
         # test util,
         # tensorflow dep,
     ],
@@ -305,7 +298,6 @@ py_test(
     deps = [
         ":instruments",
         "//tf_quant_finance",
-        "//tf_quant_finance/experimental/dates",
         # test util,
         # tensorflow dep,
     ],
@@ -334,7 +326,6 @@ py_test(
     deps = [
         ":instruments",
         "//tf_quant_finance",
-        "//tf_quant_finance/experimental/dates",
         # test util,
         # tensorflow dep,
     ],
@@ -349,7 +340,6 @@ py_test(
     deps = [
         ":rate_curve",
         "//tf_quant_finance",
-        "//tf_quant_finance/experimental/dates",
         # test util,
         # tensorflow dep,
     ],

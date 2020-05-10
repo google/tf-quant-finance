@@ -18,10 +18,13 @@ import datetime
 import numpy as np
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.experimental import dates
-from tf_quant_finance.experimental.dates import date_utils
-from tf_quant_finance.experimental.dates import test_data
+import tf_quant_finance as tff
+
+from tf_quant_finance.datetime import date_utils
+from tf_quant_finance.datetime import test_data
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+
+dates = tff.datetime
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -64,8 +67,8 @@ class DateUtilsTest(tf.test.TestCase):
       date_tuples1.append(case["date1"])
       date_tuples2.append(case["date2"])
       expected_num_days.append(case["expected"])
-    dates1 = dates.from_tuples(date_tuples1)
-    dates2 = dates.from_tuples(date_tuples2)
+    dates1 = dates.dates_from_tuples(date_tuples1)
+    dates2 = dates.dates_from_tuples(date_tuples2)
     actual_num_days = date_utils.days_in_leap_years_between(dates1, dates2)
     self.assertAllEqual(expected_num_days, actual_num_days)
 
@@ -76,8 +79,8 @@ class DateUtilsTest(tf.test.TestCase):
       date_tuples1.append(case["date1"])
       date_tuples2.append(case["date2"])
       expected_num_days.append(case["expected"])
-    dates1 = dates.from_tuples(date_tuples1)
-    dates2 = dates.from_tuples(date_tuples2)
+    dates1 = dates.dates_from_tuples(date_tuples1)
+    dates2 = dates.dates_from_tuples(date_tuples2)
     actual_num_days = date_utils.leap_days_between(dates1, dates2)
     self.assertAllEqual(expected_num_days, actual_num_days)
 

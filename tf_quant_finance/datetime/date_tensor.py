@@ -17,10 +17,10 @@ import collections
 import numpy as np
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.experimental.dates import constants
-from tf_quant_finance.experimental.dates import date_utils
-from tf_quant_finance.experimental.dates import periods
-from tf_quant_finance.experimental.dates import tensor_wrapper
+from tf_quant_finance.datetime import constants
+from tf_quant_finance.datetime import date_utils
+from tf_quant_finance.datetime import periods
+from tf_quant_finance.datetime import tensor_wrapper
 
 # Days in each month of a non-leap year.
 _DAYS_IN_MONTHS_NON_LEAP = [
@@ -68,7 +68,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     """Initializer.
 
     This initializer is primarily for internal use. More convenient construction
-    methods are available via 'dates.from_*' functions.
+    methods are available via 'dates_from_*' functions.
 
     Args:
       ordinals: Tensor of type int32. Each value is number of days since
@@ -116,7 +116,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     #### Example
 
     ```python
-    dates = from_tuples([(2019, 1, 25), (2020, 3, 2)])
+    dates = dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
     dates.day()  # [25, 2]
     ```
     """
@@ -130,7 +130,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dates = from_tuples([(2019, 1, 25), (2020, 3, 2)])
+    dates = dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
     dates.days_of_week()  # [5, 1]
     ```
     """
@@ -143,7 +143,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dates = from_tuples([(2019, 1, 25), (2020, 3, 2)])
+    dates = dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
     dates.month()  # [1, 3]
     ```
     """
@@ -154,7 +154,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dates = from_tuples([(2019, 1, 25), (2020, 3, 2)])
+    dates = dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
     dates.year()  # [2019, 2020]
     ```
     """
@@ -167,7 +167,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dates = from_tuples([(2019, 3, 25), (1, 1, 1)])
+    dates = dates_from_tuples([(2019, 3, 25), (1, 1, 1)])
     dates.ordinal()  # [737143, 1]
     ```
     """
@@ -186,7 +186,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dates = from_tuples([(2019, 1, 25), (2020, 3, 2)])
+    dates = dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
     dates.to_tensor()  # tf.Tensor with contents [[2019, 1, 25], [2020, 3, 2]].
     ```
 
@@ -204,7 +204,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dt = from_tuples([(2019, 1, 25), (2020, 3, 2)])
+    dt = dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
     dt.day_of_year()  # [25, 62]
     ```
     """
@@ -232,11 +232,11 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dates = from_tuples([(2020, 1, 25), (2020, 3, 2)])
-    target = from_tuples([(2020, 3, 5)])
+    dates = dates_from_tuples([(2020, 1, 25), (2020, 3, 2)])
+    target = dates_from_tuples([(2020, 3, 5)])
     dates.days_until(target)  # [40, 3]
 
-    targets = from_tuples([(2020, 2, 5), (2020, 3, 5)])
+    targets = dates_from_tuples([(2020, 2, 5), (2020, 3, 5)])
     dates.days_until(targets)  # [11, 3]
     ```
     """
@@ -251,7 +251,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dates = from_tuples([(2020, 2, 25), (2020, 3, 2)])
+    dates = dates_from_tuples([(2020, 2, 25), (2020, 3, 2)])
     dates.period_length_in_days(period.month())  # [29, 31]
 
     periods = periods.months([1, 2])
@@ -294,7 +294,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     #### Example
     ```python
-    dates = from_tuples([(2020, 2, 25), (2020, 3, 31)])
+    dates = dates_from_tuples([(2020, 2, 25), (2020, 3, 31)])
     new_dates = dates + period.month()
     # DateTensor([(2020, 3, 25), (2020, 4, 30)])
 
@@ -656,8 +656,6 @@ def from_tensor(tensor, validate=True):
                              validate=validate)
 
 
-# TODO(b/149829315): Move this to a better location once dates module has
-# graduated out of experimental.
 def random_dates(*, start_date, end_date, size=1, seed=None, name=None):
   """Generates random dates between the supplied start and end dates.
 
@@ -671,17 +669,17 @@ def random_dates(*, start_date, end_date, size=1, seed=None, name=None):
   ```python
   # Import TFF.
   import tf_quant_finance as tff
-  dates = tff.experimental.dates
+  dates = tff.datetime
 
   # Note that the start and end dates need to be of broadcastable shape (though
   # not necessarily the same shape).
   # In this example, the start dates are of shape [2] and the end dates are
   # of a compatible but non-identical shape [1].
-  start_dates = dates.from_tuples([
+  start_dates = dates_from_tuples([
     (2020, 5, 16),
     (2020, 6, 13)
   ])
-  end_dates = dates.from_tuples([(2021, 5, 21)])
+  end_dates = dates_from_tuples([(2021, 5, 21)])
   size = 3  # Generate 3 dates for each pair of (start, end date).
   sample = dates.random_dates(start_date=start_dates, end_date=end_dates,
                               size=size)

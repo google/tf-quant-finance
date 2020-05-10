@@ -18,7 +18,7 @@
 import collections
 import enum
 import tensorflow.compat.v2 as tf
-from tf_quant_finance.experimental import dates
+from tf_quant_finance import datetime as dates
 
 
 InterestRateMarket = collections.namedtuple(
@@ -174,13 +174,13 @@ def elapsed_time(date_1, date_2, dtype):
 def get_daycount_fraction(date_start, date_end, convention, dtype):
   """Return the day count fraction between two dates."""
   if convention == DayCountConvention.ACTUAL_365:
-    return dates.daycounts.actual_365_fixed(
+    return dates.daycount_actual_365_fixed(
         start_date=date_start, end_date=date_end, dtype=dtype)
   elif convention == DayCountConvention.ACTUAL_360:
-    return dates.daycounts.actual_360(
+    return dates.daycount_actual_360(
         start_date=date_start, end_date=date_end, dtype=dtype)
   elif convention == DayCountConvention.THIRTY_360_ISDA:
-    return dates.daycounts.thirty_360_isda(
+    return dates.daycount_thirty_360_isda(
         start_date=date_start, end_date=date_end, dtype=dtype)
   else:
     raise ValueError('Daycount convention not implemented.')

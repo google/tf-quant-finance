@@ -21,7 +21,7 @@ import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
-dates = tff.experimental.dates
+dates = tff.datetime
 instruments = tff.experimental.instruments
 
 
@@ -38,8 +38,8 @@ class SwaptionTest(tf.test.TestCase, parameterized.TestCase):
     expiry_date = dates.convert_to_date_tensor([(2022, 2, 8)])
     valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
 
-    period3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
-    period6m = dates.periods.PeriodTensor(6, dates.PeriodType.MONTH)
+    period3m = dates.months(3)
+    period6m = dates.months(6)
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=period6m, currency='usd', notional=notional,
         coupon_rate=0.03134,
@@ -57,8 +57,8 @@ class SwaptionTest(tf.test.TestCase, parameterized.TestCase):
                                         dtype=dtype)
     swaption = instruments.Swaption(swap, expiry_date, dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 3, 5, 7, 10, 30], dates.PeriodType.YEAR)
+    curve_dates = valuation_date + dates.years(
+        [1, 2, 3, 5, 7, 10, 30])
 
     reference_curve = instruments.RateCurve(
         curve_dates,
@@ -89,8 +89,8 @@ class SwaptionTest(tf.test.TestCase, parameterized.TestCase):
     expiry_date = dates.convert_to_date_tensor([(2022, 2, 8), (2022, 2, 8)])
     valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
 
-    period3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
-    period6m = dates.periods.PeriodTensor(6, dates.PeriodType.MONTH)
+    period3m = dates.months(3)
+    period6m = dates.months(6)
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=period6m, currency='usd', notional=notional,
         coupon_rate=0.03134,
@@ -109,8 +109,7 @@ class SwaptionTest(tf.test.TestCase, parameterized.TestCase):
                                         dtype=dtype)
     swaption = instruments.Swaption(swap, expiry_date, dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 3, 5, 7, 10, 30], dates.PeriodType.YEAR)
+    curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
 
     reference_curve = instruments.RateCurve(
         curve_dates,

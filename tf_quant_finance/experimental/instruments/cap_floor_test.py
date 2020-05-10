@@ -22,7 +22,7 @@ import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
-dates = tff.experimental.dates
+dates = tff.datetime
 instruments = tff.experimental.instruments
 
 
@@ -37,8 +37,7 @@ class CapFloorTest(tf.test.TestCase, parameterized.TestCase):
 
   def get_market(self):
     val_date = dates.convert_to_date_tensor(self.valuation_date)
-    curve_dates = val_date + dates.periods.PeriodTensor(
-        [0, 3, 12, 24], dates.PeriodType.MONTH)
+    curve_dates = val_date + dates.months([0, 3, 12, 24])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.005, 0.01, 0.015, 0.02], dtype=np.float64),
@@ -54,7 +53,7 @@ class CapFloorTest(tf.test.TestCase, parameterized.TestCase):
   def test_cap_correctness(self, dtype):
     notional = 100.0
 
-    period3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
+    period3m = dates.months(3)
 
     cap = instruments.CapAndFloor(
         self.start_date,
@@ -78,7 +77,7 @@ class CapFloorTest(tf.test.TestCase, parameterized.TestCase):
   )
   def test_floor_correctness(self, dtype):
     notional = 100.0
-    period3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
+    period3m = dates.months(3)
     cap = instruments.CapAndFloor(
         self.start_date,
         self.maturity_date,
@@ -107,7 +106,7 @@ class CapFloorTest(tf.test.TestCase, parameterized.TestCase):
                                                      (2021, 1, 15)])
     batch_valuation_date = dates.convert_to_date_tensor([(2021, 1, 1)])
 
-    period3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
+    period3m = dates.months(3)
     cap = instruments.CapAndFloor(
         batch_start_date,
         batch_maturity_date,
@@ -137,7 +136,7 @@ class CapFloorTest(tf.test.TestCase, parameterized.TestCase):
                                                (2021, 1, 15)])
     valuation_date = dates.convert_to_date_tensor([(2021, 2, 1)])
 
-    period3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
+    period3m = dates.months(3)
     cap = instruments.CapAndFloor(
         start_date,
         maturity_date,
@@ -147,8 +146,7 @@ class CapFloorTest(tf.test.TestCase, parameterized.TestCase):
         notional=notional,
         dtype=dtype)
     curve_valuation_date = dates.convert_to_date_tensor([(2021, 1, 1)])
-    curve_dates = curve_valuation_date + dates.periods.PeriodTensor(
-        [0, 3, 12, 24], dates.PeriodType.MONTH)
+    curve_dates = curve_valuation_date + dates.months([0, 3, 12, 24])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.005, 0.01, 0.015, 0.02], dtype=np.float64),
@@ -174,7 +172,7 @@ class CapFloorTest(tf.test.TestCase, parameterized.TestCase):
   )
   def test_cap_fwd_rate(self, dtype):
     notional = 100.0
-    period3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
+    period3m = dates.months(3)
     cap = instruments.CapAndFloor(
         self.start_date,
         self.maturity_date,
@@ -197,7 +195,7 @@ class CapFloorTest(tf.test.TestCase, parameterized.TestCase):
   )
   def test_cap_price_lognormal_rate_model(self, dtype):
     notional = 100.0
-    period3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
+    period3m = dates.months(3)
     cap = instruments.CapAndFloor(
         self.start_date,
         self.maturity_date,

@@ -21,7 +21,7 @@ import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
-dates = tff.experimental.dates
+dates = tff.datetime
 instruments = tff.experimental.instruments
 
 
@@ -45,8 +45,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
         averaging_type=instruments.AverageType.COMPOUNDING,
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 6], dates.PeriodType.MONTH)
+    curve_dates = valuation_date + dates.months([1, 2, 6])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.015], dtype=dtype),
@@ -74,8 +73,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
         holiday_calendar=cal,
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 6], dates.PeriodType.MONTH)
+    curve_dates = valuation_date + dates.months([1, 2, 6])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.015], dtype=dtype),
@@ -104,8 +102,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
         averaging_type=instruments.AverageType.COMPOUNDING,
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 6], dates.PeriodType.MONTH)
+    curve_dates = valuation_date + dates.months([1, 2, 6])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.015], dtype=dtype),
@@ -134,8 +131,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
         holiday_calendar=cal,
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 6], dates.PeriodType.MONTH)
+    curve_dates = valuation_date + dates.months([1, 2, 6])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.015], dtype=dtype),
@@ -163,8 +159,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
         averaging_type=instruments.AverageType.COMPOUNDING,
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 6], dates.PeriodType.MONTH)
+    curve_dates = valuation_date + dates.months([1, 2, 6])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.015], dtype=dtype),

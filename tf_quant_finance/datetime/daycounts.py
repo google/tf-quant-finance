@@ -47,9 +47,9 @@ payment schedule to be specified (e.g. Actual/Actual ISMA as in Ref [3] below.).
 # TODO(b/149382857): Move these implementations to use an interface.
 
 import tensorflow.compat.v2 as tf
-from tf_quant_finance.experimental.dates import date_tensor as dt
-from tf_quant_finance.experimental.dates import date_utils as du
-from tf_quant_finance.experimental.dates import periods
+from tf_quant_finance.datetime import date_tensor as dt
+from tf_quant_finance.datetime import date_utils as du
+from tf_quant_finance.datetime import periods
 
 
 def actual_360(*,

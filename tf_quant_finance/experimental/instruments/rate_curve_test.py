@@ -21,7 +21,7 @@ import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
-dates = tff.experimental.dates
+dates = tff.datetime
 instruments = tff.experimental.instruments
 
 
@@ -29,15 +29,14 @@ instruments = tff.experimental.instruments
 def get_curve(dtype, ext_discount):
   valuation_date = dates.convert_to_date_tensor([(2020, 1, 1)])
 
-  curve_dates = valuation_date + dates.periods.PeriodTensor(
-      [0, 1, 2], dates.PeriodType.YEAR)
+  curve_dates = valuation_date + dates.years([0, 1, 2])
   curve_rates = np.array([0.0, 0.01, 0.02], dtype=np.float64)
 
   def my_discount_function(idates):
     idates = dates.convert_to_date_tensor(idates)
-    curve_times = dates.daycounts.actual_365_fixed(
+    curve_times = dates.daycount_actual_365_fixed(
         start_date=valuation_date, end_date=curve_dates, dtype=dtype)
-    itimes = dates.daycounts.actual_365_fixed(
+    itimes = dates.daycount_actual_365_fixed(
         start_date=valuation_date, end_date=idates, dtype=dtype)
     irates = tff.math.interpolation.linear.interpolate(
         itimes, curve_times, curve_rates, dtype=dtype)

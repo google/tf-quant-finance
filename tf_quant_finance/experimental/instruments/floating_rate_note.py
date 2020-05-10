@@ -15,7 +15,7 @@
 """Floating rate note."""
 
 import tensorflow.compat.v2 as tf
-from tf_quant_finance.experimental import dates
+from tf_quant_finance import datetime as dates
 from tf_quant_finance.experimental.instruments import cashflow_stream as cs
 
 
@@ -53,7 +53,7 @@ class FloatingRateNote:
   import numpy as np
   import tensorflow as tf
   import tf_quant_finance as tff
-  dates = tff.experimental.dates
+  dates = tff.datetime
   instruments = tff.experimental.instruments
   rc = tff.experimental.instruments.rates_common
 
@@ -61,7 +61,7 @@ class FloatingRateNote:
   settlement_date = dates.convert_to_date_tensor([(2021, 1, 15)])
   maturity_date = dates.convert_to_date_tensor([(2022, 1, 15)])
   valuation_date = dates.convert_to_date_tensor([(2021, 1, 15)])
-  period_3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
+  period_3m = dates.months(3)
   flt_spec = instruments.FloatCouponSpecs(
       coupon_frequency=period_3m,
       reference_rate_term=period_3m,
@@ -77,8 +77,7 @@ class FloatingRateNote:
                                      [flt_spec],
                                      dtype=dtype)
 
-  curve_dates = valuation_date + dates.periods.PeriodTensor(
-      [0, 6, 12, 36], dates.PeriodType.MONTH)
+  curve_dates = valuation_date + dates.months([0, 6, 12, 36])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([0.0, 0.005, 0.007, 0.015], dtype=dtype),

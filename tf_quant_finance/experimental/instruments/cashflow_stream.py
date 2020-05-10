@@ -15,7 +15,7 @@
 """Cashflow streams."""
 
 import tensorflow.compat.v2 as tf
-from tf_quant_finance.experimental import dates
+from tf_quant_finance import datetime as dates
 from tf_quant_finance.experimental.instruments import rates_common as rc
 
 
@@ -93,7 +93,7 @@ class FixedCashflowStream(CashflowStream):
   import numpy as np
   import tensorflow as tf
   import tf_quant_finance as tff
-  dates = tff.experimental.dates
+  dates = tff.datetime
   instruments = tff.experimental.instruments
   rc = tff.experimental.instruments.rates_common
 
@@ -101,7 +101,7 @@ class FixedCashflowStream(CashflowStream):
   start_date = dates.convert_to_date_tensor([(2020, 2, 2)])
   maturity_date = dates.convert_to_date_tensor([(2023, 2, 2)])
   valuation_date = dates.convert_to_date_tensor([(2020, 2, 2)])
-  period_6m = dates.periods.PeriodTensor(6, dates.PeriodType.MONTH)
+  period_6m = dates.months(6)
   fix_spec = instruments.FixedCouponSpecs(
               coupon_frequency=period_6m, currency='usd',
               notional=1.e6, coupon_rate=0.03134,
@@ -111,8 +111,7 @@ class FixedCashflowStream(CashflowStream):
   cf_stream = instruments.FixedCashflowStream([start_date], [maturity_date],
                                               [fix_spec], dtype=dtype)
 
-  curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 3, 5, 7, 10, 30], dates.PeriodType.YEAR)
+  curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([
@@ -249,7 +248,7 @@ class FixedCashflowStream(CashflowStream):
     """Setup tensors for efficient computations."""
 
     if isinstance(coupon_spec, list):
-      cpn_frequency = dates.periods.PeriodTensor.stack(
+      cpn_frequency = dates.PeriodTensor.stack(
           [x.coupon_frequency for x in coupon_spec], axis=0)
       businessday_rule = coupon_spec[-1].businessday_rule
       notional = tf.convert_to_tensor([x.notional for x in coupon_spec],
@@ -303,7 +302,7 @@ class FloatingCashflowStream(CashflowStream):
   import numpy as np
   import tensorflow as tf
   import tf_quant_finance as tff
-  dates = tff.experimental.dates
+  dates = tff.datetime
   instruments = tff.experimental.instruments
   rc = tff.experimental.instruments.rates_common
 
@@ -311,7 +310,7 @@ class FloatingCashflowStream(CashflowStream):
   start_date = dates.convert_to_date_tensor([(2020, 2, 2)])
   maturity_date = dates.convert_to_date_tensor([(2023, 2, 2)])
   valuation_date = dates.convert_to_date_tensor([(2020, 2, 2)])
-  period_3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
+  period_3m = dates.months(3)
   flt_spec = instruments.FloatCouponSpecs(
               coupon_frequency=periods_3m, reference_rate_term=periods_3m,
               reset_frequency=periods_3m, currency='usd', notional=1.,
@@ -322,8 +321,7 @@ class FloatingCashflowStream(CashflowStream):
   cf_stream = instruments.FloatingCashflowStream([start_date], [maturity_date],
                                                  [flt_spec], dtype=dtype)
 
-  curve_dates = valuation_date + dates.periods.PeriodTensor(
-        [1, 2, 3, 5, 7, 10, 30], dates.PeriodType.YEAR)
+  curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([
@@ -467,10 +465,10 @@ class FloatingCashflowStream(CashflowStream):
     """Setup tensors for efficient computations."""
 
     if isinstance(coupon_spec, list):
-      cpn_frequency = dates.periods.PeriodTensor.stack(
+      cpn_frequency = dates.PeriodTensor.stack(
           [x.coupon_frequency for x in coupon_spec], axis=0)
       businessday_rule = coupon_spec[-1].businessday_rule
-      ref_term = dates.periods.PeriodTensor.stack(
+      ref_term = dates.PeriodTensor.stack(
           [x.reference_rate_term for x in coupon_spec], axis=0)
       daycount_convention = coupon_spec[-1].daycount_convention
       notional = tf.convert_to_tensor([x.notional for x in coupon_spec],
@@ -498,10 +496,8 @@ class FloatingCashflowStream(CashflowStream):
                                                         businessday_rule)
     accrual_start_dates = cpn_dates[:, :-1]
 
-    accrual_end_dates = cpn_dates[:, :
-                                  -1] + dates.periods.PeriodTensor.expand_dims(
-                                      ref_term, axis=-1).broadcast_to(
-                                          accrual_start_dates.shape)
+    accrual_end_dates = cpn_dates[:, :-1] + ref_term.expand_dims(
+        axis=-1).broadcast_to(accrual_start_dates.shape)
     coupon_start_dates = cpn_dates[:, :-1]
     coupon_end_dates = cpn_dates[:, 1:]
     accrual_end_dates = dates.DateTensor.where(is_regular_cpn,

@@ -16,7 +16,7 @@
 """Eurodollar futures contract."""
 
 import tensorflow.compat.v2 as tf
-from tf_quant_finance.experimental import dates
+from tf_quant_finance import datetime as dates
 from tf_quant_finance.experimental.instruments import rates_common as rc
 
 
@@ -46,20 +46,19 @@ class EurodollarFutures:
   import tensorflow as tf
   import tf_quant_finance as tff
 
-  dates = tff.experimental.dates
+  dates = tff.datetime
   instruments = tff.experimental.instruments
 
   dtype = np.float64
   notional = 1.
   expiry_date = dates.convert_to_date_tensor([(2021, 2, 8)])
   valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
-  rate_term = dateslib.periods.PeriodTensor(3, dateslib.PeriodType.MONTH)
+  rate_term = dateslib.months(3)
 
   edfuture = instruments.EurodollarFutures(
       expiry_date, notional, rate_term=rate_term, dtype=dtype)
 
-  curve_dates = valuation_date + tff.experimental.dates.periods.PeriodTensor(
-        [1, 2, 3, 12, 24, 60], tff.experimental.dates.PeriodType.MONTH)
+  curve_dates = valuation_date + tff.datetime.months([1, 2, 3, 12, 24, 60])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),

@@ -16,7 +16,7 @@
 
 import abc
 
-from tf_quant_finance.experimental.dates import constants
+from tf_quant_finance.datetime import constants
 
 
 class HolidayCalendar(abc.ABC):

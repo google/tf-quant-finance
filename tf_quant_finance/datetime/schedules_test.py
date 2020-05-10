@@ -20,9 +20,12 @@ from absl.testing import parameterized
 import numpy as np
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.experimental import dates
-from tf_quant_finance.experimental.dates import test_data
+import tf_quant_finance as tff
+
+from tf_quant_finance.datetime import test_data
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+
+dates = tff.datetime
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -33,10 +36,10 @@ class SchedulesTest(tf.test.TestCase, parameterized.TestCase):
   def test_periodic_schedule(self, start_dates, end_dates, period_quantities,
                              period_type, backward, expected_schedule,
                              end_of_month=False):
-    start_dates = dates.from_np_datetimes(_to_np_datetimes(start_dates))
-    end_dates = dates.from_np_datetimes(_to_np_datetimes(end_dates))
-    tenors = dates.periods.PeriodTensor(period_quantities, period_type)
-    expected_schedule = dates.from_np_datetimes(
+    start_dates = dates.dates_from_np_datetimes(_to_np_datetimes(start_dates))
+    end_dates = dates.dates_from_np_datetimes(_to_np_datetimes(end_dates))
+    tenors = dates.PeriodTensor(period_quantities, period_type)
+    expected_schedule = dates.dates_from_np_datetimes(
         _to_np_datetimes(expected_schedule))
     actual_schedule = dates.PeriodicSchedule(
         start_date=start_dates,
@@ -54,14 +57,14 @@ class SchedulesTest(tf.test.TestCase, parameterized.TestCase):
   @parameterized.named_parameters(*test_data.business_day_schedule_test_cases)
   def test_business_day_schedule(self, start_dates, end_dates, holidays,
                                  backward, expected_schedule):
-    start_dates = dates.from_np_datetimes(_to_np_datetimes(start_dates))
-    end_dates = dates.from_np_datetimes(_to_np_datetimes(end_dates))
+    start_dates = dates.dates_from_np_datetimes(_to_np_datetimes(start_dates))
+    end_dates = dates.dates_from_np_datetimes(_to_np_datetimes(end_dates))
     holiday_calendar = dates.create_holiday_calendar(
         weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
         holidays=holidays,
         start_year=2020,
         end_year=2020)
-    expected_schedule = dates.from_np_datetimes(
+    expected_schedule = dates.dates_from_np_datetimes(
         _to_np_datetimes(expected_schedule))
     actual_schedule = dates.BusinessDaySchedule(
         start_date=start_dates,

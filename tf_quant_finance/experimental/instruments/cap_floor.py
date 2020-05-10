@@ -17,7 +17,7 @@
 
 import tensorflow.compat.v2 as tf
 from tf_quant_finance import black_scholes
-from tf_quant_finance.experimental import dates
+from tf_quant_finance import datetime as dates
 from tf_quant_finance.experimental.instruments import rates_common as rc
 
 
@@ -47,7 +47,7 @@ class CapAndFloor:
   import numpy as np
   import tensorflow as tf
   import tf_quant_finance as tff
-  dates = tff.experimental.dates
+  dates = tff.datetime
   instruments = tff.experimental.instruments
   rc = tff.experimental.instruments.rates_common
 
@@ -57,7 +57,7 @@ class CapAndFloor:
   start_date = dates.convert_to_date_tensor([(2021, 1, 15)])
   valuation_date = dates.convert_to_date_tensor([(2021, 1, 1)])
 
-  period3m = dates.periods.PeriodTensor(3, dates.PeriodType.MONTH)
+  period3m = dates.months(3)
   cap = instruments.CapAndFloor(
       start_date,
       maturity_date,
@@ -66,8 +66,7 @@ class CapAndFloor:
       daycount_convention=instruments.DayCountConvention.ACTUAL_365,
       notional=notional,
       dtype=dtype)
-  curve_dates = valuation_date + dates.periods.PeriodTensor(
-      [0, 3, 12, 24], dates.PeriodType.MONTH)
+  curve_dates = valuation_date + dates.months([0, 3, 12, 24])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([0.005, 0.01, 0.015, 0.02], dtype=np.float64),
@@ -230,7 +229,7 @@ class CapAndFloor:
     else:
       black_vols = tf.convert_to_tensor(pricing_context, dtype=self._dtype)
 
-    expiry_times = dates.daycounts.actual_365_fixed(
+    expiry_times = dates.daycount_actual_365_fixed(
         start_date=valuation_date, end_date=self._reset_dates,
         dtype=self._dtype)
     caplet_prices = black_scholes.option_price(forwards=forward_rates,
