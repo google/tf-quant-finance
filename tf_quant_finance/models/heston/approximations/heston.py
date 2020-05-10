@@ -11,57 +11,43 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Method for semi-analytical Heston option price."""
 
-import tensorflow as tf
+import numpy as np
+import tensorflow.compat.v2 as tf
 
-import math
 import tf_quant_finance as tff
 
-"""Method for semi-analytical Heston option price.
-
-Heston originally published in 1993 his eponymous model. He provided a semi-
-analytical formula for pricing European option via Fourrier transform under his
-model. However, as noted by Albrecher, the characteric function used in Heston 
-paper can suffer numerical issues because of the discontinuous nature of the 
-square root function in the complex plane, and a second version of the 
-characteric function which doesn't suffer this shortcoming should be used 
-instead. Attari further refined the numerical method by reducing the number of 
-numerical integrations (only one Fourrier transform instead of two) and with
-an integrand function with better convergence (converging in 1 / u **2 
-instead of 1 / u).  Attari's numerical method is implemented here.
- 
-## References
-
-[1] Hansjorg Albrecher, The Little Heston Trap
-https://perswww.kuleuven.be/~u0009713/HestonTrap.pdf
-
-[2] Mukarram Attari, Option Pricing Using Fourier Transforms: A Numerically 
-Efficient Simplification
-https://papers.ssrn.com/sol3/papers.cfm?abstract_id=520042
-
-[3] Steven L. Heston, A Closed-Form Solution for Options with Stochastic 
-Volatility with Applications to Bond and Currency Options
-http://faculty.baruch.cuny.edu/lwu/890/Heston93.pdf
-"""
 
 def eu_option_price(*,
-                 strikes=None,
-                 expiries=None,
-                 is_call_options=None,
-                 variances=None,
-                 kappas=None,
-                 thetas=None,
-                 sigmas=None,
-                 rhos=None,
-                 spots=None,
-                 forwards=None,
-                 discount_rates=None,
-                 continuous_dividends=None,
-                 cost_of_carries=None,
-                 discount_factors=None,
-                 dtype=None,
-                 name=None):
+                    strikes=None,
+                    expiries=None,
+                    is_call_options=None,
+                    variances=None,
+                    kappas=None,
+                    thetas=None,
+                    sigmas=None,
+                    rhos=None,
+                    spots=None,
+                    forwards=None,
+                    discount_rates=None,
+                    continuous_dividends=None,
+                    cost_of_carries=None,
+                    discount_factors=None,
+                    dtype=None,
+                    name=None):
   """Calculates European option prices under the Heston model.
+
+  Heston originally published in 1993 his eponymous model. He provided a semi-
+  analytical formula for pricing European option via Fourrier transform under
+  his model. However, as noted by Albrecher, the characteric function used in
+  Heston  paper can suffer numerical issues because of the discontinuous nature
+  of the  square root function in the complex plane, and a second version of the
+  characteric function which doesn't suffer this shortcoming should be used
+  instead. Attari further refined the numerical method by reducing the number of
+  numerical integrations (only one Fourrier transform instead of two) and with
+  an integrand function with better convergence (converging in 1 / u **2
+  instead of 1 / u).  Attari's numerical method is implemented here.
 
   This uses the numerical method proposed by Attari in 2004.
   Heston model:
@@ -69,9 +55,7 @@ def eu_option_price(*,
     dV = kappa * (theta - V) * dt * sigma * sqrt(V) * dW_2
     <dW_1,dW_2> = rho *dt
   The variance V follows a square root process.
-
   #### Example
-
   ```python
   prices = eu_option_price(
     variances=np.asarray([[0.11]]),
@@ -85,17 +69,19 @@ def eu_option_price(*,
     rhos=np.asarray([[0.3]]),
     discount_factors=np.asarray([[1.0]]),
   )
-
   # Expected print output of prices:
   # [[24.82219619]]
   ```
-
-  ## References
-
-  [1] Mukarram Attari, Option Pricing Using Fourier Transforms: A Numerically
+  ### References
+  ### References
+  [1] Hansjorg Albrecher, The Little Heston Trap
+  https://perswww.kuleuven.be/~u0009713/HestonTrap.pdf
+  [2] Mukarram Attari, Option Pricing Using Fourier Transforms: A Numerically
   Efficient Simplification
   https://papers.ssrn.com/sol3/papers.cfm?abstract_id=520042
-
+  [3] Steven L. Heston, A Closed-Form Solution for Options with Stochastic
+  Volatility with Applications to Bond and Currency Options
+  http://faculty.baruch.cuny.edu/lwu/890/Heston93.pdf
   Args:
     strikes: A real `Tensor` of any shape and dtype. The strikes of the options
       to be priced.
@@ -159,11 +145,9 @@ def eu_option_price(*,
     name: str. The name for the ops created by this function.
       Default value: None which is mapped to the default name
       `heston_price`.
-
   Returns:
     A `Tensor` of the same shape as the input data which is the price of
     European options under the Heston model.
-
   WARNING ABOUT CURRENT NUMERICAL ISSUES WITH CURRENT INTEGRATION METHOD
   PLEASE READ:
   The integral should be performed from 0 to +infty if we could integrate
@@ -182,7 +166,6 @@ def eu_option_price(*,
   if (continuous_dividends is not None) and (cost_of_carries is not None):
     raise ValueError('At most one of continuous_dividends and cost_of_carries '
                      'may be supplied')
-
 
   with tf.compat.v1.name_scope(name, default_name='eu_option_price'):
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
@@ -235,14 +218,13 @@ def eu_option_price(*,
     variances_real = tf.complex(variances, tf.zeros_like(variances))
 
     def char_fun(u):
-      """Using 'second formula' for the (first) characteristic function of
-      log( spot_T / forwards )
-      (noted 'phi_2' in 'The Little Heston Trap', (Albrecher))
-      """
+      # Using 'second formula' for the (first) characteristic function of
+      # log( spot_T / forwards )
+      # (noted 'phi_2' in 'The Little Heston Trap', (Albrecher))
       u_real = tf.complex(u, tf.zeros_like(u))
       u_imag = tf.complex(tf.zeros_like(u), u)
 
-      s  = rhos_real * sigmas_real * u_imag
+      s = rhos_real * sigmas_real * u_imag
 
       d = (s - kappas_real) ** 2 - sigmas_real ** 2 * (-u_imag - u_real ** 2)
       d = tf.math.sqrt(d)
@@ -250,16 +232,15 @@ def eu_option_price(*,
       a = kappas_real * thetas_real
       h = g * tf.math.exp(-d * expiries_real)
       m = 2 * tf.math.log((1 - h) / (1 - g))
-      C = (a / sigmas_real ** 2) * ((kappas_real - s - d) * expiries_real - m)
+      c = (a / sigmas_real ** 2) * ((kappas_real - s - d) * expiries_real - m)
       e = (1 - tf.math.exp(-d * expiries_real))
-      D = (kappas_real - s - d) / sigmas_real ** 2 * (e / (1 - h))
+      d = (kappas_real - s - d) / sigmas_real ** 2 * (e / (1 - h))
 
-      return tf.math.exp(C + D * variances_real)
+      return tf.math.exp(c + d * variances_real)
 
     def integrand_function(u, k):
-      """ Note that with [2], integrand is in 1 / u**2,
-      which converges faster than Heston 1993 (which is in 1 /u)
-      """
+      # Note that with [2], integrand is in 1 / u**2,
+      # which converges faster than Heston 1993 (which is in 1 /u)
       char_fun_complex = char_fun(u)
       char_fun_real_part = tf.math.real(char_fun_complex)
       char_fun_imag_part = tf.math.imag(char_fun_complex)
@@ -271,22 +252,17 @@ def eu_option_price(*,
 
     k = tf.math.log(strikes / forwards)
 
-    """ 
-    """
-
-    # TODO: implement a quad integration (like scipy.integrate.quad) in tff
     lower_bound = 1e-9
     upper_bound = 100
 
     integral = tff.math.integration.integrate(
-      lambda u: integrand_function(u, k),
-      lower_bound,
-      upper_bound,
-      num_points=10001,
-      dtype=dtype
-    )
+        lambda u: integrand_function(u, k),
+        lower_bound,
+        upper_bound,
+        num_points=10001,
+        dtype=dtype)
 
-    pi = math.pi
+    pi = np.pi
     undiscounted_call_prices = forwards - strikes * (0.5 + 1 / pi * integral)
 
     if is_call_options is None:
@@ -299,28 +275,8 @@ def eu_option_price(*,
       undiscounted_put_prices = undiscounted_call_prices - forwards + strikes
 
       undiscount_prices = tf.where(
-        is_call_options,
-        undiscounted_call_prices,
-        undiscounted_put_prices)
+          is_call_options,
+          undiscounted_call_prices,
+          undiscounted_put_prices)
 
       return undiscount_prices * discount_factors
-
-if __name__ == "__main__":
-    import os
-
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-
-    import numpy as np
-    prices = eu_option_price(
-        variances=np.asarray([[0.11]]),
-        strikes=np.asarray([[102.0]]),
-        expiries=np.asarray([[1.2]]),
-        forwards=np.asarray([[100.0]]),
-        is_call_options=np.asarray([True], dtype=np.bool),
-        kappas=np.asarray([[2.0]]),
-        thetas=np.asarray([[0.5]]),
-        sigmas=np.asarray([[0.15]]),
-        rhos=np.asarray([[0.3]]),
-        discount_factors=np.asarray([[1.0]]),
-    )
-    print(prices)

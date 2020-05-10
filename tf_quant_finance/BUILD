@@ -28,7 +28,6 @@ py_library(
         "//tf_quant_finance/math",
         "//tf_quant_finance/models",
         "//tf_quant_finance/rates",
-        "//tf_quant_finance/volatility",
     ],
 )
 
