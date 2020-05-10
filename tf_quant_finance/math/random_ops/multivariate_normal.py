@@ -18,7 +18,6 @@
 import enum
 import numpy as np
 import tensorflow.compat.v2 as tf
-import tensorflow_probability as tfp
 from tf_quant_finance.math.random_ops import halton
 from tf_quant_finance.math.random_ops import sobol
 
@@ -43,6 +42,7 @@ class RandomType(enum.Enum):
   HALTON_RANDOMIZED = 3
   SOBOL = 4
   PSEUDO_ANTITHETIC = 5
+  STATELESS_ANTITHETIC = 6
 
 
 def multivariate_normal(sample_shape,
@@ -121,9 +121,9 @@ def multivariate_normal(sample_shape,
       scale_matrix * Transpose(scale_matrix)`.
       Default value: None which corresponds to an identity covariance matrix.
     random_type: Enum value of `RandomType`. The type of draw to generate.
-      For `PSEUDO_ANTITHETIC` the first dimension of `sample_shape` is
-      expected to be an even positive integer. The antithetic pairs are then
-      contained in the slices of the `output` tensor as
+      For `PSEUDO_ANTITHETIC` and `STATELESS_ANTITHETIC` the first dimension of
+      `sample_shape` is expected to be an even positive integer. The antithetic
+      pairs are then contained in the slices of the `output` tensor as
       `output[:(sample_shape[0] / 2), ...]` and
       `output[(sample_shape[0] / 2):, ...]`.
       Default value: None which is mapped to `RandomType.PSEUDO`.
@@ -131,11 +131,14 @@ def multivariate_normal(sample_shape,
       checked for validity despite possibly degrading runtime performance. When
       `False` invalid inputs may silently render incorrect outputs.
       Default value: False.
-    seed: Seed for the random number generator. The seed is only relevant if
-      `random_type` is one of `[PSEUDO, PSEUDO_ANTITHETIC, STATELESS,
-      HALTON_RANDOMIZED]`. For `PSEUDO` and `PSEUDO_ANTITHETIC`, the seed should
-      be a Python integer. For the other two options, the seed may either be a
-      Python integer or a tuple of Python integers.
+    seed: Seed for the random number generator. The seed is
+      only relevant if `random_type` is one of
+      `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
+        STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
+      `HALTON_RANDOMIZED` the seed should be an integer scalar `Tensor`. For
+      `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as an integer
+      `Tensor` of shape `[2]`.
+      Default value: `None` which means no seed is set.
       Default value: None which means no seed is set.
     dtype: Optional `dtype`. The dtype of the input and output tensors.
       Default value: None which maps to the default dtype inferred by
@@ -164,11 +167,16 @@ def multivariate_normal(sample_shape,
     ValueError:
       (a) If all of `mean`, `covariance_matrix` and `scale_matrix` are None.
       (b) If both `covariance_matrix` and `scale_matrix` are specified.
+      (c) If `random_type` is either `RandomType.STATELESS` or
+      `RandomType.STATELESS_ANTITHETIC` and `seed` is not supplied
     NotImplementedError: If `random_type` is neither RandomType.PSEUDO,
-      RandomType.PSEUDO_ANTITHETIC, RandomType.SOBOL, RandomType.HALTON, nor
+      RandomType.STATELESS, RandomType.PSEUDO_ANTITHETIC,
+      RandomType.STATELESS_ANTITHETIC, RandomType.SOBOL, RandomType.HALTON, nor
       RandomType.HALTON_RANDOMIZED.
   """
   random_type = RandomType.PSEUDO if random_type is None else random_type
+  # Convert sample_shape to a list
+  sample_shape = list(sample_shape)
   if mean is None and covariance_matrix is None and scale_matrix is None:
     raise ValueError('At least one of mean, covariance_matrix or scale_matrix'
                      ' must be specified.')
@@ -183,22 +191,23 @@ def multivariate_normal(sample_shape,
       values=[sample_shape, mean, covariance_matrix, scale_matrix]):
     if mean is not None:
       mean = tf.convert_to_tensor(mean, dtype=dtype, name='mean')
-    if random_type == RandomType.PSEUDO:
+    if random_type in [RandomType.PSEUDO, RandomType.STATELESS]:
       return _mvnormal_pseudo(
           sample_shape,
           mean,
           covariance_matrix=covariance_matrix,
           scale_matrix=scale_matrix,
-          validate_args=validate_args,
+          random_type=random_type,
           seed=seed,
           dtype=dtype)
-    elif random_type == RandomType.PSEUDO_ANTITHETIC:
+    elif random_type in [RandomType.PSEUDO_ANTITHETIC,
+                         RandomType.STATELESS_ANTITHETIC]:
       return _mvnormal_pseudo_antithetic(
           sample_shape,
           mean,
           covariance_matrix=covariance_matrix,
           scale_matrix=scale_matrix,
-          validate_args=validate_args,
+          random_type=random_type,
           seed=seed,
           dtype=dtype)
     elif random_type == RandomType.SOBOL:
@@ -234,50 +243,59 @@ def multivariate_normal(sample_shape,
           **kwargs)
     else:
       raise NotImplementedError(
-          'Only PSEUDO, PSEUDO_ANTITHETIC, HALTON, HALTON_RANDOMIZED, '
-          'and SOBOL random types are currently supported.')
+          'Only STATELESS, PSEUDO, PSEUDO_ANTITHETIC, STATELESS_ANTITHETIC,  '
+          'HALTON, HALTON_RANDOMIZED, and SOBOL random types are currently '
+          'supported. Supplied: {}'. format(random_type))
 
 
 def _mvnormal_pseudo(sample_shape,
                      mean,
                      covariance_matrix=None,
                      scale_matrix=None,
-                     validate_args=False,
+                     random_type=RandomType.PSEUDO,
                      seed=None,
                      dtype=None):
   """Returns normal draws using the tfp multivariate normal distribution."""
   if scale_matrix is not None:
     scale_matrix = tf.convert_to_tensor(scale_matrix, dtype=dtype,
                                         name='scale_matrix')
-    scale_matrix = tf.linalg.LinearOperatorFullMatrix(scale_matrix)
   else:
     if covariance_matrix is not None:
       covariance_matrix = tf.convert_to_tensor(covariance_matrix, dtype=dtype,
                                                name='covariance_matrix')
       scale_matrix = tf.linalg.cholesky(covariance_matrix)
-      scale_matrix = tf.linalg.LinearOperatorFullMatrix(scale_matrix)
-  if scale_matrix is None:
-    scale_matrix = tf.linalg.LinearOperatorIdentity(
-        num_rows=tf.shape(mean)[-1],
-        dtype=mean.dtype,
-        is_self_adjoint=True,
-        is_positive_definite=True,
-        assert_proper_shapes=validate_args)
-  distribution = tfp.distributions.MultivariateNormalLinearOperator(
-      loc=mean,
-      scale=scale_matrix,
-      validate_args=validate_args)
-  return distribution.sample(sample_shape, seed=seed)
+  if scale_matrix is None and covariance_matrix is None:
+    scale_matrix = tf.linalg.eye(tf.shape(mean)[-1], dtype=mean.dtype)
+  dim = scale_matrix.shape.as_list()[-1]
+  if mean is None:
+    mean = tf.constant(0.0, dtype=scale_matrix.dtype,
+                       name='mean')
+    batch_shape = scale_matrix.shape.as_list()[:-2]
+  else:
+    batch_shape = mean.shape.as_list()[:-1]
+  output_shape = sample_shape + batch_shape + [dim]
+  if random_type == RandomType.PSEUDO:
+    samples = tf.random.normal(shape=output_shape,
+                               dtype=scale_matrix.dtype,
+                               seed=seed)
+  else:
+    if seed is None:
+      raise ValueError('`seed` should be specified if the `random_type` is '
+                       '`STATELESS` or `STATELESS_ANTITHETIC`')
+    samples = tf.random.stateless_normal(
+        shape=output_shape, dtype=scale_matrix.dtype, seed=seed)
+  return mean + tf.linalg.matvec(scale_matrix, samples)
 
 
 def _mvnormal_pseudo_antithetic(sample_shape,
                                 mean,
                                 covariance_matrix=None,
                                 scale_matrix=None,
-                                validate_args=False,
+                                random_type=RandomType.PSEUDO_ANTITHETIC,
                                 seed=None,
                                 dtype=None):
   """Returns normal draws with the antithetic samples."""
+  sample_shape = tf.TensorShape(sample_shape).as_list()
   sample_zero_dim = sample_shape[0]
   # For the antithetic sampler `sample_shape` is split evenly between
   # samples and their antithetic counterparts. In order to do the splitting
@@ -289,22 +307,24 @@ def _mvnormal_pseudo_antithetic(sample_shape,
       'PSEUDO_ANTITHETIC random type')
   # TODO(b/140722819): Make sure control_dependencies are trigerred with XLA
   # compilation.
-  with tf.compat.v1.control_dependencies([is_even_dim]):
-    antithetic_shape = tf.concat(
-        [[tf.cast(sample_zero_dim // 2, tf.int32)],
-         tf.cast(sample_shape[1:], tf.int32)], -1)
+  with tf.control_dependencies([is_even_dim]):
+    antithetic_shape = [sample_zero_dim // 2] + sample_shape[1:]
+  if random_type == RandomType.PSEUDO_ANTITHETIC:
+    random_type_sample = RandomType.PSEUDO
+  else:
+    random_type_sample = RandomType.STATELESS
   result = _mvnormal_pseudo(
       antithetic_shape,
       mean,
       covariance_matrix=covariance_matrix,
       scale_matrix=scale_matrix,
-      validate_args=validate_args,
+      random_type=random_type_sample,
       seed=seed,
       dtype=dtype)
   if mean is None:
-    return tf.concat([result, -result], 0)
+    return tf.concat([result, -result], axis=0)
   else:
-    return tf.concat([result, 2 * mean - result], 0)
+    return tf.concat([result, 2 * mean - result], axis=0)
 
 
 def _mvnormal_sobol(sample_shape,

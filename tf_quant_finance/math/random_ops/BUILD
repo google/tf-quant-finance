@@ -27,7 +27,6 @@ py_library(
         # enum dep,
         # numpy dep,
         # tensorflow dep,
-        # tensorflow_probability dep,
     ],
 )
 
@@ -64,6 +63,7 @@ py_test(
     deps = [
         "//tf_quant_finance",
         # test util,
+        # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
     ],

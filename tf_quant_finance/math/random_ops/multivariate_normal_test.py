@@ -15,6 +15,7 @@
 
 """Tests for random.multivariate_normal."""
 
+from absl.testing import parameterized
 
 import numpy as np
 import tensorflow.compat.v2 as tf
@@ -26,7 +27,7 @@ tff_rnd = tff.math.random
 
 
 @test_util.run_all_in_graph_and_eager_modes
-class RandomTest(tf.test.TestCase):
+class RandomTest(parameterized.TestCase, tf.test.TestCase):
 
   def test_shapes(self):
     """Tests the sample shapes."""
@@ -44,10 +45,13 @@ class RandomTest(tf.test.TestCase):
     sample = self.evaluate(
         tff_rnd.mv_normal_sample(
             [40000], covariance_matrix=covar, seed=1234))
-    np.testing.assert_array_equal(sample.shape, [40000, 2])
-    self.assertArrayNear(np.mean(sample, axis=0), [0.0, 0.0], 1e-2)
-    self.assertArrayNear(
-        np.cov(sample, rowvar=False).reshape([-1]), covar.reshape([-1]), 2e-2)
+    with self.subTest("Shape"):
+      np.testing.assert_array_equal(sample.shape, [40000, 2])
+    with self.subTest("Mean"):
+      self.assertArrayNear(np.mean(sample, axis=0), [0.0, 0.0], 1e-2)
+    with self.subTest("Covariance"):
+      self.assertArrayNear(
+          np.cov(sample, rowvar=False).reshape([-1]), covar.reshape([-1]), 2e-2)
 
   def test_covariance_default(self):
     """Tests that the default value of the covariance matrix is identity."""
@@ -63,8 +67,18 @@ class RandomTest(tf.test.TestCase):
     np.testing.assert_array_almost_equal(
         np.cov(sample[:, 1, :], rowvar=False), np.eye(2), decimal=1)
 
-  def test_general_mean_covariance(self):
-    """Tests that the sample is correctly generated for general params."""
+  @parameterized.named_parameters(
+      {
+          "testcase_name": "PSEUDO",
+          "random_type": tff_rnd.RandomType.PSEUDO,
+          "seed": 4567,
+      }, {
+          "testcase_name": "STATELESS",
+          "random_type": tff_rnd.RandomType.STATELESS,
+          "seed": [1, 4567]
+      })
+  def test_general_mean_covariance(self, random_type, seed):
+    """Tests that the sample is correctly generated for pseudo and stateless."""
     mean = np.array([[1.0, 0.1], [0.1, 1.0]])
     covar = np.array([
         [[0.9, -0.1], [-0.1, 1.0]],
@@ -73,7 +87,8 @@ class RandomTest(tf.test.TestCase):
     size = 30000
     sample = self.evaluate(
         tff_rnd.mv_normal_sample(
-            [size], mean=mean, covariance_matrix=covar, seed=4567))
+            [size], mean=mean, covariance_matrix=covar,
+            random_type=random_type, seed=seed))
 
     np.testing.assert_array_equal(sample.shape, [size, 2, 2])
     np.testing.assert_array_almost_equal(
@@ -186,7 +201,17 @@ class RandomTest(tf.test.TestCase):
       np.testing.assert_array_almost_equal(
           np.cov(sample[0, 2, :, i, :], rowvar=False), covariance, decimal=1)
 
-  def test_mean_and_scale_antithetic(self):
+  @parameterized.named_parameters(
+      {
+          "testcase_name": "PSEUDO",
+          "random_type": tff_rnd.RandomType.PSEUDO_ANTITHETIC,
+          "seed": 42,
+      }, {
+          "testcase_name": "STATELESS",
+          "random_type": tff_rnd.RandomType.STATELESS_ANTITHETIC,
+          "seed": [1, 42]
+      })
+  def test_mean_and_scale_antithetic(self, random_type, seed):
     """Tests antithetic sampler for scale specification."""
     mean = np.array([[1.0, 0.1], [0.1, 1.0]])
     scale = np.array([[0.4, -0.1], [0.22, 1.38]])
@@ -196,24 +221,29 @@ class RandomTest(tf.test.TestCase):
     sample = self.evaluate(
         tff_rnd.mv_normal_sample(
             [size], mean=mean, scale_matrix=scale,
-            random_type=tff_rnd.RandomType.PSEUDO_ANTITHETIC, seed=42))
-    np.testing.assert_array_equal(sample.shape, [size, 2, 2])
+            random_type=random_type, seed=seed))
+    with self.subTest("Shape"):
+      np.testing.assert_array_equal(sample.shape, [size, 2, 2])
     # Antithetic combination of samples should be equal to the `mean`
     antithetic_size = size // 2
     antithetic_combination = (sample[:antithetic_size, ...]
                               + sample[antithetic_size:, ...]) / 2
-    np.testing.assert_allclose(
-        antithetic_combination,
-        mean + np.zeros([antithetic_size, 2, 2]), 1e-10, 1e-10)
+    with self.subTest("Partition"):
+      np.testing.assert_allclose(
+          antithetic_combination,
+          mean + np.zeros([antithetic_size, 2, 2]), 1e-10, 1e-10)
     # Get the antithetic pairs and verify normality
-    np.testing.assert_array_almost_equal(
-        np.mean(sample[:antithetic_size, ...], axis=0), mean, decimal=1)
-    np.testing.assert_array_almost_equal(
-        np.cov(sample[:antithetic_size, 0, :], rowvar=False),
-        covariance, decimal=1)
-    np.testing.assert_array_almost_equal(
-        np.cov(sample[:antithetic_size, 1, :], rowvar=False),
-        covariance, decimal=1)
+    with self.subTest("Mean"):
+      np.testing.assert_array_almost_equal(
+          np.mean(sample[:antithetic_size, ...], axis=0), mean, decimal=1)
+    with self.subTest("CovariancePart1"):
+      np.testing.assert_array_almost_equal(
+          np.cov(sample[:antithetic_size, 0, :], rowvar=False),
+          covariance, decimal=1)
+    with self.subTest("CovariancePart2"):
+      np.testing.assert_array_almost_equal(
+          np.cov(sample[:antithetic_size, 1, :], rowvar=False),
+          covariance, decimal=1)
 
   def test_antithetic_sample_requires_even_dim(self):
     """Error is trigerred if the first dim of sample_shape is odd."""
@@ -227,5 +257,5 @@ class RandomTest(tf.test.TestCase):
               sample_shape, mean=mean, scale_matrix=scale,
               random_type=tff_rnd.RandomType.PSEUDO_ANTITHETIC))
 
-if __name__ == '__main__':
+if __name__ == "__main__":
   tf.test.main()

@@ -60,9 +60,10 @@ def uniform(
       Default value: `None` which maps to `tf.float32`.
     seed: Seed for the random number generator. The seed is
       only relevant if `random_type` is one of
-      `[PSEUDO, STATELESS, HALTON_RANDOMIZED]`. For `PSEUDO`, the seed should
-      be a Python integer. For the other two options, the seed may either be
-      a Python integer or a tuple of Python integers.
+      `[STATELESS, PSEUDO, HALTON_RANDOMIZED]`. For `PSEUDO`, and
+      `HALTON_RANDOMIZED` the seed should be an integer scalar `Tensor`. For
+      `STATELESS` must be supplied as an integer `Tensor` of shape `[2]`.
+      Default value: `None` which means no seed is set.
     name: Python `str` name prefixed to ops created by this class.
       Default value: `None` which is mapped to the default name
         `uniform_distribution`.
@@ -82,6 +83,9 @@ def uniform(
   Returns:
     samples: A `Tensor` of shape `sample_shape + [dim]`. The draws
       from the uniform distribution of the requested random type.
+
+  Raises:
+    ValueError: if `random_type` is `STATELESS` and the `seed` is `None`.
   """
   random_type = RandomType.PSEUDO if random_type is None else random_type
   dtype = dtype or tf.float32
@@ -90,6 +94,12 @@ def uniform(
 
     if random_type == RandomType.PSEUDO:
       return tf.random.uniform(
+          shape=sample_shape + [dim], dtype=dtype, seed=seed)
+    elif random_type == RandomType.STATELESS:
+      if seed is None:
+        raise ValueError('`seed` must be supplied if the `random_type` is '
+                         'STATELESS.')
+      return tf.random.stateless_uniform(
           shape=sample_shape + [dim], dtype=dtype, seed=seed)
     # TODO(b/145104222): Add anthithetic sampling for the uniform distribution.
     elif random_type == RandomType.PSEUDO_ANTITHETIC:
@@ -127,8 +137,6 @@ def _quasi_uniform(
     low_discrepancy_seq = sobol.sample(
         dim=dim, num_results=num_samples, skip=skip,
         dtype=dtype)
-    # TODO(b/148005344): Remove after tf.reshape after the bug is fixed
-    low_discrepancy_seq = tf.reshape(low_discrepancy_seq, [num_samples, dim])
   else:  # HALTON or HALTON_RANDOMIZED random_dtype
     if 'randomization_params' in kwargs:
       randomization_params = kwargs['randomization_params']
