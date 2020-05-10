@@ -75,6 +75,7 @@ from tf_quant_finance import experimental
 from tf_quant_finance import math
 from tf_quant_finance import models
 from tf_quant_finance import rates
+from tf_quant_finance import volatility
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
@@ -83,6 +84,7 @@ _allowed_symbols = [
     "experimental",
     "math",
     "models",
+    "volatility",
     "rates",
 ]
 
