@@ -15,11 +15,12 @@
 """TensorFlow Quantitative Finance tools to build Diffusion Models."""
 
 from tf_quant_finance.models import euler_sampling
+from tf_quant_finance.models import heston
 from tf_quant_finance.models import hull_white
 from tf_quant_finance.models.generic_ito_process import GenericItoProcess
 from tf_quant_finance.models.geometric_brownian_motion.multivariate_geometric_brownian_motion import MultivariateGeometricBrownianMotion
 from tf_quant_finance.models.geometric_brownian_motion.univariate_geometric_brownian_motion import GeometricBrownianMotion
-from tf_quant_finance.models.heston_model import HestonModel
+from tf_quant_finance.models.heston import HestonModel
 from tf_quant_finance.models.ito_process import ItoProcess
 from tf_quant_finance.models.joined_ito_process import JoinedItoProcess
 
@@ -27,6 +28,7 @@ from tensorflow.python.util.all_util import remove_undocumented  # pylint: disab
 
 _allowed_symbols = [
     'euler_sampling',
+    'heston',
     'HestonModel',
     'hull_white',
     'GenericItoProcess',
