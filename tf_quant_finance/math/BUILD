@@ -151,6 +151,7 @@ py_library(
 py_test(
     name = "custom_loops_test",
     size = "small",
+    timeout = "moderate",
     srcs = ["custom_loops_test.py"],
     python_version = "PY3",
     shard_count = 3,
