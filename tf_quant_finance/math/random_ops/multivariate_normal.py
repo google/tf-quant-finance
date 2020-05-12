@@ -135,11 +135,10 @@ def multivariate_normal(sample_shape,
       only relevant if `random_type` is one of
       `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
         STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
-      `HALTON_RANDOMIZED` the seed should be an integer scalar `Tensor`. For
+      `HALTON_RANDOMIZED` the seed should be a Python integer. For
       `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as an integer
       `Tensor` of shape `[2]`.
       Default value: `None` which means no seed is set.
-      Default value: None which means no seed is set.
     dtype: Optional `dtype`. The dtype of the input and output tensors.
       Default value: None which maps to the default dtype inferred by
       TensorFlow.

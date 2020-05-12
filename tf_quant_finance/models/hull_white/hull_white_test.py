@@ -15,6 +15,8 @@
 
 """Tests for Hull White Module."""
 
+from absl.testing import parameterized
+
 import numpy as np
 import tensorflow.compat.v2 as tf
 
@@ -24,7 +26,7 @@ from tensorflow.python.framework import test_util  # pylint: disable=g-direct-te
 
 
 @test_util.run_all_in_graph_and_eager_modes
-class HullWhiteTest(tf.test.TestCase):
+class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
 
   def setUp(self):
     self.mean_reversion = [0.1, 0.05]
@@ -52,7 +54,17 @@ class HullWhiteTest(tf.test.TestCase):
     self.true_var = _true_var
     super(HullWhiteTest, self).setUp()
 
-  def test_mean_and_variance_1d(self):
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'STATELESS',
+          'random_type': tff.math.random.RandomType.STATELESS_ANTITHETIC,
+          'seed': [1, 2],
+      }, {
+          'testcase_name': 'HALTON',
+          'random_type': tff.math.random.RandomType.HALTON,
+          'seed': None,
+      })
+  def test_mean_and_variance_1d(self, random_type, seed):
     """Tests model with piecewise constant parameters in 1 dimension."""
     for dtype in [tf.float32, tf.float64]:
       mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
@@ -68,7 +80,8 @@ class HullWhiteTest(tf.test.TestCase):
           [0.1, 0.5, 1.0],
           num_samples=50000,
           initial_state=self.initial_state[0],
-          random_type=tff.math.random.RandomType.HALTON,
+          random_type=random_type,
+          seed=seed,
           skip=1000000)
       self.assertEqual(paths.dtype, dtype)
       self.assertAllEqual(paths.shape, [50000, 3, 1])

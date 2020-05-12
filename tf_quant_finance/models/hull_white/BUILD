@@ -38,10 +38,11 @@ py_test(
     timeout = "moderate",
     srcs = ["hull_white_test.py"],
     python_version = "PY3",
-    shard_count = 4,
+    shard_count = 6,
     deps = [
         "//tf_quant_finance",
         # test util,
+        # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
     ],

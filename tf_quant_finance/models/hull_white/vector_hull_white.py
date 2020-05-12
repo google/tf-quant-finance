@@ -257,8 +257,14 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       random_type: Enum value of `RandomType`. The type of (quasi)-random
         number generator to use to generate the paths.
         Default value: `None` which maps to the standard pseudo-random numbers.
-      seed: Python `int`. The random seed to use.
-        Default value: None, i.e., no seed is set.
+      seed: Seed for the random number generator. The seed is
+        only relevant if `random_type` is one of
+        `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
+          STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
+        `HALTON_RANDOMIZED` the seed should be an Python integer. For
+        `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as an integer
+        `Tensor` of shape `[2]`.
+        Default value: `None` which means no seed is set.
       skip: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
         Halton sequence to skip. Used only when `random_type` is 'SOBOL',
         'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
@@ -340,10 +346,14 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                          'unsupported when `time_step` or `times` have a '
                          'non-constant value')
     # In order to use low-discrepancy random_type we need to generate the
-    # sequence of independent random normals upfront.
+    # sequence of independent random normals upfront. We also precompute random
+    # numbers for stateless random type in order to ensure independent samples
+    # for multiple function calls whith different seeds.
     if random_type in (random.RandomType.SOBOL,
                        random.RandomType.HALTON,
-                       random.RandomType.HALTON_RANDOMIZED):
+                       random.RandomType.HALTON_RANDOMIZED,
+                       random.RandomType.STATELESS,
+                       random.RandomType.STATELESS_ANTITHETIC):
       normal_draws = utils.generate_mc_normal_draws(
           num_normal_draws=self._dim, num_time_steps=steps_num,
           num_sample_paths=num_samples, random_type=random_type,

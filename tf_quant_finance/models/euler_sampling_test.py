@@ -95,14 +95,21 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
       {
           'testcase_name': 'PSEUDO',
           'random_type': tff.math.random.RandomType.PSEUDO,
+          'seed': 12134,
+      }, {
+          'testcase_name': 'STATELESS',
+          'random_type': tff.math.random.RandomType.STATELESS,
+          'seed': [1, 2],
       }, {
           'testcase_name': 'SOBOL',
           'random_type': tff.math.random.RandomType.SOBOL,
+          'seed': None,
       }, {
           'testcase_name': 'HALTON_RANDOMIZED',
           'random_type': tff.math.random.RandomType.HALTON_RANDOMIZED,
+          'seed': 12134,
       })
-  def test_sample_paths_2d(self, random_type):
+  def test_sample_paths_2d(self, random_type, seed):
     """Tests path properties for 2-dimentional Ito process.
 
     We construct the following Ito processes.
@@ -118,6 +125,7 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
     Args:
       random_type: Random number type defined by tff.math.random.RandomType
         enum.
+      seed: Random seed.
     """
     mu = np.array([0.2, 0.7])
     a = np.array([[0.4, 0.1], [0.3, 0.2]])
@@ -142,7 +150,7 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
             initial_state=x0,
             time_step=0.01,
             random_type=random_type,
-            seed=12134))
+            seed=seed))
 
     self.assertAllClose(paths.shape, (num_samples, 5, 2), atol=0)
     means = np.mean(paths, axis=0)
@@ -196,7 +204,17 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
     expected_means = x0 + (2.0 / 3.0) * mu * np.power(times, 1.5)
     self.assertAllClose(means, expected_means, rtol=1e-2, atol=1e-2)
 
-  def test_antithetic_sample_paths_mean_2d(self):
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'PSEUDO_ANTITHETIC',
+          'random_type': tff.math.random.RandomType.PSEUDO,
+          'seed': 12134,
+      }, {
+          'testcase_name': 'STATELESS_ANTITHETIC',
+          'random_type': tff.math.random.RandomType.STATELESS,
+          'seed': [0, 12134],
+      })
+  def test_antithetic_sample_paths_mean_2d(self, random_type, seed):
     """Tests path properties for 2-dimentional anthithetic variates method.
 
     The same test as above but with `PSEUDO_ANTITHETIC` random type.
@@ -209,6 +227,11 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
     s_ij = a_ij t + b_ij
 
     For this process expected value at time t is (x_0)_i + 2/3 * mu_i * t^1.5.
+
+    Args:
+      random_type: Random number type defined by tff.math.random.RandomType
+        enum.
+      seed: Random seed.
     """
     mu = np.array([0.2, 0.7])
     a = np.array([[0.4, 0.1], [0.3, 0.2]])
@@ -232,9 +255,9 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
             times=times,
             num_samples=num_samples,
             initial_state=x0,
-            random_type=random.RandomType.PSEUDO_ANTITHETIC,
+            random_type=random_type,
             time_step=0.01,
-            seed=12134))
+            seed=seed))
 
     self.assertAllClose(paths.shape, (num_samples, 5, 2), atol=0)
     means = np.mean(paths, axis=0)

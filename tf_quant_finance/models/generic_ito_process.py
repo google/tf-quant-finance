@@ -190,8 +190,14 @@ class GenericItoProcess(ito_process.ItoProcess):
       random_type: Enum value of `RandomType`. The type of (quasi)-random number
         generator to use to generate the paths.
         Default value: None which maps to the standard pseudo-random numbers.
-      seed: Python `int`. The random seed to use. If not supplied, no seed is
-        set.
+      seed: Seed for the random number generator. The seed is
+        only relevant if `random_type` is one of
+        `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
+          STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
+        `HALTON_RANDOMIZED` the seed should be an Python integer. For
+        `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as an integer
+        `Tensor` of shape `[2]`.
+        Default value: `None` which means no seed is set.
       swap_memory: A Python bool. Whether GPU-CPU memory swap is enabled for
         this op. See an equivalent flag in `tf.while_loop` documentation for
         more details. Useful when computing a gradient of the op since
