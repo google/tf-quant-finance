@@ -131,7 +131,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     #### Example
     ```python
     dates = dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
-    dates.days_of_week()  # [5, 1]
+    dates.day_of_week()  # [5, 1]
     ```
     """
     # 1 Jan 0001 was Monday according to the proleptic Gregorian calendar.
@@ -295,7 +295,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     #### Example
     ```python
     dates = dates_from_tuples([(2020, 2, 25), (2020, 3, 31)])
-    new_dates = dates + period.month()
+    new_dates = dates + periods.month()
     # DateTensor([(2020, 3, 25), (2020, 4, 30)])
 
     new_dates = dates + periods.month([1, 2])

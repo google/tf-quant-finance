@@ -133,7 +133,7 @@ def days_in_leap_years_between(start_date, end_date):
 
   'start_date' is included and 'end_date' is excluded from the period.
 
-  For example, for dates '(2019, 12, 24)' and '(2024, 2, 10)' the result is
+  For example, for dates `2019-12-24` and `2024-2-10` the result is
   406: 366 days in 2020, 31 in Jan 2024 and 9 in Feb 2024.
 
   If `end_date` is earlier than `start_date`, the result will be negative or
@@ -165,7 +165,7 @@ def days_in_leap_and_nonleap_years_between(start_date, end_date):
   Calculates a tuple '(days_in_leap_years, days_in_nonleap_years)'.
   'start_date' is included and 'end_date' is excluded from the period.
 
-  For example, for dates '(2019, 12, 24)' and '(2024, 2, 10)' the result is
+  For example, for dates `2019-12-24` and `2024-2-10` the result is
   (406, 1103):
   406 = 366 days in 2020 + 31 in Jan 2024 + 9 in Feb 2024,
   1103 = 8 in 2019 + 365 in 2021 + 365 in 2022 + 365 in 2023.
@@ -190,7 +190,7 @@ def leap_days_between(start_date, end_date):
 
   'start_date' is included and 'end_date' is excluded from the period.
 
-  For example, for dates '(2019, 12, 24)' and '(2024, 3, 10))' the result is
+  For example, for dates `2019-12-24` and `2024-3-10` the result is
   2: there is 29 Feb 2020 and 29 Feb 2024 between 24 Dec 2019 (inclusive) and
   10 Mar 2024 (exclusive).
 
