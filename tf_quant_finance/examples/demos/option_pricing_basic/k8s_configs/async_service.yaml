@@ -1,0 +1,58 @@
+# Kubernetes resource config to run the async service.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: options-pricing-async
+spec:
+  selector:
+    matchLabels:
+      app: options-pricing-async
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: options-pricing-async
+    spec:
+      containers:
+        # If building own docker image, replace this with the custom image id.
+        - image: gcr.io/tf-quant-finance/demo-options-downloader
+          name: downloader
+          volumeMounts:
+          - name: shared-dir
+            mountPath: /var/tmp
+          - name: google-cloud-key
+            mountPath: /var/secrets/google
+          env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+        - image: gcr.io/tf-quant-finance/demo-options-pricer
+          name: pricer
+          volumeMounts:
+          - name: shared-dir
+            mountPath: /var/tmp
+      volumes:
+      - name: shared-dir
+        emptyDir: {}
+        # Needed for access to the GCS bucket where the input data is downloaded from and
+        # results are written to. To use this, you need to create a kubernetes secret called
+        # "gcs-key" with credentials to access the GCS bucket. For more details see example at:
+        # https://cloud.google.com/kubernetes-engine/docs/tutorials/authenticating-to-cloud-platform
+      - name: google-cloud-key
+        secret:
+          secretName: gcs-key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: options-async-service
+spec:
+  selector:
+    app: options-pricing-async
+  ports:
+  - protocol: "TCP"
+    port: 80
+    targetPort: 8080
+  type: LoadBalancer
