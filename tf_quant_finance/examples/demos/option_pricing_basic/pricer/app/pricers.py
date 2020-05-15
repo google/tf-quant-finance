@@ -52,9 +52,9 @@ def _price(spot_mkt, vol_mkt, rate_mkt, underliers, strikes, call_put_flag,
   rates = tf.gather(rate_mkt, underliers)
   # Convert expiries into time.
   expiry_ordinals = tf.cast(expiry_ordinals, dtype=tf.int32)
-  expiry_dates = tff.experimental.dates.from_ordinals(expiry_ordinals)
-  pricing_date = tff.experimental.dates.from_datetimes([datetime.date.today()])
-  expiry_times = tff.experimental.dates.daycounts.actual_360(
+  expiry_dates = tff.datetime.dates_from_ordinals(expiry_ordinals)
+  pricing_date = tff.datetime.dates_from_datetimes([datetime.date.today()])
+  expiry_times = tff.datetime.daycount_actual_360(
       start_date=pricing_date, end_date=expiry_dates, dtype=np.float64)
   prices = tff.black_scholes.option_price(
       volatilities=vols,

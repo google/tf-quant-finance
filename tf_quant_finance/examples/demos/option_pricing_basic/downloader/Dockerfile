@@ -34,11 +34,13 @@ COPY ./common /app/common/
 
 VOLUME ["/var/tmp/"]
 
-# Set this so the gcs client API can use the credentials.
+# Uncomment this and set it so the gcs client API can use the credentials.
 # User has to ensure that the keyfile is called keyfile.json and the path
 # /tmp/google_app_creds in the container is mapped to the path to the
 # file in the host. See sample docker run command above.
-ENV GOOGLE_APPLICATION_CREDENTIALS="/tmp/google_app_creds/keyfile.json"
+# If using the container in kubernetes, this should be set in the kubernetes
+# settings if needed.
+# ENV GOOGLE_APPLICATION_CREDENTIALS="/tmp/google_app_creds/keyfile.json"
 
 # Listen on port 8080 for incoming job requests.
 EXPOSE 8080/tcp
