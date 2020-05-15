@@ -113,6 +113,7 @@ def build(x_data, y_data, validate_args=False, dtype=None, name=None):
 
 def interpolate(x_values,
                 spline_data,
+                optimize_for_tpu=False,
                 dtype=None,
                 name=None):
   """Interpolates spline values for the given `x_values` and the `spline_data`.
@@ -133,6 +134,11 @@ def interpolate(x_values,
     x_values: A real `Tensor` of shape `batch_shape + [num_points]`.
     spline_data: An instance of `SplineParameters`. `spline_data.x_data` should
       have the same batch shape as `x_values`.
+    optimize_for_tpu: A Python bool. If `True`, the algorithm uses one-hot
+      encoding to lookup indices of `x_values` in `spline_data.x_data`. This
+      significantly improves performance of the algorithm on a TPU device but
+      may slow down performance on the CPU.
+      Default value: `False`.
     dtype: Optional dtype for `x_values`.
       Default value: `None` which maps to the default dtype inferred by
       TensorFlow.
@@ -149,16 +155,14 @@ def interpolate(x_values,
       If `x_values` batch shape is different from `spline_data.x_data` batch
       shape.
   """
-  with tf.compat.v1.name_scope(
-      name,
-      default_name="cubic_spline_interpolate",
-      values=[spline_data, x_values]):
+  name = name or "cubic_spline_interpolate"
+  with tf.name_scope(name):
+    x_values = tf.convert_to_tensor(x_values, dtype=dtype, name="x_values")
+    dtype = x_values.dtype
     # Unpack the spline data
     x_data = spline_data.x_data
     y_data = spline_data.y_data
     spline_coeffs = spline_data.spline_coeffs
-
-    x_values = tf.convert_to_tensor(x_values, dtype=dtype, name="x_values")
     # Check that all the x_values are within the boundaries
     if x_values.shape.as_list()[:-1] != x_data.shape.as_list()[:-1]:
       msg = ("The input tensor has a different number of rows than the "
@@ -167,20 +171,27 @@ def interpolate(x_values,
                                   x_data.shape.as_list()[:-1]))
     # Determine the splines to use.
     indices = tf.searchsorted(x_data, x_values, side="right") - 1
-
-    # Prepares the `indices` so that it can be used in gather_nd.
-    index_matrix = _prepare_indices(indices)
-
     # This selects all elements for the start of the spline interval.
     # Make sure indices lie in the permissible range
     indices_lower = tf.maximum(indices, 0)
-    selection_matrix = tf.concat(
-        [index_matrix, tf.expand_dims(indices_lower, -1)], -1)
     # This selects all elements for the end of the spline interval.
     # Make sure indices lie in the permissible range
     indices_upper = tf.minimum(indices + 1, x_data.shape.as_list()[-1] - 1)
-    selection_matrix_1 = tf.concat(
-        [index_matrix, tf.expand_dims(indices_upper, -1)], -1)
+    # Prepare indices for `tf.gather_nd` or `tf.one_hot`
+    # TODO(b/156720909): Extract get_slice logic into a common utilities module
+    # for cubic and linear interpolation
+    if optimize_for_tpu:
+      x_data_size = x_data.shape.as_list()[-1]
+      lower_encoding = tf.one_hot(indices_lower, x_data_size,
+                                  dtype=dtype)
+      upper_encoding = tf.one_hot(indices_upper, x_data_size,
+                                  dtype=dtype)
+    else:
+      index_matrix = _prepare_indices(indices)
+      lower_encoding = tf.concat(
+          [index_matrix, tf.expand_dims(indices_lower, -1)], -1)
+      upper_encoding = tf.concat(
+          [index_matrix, tf.expand_dims(indices_upper, -1)], -1)
 
     # Calculate dx and dy.
     # Simplified logic:
@@ -188,15 +199,22 @@ def interpolate(x_values,
     # dy = y_data[indices + 1] - y_data[indices]
     # indices is a tensor with different values per row/spline
     # Hence use a selection matrix with gather_nd
-    x0 = tf.gather_nd(x_data, selection_matrix)
-    x1 = tf.gather_nd(x_data, selection_matrix_1)
+    def get_slice(x, encoding):
+      if optimize_for_tpu:
+        return tf.math.reduce_sum(tf.expand_dims(x, axis=-2) * encoding,
+                                  axis=-1)
+      else:
+        return tf.gather_nd(x, encoding)
+    x0 = get_slice(x_data, lower_encoding)
+    x1 = get_slice(x_data, upper_encoding)
     dx = x1 - x0
 
-    y0 = tf.gather_nd(y_data, selection_matrix)
-    y1 = tf.gather_nd(y_data, selection_matrix_1)
+    y0 = get_slice(y_data, lower_encoding)
+    y1 = get_slice(y_data, upper_encoding)
     dy = y1 - y0
-    spline_coeffs0 = tf.gather_nd(spline_coeffs, selection_matrix)
-    spline_coeffs1 = tf.gather_nd(spline_coeffs, selection_matrix_1)
+
+    spline_coeffs0 = get_slice(spline_coeffs, lower_encoding)
+    spline_coeffs1 = get_slice(spline_coeffs, upper_encoding)
 
     t = (x_values - x0) / dx
     t = tf.where(dx > 0, t, tf.zeros_like(t))
