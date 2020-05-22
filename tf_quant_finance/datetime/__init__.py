@@ -14,6 +14,8 @@
 # limitations under the License.
 """Date-related utilities."""
 
+from tf_quant_finance.datetime import date_utils as utils
+
 from tf_quant_finance.datetime.constants import BusinessDayConvention
 from tf_quant_finance.datetime.constants import Month
 from tf_quant_finance.datetime.constants import PeriodType
@@ -75,6 +77,7 @@ _allowed_symbols = [
     'months',
     'year',
     'years',
+    'utils',
     'PeriodTensor',
     'PeriodicSchedule',
     'random_dates',

@@ -161,7 +161,6 @@ py_test(
     srcs = ["date_utils_test.py"],
     python_version = "PY3",
     deps = [
-        ":date_utils",
         ":test_data",
         "//tf_quant_finance",
         # test util,
