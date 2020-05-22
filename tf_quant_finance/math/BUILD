@@ -73,7 +73,7 @@ py_library(
     srcs = ["gradient.py"],
     srcs_version = "PY3",
     deps = [
-        # tensorflow_probability dep,
+        # tensorflow dep,
     ],
 )
 
@@ -84,7 +84,7 @@ py_test(
     python_version = "PY3",
     shard_count = 4,
     deps = [
-        ":math",
+        "//tf_quant_finance",
         # test util,
         # numpy dep,
         # tensorflow dep,

@@ -18,10 +18,10 @@
 import functools
 
 import tensorflow.compat.v2 as tf
-from tensorflow_probability.python.math import value_and_gradient
 
 
 def fwd_gradient(func_or_y, x, input_gradients=None, use_gradient_tape=False,
+                 unconnected_gradients=None,
                  name=None):
   """Computes forward mode gradient.
 
@@ -82,6 +82,9 @@ def fwd_gradient(func_or_y, x, input_gradients=None, use_gradient_tape=False,
     use_gradient_tape: Optional Python bool. Whether to use gradient tape even
       when eager mode is not turned on.
       Defaule value: `False`.
+    unconnected_gradients: An enum `tf.UnconnectedGradients` which specifies the
+      gradient value returned when the given input tensors are unconnected.
+      Default value: `None`, which maps to `tf.UnconnectedGradients.NONE`.
     name: Python `str` name prefixed to ops created by this function.
       Default value: `None` (i.e., 'gradients').
 
@@ -92,13 +95,16 @@ def fwd_gradient(func_or_y, x, input_gradients=None, use_gradient_tape=False,
     ValueError: If `func_or_y` is not a callable and the output is eagerly
       executed or when the `tf.GradientTape` is used.
   """
+  unconnected_gradients = unconnected_gradients or tf.UnconnectedGradients.NONE
   with tf.name_scope(name or "gradients"):
     f = _prepare_func(func_or_y)
     if not tf.executing_eagerly() and not use_gradient_tape:
       y = f(x)
       w = tf.ones_like(y)
-      g = tf.gradients(y, x, grad_ys=w)
-      return tf.gradients(g, w, grad_ys=input_gradients)[0]
+      g = tf.gradients(y, x, grad_ys=w,
+                       unconnected_gradients=unconnected_gradients)
+      return tf.gradients(g, w, grad_ys=input_gradients,
+                          unconnected_gradients=unconnected_gradients)[0]
     if not callable(func_or_y):
       raise ValueError("`func_or_y` should be a callable in eager mode or when "
                        "`tf.GradientTape` is used.")
@@ -108,11 +114,14 @@ def fwd_gradient(func_or_y, x, input_gradients=None, use_gradient_tape=False,
         y = f(x)
       w = tf.ones_like(y)
       outer_tape.watch(w)
-      g = inner_tape.gradient(y, x, output_gradients=w)
-    return outer_tape.gradient(g, w, output_gradients=input_gradients)
+      g = inner_tape.gradient(y, x, output_gradients=w,
+                              unconnected_gradients=unconnected_gradients)
+    return outer_tape.gradient(g, w, output_gradients=input_gradients,
+                               unconnected_gradients=unconnected_gradients)
 
 
 def gradients(func_or_y, xs, output_gradients=None, use_gradient_tape=False,
+              unconnected_gradients=None,
               name=None):
   """Computes the gradients of `func_or_y` wrt to `*xs`.
 
@@ -133,6 +142,9 @@ def gradients(func_or_y, xs, output_gradients=None, use_gradient_tape=False,
     use_gradient_tape: Python `bool` indicating that `tf.GradientTape` should be
       used regardless of `tf.executing_eagerly()` status.
       Default value: `False`.
+    unconnected_gradients: An enum `tf.UnconnectedGradients` which specifies the
+      gradient value returned when the given input tensors are unconnected.
+      Default value: `None`, which maps to `tf.UnconnectedGradients.NONE`.
     name: Python `str` name prefixed to ops created by this function.
       Default value: `None` (i.e., 'gradients').
 
@@ -140,23 +152,86 @@ def gradients(func_or_y, xs, output_gradients=None, use_gradient_tape=False,
     A `Tensor` with the gradient of `y` wrt each of `xs` or a list of `Tensor`s
     if `xs` is a list.
   """
+  unconnected_gradients = unconnected_gradients or tf.UnconnectedGradients.NONE
   f = _prepare_func(func_or_y)
-  if not tf.executing_eagerly() and not use_gradient_tape:
-    with tf.name_scope(name or "gradients"):
-      xs, is_xs_list_like = _prepare_args(xs)
+  with tf.name_scope(name or "gradients"):
+    xs, is_xs_list_like = _prepare_args(xs)
+    if not tf.executing_eagerly() and not use_gradient_tape:
       y = f(*xs)
-      grad = tf.gradients(y, xs, grad_ys=output_gradients)
-      if is_xs_list_like:
-        return grad
-      else:
-        return grad[0]
-  if not callable(func_or_y):
-    raise ValueError("`func_or_y` should be a callable in eager mode or when "
-                     "`tf.GradientTape` is used.")
-  _, grad = value_and_gradient(
-      f, xs, output_gradients=output_gradients,
-      use_gradient_tape=use_gradient_tape, name=name or "gradients")
-  return grad
+      grad = tf.gradients(y, xs, grad_ys=output_gradients,
+                          unconnected_gradients=unconnected_gradients)
+    else:
+      if not callable(func_or_y):
+        raise ValueError("`func_or_y` should be a callable in eager mode or "
+                         "when `tf.GradientTape` is used.")
+      with tf.GradientTape() as tape:
+        for x in xs:
+          tape.watch(x)
+        y = f(*xs)
+      grad = tape.gradient(y, xs, output_gradients=output_gradients,
+                           unconnected_gradients=unconnected_gradients)
+    if is_xs_list_like:
+      return grad
+    else:
+      return grad[0]
+
+
+def value_and_gradient(f,
+                       xs,
+                       output_gradients=None,
+                       use_gradient_tape=False,
+                       unconnected_gradients=None,
+                       name=None):
+  """Computes `f(*xs)` and its gradients wrt to `*xs`.
+
+  Args:
+    f: Python `callable` to be differentiated. If `f` returns a scalar, this
+      scalar will be differentiated. If `f` returns a tensor or list of tensors,
+      by default a scalar will be computed by adding all their values to produce
+      a single scalar. If desired, the tensors can be elementwise multiplied by
+      the tensors passed as the `dy` keyword argument to the returned gradient
+      function.
+    xs: Python list of parameters of `f` for which to differentiate. (Can also
+      be single `Tensor`.)
+    output_gradients: A `Tensor` or list of `Tensor`s the same size as the
+      result `ys = f(*xs)` and holding the gradients computed for each `y` in
+      `ys`. This argument is forwarded to the underlying gradient implementation
+      (i.e., either the `grad_ys` argument of `tf.gradients` or the
+      `output_gradients` argument of `tf.GradientTape.gradient`).
+    use_gradient_tape: Python `bool` indicating that `tf.GradientTape` should be
+      used regardless of `tf.executing_eagerly()` status.
+      Default value: `False`.
+    unconnected_gradients: An enum `tf.UnconnectedGradients` which specifies the
+      gradient value returned when the given input tensors are unconnected.
+      Default value: `None`, which maps to `tf.UnconnectedGradients.NONE`.
+    name: Python `str` name prefixed to ops created by this function.
+      Default value: `None` (i.e., `'value_and_gradient'`).
+
+  Returns:
+    A tuple of two elements. The first one is a `Tensor` representing the value
+    of the function at `xs` and the second one is either a `Tensot` or a list of
+    `Tensor`s representing grafient of `f(*xs)` wrt `xs`.
+    y: `y = f(*xs)`.
+    dydx: Gradient of `y` wrt each of `xs`.
+  """
+  unconnected_gradients = unconnected_gradients or tf.UnconnectedGradients.NONE
+  xs, is_xs_list_like = _prepare_args(xs)
+  with tf.name_scope(name or "value_and_gradient"):
+    if tf.executing_eagerly() or use_gradient_tape:
+      with tf.GradientTape() as tape:
+        for x in xs:
+          tape.watch(x)
+        y = f(*xs)
+      grad = tape.gradient(y, xs, output_gradients=output_gradients,
+                           unconnected_gradients=unconnected_gradients)
+    else:
+      y = f(*xs)
+      grad = tf.gradients(ys=y, xs=xs, grad_ys=output_gradients,
+                          unconnected_gradients=unconnected_gradients)
+    if is_xs_list_like:
+      return y, grad
+    else:
+      return y, grad[0]
 
 
 def make_val_and_grad_fn(value_fn):
