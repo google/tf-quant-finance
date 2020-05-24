@@ -118,13 +118,6 @@ def price_barrier_option(
             "b": params[7],
             "time_volitility": params[8]
         }
-        print("cp: ", call_or_put)
-        print("ba: ", below_or_above)
-        print("a: ", params["a"])
-        print("b: ", params["b"])
-        print("z: ", params["z"])
-        print("tv: ", params["time_volitility"])
-
         
         if otype == DOWN_AND_IN_CALL:
             out_map = [[1.], [-1.], [0.], [1.], [1.], [0.]]
@@ -142,7 +135,6 @@ def price_barrier_option(
             out_map = [[1.], [-1.], [1.], [-1.], [0.], [1.]]
         elif otype == UP_AND_OUT_PUT:
             out_map = [[1.], [0.], [-1.], [0.], [0.], [1.]]
-        print("otype: ", otype)
         
         # Create a matrix
         rate_exponent = tf.math.exp(-1.*tf.math.multiply(rate, time_to_maturity), name="rate_exponent")
@@ -188,5 +180,4 @@ def price_barrier_option(
         
         # Approximation is the sum of the diagonal of mat mul
         approx = tf.linalg.diag_part(tf.linalg.matmul(term_matrix, cdf_matrix, transpose_a=True, a_is_sparse=True, b_is_sparse=True))
-        print(approx)
         return tf.reduce_sum(tf.math.multiply(approx, tf.squeeze(out_map))).numpy()

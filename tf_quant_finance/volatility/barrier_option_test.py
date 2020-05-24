@@ -96,7 +96,7 @@ class BarrierOptionTest(tf.test.TestCase):
         rate = 0.08
         b = 0.04
         asset_yield = -(b-rate)
-        strike_price, barrier_price, cp, ba, price_true, mp = self.get_vals("cdo")
+        strike_price, barrier_price, cp, ba, price_true, mp = self.get_vals("pdi")
         volitility = 0.25
         param_vals = self._calc_real_params(rate, asset_yield, asset_price, strike_price, barrier_price, volitility, time_to_maturity)
         params = {
@@ -121,14 +121,7 @@ class BarrierOptionTest(tf.test.TestCase):
         8 -> puo //fails
         """
         price = barrier_option.price_barrier_option([cp], [ba], rate, asset_yield, asset_price, strike_price, barrier_price, rebate, volitility, time_to_maturity, mp)
-        print("I1#############################: ", self._i12(cp, rate, asset_price, asset_yield, time_to_maturity, strike_price, params, "x"))
-        print("I2#############################: ", self._i12(cp, rate, asset_price, asset_yield, time_to_maturity, strike_price, params, "x1"))
-        print("I3#############################: ", self._i34(cp, ba, rate, asset_price, asset_yield, time_to_maturity, strike_price, barrier_price, params, "y"))
-        print("I4#############################: ", self._i34(cp, ba, rate, asset_price, asset_yield, time_to_maturity, strike_price, barrier_price, params, "y1"))
-        print("I5#############################: ", self._i5(ba, rebate, rate, asset_price, time_to_maturity, barrier_price, params))
-        print("I6#############################: ", self._i6(ba, rebate, asset_price, barrier_price, params))
-        print("price: ", price)
-        print("True: ", price_true)
+        self.assertAllClose(price, price_true, 10e-3)
 
     def get_vals(self, param):
         if param == "cdo":
@@ -159,8 +152,6 @@ class BarrierOptionTest(tf.test.TestCase):
         b = 0.04
         asset_yield = [-(b-rate[0]), -(b-rate[0])]
         price = barrier_option.price_barrier_option([1.0,1.0], rate, asset_yield, asset_price, strike_price, barrier_price, rebate, volitility, time_to_maturity, 1)
-        print("price: ", price)
-        print("\nTrue: ", 4.0109)
 
 if __name__ == '__main__':
     tf.test.main()
