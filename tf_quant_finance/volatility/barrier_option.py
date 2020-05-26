@@ -167,57 +167,6 @@ def price_barrier_option(
         [0., 0., 1., 1., 0., 0., -1., -1., 0., 0., 1., 1.])
 
     # Constructing Masks
-    """
-    @tf.function
-    def get_out_map(params):
-      
-      Function maps params to option pricing masks
-      Args:
-      params: Tuple of tensors. (barrier price, strike_price, option type)
-
-      Returns:
-      returns mask used to price specified option
-      
-      barrier_price = params[0]
-      strike_price = params[1]
-      otype = params[2]
-      # out_map = down_and_in_call_tensor_greater_strike
-      if strike_price < barrier_price:
-        if otype == down_and_in_call:
-          return down_and_in_call_tensor_lower_strike
-        elif otype == down_and_in_put:
-          return down_and_in_put_tensor_lower_strike
-        elif otype == up_and_in_call:
-          return up_and_in_call_tensor_lower_strike
-        elif otype == up_and_in_put:
-          return up_and_in_put_tensor_lower_strike
-        elif otype == down_and_out_call:
-          return down_and_out_call_tensor_lower_strike
-        elif otype == down_and_out_put:
-          return down_and_out_put_tensor_lower_strike
-        elif otype == up_and_out_call:
-          return up_and_out_call_tensor_lower_strike
-        elif otype == up_and_out_put:
-          return up_and_out_put_tensor_lower_strike
-      else:
-        if otype == down_and_in_call:
-          return down_and_in_call_tensor_greater_strike
-        elif otype == down_and_in_put:
-          return down_and_in_put_tensor_greater_strike
-        elif otype == up_and_in_call:
-          return up_and_in_call_tensor_greater_strike
-        elif otype == up_and_in_put:
-          return up_and_in_put_tensor_greater_strike
-        elif otype == down_and_out_call:
-          return down_and_out_call_tensor_greater_strike
-        elif otype == down_and_out_put:
-          return down_and_out_put_tensor_greater_strike
-        elif otype == up_and_out_call:
-          return up_and_out_call_tensor_greater_strike
-        elif otype == up_and_out_put:
-          return up_and_out_put_tensor_greater_strike
-    """
-    
     @tf.function
     def get_out_map(params):
       """
