@@ -1,11 +1,24 @@
+# Lint as: python3
+# Copyright 2019 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Pricing barrier options"""
+
 import tensorflow as tf
 import tensorflow_probability as tfp
 
 
 def price_barrier_option(
-        call_or_put,
-        below_or_above,
         rate,
         asset_yield,
         asset_price,
@@ -16,32 +29,79 @@ def price_barrier_option(
         time_to_maturity,
         otype):
   """
-  Function determines the approximate price for the barrier option.
+
+  Function determines the approximate price for the barrier option. The
+  approximation functions for each integrals are split into two matrix.
+  The first matrix contains the algebraic terms and the second matrix
+  contains the probability distribution terms. Masks are used to filter
+  appropriate terms for calculating the integral. Then a dot product
+  of each row calculates the approximate price of the barrier option.
+
+  #### Examples
+
+  ```python
+  rate: [.08, .08]
+  asset_yield: [.04, .04]
+  asset_price: [100., 100.]
+  strike_price: [90., 90.]
+  barrier_price: [95. 95.]
+  rebate: [3. 3.]
+  asset_volatility: [.25, .25]
+  time_to_maturity: [.5, .5]
+  otype: [5, 1]
+
+  price = price_barrier_option(
+    rate, asset_yield, asset_price, strike_price,
+    barrier_price, rebate, asset_volatility,
+    time_to_maturity, otype)
+
+  # Expected output
+  #  `Tensor` with values [9.024, 7.7627]
+  ````
+
   #### References
-  [1] given
-  [2] Options pricing forumulas
+
+  # Technical Report
+  [1]: Lee Clewlow, Javier Llanos, Chris Strickland, Caracas Venezuela
+  Pricing Exotic Options in a Black-Scholes World, 1994
+  https://warwick.ac.uk/fac/soc/wbs/subjects/finance/research/wpaperseries/1994/94-54.pdf
+
+  # Textbook
+  [2]: Espen Gaarder Haug, The complete guide to option pricing formulas,
+  2nd Edition, 1997
 
   Args:
-  call_or_put: A real 1-2D Tensor where each element represents a call or put for the security.(1 for call, -1 for put)
-  rate: A real 1-2D Tensor where each element represents rate for individual option.
-  asset_yield: A real 1-2D tensor that is the yield on asset
-  asset_price: A real 1-2D Tensor that is the asset price for the underlying security.
-  strike_price: A real 1-2D tensor that is the strike price for the option.
-  barrier_price: A real 1-2D tensor that is the barrier price for the option to take effect.
-  rebate: A real 1-2D Tensor that is a rebate contingent upon reaching the barrier price.
-  asset_volatility: A real 1-2D Tensor that measure the volatility of the asset price.
-  time_to_maturity: A real 1-2D Tensor with time to maturity of option.
-  otype: An Integer that tells which barrier option to approimate
-  0 -> down in call
-  1 -> down in put
-  2 -> up in call
-  3 -> up in put
-  4 -> down out call
-  5 -> down out put
-  6 -> up out call
-  8 -> up out put
+    rate: A real scalar or vector `Tensor` where each element represents rate
+      for each option.
+    asset_yield: A real scalar or vector `Tensor` that is the yield on asset.
+    asset_price: A real scalar or vector `Tensor` that is the asset price for
+      the underlying security.
+    strike_price: A real scalar or vector `Tensor` that is the strike price
+      for the option.
+    barrier_price: A real scalar or vector `Tensor` that is the barrier price
+      for the option to take effect.
+    rebate: A real scalar or vector `Tensor` that is a rebate contingent upon
+      reaching the barrier price.
+    asset_volatility: A real scalar or vector `Tensor` that measure the
+      volatility of the asset price.
+    time_to_maturity: A real scalar or vector `Tensor` with time to maturity
+      of option.
+    otype: An real scalar or vector of `Int` that determines barrier option
+      to approximate
+      [
+      0 -> down and in call,
+      1 -> down and in put,
+      2 -> up and in call,
+      3 -> up and in put,
+      4 -> down and out call,
+      5 -> down and out put,
+      6 -> up and out call,
+      8 -> up and out put,
+      ]
   Returns:
-  A Tensor of same shape as input that is the approximate price of the barrier option.
+    A `Tensor` of same shape as input that is the approximate price of the
+    barrier option.
+
   """
   down_and_in_call = 1
   down_and_in_put = 2
@@ -52,11 +112,7 @@ def price_barrier_option(
   up_and_out_call = 7
   up_and_out_put = 8
   with tf.name_scope("Price_Barrier_Option"):
-    # Convert all to tensor and enforce float dtyle
-    call_or_put = tf.convert_to_tensor(
-        call_or_put, dtype=tf.float32, name="call_or_put")
-    below_or_above = tf.convert_to_tensor(
-        below_or_above, dtype=tf.float32, name="below_or_above")
+    # Convert all to tensor and enforce float dtype where required
     rate = tf.convert_to_tensor(
         rate, dtype=tf.float32, name="rate")
     asset_yield = tf.convert_to_tensor(
@@ -76,7 +132,7 @@ def price_barrier_option(
     otype = tf.convert_to_tensor(
         otype, dtype=tf.int32, name="otype")
 
-    # masks
+    # masks, Masks are used to sum appropriate integrals for approximation
     down_and_in_call_tensor_lower_strike = tf.convert_to_tensor(
         [1., 1., -1., -1., 0., 0., 1., 1., 1., 1., 0., 0.])
     down_and_in_call_tensor_greater_strike = tf.convert_to_tensor(
@@ -111,61 +167,133 @@ def price_barrier_option(
         [0., 0., 1., 1., 0., 0., -1., -1., 0., 0., 1., 1.])
 
     # Constructing Masks
+    """
+    @tf.function
+    def get_out_map(params):
+      
+      Function maps params to option pricing masks
+      Args:
+      params: Tuple of tensors. (barrier price, strike_price, option type)
+
+      Returns:
+      returns mask used to price specified option
+      
+      barrier_price = params[0]
+      strike_price = params[1]
+      otype = params[2]
+      # out_map = down_and_in_call_tensor_greater_strike
+      if strike_price < barrier_price:
+        if otype == down_and_in_call:
+          return down_and_in_call_tensor_lower_strike
+        elif otype == down_and_in_put:
+          return down_and_in_put_tensor_lower_strike
+        elif otype == up_and_in_call:
+          return up_and_in_call_tensor_lower_strike
+        elif otype == up_and_in_put:
+          return up_and_in_put_tensor_lower_strike
+        elif otype == down_and_out_call:
+          return down_and_out_call_tensor_lower_strike
+        elif otype == down_and_out_put:
+          return down_and_out_put_tensor_lower_strike
+        elif otype == up_and_out_call:
+          return up_and_out_call_tensor_lower_strike
+        elif otype == up_and_out_put:
+          return up_and_out_put_tensor_lower_strike
+      else:
+        if otype == down_and_in_call:
+          return down_and_in_call_tensor_greater_strike
+        elif otype == down_and_in_put:
+          return down_and_in_put_tensor_greater_strike
+        elif otype == up_and_in_call:
+          return up_and_in_call_tensor_greater_strike
+        elif otype == up_and_in_put:
+          return up_and_in_put_tensor_greater_strike
+        elif otype == down_and_out_call:
+          return down_and_out_call_tensor_greater_strike
+        elif otype == down_and_out_put:
+          return down_and_out_put_tensor_greater_strike
+        elif otype == up_and_out_call:
+          return up_and_out_call_tensor_greater_strike
+        elif otype == up_and_out_put:
+          return up_and_out_put_tensor_greater_strike
+    """
+    
+    @tf.function
     def get_out_map(params):
       """
       Function maps params to option pricing masks
       Args:
       params: Tuple of tensors. (barrier price, strike_price, option type)
-      
+        params[0] = barrier_price
+        params[1] = strike_price
+        params[2] = otype
       Returns:
       returns mask used to price specified option
       """
-      barrier_price = params[0]
-      strike_price = params[1]
-      otype = params[2]
-      if strike_price < barrier_price:
-        if otype == down_and_in_call:
+      out_map = down_and_in_call_tensor_greater_strike # Default
+      if tf.math.less(params[1], params[0]):
+        if tf.equal(params[2], down_and_in_call):
           out_map = down_and_in_call_tensor_lower_strike
-        elif otype == down_and_in_put:
+        if tf.equal(params[2], down_and_in_put):
           out_map = down_and_in_put_tensor_lower_strike
-        elif otype == up_and_in_call:
+        if tf.equal(params[2], up_and_in_call):
           out_map = up_and_in_call_tensor_lower_strike
-        elif otype == up_and_in_put:
+        if tf.equal(params[2], up_and_in_put):
           out_map = up_and_in_put_tensor_lower_strike
-        elif otype == down_and_out_call:
+        if tf.equal(params[2], down_and_out_call):
           out_map = down_and_out_call_tensor_lower_strike
-        elif otype == down_and_out_put:
+        if tf.equal(params[2], down_and_out_put):
           out_map = down_and_out_put_tensor_lower_strike
-        elif otype == up_and_out_call:
+        if tf.equal(params[2], up_and_out_call):
           out_map = up_and_out_call_tensor_lower_strike
-        elif otype == up_and_out_put:
+        if tf.equal(params[2], up_and_out_put):
           out_map = up_and_out_put_tensor_lower_strike
       else:
-        if otype == down_and_in_call:
+        if tf.equal(params[2], down_and_in_call):
           out_map = down_and_in_call_tensor_greater_strike
-        elif otype == down_and_in_put:
+        if tf.equal(params[2], down_and_in_put):
           out_map = down_and_in_put_tensor_greater_strike
-        elif otype == up_and_in_call:
+        if tf.equal(params[2], up_and_in_call):
           out_map = up_and_in_call_tensor_greater_strike
-        elif otype == up_and_in_put:
+        if tf.equal(params[2], up_and_in_put):
           out_map = up_and_in_put_tensor_greater_strike
-        elif otype == down_and_out_call:
+        if tf.equal(params[2], down_and_out_call):
           out_map = down_and_out_call_tensor_greater_strike
-        elif otype == down_and_out_put:
+        if tf.equal(params[2], down_and_out_put):
           out_map = down_and_out_put_tensor_greater_strike
-        elif otype == up_and_out_call:
+        if tf.equal(params[2], up_and_out_call):
           out_map = up_and_out_call_tensor_greater_strike
-        elif otype == up_and_out_put:
+        if tf.equal(params[2], up_and_out_put):
           out_map = up_and_out_put_tensor_greater_strike
       return out_map
+    
+    @tf.function
+    def get_below_or_above(x):
+      if tf.math.less(x[0], x[1]):
+        return -1.
+      return 1.
 
-    # build masks
+    @tf.function
+    def get_call_or_put(x):
+      if tf.equal(tf.math.mod(x, 2), 0):
+        return -1.
+      return 1.
+
+    # build call or put, below or above barrier price, and masks
     if otype.shape == ():
+      below_or_above = get_below_or_above((asset_price, barrier_price))
+      call_or_put = get_call_or_put(otype)
       masks = get_out_map((barrier_price, strike_price, otype))
     else:
       masks = tf.map_fn(
           get_out_map,
           (barrier_price, strike_price, otype), dtype=tf.float32)
+      below_or_above = tf.map_fn(
+          get_below_or_above,
+          (asset_price, barrier_price), dtype=tf.float32)
+      call_or_put = tf.map_fn(
+          get_call_or_put,
+          otype, dtype=tf.float32)
 
     # Calculate params for integrals
     time_asset_volatility = tf.math.multiply(
@@ -174,7 +302,7 @@ def price_barrier_option(
     mu = tf.math.subtract(
         tf.math.subtract(rate, asset_yield),
         tf.math.divide(tf.math.square(asset_volatility), 2), name="mu")
-    lamda = tf.math.add(1,
+    lamda = tf.math.add(1.,
                         tf.math.divide(mu, tf.math.square(asset_volatility)),
                         name="lambda")
     num = tf.math.log(tf.math.divide(asset_price, strike_price))
@@ -223,7 +351,7 @@ def price_barrier_option(
                                                           rate_exponent),
                                          name="strike_price_term")
 
-    # Constructing Matix with first and second terms for each integral
+    # Constructing Matrix with first and second algebraic terms for each integral
     terms_mat = tf.stack((asset_price_term, -1.*strike_price_term,
                           asset_price_term, -1.*strike_price_term,
                           tf.math.multiply(asset_price_term,
@@ -282,8 +410,7 @@ def price_barrier_option(
                  below_or_above,
                  tf.math.subtract(
                      z, 2.*tf.math.multiply(b, time_asset_volatility))))),
-        name="norm_matrix")
-
+        name="cdf_matrix")
     # Calculating and returning price for each option
     return tf.reduce_sum(
         tf.math.multiply(
