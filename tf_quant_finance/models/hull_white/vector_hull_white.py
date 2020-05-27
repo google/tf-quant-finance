@@ -40,8 +40,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   `a_i` correspond to the mean-reversion rate, `sigma_i` is the volatility of
   the process, `theta_i(t)` is the function that determines long run behaviour
   of the process `r(t) = (r_1(t), ..., r_n(t))`
-  and is defined to match the market data through the instantaneous forward
-  rate matching:
+  and is computed to match the initial (at t=0) discount curve:
 
   ```None
   \theta_i = df_i(t) / dt + a_i * f_i(t) + 0.5 * sigma_i**2 / a_i
@@ -51,8 +50,21 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   `t` and `df_i(t)/dt` is the gradient of `f_i` with respect to the maturity.
   See Section 3.3.1 of [1] for details.
 
-  If the parameters `a_i`, `sigma_i` and `Rho` are piecewise constant functions,
-  the process is sampled exactly. Otherwise, Euler sampling is be used.
+  The price at time `t` of a zero-coupon bond maturing at `T` is given by
+  (Ref. [2]):
+
+  ```None
+  P(t,T) = P(0,T) / P(0,t) *
+           exp(-(r(t) - f(0,t)) * G(t,T) - 0.5 * y(t) * G(t,T)^2)
+
+  y(t) = int_0^t [exp(-2 int_u^t (a(s) ds)) sigma(u)^2 du]
+
+  G(t,T) = int_t^T [exp(-int_t^u a(s) ds) du]
+  ```
+
+  If mean-reversion, `a_i`, is constant and the volatility (`sigma_i`), and
+  correlation (`Rho`) are piecewise constant functions, the process is sampled
+  exactly. Otherwise, Euler sampling is used.
 
   For `n=1` this class represents Hull-White Model (see
   tff.models.hull_white.HullWhiteModel1F).
@@ -65,24 +77,25 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   import tf_quant_finance as tff
 
   dtype = tf.float64
-  # Mean-reversion is a piecewise constant function with different jumps for
-  # the two processes. `mean_reversion(t)` has shape `[dim] + t.shape`.
+  # Mean-reversion is constant for the two processes. `mean_reversion(t)`
+  # has shape `[dim] + t.shape`.
   mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
-      jump_locations=[[1, 2, 3, 4], [1, 2, 3, 3]],
-      values=[[0.1, 0.2, 0.3, 0.4, 0.5], [0.5, 0.2, 0.3, 0.4, 0.4]],
-      dtype=dtype)
+        jump_locations=[[], []],
+        values=[[0.03], [0.1]],
+        dtype=dtype)
   # Volatility is a piecewise constant function with jumps at the same locations
   # for both Hull-White processes. `volatility(t)` has shape `[dim] + t.shape`.
   volatility = tff.math.piecewise.PiecewiseConstantFunc(
-      jump_locations=[0.1, 2.],
-      values=[[0.1, 0.2], [0.1, 0.2], [0.1, 0.2]],
+      jump_locations=[[0.1, 2.], [0.1, 2.]],
+      values=[[0.01, 0.02, 0.01], [0.01, 0.015, 0.01]],
       dtype=dtype)
   # Correlation matrix is constant
   corr_matrix = [[1., 0.1], [0.1, 1.]]
-  instant_forward_rate_fn = lambda *args: [0.01, 0.02]
-  process = tff.models.hull_white.VectorHullWhiteModel(
+  initial_discount_rate_fn = lambda *args: [0.01, 0.015]
+  process = VectorHullWhiteModel(
       dim=2, mean_reversion=mean_reversion,
-      volatility=volatility, instant_forward_rate_fn=instant_forward_rate_fn,
+      volatility=volatility,
+      initial_discount_rate_fn=initial_discount_rate_fn,
       corr_matrix=None,
       dtype=dtype)
   # Sample 10000 paths using Sobol numbers as a random type.
@@ -91,26 +104,23 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   paths = process.sample_paths(
       times,
       num_samples=num_samples,
-      initial_state=[0.1, 0.2],
-      random_type=tff.math.random.RandomType.SOBOL)
+      initial_state=None)
   # Compute mean for each Hull-White process at the terminal value
   tf.math.reduce_mean(paths[:, -1, :], axis=0)
-  # Expected value: [0.09594861, 0.14156537]
-  # Check that the correlation is recovered
-  np.corrcoef(paths[:, -1, 0], paths[:, -1, 1])
-  # Expected value: [[1.       , 0.0914114],
-  #                  [0.0914114, 1.       ]]
+  # Expected value: [0.01013373 0.01494516]
   ```
 
   #### References:
     [1]: D. Brigo, F. Mercurio. Interest Rate Models. 2007.
+    [2]: Leif B. G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling.
+    Volume II: Term Structure Models.
   """
 
   def __init__(self,
                dim,
                mean_reversion,
                volatility,
-               instant_forward_rate_fn,
+               initial_discount_rate_fn,
                corr_matrix=None,
                dtype=None,
                name=None):
@@ -136,11 +146,11 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       volatility: A real positive `Tensor` of the same `dtype` as
         `mean_reversion` or a callable with the same specs as above.
         Corresponds to the lond run price variance.
-      instant_forward_rate_fn: A Python callable that accepts expiry time as a
-        scalar `Tensor` of the same `dtype` as `mean_reversion` and returns a
-        `Tensor` of shape `[dim]`.
-        Corresponds to the instanteneous forward rate at the present time for
-        the input expiry time.
+      initial_discount_rate_fn: A Python callable that accepts expiry time as
+        a real `Tensor` of the same `dtype` as `mean_reversion` and returns a
+        `Tensor` of shape `input_shape + dim`.
+        Corresponds to the zero coupon bond yield at the present time for the
+        input expiry time.
       corr_matrix: A `Tensor` of shape `[dim, dim]` and the same `dtype` as
         `mean_reversion` or a Python callable. The callable can be one of
         the following:
@@ -175,18 +185,32 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       # generic sampling method (e.g., Euler).
       self._sample_with_generic = False
       def _instant_forward_rate_fn(t):
-        # Add dependency on `t` in order to make `instant_forward_rate_fn`
-        # differentiable w.r.t. `t`.
-        return (tf.convert_to_tensor(instant_forward_rate_fn(t), dtype=dtype)
-                + 0 * t)
+        t = tf.convert_to_tensor(t, dtype=self._dtype)
+        def _log_zero_coupon_bond(x):
+          r = tf.convert_to_tensor(
+              initial_discount_rate_fn(x), dtype=self._dtype)
+          return -r * x
+
+        rate = -gradient.fwd_gradient(
+            _log_zero_coupon_bond, t, use_gradient_tape=True,
+            unconnected_gradients=tf.UnconnectedGradients.ZERO)
+        return rate
+
+      def _initial_discount_rate_fn(t):
+        return tf.convert_to_tensor(
+            initial_discount_rate_fn(t), dtype=self._dtype)
+
       self._instant_forward_rate_fn = _instant_forward_rate_fn
+      self._initial_discount_rate_fn = _initial_discount_rate_fn
       self._mean_reversion, sample_with_generic = _input_type(
           mean_reversion, dim=dim, dtype=dtype, name='mean_reversion')
+
       # Update flag to whether to sample with a generic sampler.
       self._sample_with_generic |= sample_with_generic
       # Get the volatility type
       self._volatility, sample_with_generic = _input_type(
           volatility, dim=dim, dtype=dtype, name='volatility')
+
       # Update flag to whether to sample with a generic sampler.
       self._sample_with_generic |= sample_with_generic
       if corr_matrix is not None:
@@ -197,6 +221,9 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         self._sample_with_generic |= sample_with_generic
       else:
         self._corr_matrix = None
+
+      if not self._sample_with_generic:
+        self._exact_discretization_setup(dim)
 
     # Volatility function
     def _vol_fn(t, x):
@@ -223,7 +250,8 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
           tf.expand_dims(t, -1), self._mean_reversion, self._volatility)
       fwd_rates = self._instant_forward_rate_fn(t)
       fwd_rates_grad = gradient.fwd_gradient(
-          self._instant_forward_rate_fn, t)
+          self._instant_forward_rate_fn, t, use_gradient_tape=True,
+          unconnected_gradients=tf.UnconnectedGradients.ZERO)
       drift = fwd_rates_grad + mean_reversion * fwd_rates
       drift += (volatility**2 / 2 / mean_reversion
                 * (1 - tf.math.exp(-2 * mean_reversion * t))
@@ -234,7 +262,6 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
 
   def sample_paths(self,
                    times,
-                   initial_state,
                    num_samples=1,
                    random_type=None,
                    seed=None,
@@ -243,15 +270,16 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                    name=None):
     """Returns a sample of paths from the correlated Hull-White process.
 
-    Uses exact sampling if `self.mean_reversion`, `self.volatility` and
-    `self.corr_matrix` are all `Tensor`s or piecewise constant functions, and
-    Euler scheme sampling if one of the arguments is a generic callable.
+    Uses exact sampling if `self.mean_reversion` is constant and
+    `self.volatility` and `self.corr_matrix` are all `Tensor`s or piecewise
+    constant functions, and Euler scheme sampling otherwise.
+
+    The exact sampling implements the algorithm and notations in [1], section
+    10.1.6.1.
 
     Args:
       times: Rank 1 `Tensor` of positive real values. The times at which the
         path points are to be evaluated.
-      initial_state: A `Tensor` of the same `dtype` as `times` and shape
-        broadcastable with `[num_samples, self._dim]`
       num_samples: Positive scalar `int32` `Tensor`. The number of paths to
         draw.
       random_type: Enum value of `RandomType`. The type of (quasi)-random
@@ -284,7 +312,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         (a) If `times` has rank different from `1`.
         (b) If Euler scheme is used by times is not supplied.
     """
-    # Note: all the notations below are the same as in [1].
+    # Note: all the notations below are the same as in [2].
     name = name or self._name + '_sample_path'
     with tf.name_scope(name):
       times = tf.convert_to_tensor(times, self._dtype)
@@ -295,6 +323,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         if time_step is None:
           raise ValueError('`time_step` can not be `None` when at least one of '
                            'the parameters is a generic callable.')
+        initial_state = self._instant_forward_rate_fn(0.0)
         return euler_sampling.sample(dim=self._dim,
                                      drift_fn=self._drift_fn,
                                      volatility_fn=self._volatility_fn,
@@ -306,34 +335,74 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                                      seed=seed,
                                      skip=skip,
                                      dtype=self._dtype)
-      current_rates = tf.broadcast_to(
-          tf.convert_to_tensor(initial_state, dtype=self._dtype),
-          [num_samples, self._dim])
-      current_instant_forward_rates = self._instant_forward_rate_fn(
-          tf.constant(0, self._dtype))
-      num_requested_times = times.shape[0]
-      params = [self._mean_reversion, self._volatility, self._corr_matrix]
-      if self._corr_matrix is not None:
-        params = params + [self._corr_matrix]
-      times, keep_mask = _prepare_grid(
-          times, params)
       return self._sample_paths(
-          times, num_requested_times,
-          current_rates, current_instant_forward_rates,
-          num_samples, random_type, skip, keep_mask, seed)
+          times, None, num_samples, random_type, skip, seed)
+
+  def sample_discount_curve_paths(self,
+                                  times,
+                                  curve_times,
+                                  num_samples=1,
+                                  random_type=None,
+                                  seed=None,
+                                  skip=0,
+                                  name=None):
+    """Returns a sample of simulated discount curves for the Hull-white model.
+
+    Args:
+      times: Rank 1 `Tensor` of positive real values. The times at which the
+        discount curves are to be evaluated.
+      curve_times: Rank 1 `Tensor` of positive real values. The maturities
+        at which discount curve is computed at each simulation time.
+      num_samples: Positive scalar `int`. The number of paths to draw.
+      random_type: Enum value of `RandomType`. The type of (quasi)-random
+        number generator to use to generate the paths.
+        Default value: None which maps to the standard pseudo-random numbers.
+      seed: Seed for the random number generator. The seed is
+        only relevant if `random_type` is one of
+        `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
+          STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
+        `HALTON_RANDOMIZED` the seed should be an Python integer. For
+        `STATELESS` and  `STATELESS_ANTITHETIC` must be supplied as an integer
+        `Tensor` of shape `[2]`.
+        Default value: `None` which means no seed is set.
+      skip: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
+        Halton sequence to skip. Used only when `random_type` is 'SOBOL',
+        'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
+        Default value: `0`.
+      name: Str. The name to give this op.
+        Default value: `sample_discount_curve_paths`.
+
+    Returns:
+      A `Tensor` of shape [num_samples, m, k, dim] containing the simulated
+      bond curves where `m` is the size of `curve_times`, `k` is the size of
+      `times` and `dim` is the dimension of the process.
+
+    ### References:
+      [1]: Leif B.G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling,
+      Volume II: Term Structure Models. 2010.
+    """
+    name = name or self._name + '_sample_discount_curve_paths'
+    with tf.name_scope(name):
+      times = tf.convert_to_tensor(times, self._dtype)
+      curve_times = tf.convert_to_tensor(curve_times, self._dtype)
+      return self._sample_paths(times, curve_times, num_samples,
+                                random_type, skip, seed)
 
   def _sample_paths(self,
                     times,
-                    num_requested_times,
-                    current_rates,
-                    current_instant_forward_rates,
+                    curve_times,
                     num_samples,
                     random_type,
                     skip,
-                    keep_mask,
                     seed):
     """Returns a sample of paths from the process."""
     # Note: all the notations below are the same as in [1].
+    num_requested_times = times.shape[0]
+    params = [self._mean_reversion, self._volatility, self._corr_matrix]
+    if self._corr_matrix is not None:
+      params = params + [self._corr_matrix]
+    times, keep_mask = _prepare_grid(
+        times, params)
     # Add zeros as a starting location
     dt = times[1:] - times[:-1]
     if dt.shape.is_fully_defined():
@@ -361,23 +430,28 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
           dtype=self._dtype, skip=skip)
     else:
       normal_draws = None
-    mean_reversion, volatility = _get_parameters(  # pylint: disable=unbalanced-tuple-unpacking
-        times + tf.math.reduce_min(dt) / 2,
-        self._mean_reversion, self._volatility)
+    # The below is OK because we support exact discretization with piecewise
+    # constant mr and vol.
+    mean_reversion = self._mean_reversion(times)
+    volatility = self._volatility(times)
     if self._corr_matrix is not None:
       corr_matrix = _get_parameters(
           times + tf.math.reduce_min(dt) / 2, self._corr_matrix)[0]
       corr_matrix_root = tf.linalg.cholesky(corr_matrix)
     else:
       corr_matrix_root = None
+
+    exp_x_t = self._conditional_mean_x(times, mean_reversion, volatility)
+    var_x_t = self._conditional_variance_x(times, mean_reversion, volatility)
+    y_t = self._compute_yt(times, mean_reversion, volatility)
+    if self._dim == 1:
+      mean_reversion = tf.expand_dims(mean_reversion, axis=0)
+
     cond_fn = lambda i, *args: i < tf.size(dt)
     def body_fn(i, written_count,
-                current_rates,
-                current_instant_forward_rates,
+                current_x,
                 rate_paths):
-      """Simulate Heston process to the next time point."""
-      current_time = times[i]
-      next_time = times[i + 1]
+      """Simulate hull-white process to the next time point."""
       if normal_draws is None:
         normals = random.mv_normal_sample(
             (num_samples,),
@@ -385,58 +459,183 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
             random_type=random_type, seed=seed)
       else:
         normals = normal_draws[i]
-      next_rates, next_instant_forward_rates = _sample_at_next_time(
-          i, next_time, current_time,
-          mean_reversion[i], volatility[i],
-          self._instant_forward_rate_fn,
-          current_instant_forward_rates,
-          current_rates, corr_matrix_root, normals)
+
+      if corr_matrix_root is not None:
+        normals = tf.linalg.matvec(corr_matrix_root[i], normals)
+
+      next_x = (tf.math.exp(-mean_reversion[:, i + 1] * dt[i]) * current_x
+                + exp_x_t[:, i] + tf.math.sqrt(var_x_t[:, i]) * normals)
+      f_0_t = self._instant_forward_rate_fn(times[i + 1])
+
       # Update `rate_paths`
       rate_paths = utils.maybe_update_along_axis(
           tensor=rate_paths,
           do_update=keep_mask[i + 1],
           ind=written_count,
           axis=1,
-          new_tensor=tf.expand_dims(next_rates, axis=1))
+          new_tensor=tf.expand_dims(next_x, axis=1) + f_0_t)
       written_count += tf.cast(keep_mask[i + 1], dtype=tf.int32)
-      return (i + 1, written_count,
-              next_rates,
-              next_instant_forward_rates,
-              rate_paths)
+      return (i + 1, written_count, next_x, rate_paths)
 
     rate_paths = tf.zeros((num_samples, num_requested_times, self._dim),
                           dtype=self._dtype)
-    _, _, _, _, rate_paths = tf.while_loop(
-        cond_fn, body_fn, (0, 0, current_rates,
-                           current_instant_forward_rates,
-                           rate_paths))
-    return rate_paths
+    initial_x = tf.zeros((num_samples, self._dim), dtype=self._dtype)
+    # TODO(b/157232803): Use tf.cumsum instead?
+    _, _, _, rate_paths = tf.while_loop(
+        cond_fn, body_fn, (0, 0, initial_x, rate_paths))
 
+    if curve_times is not None:
+      # Discount curve paths are desired.
+      return self._bond_reconstitution(
+          times, curve_times, mean_reversion, rate_paths, y_t)
+    else:
+      return rate_paths
 
-def _sample_at_next_time(
-    i, next_time, current_time,
-    mean_reversion, volatility, instant_forward_rate_fn,
-    current_instant_forward_rates,
-    current_rates, corr_matrix_root, normals):
-  """Generates samples at at `next_time` conditionally on state."""
-  if corr_matrix_root is not None:
-    normals = tf.linalg.matvec(corr_matrix_root[i], normals)
-  next_instant_forward_rates = instant_forward_rate_fn(next_time)
-  # Corresponds to alpha(t) from [1]
-  alpha_1 = next_instant_forward_rates
-  alpha_1 += volatility**2 / mean_reversion**2 / 2 * (
-      1 - tf.math.exp(-mean_reversion * next_time))**2
-  # Corresponds to alpha(s) from [1]
-  alpha_2 = current_instant_forward_rates
-  alpha_2 += volatility**2 / mean_reversion**2 / 2 * (
-      1 - tf.math.exp(-mean_reversion * current_time))**2
-  # Stochastic vol term
-  vol = volatility * tf.sqrt(
-      0.5 * (1 - tf.exp(2 * mean_reversion * (current_time - next_time)))
-      / mean_reversion) * normals
-  factor_1 = tf.math.exp(-mean_reversion * (next_time - current_time))
-  next_rates = current_rates * factor_1 + alpha_1 - alpha_2 * factor_1 + vol
-  return next_rates, next_instant_forward_rates
+  def _bond_reconstitution(self,
+                           times,
+                           curve_times,
+                           mean_reversion,
+                           rate_paths,
+                           y_t):
+    """Compute discount bond prices using Eq. 10.18 in Ref [2]."""
+    num_curve_nodes = curve_times.shape.as_list()[0]  # m
+    num_sim_steps = times[1:].shape.as_list()[0]  # k
+    t = tf.reshape(
+        tf.repeat(tf.expand_dims(times[1:], axis=-1), self._dim, axis=-1),
+        (1, 1, num_sim_steps, self._dim))
+    curve_times = tf.reshape(curve_times, (1, num_curve_nodes, 1, 1))
+    curve_times = tf.repeat(curve_times, self._dim, axis=-1)
+    f_0_t = self._instant_forward_rate_fn(t)
+    x_t = tf.expand_dims(rate_paths, axis=1) - f_0_t
+    p_0_t = tf.math.exp(-self._initial_discount_rate_fn(t) * t)
+    p_0_t_tau = tf.math.exp(-self._initial_discount_rate_fn(curve_times + t) *
+                            (curve_times + t)) / p_0_t
+    # Transpose so the `dim` is the trailing dimension.
+    kappa = tf.transpose(mean_reversion[:, 1:])
+    kappa = tf.reshape(kappa, (1, 1, num_sim_steps, self._dim))
+    g_t_tau = (1. - tf.math.exp(-kappa * curve_times)) / kappa
+    term1 = x_t * g_t_tau
+    y_t = tf.reshape(tf.transpose(y_t[:, 1:]), (1, 1, num_sim_steps, self._dim))
+    term2 = y_t * g_t_tau**2
+    p_t_tau = p_0_t_tau * tf.math.exp(-term1 - 0.5 * term2)
+    return p_t_tau
+
+  def _exact_discretization_setup(self, dim):
+    """Initial setup for efficient computations."""
+    self._zero_padding = tf.zeros((dim, 1), dtype=self._dtype)
+    self._jump_locations = tf.concat(
+        [self._volatility.jump_locations(),
+         self._mean_reversion.jump_locations()], axis=-1)
+    self._jump_values_vol = self._volatility(self._jump_locations)
+    self._jump_values_mr = self._mean_reversion(self._jump_locations)
+    if dim == 1:
+      self._padded_knots = tf.concat([
+          self._zero_padding,
+          tf.expand_dims(self._jump_locations[:-1], axis=0)
+      ], axis=1)
+      self._jump_values_vol = tf.expand_dims(self._jump_values_vol, axis=0)
+      self._jump_values_mr = tf.expand_dims(self._jump_values_mr, axis=0)
+      self._jump_locations = tf.expand_dims(self._jump_locations, axis=0)
+
+    else:
+      self._padded_knots = tf.concat(
+          [self._zero_padding, self._jump_locations[:, :-1]], axis=1)
+
+  def _compute_yt(self, t, mr_t, sigma_t):
+    """Computes y(t) as described in [1], section 10.1.6.1."""
+    t = tf.repeat(tf.expand_dims(t, axis=0), self._dim, axis=0)
+    time_index = tf.searchsorted(self._jump_locations, t)
+    y_between_vol_knots = self._y_integral(
+        self._padded_knots, self._jump_locations, self._jump_values_vol,
+        self._jump_values_mr)
+    y_at_vol_knots = tf.concat(
+        [self._zero_padding,
+         _cumsum_using_matvec(y_between_vol_knots)], axis=1)
+
+    vn = tf.concat(
+        [self._zero_padding, self._jump_locations], axis=1)
+    y_t = self._y_integral(
+        tf.gather(vn, time_index, batch_dims=1), t, sigma_t, mr_t)
+    y_t = y_t + tf.gather(y_at_vol_knots, time_index, batch_dims=1)
+    return tf.math.exp(-2 * mr_t * t) * y_t
+
+  def _conditional_mean_x(self, t, mr_t, sigma_t):
+    """Computes the drift term in [1], Eq. 10.39."""
+    t = tf.repeat(tf.expand_dims(t, axis=0), self._dim, axis=0)
+    time_index = tf.searchsorted(self._jump_locations, t)
+    vn = tf.concat([self._zero_padding, self._jump_locations], axis=1)
+    y_between_vol_knots = self._y_integral(self._padded_knots,
+                                           self._jump_locations,
+                                           self._jump_values_vol,
+                                           self._jump_values_mr)
+
+    y_at_vol_knots = tf.concat(
+        [self._zero_padding,
+         _cumsum_using_matvec(y_between_vol_knots)], axis=1)
+
+    ex_between_vol_knots = self._ex_integral(self._padded_knots,
+                                             self._jump_locations,
+                                             self._jump_values_vol,
+                                             self._jump_values_mr,
+                                             y_at_vol_knots[:, :-1])
+
+    ex_at_vol_knots = tf.concat(
+        [self._zero_padding,
+         _cumsum_using_matvec(ex_between_vol_knots)], axis=1)
+
+    c = tf.gather(y_at_vol_knots, time_index, batch_dims=1)
+    exp_x_t = self._ex_integral(
+        tf.gather(vn, time_index, batch_dims=1), t, sigma_t, mr_t, c)
+    exp_x_t = exp_x_t + tf.gather(ex_at_vol_knots, time_index, batch_dims=1)
+    exp_x_t = (exp_x_t[:, 1:] - exp_x_t[:, :-1]) * tf.math.exp(
+        -tf.broadcast_to(mr_t, t.shape)[:, 1:] * t[:, 1:])
+    return exp_x_t
+
+  def _y_integral(self, t0, t, vol, k):
+    """Computes int_t0^t sigma(u)^2 exp(2*k*u) du."""
+    return (vol * vol) / (2 * k) * (
+        tf.math.exp(2 * k * t) - tf.math.exp(2 * k * t0))
+
+  def _ex_integral(self, t0, t, vol, k, y_t0):
+    """Function computes the integral for the drift calculation."""
+    # Computes int_t0^t (exp(k*s)*y(s)) ds,
+    # where y(s)=y(t0) + int_t0^s exp(-2*(s-u)) vol(u)^2 du."""
+    value = (
+        tf.math.exp(k * t) - tf.math.exp(k * t0) + tf.math.exp(2 * k * t0) *
+        (tf.math.exp(-k * t) - tf.math.exp(-k * t0)))
+    value = value * vol**2 / (2 * k * k) + y_t0 * (tf.math.exp(-k * t0) -
+                                                   tf.math.exp(-k * t)) / k
+    return value
+
+  def _conditional_variance_x(self, t, mr_t, sigma_t):
+    """Computes the variance of x(t), see [1], Eq. 10.41."""
+    t = tf.repeat(tf.expand_dims(t, axis=0), self._dim, axis=0)
+    var_x_between_vol_knots = self._variance_int(self._padded_knots,
+                                                 self._jump_locations,
+                                                 self._jump_values_vol,
+                                                 self._jump_values_mr)
+    varx_at_vol_knots = tf.concat(
+        [self._zero_padding,
+         _cumsum_using_matvec(var_x_between_vol_knots)],
+        axis=1)
+
+    time_index = tf.searchsorted(self._jump_locations, t)
+    vn = tf.concat(
+        [self._zero_padding,
+         self._jump_locations], axis=1)
+
+    var_x_t = self._variance_int(
+        tf.gather(vn, time_index, batch_dims=1), t, sigma_t, mr_t)
+    var_x_t = var_x_t + tf.gather(varx_at_vol_knots, time_index, batch_dims=1)
+
+    var_x_t = (var_x_t[:, 1:] - var_x_t[:, :-1]) * tf.math.exp(
+        -2 * tf.broadcast_to(mr_t, t.shape)[:, 1:] * t[:, 1:])
+    return var_x_t
+
+  def _variance_int(self, t0, t, vol, k):
+    """Computes int_t0^t exp(2*k*s) ds."""
+    return vol * vol / (2 * k) * (
+        tf.math.exp(2 * k * t) - tf.math.exp(2 * k * t0))
 
 
 def _get_parameters(times, *params):
@@ -453,7 +652,7 @@ def _get_parameters(times, *params):
         # Shape [num_times, dim]
         res.append(param(times))
     elif callable(param):
-      # Used only in drift and colatility computation.
+      # Used only in drift and volatility computation.
       # Here `times` is of shape [1]
       t = tf.squeeze(times)
       # The result has to have shape [1] + param.shape
@@ -519,12 +718,43 @@ def _input_type(param, dim, dtype, name):
           raise ValueError(
               'Batch shape of `jump_locations` should be either empty or '
               '`[{0}]` but `[{1}]` instead'.format(dim, jumps_shape[0]))
+      if name == 'mean_reversion' and jumps_shape[0] > 0:
+        # Exact discretization currently not supported with time-dependent mr
+        sample_with_generic = True
       return param, sample_with_generic
     else:
       sample_with_generic = True
   elif callable(param):
     sample_with_generic = True
   else:
-    # Otherwise, input is a `Tensor`
+    # Otherwise, input is a `Tensor`, return a `PiecewiseConstantFunc`.
     param = tf.convert_to_tensor(param, dtype=dtype, name=name)
+    param_shape = param.shape.as_list()
+    if len(param_shape) > 1:
+      # For `Tensor` inputs we assume constant parameters, so this would be an
+      # error
+      raise ValueError(
+          'Rank of {} should be `1`, but instead is {}'.format(
+              name, len(param_shape)))
+    if param_shape[0] != dim:
+      # This is an error, we need as many parameters as the number of `dim`
+      raise ValueError(
+          'Length of {} ({}) should be the same as `dims`({}).'.format(
+              name, param_shape[0], dim))
+    jump_locations = [] if dim == 1 else [[]] * dim
+    values = param if dim == 1 else tf.expand_dims(param, axis=-1)
+    param = piecewise.PiecewiseConstantFunc(
+        jump_locations=jump_locations, values=values,
+        dtype=dtype)
+
   return param, sample_with_generic
+
+
+def _cumsum_using_matvec(input_tensor):
+  """Computes cumsum using matrix algebra."""
+  dtype = input_tensor.dtype
+  axis_length = input_tensor.shape.as_list()[-1]
+  ones = tf.ones([axis_length, axis_length], dtype=dtype)
+  lower_triangular = tf.linalg.band_part(ones, -1, 0)
+  cumsum = tf.linalg.matvec(lower_triangular, input_tensor)
+  return cumsum
