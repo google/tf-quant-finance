@@ -409,117 +409,63 @@ def price_barrier_option(
           otype, dtype=tf.float32)
 
     # Calculate params for integrals
-    time_asset_volatility = tf.math.multiply(
-        asset_volatility, tf.math.sqrt(time_to_maturity),
-        name="time_asset_volatility")
-    mu = tf.math.subtract(
-        tf.math.subtract(rate, asset_yield),
-        tf.math.divide(tf.math.square(asset_volatility), 2), name="mu")
-    lamda = tf.math.add(1.,
-                        tf.math.divide(mu, tf.math.square(asset_volatility)),
-                        name="lambda")
-    num = tf.math.log(tf.math.divide(asset_price, strike_price))
-    x = tf.math.add(tf.math.divide(num, time_asset_volatility),
-                    tf.math.multiply(lamda, time_asset_volatility),
-                    name="x")
-    num = tf.math.log(tf.math.divide(asset_price, barrier_price))
-    x1 = tf.math.add(tf.math.divide(num, time_asset_volatility),
-                     tf.math.multiply(lamda, time_asset_volatility),
-                     name="x1")
-    num = tf.math.log(
-        tf.math.divide(tf.math.square(barrier_price),
-                       tf.math.multiply(asset_price, strike_price)))
-    y = tf.math.add(tf.math.divide(num, time_asset_volatility),
-                    tf.math.multiply(lamda, time_asset_volatility),
-                    name="y")
-    num = tf.math.log(tf.math.divide(barrier_price, asset_price))
-    y1 = tf.math.add(tf.math.divide(num, time_asset_volatility),
-                     tf.math.multiply(lamda, time_asset_volatility),
-                     name="y1")
-    num = tf.math.sqrt(tf.math.add(tf.math.square(mu),
-                                   2.*tf.math.multiply(
-                                       tf.math.square(asset_volatility), rate)))
-    b = tf.math.divide(num, tf.math.square(asset_volatility), name="b")
-    num = tf.math.log(tf.math.divide(barrier_price, asset_price))
-    z = tf.math.add(tf.math.divide(num, time_asset_volatility),
-                    tf.math.multiply(b, time_asset_volatility),
-                    name="z")
-    a = tf.math.divide(mu, tf.math.square(asset_volatility), name="a")
+    time_asset_volatility = asset_volatility*time_to_maturity**.5
+    mu = (rate-asset_yield)-((asset_volatility**2)/2)
+    lamda = 1+(mu/(asset_volatility**2))
+    x = tf.math.log(asset_price/strike_price)/(
+        time_asset_volatility)+(lamda*time_asset_volatility)
+    x1 = tf.math.log(asset_price/barrier_price)/(
+        time_asset_volatility)+(lamda*time_asset_volatility)
+    y = tf.math.log((barrier_price**2)/(asset_price*strike_price))/(
+        time_asset_volatility)+(lamda*time_asset_volatility)
+    y1 = tf.math.log(barrier_price/asset_price)/(
+        time_asset_volatility)+(lamda*time_asset_volatility)
+    b = ((mu**2)+(2*(asset_volatility**2)*rate))/(asset_volatility**2)
+    z = tf.math.log(barrier_price/asset_price)/(
+        time_asset_volatility)+(b*time_asset_volatility)
+    a = mu/(asset_volatility**2)
 
 
     # Other params used for integrals
-    rate_exponent = tf.math.exp(-1.*tf.math.multiply(rate, time_to_maturity),
-                                name="rate_exponent")
-    asset_yield_exponent = tf.math.exp(-1.*tf.math.multiply(asset_yield,
-                                                            time_to_maturity),
+    rate_exponent = tf.math.exp(-1*rate*time_to_maturity, name="rate_exponent")
+    asset_yield_exponent = tf.math.exp(-1*asset_yield*time_to_maturity,
                                        name="asset_yield_exponent")
     barrier_ratio = tf.math.divide(barrier_price, asset_price,
                                    name="barrier_ratio")
-    asset_price_term = tf.math.multiply(call_or_put,
-                                        tf.math.multiply(asset_price,
-                                                         asset_yield_exponent),
-                                        name="asset_price_term")
-    strike_price_term = tf.math.multiply(call_or_put,
-                                         tf.math.multiply(strike_price,
-                                                          rate_exponent),
-                                         name="strike_price_term")
+    asset_price_term = call_or_put*asset_price*asset_yield_exponent
+    strike_price_term = call_or_put*strike_price*rate_exponent
 
     # Constructing Matrix with first and second algebraic terms for each integral
-    terms_mat = tf.stack((asset_price_term, -1.*strike_price_term,
-                          asset_price_term, -1.*strike_price_term,
-                          tf.math.multiply(asset_price_term,
-                                           tf.math.pow(
-                                               barrier_ratio, (2*lamda))),
-                          -1.*tf.math.multiply(strike_price_term,
-                                               tf.math.pow(barrier_ratio,
-                                                           (2*lamda)-2)),
-                          tf.math.multiply(asset_price_term,
-                                           tf.math.pow(barrier_ratio,
-                                                       (2*lamda))),
-                          -1.*tf.math.multiply(strike_price_term,
-                                               tf.math.pow(barrier_ratio,
-                                                           (2*lamda)-2)),
-                          tf.math.multiply(rebate, rate_exponent),
-                          -1.*tf.math.multiply(tf.math.multiply(rebate,
-                                                                rate_exponent),
-                                               tf.math.pow(barrier_ratio,
-                                                           (2*lamda)-2)),
-                          tf.math.multiply(rebate,
-                                           tf.math.pow(barrier_ratio,
-                                                       tf.math.add(a, b))),
-                          tf.math.multiply(rebate,
-                                           tf.math.pow(barrier_ratio,
-                                                       tf.math.subtract(a, b)),
-                                           name="term_matrix")))
+    terms_mat = tf.stack(
+        (asset_price_term, -1.*strike_price_term,
+         asset_price_term, -1.*strike_price_term,
+         asset_price_term*(barrier_ratio**(2*lamda)),
+         -1*strike_price_term*(barrier_ratio**((2*lamda)-2)),
+         asset_price_term*(barrier_ratio**(2*lamda)),
+         -1*strike_price_term*(barrier_ratio**((2*lamda)-2)),
+         rebate*rate_exponent,
+         -1*rebate*rate_exponent*(barrier_ratio**((2*lamda)-2)),
+         rebate*(barrier_ratio**(a+b)),
+         rebate*(barrier_ratio**(a-b))),
+        name="term_matrix")
 
     # Constructing Matrix with first and second norm for each integral
     cdf_mat = tf.stack(
-        (_ncdf(tf.math.multiply(call_or_put, x)),
-         _ncdf(tf.math.multiply(call_or_put,
-                                tf.math.subtract(x, time_asset_volatility))),
-         _ncdf(tf.math.multiply(call_or_put, x1)),
-         _ncdf(tf.math.multiply(call_or_put,
-                                tf.math.subtract(x1, time_asset_volatility))),
-         _ncdf(tf.math.multiply(below_or_above, y)),
-         _ncdf(tf.math.multiply(below_or_above,
-                                tf.math.subtract(y, time_asset_volatility))),
-         _ncdf(tf.math.multiply(below_or_above, y1)),
-         _ncdf(tf.math.multiply(below_or_above,
-                                tf.math.subtract(y1, time_asset_volatility))),
-         _ncdf(tf.math.multiply(below_or_above,
-                                tf.math.subtract(x1, time_asset_volatility))),
-         _ncdf(tf.math.multiply(below_or_above,
-                                tf.math.subtract(y1, time_asset_volatility))),
-         _ncdf(tf.math.multiply(below_or_above, z)),
-         _ncdf(tf.math.multiply(below_or_above,
-                 tf.math.subtract(
-                     z, 2.*tf.math.multiply(b, time_asset_volatility))))),
+        (_ncdf(call_or_put*x),
+         _ncdf(call_or_put*(x-time_asset_volatility)),
+         _ncdf(call_or_put*x1),
+         _ncdf(call_or_put*(x1-time_asset_volatility)),
+         _ncdf(below_or_above*y),
+         _ncdf(below_or_above*(y-time_asset_volatility)),
+         _ncdf(below_or_above*y1),
+         _ncdf(below_or_above*(y1-time_asset_volatility)),
+         _ncdf(below_or_above*(x1-time_asset_volatility)),
+         _ncdf(below_or_above*(y1-time_asset_volatility)),
+         _ncdf(below_or_above*z),
+         _ncdf(below_or_above*(z-(2*b*time_asset_volatility)))),
         name="cdf_matrix")
     # Calculating and returning price for each option
-    return tf.reduce_sum(
-        tf.math.multiply(
-            tf.math.multiply(
-                tf.transpose(masks), terms_mat), cdf_mat), axis=0)
+    return tf.reduce_sum(tf.transpose(masks)*terms_mat*cdf_mat, axis=0)
 
 
 # TODO(b/154806390): Binary price signature should be the same as that of the
