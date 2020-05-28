@@ -59,12 +59,42 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
           "dtype": np.float64,
       })
   def test_multivariate_drift_and_volatility(self, dtype):
-    """Tests univariate GBM drift and volatility functions."""
+    """Tests multivariate GBM drift and volatility functions."""
     means = [0.05, 0.02]
     volatilities = [0.1, 0.2]
     corr_matrix = [[1, 0.1], [0.1, 1]]
     process = tff.models.MultivariateGeometricBrownianMotion(
         dim=2, means=means, volatilities=volatilities, corr_matrix=corr_matrix,
+        dtype=tf.float64)
+    drift_fn = process.drift_fn()
+    volatility_fn = process.volatility_fn()
+    state = np.array([[1., 2.], [3., 4.], [5., 6.]], dtype=dtype)
+    with self.subTest("Drift"):
+      drift = drift_fn(0.2, state)
+      expected_drift = np.array(means) * state
+      self.assertAllClose(drift, expected_drift, atol=1e-8, rtol=1e-8)
+    with self.subTest("Volatility"):
+      vol = volatility_fn(0.2, state)
+      expected_vol = np.expand_dims(
+          np.array(volatilities) * state,
+          axis=-1) * np.linalg.cholesky(corr_matrix)
+      self.assertAllClose(vol, expected_vol, atol=1e-8, rtol=1e-8)
+
+  @parameterized.named_parameters(
+      {
+          "testcase_name": "SinglePrecision",
+          "dtype": np.float32,
+      }, {
+          "testcase_name": "DoublePrecision",
+          "dtype": np.float64,
+      })
+  def test_multivariate_drift_and_volatility_no_corr(self, dtype):
+    """Tests multivariate GBM drift and volatility functions."""
+    means = [0.05, 0.02]
+    volatilities = [0.1, 0.2]
+    corr_matrix = [[1, 0.0], [0.0, 1]]
+    process = tff.models.MultivariateGeometricBrownianMotion(
+        dim=2, means=means, volatilities=volatilities,
         dtype=tf.float64)
     drift_fn = process.drift_fn()
     volatility_fn = process.volatility_fn()

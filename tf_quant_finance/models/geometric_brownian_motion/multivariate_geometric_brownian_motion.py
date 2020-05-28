@@ -129,11 +129,13 @@ class MultivariateGeometricBrownianMotion(ito_process.ItoProcess):
       """Volatility function of the GBM."""
       del t
       # Shape [num_samples, dim]
-      vols = tf.expand_dims(self._vols * x, axis=-1)
+      vols = self._vols * x
       if self._corr_matrix is not None:
+        vols = tf.expand_dims(vols, axis=-1)
         cholesky = tf.linalg.cholesky(self._corr_matrix)
-        vols = vols * cholesky
-      return vols
+        return vols * cholesky
+      else:
+        return tf.linalg.diag(vols)
     return _vol_fn
 
   def sample_paths(self,
