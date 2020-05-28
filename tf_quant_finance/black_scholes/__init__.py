@@ -26,6 +26,7 @@ from tf_quant_finance.black_scholes.implied_vol_newton_root import implied_vol a
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 binary_price = vanilla_prices.binary_price
+barrier_option_price = vanilla_prices.price_barrier_option
 brownian_bridge_single = brownian_bridge.brownian_bridge_single
 brownian_bridge_double = brownian_bridge.brownian_bridge_double
 option_price = vanilla_prices.option_price
@@ -42,6 +43,7 @@ _allowed_symbols = [
     'option_price',
     'option_price_binomial',
     'ImpliedVolMethod',
+    'barrier_option_price',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
