@@ -336,14 +336,14 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
 
   def test_price_barrier_option_1d(self):
     """Function tests barrier option pricing for scalar input"""
-    asset_price = 100.0
-    rebate = 3.0
-    time_to_maturity = 0.5
-    rate = 0.08
+    spots = 100.0
+    rebates = 3.0
+    expiries = 0.5
+    discount_rates = 0.08
     b = 0.04
-    asset_yield = -(b-rate)
-    strike_price, barrier_price, price_true, mp = self.get_test_vals("cdo")
-    volitility = 0.25
+    asset_yield = -(b-discount_rates)
+    strikes, barriers, price_true, barriers_type = self.get_test_vals("cdo")
+    volatilities = 0.25
     """
     1 -> cdi
     2 -> pdi
@@ -355,8 +355,8 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     8 -> puo
     """
     price = tff.black_scholes.barrier_option_price(
-        rate, asset_yield, asset_price, strike_price,
-        barrier_price, rebate, volitility, time_to_maturity, mp)
+        volatilities, strikes, expiries, spots,
+        discount_rates, asset_yield, barriers, rebates, barriers_type)
     self.assertAllClose(price, price_true, 10e-3)
 
   def get_test_vals(self, param):
@@ -380,20 +380,20 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
 
   def test_price_barrier_option_2d(self):
     """Function tests barrier option pricing for vector inputs"""
-    asset_price = [100., 100., 100., 100., 100., 100., 100., 100.]
-    rebate = [3., 3., 3., 3., 3., 3., 3., 3.]
-    time_to_maturity = [.5, .5, .5, .5, .5, .5, .5, .5]
-    rate = [.08, .08, .08, .08, .08, .08, .08, .08]
-    volitility = [.25, .25, .25, .25, .25, .25, .25, .25]
-    strike_price = [90., 90., 90., 90., 90., 90., 90., 90.]
-    barrier_price = [95., 95., 105., 105., 95., 105., 95., 105.]
+    spots = [100., 100., 100., 100., 100., 100., 100., 100.]
+    rebatess = [3., 3., 3., 3., 3., 3., 3., 3.]
+    expiries = [.5, .5, .5, .5, .5, .5, .5, .5]
+    discount_discount_ratess = [.08, .08, .08, .08, .08, .08, .08, .08]
+    volatilities = [.25, .25, .25, .25, .25, .25, .25, .25]
+    strikes = [90., 90., 90., 90., 90., 90., 90., 90.]
+    barriers = [95., 95., 105., 105., 95., 105., 95., 105.]
     price_true = [
         9.024, 7.7627, 2.6789, 14.1112, 2.2798, 3.7760, 2.95586, 1.4653]
-    mp = [5, 1, 7, 3, 6, 8, 2, 4]
+    barriers_type = [5, 1, 7, 3, 6, 8, 2, 4]
     asset_yield = [.04, .04, .04, .04, .04, .04, .04, .04]
     price = tff.black_scholes.barrier_option_price(
-        rate, asset_yield, asset_price, strike_price,
-        barrier_price, rebate, volitility, time_to_maturity, mp)
+        volatilities, strikes, expiries, spots,
+        discount_discount_ratess, asset_yield, barriers, rebatess, barriers_type)
     self.assertAllClose(price, price_true, 10e-3)
 
 if __name__ == '__main__':

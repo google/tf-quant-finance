@@ -183,41 +183,43 @@ def option_price(*,
 
 
 def price_barrier_option(
-        rate,
-        asset_yield,
-        asset_price,
-        strike_price,
-        barrier_price,
-        rebate,
-        asset_volatility,
-        time_to_maturity,
-        otype):
+    volatilities,
+    strikes,
+    expiries,
+    spots,
+    discount_rates,
+    continuous_dividends,
+    barriers,
+    rebates,
+    barriers_type,
+    dtype=None,
+    name=None):
   """
 
-  Function determines the approximate price for the barrier option. The
+  Function determines the approximate price for the barriers option. The
   approximation functions for each integrals are split into two matrix.
   The first matrix contains the algebraic terms and the second matrix
   contains the probability distribution terms. Masks are used to filter
   appropriate terms for calculating the integral. Then a dot product
-  of each row calculates the approximate price of the barrier option.
+  of each row calculates the approximate price of the barriers option.
 
   #### Examples
 
   ```python
-  rate: [.08, .08]
-  asset_yield: [.04, .04]
-  asset_price: [100., 100.]
-  strike_price: [90., 90.]
-  barrier_price: [95. 95.]
-  rebate: [3. 3.]
-  asset_volatility: [.25, .25]
-  time_to_maturity: [.5, .5]
-  otype: [5, 1]
+  discount_rates: [.08, .08]
+  continuous_dividends: [.04, .04]
+  spots: [100., 100.]
+  strikes: [90., 90.]
+  barriers: [95. 95.]
+  rebates: [3. 3.]
+  volatilities: [.25, .25]
+  expiries: [.5, .5]
+  barriers_type: [5, 1]
 
-  price = price_barrier_option(
-    rate, asset_yield, asset_price, strike_price,
-    barrier_price, rebate, asset_volatility,
-    time_to_maturity, otype)
+  price = price_barriers_option(
+    discount_rates, continuous_dividends, spots, strikes,
+    barriers, rebates, volatilities,
+    expiries, barriers_type)
 
   # Expected output
   #  `Tensor` with values [9.024, 7.7627]
@@ -235,23 +237,37 @@ def price_barrier_option(
   2nd Edition, 1997
 
   Args:
-    rate: A real scalar or vector `Tensor` where each element represents rate
-      for each option.
-    asset_yield: A real scalar or vector `Tensor` that is the yield on asset.
-    asset_price: A real scalar or vector `Tensor` that is the asset price for
-      the underlying security.
-    strike_price: A real scalar or vector `Tensor` that is the strike price
-      for the option.
-    barrier_price: A real scalar or vector `Tensor` that is the barrier price
-      for the option to take effect.
-    rebate: A real scalar or vector `Tensor` that is a rebate contingent upon
-      reaching the barrier price.
-    asset_volatility: A real scalar or vector `Tensor` that measure the
-      volatility of the asset price.
-    time_to_maturity: A real scalar or vector `Tensor` with time to maturity
-      of option.
-    otype: An real scalar or vector of `Int` that determines barrier option
-      to approximate
+    volatilities: Real `Tensor` of any shape and dtype. The volatilities to
+      expiry of the options to price.
+    strikes: A real `Tensor` of the same dtype and compatible shape as
+      `volatilities`. The strikes of the options to be priced.
+    expiries: A real `Tensor` of same dtype and compatible shape as
+      `volatilities`. The expiry of each option. The units should be such that
+      `expiry * volatility**2` is dimensionless.
+    spots: A real `Tensor` of any shape that broadcasts to the shape of the
+      `volatilities`. The current spot price of the underlying. Either this
+      argument or the `forwards` (but not both) must be supplied.
+    discount_ratess: A real `Tensor` of same dtype as the
+      `volatilities` and of the shape that broadcasts with `volatilities`.
+      If not `None`, discount factors are calculated as e^(-rT),
+      where r are the discount rates, or risk free rates. At most one of
+      discount_ratess and discount_factors can be supplied.
+      Default value: `None`, equivalent to r = 0 and discount factors = 1 when
+      discount_factors also not given.
+    continuous_dividends: A real `Tensor` of same dtype as the
+      `volatilities` and of the shape that broadcasts with `volatilities`.
+      If not `None`, `cost_of_carries` is calculated as r - q,
+      where r are the `discount_ratess` and q is `continuous_dividends`. Either
+      this or `cost_of_carries` can be given.
+      Default value: `None`, equivalent to q = 0.
+    barriers: A real `Tensor` of same dtype as the `volatilities` and of the
+      shape that broadcasts with `volatilities`. The barriers of each option.
+    rebates: A real `Tensor` of same dtype as the `volatilities` and of the
+      shape that broadcasts with `volatilities`. A rebates contingent upon
+      reaching the barriers price.
+    barriers_type: A real `Tensor` of `int` and of the shape that broadcasts
+      with `volatilities`. Each value determines barriers
+      option to approximate
       [
       0 -> down and in call,
       1 -> down and in put,
@@ -262,9 +278,15 @@ def price_barrier_option(
       6 -> up and out call,
       8 -> up and out put,
       ]
+    dtype: Optional `tf.DType`. If supplied, the dtype to be used for conversion
+      of any supplied non-`Tensor` arguments to `Tensor`.
+      Default value: `None` which maps to the default dtype inferred by
+      TensorFlow.
+    name: str. The name for the ops created by this function.
+      Default value: `None` which is mapped to the default name `option_price`.
   Returns:
-    A `Tensor` of same shape as input that is the approximate price of the
-    barrier option.
+    option_prices: A `Tensor` of same shape as `spots`. The approximate price of 
+    the barriers option under black scholes.
 
   """
   down_and_in_call = 1
@@ -275,26 +297,26 @@ def price_barrier_option(
   down_and_out_put = 6
   up_and_out_call = 7
   up_and_out_put = 8
-  with tf.name_scope("Price_Barrier_Option"):
+  with tf.name_scope("Price_Barriers_Option"):
     # Convert all to tensor and enforce float dtype where required
-    rate = tf.convert_to_tensor(
-        rate, dtype=tf.float32, name="rate")
-    asset_yield = tf.convert_to_tensor(
-        asset_yield, dtype=tf.float32, name="asset_yield")
-    asset_price = tf.convert_to_tensor(
-        asset_price, dtype=tf.float32, name="asset_yield")
-    strike_price = tf.convert_to_tensor(
-        strike_price, dtype=tf.float32, name="strike_price")
-    barrier_price = tf.convert_to_tensor(
-        barrier_price, dtype=tf.float32, name="barrier_price")
-    rebate = tf.convert_to_tensor(
-        rebate, dtype=tf.float32, name="rebate")
-    asset_volatility = tf.convert_to_tensor(
-        asset_volatility, dtype=tf.float32, name="asset_volatility")
-    time_to_maturity = tf.convert_to_tensor(
-        time_to_maturity, dtype=tf.float32, name="time_to_maturity")
-    otype = tf.convert_to_tensor(
-        otype, dtype=tf.int32, name="otype")
+    discount_rates = tf.convert_to_tensor(
+        discount_rates, dtype=tf.float32, name="discount_rates")
+    continuous_dividends = tf.convert_to_tensor(
+        continuous_dividends, dtype=tf.float32, name="continuous_dividends")
+    spots = tf.convert_to_tensor(
+        spots, dtype=tf.float32, name="continuous_dividends")
+    strikes = tf.convert_to_tensor(
+        strikes, dtype=tf.float32, name="strikes")
+    barriers = tf.convert_to_tensor(
+        barriers, dtype=tf.float32, name="barriers")
+    rebates = tf.convert_to_tensor(
+        rebates, dtype=tf.float32, name="rebates")
+    volatilities = tf.convert_to_tensor(
+        volatilities, dtype=tf.float32, name="volatilities")
+    expiries = tf.convert_to_tensor(
+        expiries, dtype=tf.float32, name="expiries")
+    barriers_type = tf.convert_to_tensor(
+        barriers_type, dtype=tf.int32, name="barriers_type")
 
     # masks, Masks are used to sum appropriate integrals for approximation
     down_and_in_call_tensor_lower_strike = tf.convert_to_tensor(
@@ -336,10 +358,10 @@ def price_barrier_option(
       """
       Function maps params to option pricing masks
       Args:
-      params: Tuple of tensors. (barrier price, strike_price, option type)
-        params[0] = barrier_price
-        params[1] = strike_price
-        params[2] = otype
+      params: Tuple of tensors. (barriers price, strikes, option type)
+        params[0] = barriers
+        params[1] = strikes
+        params[2] = barriers_type
       Returns:
       returns mask used to price specified option
       """
@@ -379,7 +401,7 @@ def price_barrier_option(
         if tf.equal(params[2], up_and_out_put):
           out_map = up_and_out_put_tensor_greater_strike
       return out_map
-    
+
     @tf.function
     def get_below_or_above(x):
       if tf.math.less(x[0], x[1]):
@@ -392,78 +414,79 @@ def price_barrier_option(
         return -1.
       return 1.
 
-    # build call or put, below or above barrier price, and masks
-    if otype.shape == ():
-      below_or_above = get_below_or_above((asset_price, barrier_price))
-      call_or_put = get_call_or_put(otype)
-      masks = get_out_map((barrier_price, strike_price, otype))
+    # build call or put, below or above barriers price, and masks
+    if barriers_type.shape == ():
+      below_or_above = get_below_or_above((spots, barriers))
+      call_or_put = get_call_or_put(barriers_type)
+      masks = get_out_map((barriers, strikes, barriers_type))
     else:
       masks = tf.map_fn(
           get_out_map,
-          (barrier_price, strike_price, otype), dtype=tf.float32)
+          (barriers, strikes, barriers_type), dtype=tf.float32)
       below_or_above = tf.map_fn(
           get_below_or_above,
-          (asset_price, barrier_price), dtype=tf.float32)
+          (spots, barriers), dtype=tf.float32)
       call_or_put = tf.map_fn(
           get_call_or_put,
-          otype, dtype=tf.float32)
+          barriers_type, dtype=tf.float32)
 
     # Calculate params for integrals
-    time_asset_volatility = asset_volatility*time_to_maturity**.5
-    mu = (rate-asset_yield)-((asset_volatility**2)/2)
-    lamda = 1+(mu/(asset_volatility**2))
-    x = tf.math.log(asset_price/strike_price)/(
-        time_asset_volatility)+(lamda*time_asset_volatility)
-    x1 = tf.math.log(asset_price/barrier_price)/(
-        time_asset_volatility)+(lamda*time_asset_volatility)
-    y = tf.math.log((barrier_price**2)/(asset_price*strike_price))/(
-        time_asset_volatility)+(lamda*time_asset_volatility)
-    y1 = tf.math.log(barrier_price/asset_price)/(
-        time_asset_volatility)+(lamda*time_asset_volatility)
-    b = ((mu**2)+(2*(asset_volatility**2)*rate))/(asset_volatility**2)
-    z = tf.math.log(barrier_price/asset_price)/(
-        time_asset_volatility)+(b*time_asset_volatility)
-    a = mu/(asset_volatility**2)
+    time_volatilities = volatilities*expiries**.5
+    mu = (discount_rates-continuous_dividends)-((volatilities**2)/2)
+    lamda = 1+(mu/(volatilities**2))
+    x = tf.math.log(spots/strikes)/(
+        time_volatilities)+(lamda*time_volatilities)
+    x1 = tf.math.log(spots/barriers)/(
+        time_volatilities)+(lamda*time_volatilities)
+    y = tf.math.log((barriers**2)/(spots*strikes))/(
+        time_volatilities)+(lamda*time_volatilities)
+    y1 = tf.math.log(barriers/spots)/(
+        time_volatilities)+(lamda*time_volatilities)
+    b = ((mu**2)+(2*(volatilities**2)*discount_rates))/(volatilities**2)
+    z = tf.math.log(barriers/spots)/(
+        time_volatilities)+(b*time_volatilities)
+    a = mu/(volatilities**2)
 
 
     # Other params used for integrals
-    rate_exponent = tf.math.exp(-1*rate*time_to_maturity, name="rate_exponent")
-    asset_yield_exponent = tf.math.exp(-1*asset_yield*time_to_maturity,
-                                       name="asset_yield_exponent")
-    barrier_ratio = tf.math.divide(barrier_price, asset_price,
-                                   name="barrier_ratio")
-    asset_price_term = call_or_put*asset_price*asset_yield_exponent
-    strike_price_term = call_or_put*strike_price*rate_exponent
+    discount_rates_exponent = tf.math.exp(-1*discount_rates*expiries, name="discount_rates_exponent")
+    continuous_dividends_exponent = tf.math.exp(-1*continuous_dividends*expiries,
+                                       name="continuous_dividends_exponent")
+    barriers_ratio = tf.math.divide(barriers, spots,
+                                   name="barriers_ratio")
+    spots_term = call_or_put*spots*continuous_dividends_exponent
+    strikes_term = call_or_put*strikes*discount_rates_exponent
 
     # Constructing Matrix with first and second algebraic terms for each integral
     terms_mat = tf.stack(
-        (asset_price_term, -1.*strike_price_term,
-         asset_price_term, -1.*strike_price_term,
-         asset_price_term*(barrier_ratio**(2*lamda)),
-         -1*strike_price_term*(barrier_ratio**((2*lamda)-2)),
-         asset_price_term*(barrier_ratio**(2*lamda)),
-         -1*strike_price_term*(barrier_ratio**((2*lamda)-2)),
-         rebate*rate_exponent,
-         -1*rebate*rate_exponent*(barrier_ratio**((2*lamda)-2)),
-         rebate*(barrier_ratio**(a+b)),
-         rebate*(barrier_ratio**(a-b))),
+        (spots_term, -1.*strikes_term,
+         spots_term, -1.*strikes_term,
+         spots_term*(barriers_ratio**(2*lamda)),
+         -1*strikes_term*(barriers_ratio**((2*lamda)-2)),
+         spots_term*(barriers_ratio**(2*lamda)),
+         -1*strikes_term*(barriers_ratio**((2*lamda)-2)),
+         rebates*discount_rates_exponent,
+         -1*rebates*discount_rates_exponent*(barriers_ratio**((2*lamda)-2)),
+         rebates*(barriers_ratio**(a+b)),
+         rebates*(barriers_ratio**(a-b))),
         name="term_matrix")
 
     # Constructing Matrix with first and second norm for each integral
     cdf_mat = tf.stack(
         (_ncdf(call_or_put*x),
-         _ncdf(call_or_put*(x-time_asset_volatility)),
+         _ncdf(call_or_put*(x-time_volatilities)),
          _ncdf(call_or_put*x1),
-         _ncdf(call_or_put*(x1-time_asset_volatility)),
+         _ncdf(call_or_put*(x1-time_volatilities)),
          _ncdf(below_or_above*y),
-         _ncdf(below_or_above*(y-time_asset_volatility)),
+         _ncdf(below_or_above*(y-time_volatilities)),
          _ncdf(below_or_above*y1),
-         _ncdf(below_or_above*(y1-time_asset_volatility)),
-         _ncdf(below_or_above*(x1-time_asset_volatility)),
-         _ncdf(below_or_above*(y1-time_asset_volatility)),
+         _ncdf(below_or_above*(y1-time_volatilities)),
+         _ncdf(below_or_above*(x1-time_volatilities)),
+         _ncdf(below_or_above*(y1-time_volatilities)),
          _ncdf(below_or_above*z),
-         _ncdf(below_or_above*(z-(2*b*time_asset_volatility)))),
+         _ncdf(below_or_above*(z-(2*b*time_volatilities)))),
         name="cdf_matrix")
+
     # Calculating and returning price for each option
     return tf.reduce_sum(tf.transpose(masks)*terms_mat*cdf_mat, axis=0)
 
