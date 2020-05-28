@@ -83,6 +83,13 @@ class DateTensorTest(tf.test.TestCase):
     date_tensor = dateslib.dates_from_datetimes(datetimes)
     self.assert_date_tensor_components(date_tensor, y, m, d, o)
 
+  def test_create_from_date_time_scalar(self):
+    test_date = datetime.date(2018, 5, 4)
+    date_tensor = dateslib.dates_from_datetimes(test_date)
+    self.assertEqual(self.evaluate(date_tensor.year()), 2018)
+    self.assertEqual(self.evaluate(date_tensor.month()), 5)
+    self.assertEqual(self.evaluate(date_tensor.day()), 4)
+
   def test_create_from_np_datetimes(self):
     dates = test_data.test_dates
     y, m, d, o, datetimes = unpack_test_dates(dates)

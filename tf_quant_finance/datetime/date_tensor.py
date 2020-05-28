@@ -14,6 +14,7 @@
 # limitations under the License.
 """DateTensor definition."""
 import collections
+import datetime
 import numpy as np
 import tensorflow.compat.v2 as tf
 
@@ -242,7 +243,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
      #### Example
 
      ```python
-     dates = tff.datetime.dates_from_tuples([(2020, 1, 25), (2020, 3, 2)])
+    dates = tff.datetime.dates_from_tuples([(2020, 1, 25), (2020, 3, 2)])
     target = tff.datetime.dates_from_tuples([(2020, 3, 5)])
     dates.days_until(target) # [40, 3]
 
@@ -487,6 +488,9 @@ def from_datetimes(datetimes):
   date_tensor = tff.datetime.dates_from_datetimes(dates)
   ```
   """
+  if isinstance(datetimes, (datetime.date, datetime.datetime)):
+    return from_year_month_day(datetimes.year, datetimes.month, datetimes.day,
+                               validate=False)
   years = tf.constant([dt.year for dt in datetimes], dtype=tf.int32)
   months = tf.constant([dt.month for dt in datetimes], dtype=tf.int32)
   days = tf.constant([dt.day for dt in datetimes], dtype=tf.int32)
