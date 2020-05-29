@@ -154,9 +154,10 @@ py_test(
     timeout = "moderate",
     srcs = ["custom_loops_test.py"],
     python_version = "PY3",
-    shard_count = 3,
+    shard_count = 12,
     deps = [
         ":custom_loops",
+        "//tf_quant_finance",
         # test util,
         # absl/testing:parameterized dep,
         # numpy dep,

@@ -67,7 +67,7 @@ def for_loop(body_fn, initial_state, params, num_iterations, name=None):
       return [x * alpha - beta, y * beta + x]
     x_out, y_out = for_loop(body, [x, y], [alpha, beta], 3)
 
-  grad = tape.gradient(y_out, beta)  # Returns tf.Tensor([63.0, 720.0])
+  grad = tape.gradient(y_out, beta)  # Returns tf.Tensor(783.0)
   ```
 
   Args:
@@ -78,18 +78,27 @@ def for_loop(body_fn, initial_state, params, num_iterations, name=None):
       except the last are treated as batch shape (i.e. not mixed in loop body).
     params: A list of zero-dimensional Tensors - tensors that `body_fn` uses,
       and with respect to which the differentiation is going to happen.
-    num_iterations: A positive integer.
+    num_iterations: A rank 0 or rank 1 integer tensor. If the rank is 1, the
+      entries are expected to be unique and ordered and  the output will contain
+      results obtained at each iteration number specified in `num_iterations`,
+      stacked along the first dimension. E.g. if `initial_state` has shapes
+      `(10, 20, 2)` and `(10, 20, 3)`, and `num_iterations = [2, 5, 7, 10]` the
+      output is a list of tensors with shapes `(4, 10, 20, 2)` and
+      `(4, 10, 20, 3)`.
+
     name: Python str. The name to give to the ops created by this function,
       'for_loop' by default.
 
   Returns:
-   A list of Tensors of the same shape as `initial_state`, differentiable with
-   respect to `initial_state` and `params`, but not any other tensors that are
-   captured by `body_fn`. Differentiating with respect to an element of
-   `initial_state` yields a tensor with the same shape as that element.
-   Differentiating with respect to one of `params` yields a tensor of the batch
-   shape. If the output state doesn't depend on the given parameter, the tensor
-   will be filled with zeros.
+   A list of Tensors of the same shape as `initial_state`, if `num_iterations`
+   is a single integer, or with extra first dimension of size
+   `len(num_iterations)` otherwise.
+   The outputs are differentiable with respect to `initial_state` and `params`,
+   but not any other tensors that are captured by `body_fn`. Differentiating
+   with respect to an element of `initial_state` yields a tensor with the same
+   shape as that element. Differentiating with respect to one of `params` yields
+   a tensor of zero shape. If the output state doesn't depend on the given
+   parameter, the tensor will be filled with zeros.
   """
 
   # Implementation explanation.
@@ -142,6 +151,14 @@ def for_loop(body_fn, initial_state, params, num_iterations, name=None):
 
   num_iterations = tf.convert_to_tensor(num_iterations, dtype=tf.int32,
                                         name="num_iterations")
+  num_iterations_shape = num_iterations.shape.as_list()
+  if num_iterations_shape is None:
+    raise ValueError("Rank of num_iterations must be statically known.")
+  if len(num_iterations_shape) > 1:
+    raise ValueError("Rank of num_iterations must be 0 or 1")
+  if len(num_iterations_shape) == 1:
+    return _accumulating_for_loop(body_fn, initial_state, params,
+                                  num_iterations, name)
 
   with tf.name_scope(name or "for_loop"):
     initial_jac = _make_unit_jacobian(initial_state, params)
@@ -183,8 +200,8 @@ def for_loop(body_fn, initial_state, params, num_iterations, name=None):
         # Now undo the expansions
         ws_js, ws_jp = ws_js[0], ws_jp[0]
         ws_js = [tf.squeeze(t, axis=-2) for t in ws_js]
-        # These should be 0-dimensional (not counting the batch shape).
-        ws_jp = [tf.squeeze(t, axis=[-2, -1]) for t in ws_jp]
+        # These should be 0-dimensional
+        ws_jp = [tf.reduce_sum(t) for t in ws_jp]
 
         # Flatten into a single tuple, so that it has the same structure as args
         # in inner().
@@ -216,7 +233,7 @@ def _make_unit_jacobian(initial_state, params):
   def make_jp_block(i, j):
     del j
     shape = initial_state[i].shape.concatenate((1,))
-    return tf.zeros(shape)
+    return tf.zeros(shape, dtype=dtype)
 
   js = [[make_js_block(i, j) for j in range(n)] for i in range(n)]
   jp = [[make_jp_block(i, j) for j in range(p)] for i in range(n)]
@@ -320,6 +337,116 @@ def _block_add(*ms):
 
 def _is_nested_list(m):
   return isinstance(m, list) and (not m or isinstance(m[0], list))
+
+
+def _accumulating_for_loop(body_fn, initial_state, params, num_iterations,
+                           name=None):
+  """Version of for_loop with multiple values of num_iterations."""
+  # Every tensor in nested tensors (state and Jacobian) gets an extra
+  # "accumulating" dimension in front. Functions _create_accumulators etc. below
+  # help to work with this dimension.
+
+  with tf.name_scope(name or "accumulating_for_loop"):
+    max_iterations = tf.math.reduce_max(num_iterations)
+    acc_size = num_iterations.shape[0]
+
+    # num_iteration = [2, 5] -> mask = [0, 0, 1, 0, 0, 1]. Tells when we should
+    # increment acc index before writing. Last element won't be used (i = 0..4).
+    mask = tf.scatter_nd(indices=tf.expand_dims(num_iterations, axis=-1),
+                         updates=tf.ones_like(num_iterations),
+                         shape=(max_iterations + 1,))
+
+    n = len(initial_state)
+
+    @tf.custom_gradient
+    def inner(*args):
+      initial_state, params = args[:n], args[n:]
+      def while_cond(i, acc_index, acc_state, acc_jac):
+        del acc_index, acc_state, acc_jac
+        return i < max_iterations
+
+      def while_body(i, acc_index, acc_state, acc_jac):
+        state = _read_from_accumulators(acc_state, acc_index)
+        jac = _read_from_accumulators(acc_jac, acc_index)
+        with tf.GradientTape(persistent=True) as tape:
+          tape.watch(state)
+          tape.watch(params)
+          next_state = tuple(body_fn(i, state))
+        step_jac = _compute_step_jacobian(state, next_state, params, tape)
+        next_jac = _multiply_jacobians(step_jac, jac)
+        acc_index += mask[i]
+        acc_state = _write_to_accumulators(acc_state, next_state, acc_index)
+        acc_jac = _write_to_accumulators(acc_jac, next_jac, acc_index)
+
+        return i + 1, acc_index, acc_state, acc_jac
+
+      initial_acc_state = _create_accumulators(initial_state, acc_size)
+      initial_acc_state = _write_to_accumulators(initial_acc_state,
+                                                 initial_state, 0)
+
+      initial_jac = _make_unit_jacobian(initial_state, params)
+      initial_acc_jac = _create_accumulators(initial_jac, acc_size)
+      initial_acc_jac = _write_to_accumulators(initial_acc_jac, initial_jac, 0)
+
+      loop_vars = (0, 0, initial_acc_state, initial_acc_jac)
+
+      _, _, final_acc_state, final_acc_jac = tf.compat.v2.while_loop(
+          while_cond, while_body, loop_vars=loop_vars,
+          maximum_iterations=max_iterations)
+
+      def gradient(*ws):
+        # Same as in for_loop, except we need to sum over the accumulating
+        # dimension. E.g. if x = for_loop(... num_iterations=[2, 5]) and
+        # y = 2*x[0] + 3*x[1], then taking gradient of y will lead to ws having
+        # coeffs 2 and 3 in the acc dimension, and we should sum over it.
+        ws = [tf.expand_dims(w, axis=-2) for w in ws]
+        ws = [ws]  # expand dims on block level as well.
+
+        js, jp = final_acc_jac
+        ws_js, ws_jp = _block_matmul(ws, js), _block_matmul(ws, jp)
+
+        ws_js, ws_jp = ws_js[0], ws_jp[0]
+        ws_js = [tf.squeeze(t, axis=-2) for t in ws_js]
+        ws_jp = [tf.squeeze(t, axis=[-2, -1]) for t in ws_jp]
+
+        # Sum over acc axis.
+        ws_js = [tf.math.reduce_sum(t, axis=0) for t in ws_js]
+        # ws_jp should be 0-dimensional
+        ws_jp = [tf.math.reduce_sum(t) for t in ws_jp]
+
+        return ws_js + ws_jp
+
+      return final_acc_state, gradient
+
+    # tf.custom_gradient can only handle a flat sequence of args.
+    args = tuple(initial_state + params)
+    return inner(*args)
+
+
+def _create_accumulators(nested_tensor, size):
+  if isinstance(nested_tensor, tf.Tensor):
+    # Single tensor.
+    return tf.zeros(shape=[size] + nested_tensor.shape.as_list(),
+                    dtype=nested_tensor.dtype)
+  return [_create_accumulators(t, size) for t in nested_tensor]
+
+
+def _write_to_accumulators(nested_acc, nested_tensor, index):
+  if isinstance(nested_tensor, tf.Tensor):
+    assert isinstance(nested_acc, tf.Tensor)
+    acc_size = nested_acc.shape.as_list()[0]
+    one_hot = tf.one_hot(index, depth=acc_size)
+    one_hot = tf.reshape(one_hot, [acc_size] + [1] * len(nested_tensor.shape))
+    return tf.where(one_hot > 0, nested_tensor, nested_acc)
+
+  return [_write_to_accumulators(acc, t, index)
+          for acc, t in zip(nested_acc, nested_tensor)]
+
+
+def _read_from_accumulators(nested_acc, index):
+  if isinstance(nested_acc, tf.Tensor):
+    return nested_acc[index]
+  return [_read_from_accumulators(acc, index) for acc in nested_acc]
 
 
 # We don't currently expose this module as a library API, but may use it
