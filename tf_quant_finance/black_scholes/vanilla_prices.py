@@ -194,7 +194,7 @@ def price_barrier_option(
     barriers_type,
     dtype=None,
     name=None):
-  """
+  """Prices barrier options in a Black-Scholes Model
 
   Function determines the approximate price for the barriers option. The
   approximation functions for each integrals are split into two matrix.
@@ -206,15 +206,16 @@ def price_barrier_option(
   #### Examples
 
   ```python
-  discount_rates: [.08, .08]
-  continuous_dividends: [.04, .04]
-  spots: [100., 100.]
-  strikes: [90., 90.]
-  barriers: [95. 95.]
-  rebates: [3. 3.]
-  volatilities: [.25, .25]
-  expiries: [.5, .5]
-  barriers_type: [5, 1]
+  dtype = np.float32
+  discount_rates = np.array([.08, .08])
+  continuous_dividends = np.array([.04, .04])
+  spots = np.array([100., 100.])
+  strikes = np.array([90., 90.])
+  barriers = np.array([95. 95.])
+  rebates = np.array([3. 3.])
+  volatilities = np.array([.25, .25])
+  expiries = np.array([.5, .5])
+  barriers_type = np.array([5, 1])
 
   price = price_barriers_option(
     discount_rates, continuous_dividends, spots, strikes,
