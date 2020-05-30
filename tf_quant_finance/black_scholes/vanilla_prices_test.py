@@ -28,7 +28,7 @@ import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
-@test_util.run_all_in_graph_and_eager_modes
+#@test_util.run_all_in_graph_and_eager_modes
 class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
   """Tests for methods for the vanilla pricing module."""
 
@@ -340,60 +340,70 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     rebates = 3.0
     expiries = 0.5
     discount_rates = 0.08
-    b = 0.04
-    asset_yield = -(b-discount_rates)
-    strikes, barriers, price_true, barriers_type = self.get_test_vals("cdo")
+    continuous_dividends = 0.04
+    exp = self.get_test_vals("puo")
+    strikes = exp[0]
+    barriers = exp[1]
+    price_true = exp[2]
+    is_call_options = exp[3]
+    is_barrier_down = exp[4]
+    is_knock_out = exp[5]
+    barriers_type = exp[6]
     volatilities = 0.25
     """
-    1 -> cdi
+    3 -> cdi
     2 -> pdi
-    3 -> cui
-    4 -> pui
-    5 -> cdo
+    1 -> cui
+    0 -> pui
+    7 -> cdo
     6 -> pdo
-    7 -> cuo
-    8 -> puo
+    5 -> cuo
+    4 -> puo
     """
     price = tff.black_scholes.barrier_option_price(
         volatilities, strikes, expiries, spots,
-        discount_rates, asset_yield, barriers, rebates, barriers_type)
+        discount_rates, continuous_dividends, barriers, rebates,
+        is_barrier_down, is_knock_out, is_call_options)
     self.assertAllClose(price, price_true, 10e-3)
 
   def get_test_vals(self, param):
     """Function returns testing vals for type of option"""
     if param == "cdo":
-      return 90, 95, 9.0246, 5
+      return (90, 95, 9.0246, True, True, True, 7)
     if param == "cdi":
-      return 90, 95, 7.7627, 1
+      return (90, 95, 7.7627, True, True, False, 3)
     if param == "cuo":
-      return 90, 105, 2.6789, 7
+      return (90, 105, 2.6789, True, False, True, 5)
     if param == "cui":
-      return 90, 105, 14.1112, 3
+      return (90, 105, 14.1112, True, False, False, 1)
     if param == "pdo":
-      return 90, 95, 2.2798, 6
+      return (90, 95, 2.2798, False, True, True, 6)
     if param == "puo":
-      return 90, 105, 3.7760, 8
+      return (90, 105, 3.7760, False, True, False, 4) # False True False
     if param == "pdi":
-      return 90, 95, 2.9586, 2
+      return (90, 95, 2.9586, False, False, True, 2) # False False True
     if param == "pui":
-      return 90, 105, 1.4653, 4
+      return (90, 105, 1.4653, False, False, False, 0)
 
   def test_price_barrier_option_2d(self):
     """Function tests barrier option pricing for vector inputs"""
     spots = [100., 100., 100., 100., 100., 100., 100., 100.]
-    rebatess = [3., 3., 3., 3., 3., 3., 3., 3.]
+    rebates = [3., 3., 3., 3., 3., 3., 3., 3.]
     expiries = [.5, .5, .5, .5, .5, .5, .5, .5]
-    discount_discount_ratess = [.08, .08, .08, .08, .08, .08, .08, .08]
+    discount_rates = [.08, .08, .08, .08, .08, .08, .08, .08]
     volatilities = [.25, .25, .25, .25, .25, .25, .25, .25]
     strikes = [90., 90., 90., 90., 90., 90., 90., 90.]
     barriers = [95., 95., 105., 105., 95., 105., 95., 105.]
     price_true = [
         9.024, 7.7627, 2.6789, 14.1112, 2.2798, 3.7760, 2.95586, 1.4653]
-    barriers_type = [5, 1, 7, 3, 6, 8, 2, 4]
-    asset_yield = [.04, .04, .04, .04, .04, .04, .04, .04]
+    is_call_options = [True, True, True, True, False, False, False, False]
+    is_barrier_down = [True, False, True, False, True, True, False, False]
+    is_knock_out = [True, True, False, False, True, False, True, False]
+    continuous_dividends = [.04, .04, .04, .04, .04, .04, .04, .04]
     price = tff.black_scholes.barrier_option_price(
         volatilities, strikes, expiries, spots,
-        discount_discount_ratess, asset_yield, barriers, rebatess, barriers_type)
+        discount_rates, continuous_dividends, barriers, rebates,
+        is_barrier_down, is_knock_out, is_call_options)
     self.assertAllClose(price, price_true, 10e-3)
 
 if __name__ == '__main__':

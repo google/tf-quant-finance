@@ -191,7 +191,9 @@ def price_barrier_option(
     continuous_dividends,
     barriers,
     rebates,
-    barriers_type,
+    is_barrier_down=True,
+    is_knock_out=True,
+    is_call_options=True,
     dtype=None,
     name=None):
   """Prices barrier options in a Black-Scholes Model
@@ -216,11 +218,14 @@ def price_barrier_option(
   volatilities = np.array([.25, .25])
   expiries = np.array([.5, .5])
   barriers_type = np.array([5, 1])
+  is_barrier_down = np.array([True, False])
+  is_knock_out = np.array([False, False])
+  is_call_option = np.array([True, True])
 
   price = price_barriers_option(
     discount_rates, continuous_dividends, spots, strikes,
     barriers, rebates, volatilities,
-    expiries, barriers_type)
+    expiries, is_barrier_down, is_knock_out, is_call_options)
 
   # Expected output
   #  `Tensor` with values [9.024, 7.7627]
@@ -266,19 +271,15 @@ def price_barrier_option(
     rebates: A real `Tensor` of same dtype as the `volatilities` and of the
       shape that broadcasts with `volatilities`. A rebates contingent upon
       reaching the barriers price.
-    barriers_type: A real `Tensor` of `int` and of the shape that broadcasts
-      with `volatilities`. Each value determines barriers
-      option to approximate
-      [
-      0 -> down and in call,
-      1 -> down and in put,
-      2 -> up and in call,
-      3 -> up and in put,
-      4 -> down and out call,
-      5 -> down and out put,
-      6 -> up and out call,
-      8 -> up and out put,
-      ]
+    is_barrier_down: A real `Tensor` of `boolean` values and of the shape
+      that broadcasts with `volatilities`. True if barrier is below spot
+      else false.
+    is_knock_out: A real `Tensor` of `boolean` values and of the shape
+      that broadcasts with `volatilities`. True if option is knock out
+      else false.
+    is_call_options: A real `Tensor` of `boolean` values and of the shape
+      that broadcasts with `volatilities`. True if option is call else
+      false.
     dtype: Optional `tf.DType`. If supplied, the dtype to be used for conversion
       of any supplied non-`Tensor` arguments to `Tensor`.
       Default value: `None` which maps to the default dtype inferred by
@@ -290,34 +291,43 @@ def price_barrier_option(
     the barriers option under black scholes.
 
   """
-  down_and_in_call = 1
+  down_and_in_call = 3
   down_and_in_put = 2
-  up_and_in_call = 3
-  up_and_in_put = 4
-  down_and_out_call = 5
+  up_and_in_call = 1
+  up_and_in_put = 0
+  down_and_out_call = 7
   down_and_out_put = 6
-  up_and_out_call = 7
-  up_and_out_put = 8
+  up_and_out_call = 5
+  up_and_out_put = 4
   with tf.name_scope("Price_Barriers_Option"):
     # Convert all to tensor and enforce float dtype where required
     discount_rates = tf.convert_to_tensor(
-        discount_rates, dtype=tf.float32, name="discount_rates")
+        discount_rates, dtype=dtype, name="discount_rates")
+    dtype = discount_rates.dtype
     continuous_dividends = tf.convert_to_tensor(
-        continuous_dividends, dtype=tf.float32, name="continuous_dividends")
+        continuous_dividends, dtype=dtype, name="continuous_dividends")
     spots = tf.convert_to_tensor(
-        spots, dtype=tf.float32, name="continuous_dividends")
+        spots, dtype=dtype, name="continuous_dividends")
     strikes = tf.convert_to_tensor(
-        strikes, dtype=tf.float32, name="strikes")
+        strikes, dtype=dtype, name="strikes")
     barriers = tf.convert_to_tensor(
-        barriers, dtype=tf.float32, name="barriers")
+        barriers, dtype=dtype, name="barriers")
     rebates = tf.convert_to_tensor(
-        rebates, dtype=tf.float32, name="rebates")
+        rebates, dtype=dtype, name="rebates")
     volatilities = tf.convert_to_tensor(
-        volatilities, dtype=tf.float32, name="volatilities")
+        volatilities, dtype=dtype, name="volatilities")
     expiries = tf.convert_to_tensor(
-        expiries, dtype=tf.float32, name="expiries")
-    barriers_type = tf.convert_to_tensor(
-        barriers_type, dtype=tf.int32, name="barriers_type")
+        expiries, dtype=dtype, name="expiries")
+
+    is_barrier_down = tf.convert_to_tensor(is_barrier_down, dtype=tf.int32,
+                                           name="is_barrier_down")
+    is_knock_out = tf.convert_to_tensor(is_knock_out, dtype=tf.int32,
+                                        name="is_knock_out")
+    is_call_options = tf.convert_to_tensor(is_call_options, dtype=tf.int32,
+                                           name="is_call_options")
+    barriers_type = tf.bitwise.left_shift(
+      is_barrier_down, 2) + tf.bitwise.left_shift(
+        is_knock_out, 1) + is_call_options
 
     # masks, Masks are used to sum appropriate integrals for approximation
     down_and_in_call_tensor_lower_strike = tf.convert_to_tensor(
@@ -430,7 +440,6 @@ def price_barrier_option(
       call_or_put = tf.map_fn(
           get_call_or_put,
           barriers_type, dtype=tf.float32)
-
     # Calculate params for integrals
     time_volatilities = volatilities*expiries**.5
     mu = (discount_rates-continuous_dividends)-((volatilities**2)/2)
