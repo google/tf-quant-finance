@@ -57,6 +57,7 @@ py_library(
     srcs = ["euler_sampling.py"],
     deps = [
         ":utils",
+        "//tf_quant_finance/math:custom_loops",
         "//tf_quant_finance/math/random_ops",
         # tensorflow dep,
     ],
@@ -68,7 +69,7 @@ py_test(
     timeout = "moderate",
     srcs = ["euler_sampling_test.py"],
     python_version = "PY3",
-    shard_count = 8,
+    shard_count = 10,
     deps = [
         "//tf_quant_finance",
         # test util,
