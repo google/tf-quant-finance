@@ -361,9 +361,14 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     4 -> puo
     """
     price = tff.black_scholes.barrier_price(
-        volatilities, strikes, expiries, spots,
-        discount_rates, continuous_dividends, barriers, rebates,
-        is_barrier_down, is_knock_out, is_call_options)
+        volatilities=volatilities, strikes=strikes,
+        expiries=expiries, spots=spots,
+        discount_rates=discount_rates,
+        continuous_dividends=continuous_dividends,
+        barriers=barriers, rebates=rebates,
+        is_barrier_down=is_barrier_down,
+        is_knock_out=is_knock_out,
+        is_call_options=is_call_options)
     self.assertAllClose(price, price_true, 10e-3)
 
   def get_test_vals(self, param):
@@ -401,9 +406,14 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     is_barrier_down = [True, False, True, False, True, True, False, False]
     continuous_dividends = [.04, .04, .04, .04, .04, .04, .04, .04]
     price = tff.black_scholes.barrier_price(
-        volatilities, strikes, expiries, spots,
-        discount_rates, continuous_dividends, barriers, rebates,
-        is_barrier_down, is_knock_out, is_call_options)
+        volatilities=volatilities, strikes=strikes,
+        expiries=expiries, spots=spots,
+        discount_rates=discount_rates,
+        continuous_dividends=continuous_dividends,
+        barriers=barriers, rebates=rebates,
+        is_barrier_down=is_barrier_down,
+        is_knock_out=is_knock_out,
+        is_call_options=is_call_options)
     self.assertAllClose(price, price_true, 10e-3)
 
 if __name__ == '__main__':

@@ -182,20 +182,20 @@ def option_price(*,
                                        undiscounted_puts)
 
 
-def barrier_price(
-    volatilities,
-    strikes,
-    expiries,
-    spots,
-    discount_rates,
-    continuous_dividends,
-    barriers,
-    rebates,
-    is_barrier_down=True,
-    is_knock_out=True,
-    is_call_options=True,
-    dtype=None,
-    name=None):
+def barrier_price(*,
+                  volatilities,
+                  strikes,
+                  expiries,
+                  spots,
+                  discount_rates,
+                  continuous_dividends,
+                  barriers,
+                  rebates,
+                  is_barrier_down=True,
+                  is_knock_out=True,
+                  is_call_options=True,
+                  dtype=None,
+                  name=None):
   """Prices barrier options in a Black-Scholes Model
 
   Function determines the approximate price for the barriers option. The
