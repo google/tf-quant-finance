@@ -28,7 +28,7 @@ import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
-#@test_util.run_all_in_graph_and_eager_modes
+@test_util.run_all_in_graph_and_eager_modes
 class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
   """Tests for methods for the vanilla pricing module."""
 
@@ -348,8 +348,8 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     is_call_options = exp[3]
     is_barrier_down = exp[4]
     is_knock_out = exp[5]
-    barriers_type = exp[6]
     volatilities = 0.25
+
     """
     3 -> cdi
     2 -> pdi
@@ -397,8 +397,8 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     price_true = [
         9.024, 7.7627, 2.6789, 14.1112, 2.2798, 3.7760, 2.95586, 1.4653]
     is_call_options = [True, True, True, True, False, False, False, False]
-    is_barrier_down = [True, False, True, False, True, True, False, False]
     is_knock_out = [True, True, False, False, True, False, True, False]
+    is_barrier_down = [True, False, True, False, True, True, False, False]
     continuous_dividends = [.04, .04, .04, .04, .04, .04, .04, .04]
     price = tff.black_scholes.barrier_option_price(
         volatilities, strikes, expiries, spots,

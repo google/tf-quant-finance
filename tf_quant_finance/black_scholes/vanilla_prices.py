@@ -287,19 +287,11 @@ def price_barrier_option(
     name: str. The name for the ops created by this function.
       Default value: `None` which is mapped to the default name `option_price`.
   Returns:
-    option_prices: A `Tensor` of same shape as `spots`. The approximate price of 
+    option_prices: A `Tensor` of same shape as `spots`. The approximate price of
     the barriers option under black scholes.
 
   """
-  down_and_in_call = 3
-  down_and_in_put = 2
-  up_and_in_call = 1
-  up_and_in_put = 0
-  down_and_out_call = 7
-  down_and_out_put = 6
-  up_and_out_call = 5
-  up_and_out_put = 4
-  with tf.name_scope("Price_Barriers_Option"):
+  with tf.name_scope(name or "barrier_price"):
     # Convert all to tensor and enforce float dtype where required
     discount_rates = tf.convert_to_tensor(
         discount_rates, dtype=dtype, name="discount_rates")
@@ -325,121 +317,45 @@ def price_barrier_option(
                                         name="is_knock_out")
     is_call_options = tf.convert_to_tensor(is_call_options, dtype=tf.int32,
                                            name="is_call_options")
-    barriers_type = tf.bitwise.left_shift(
-      is_barrier_down, 2) + tf.bitwise.left_shift(
-        is_knock_out, 1) + is_call_options
+    indices = tf.bitwise.left_shift(
+        is_barrier_down, 2) + tf.bitwise.left_shift(
+            is_knock_out, 1) + is_call_options
 
-    # masks, Masks are used to sum appropriate integrals for approximation
-    down_and_in_call_tensor_lower_strike = tf.convert_to_tensor(
-        [1., 1., -1., -1., 0., 0., 1., 1., 1., 1., 0., 0.])
-    down_and_in_call_tensor_greater_strike = tf.convert_to_tensor(
-        [0., 0., 0., 0., 1., 1., 0., 0., 1., 1., 0., 0.])
-    down_and_in_put_tensor_lower_strike = tf.convert_to_tensor(
-        [1., 1., 0., 0., 0., 0., 0., 0., 1., 1., 0., 0.])
-    down_and_in_put_tensor_greater_strike = tf.convert_to_tensor(
-        [0., 0., 1., 1., -1., -1., 1., 1., 0., 0., 1., 1.])
-    up_and_in_call_tensor_lower_strike = tf.convert_to_tensor(
-        [0., 0., 1., 1., -1., -1., 1., 1., 1., 1., 0., 0.])
-    up_and_in_call_tensor_greater_strike = tf.convert_to_tensor(
-        [1., 1., 0., 0., 0., 0., 0., 0., 1., 1., 0., 0.])
-    up_and_in_put_tensor_lower_strike = tf.convert_to_tensor(
-        [0., 0., 0., 0., 1., 1., 0., 0., 1., 1., 0., 0.])
-    up_and_in_put_tensor_greater_strike = tf.convert_to_tensor(
-        [1., 1., -1., -1., 0., 0., 1., 1., 1., 1., 0., 0.])
-    down_and_out_call_tensor_lower_strike = tf.convert_to_tensor(
-        [0., 0., 1., 1., 0., 0., -1, -1., 0., 0., 1., 1.])
-    down_and_out_call_tensor_greater_strike = tf.convert_to_tensor(
-        [1., 1., 0., 0., -1., -1., 0., 0., 0., 0., 1., 1.])
-    down_and_out_put_tensor_lower_strike = tf.convert_to_tensor(
-        [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 1.])
-    down_and_out_put_tensor_greater_strike = tf.convert_to_tensor(
-        [1., 1., -1., -1., 1., 1., -1., -1., 0., 0., 1., 1.])
-    up_and_out_call_tensor_lower_strike = tf.convert_to_tensor(
-        [1., 1., -1., -1., 1., 1., -1., -1., 0., 0., 1., 1.])
-    up_and_out_call_tensor_greater_strike = tf.convert_to_tensor(
-        [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 1.])
-    up_and_out_put_tensor_lower_strike = tf.convert_to_tensor(
-        [1., 1., 0., 0., -1., -1., 0., 0., 0., 0., 1., 1.])
-    up_and_out_put_tensor_greater_strike = tf.convert_to_tensor(
-        [0., 0., 1., 1., 0., 0., -1., -1., 0., 0., 1., 1.])
+    # Masks select the appropriate terms for integral approximations
+    # Interals are seperated by algebraic terms and probability
+    # distribution terms. This give 12 different terms per matrix
+    # (6 integrals, 2 terms each)
+    # shape = [1, 12]
+    mask_matrix_greater_strike = tf.constant([
+        [1, 1, -1, -1, 0, 0, 1, 1, 1, 1, 0, 0], # up and in put
+        [1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0], # up and in call
+        [0, 0, 1, 1, -1, -1, 1, 1, 0, 0, 1, 1], # down and in put
+        [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0], # down and in call
+        [0, 0, 1, 1, 0, 0, -1, -1, 0, 0, 1, 1], # up and out put
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1], # up and out call
+        [1, 1, -1, -1, 1, 1, -1, -1, 0, 0, 1, 1], # down and out put
+        [1, 1, 0, 0, -1, -1, 0, 0, 0, 0, 1, 1]]) # down and out call
 
-    # Constructing Masks
-    @tf.function
-    def get_out_map(params):
-      """
-      Function maps params to option pricing masks
-      Args:
-      params: Tuple of tensors. (barriers price, strikes, option type)
-        params[0] = barriers
-        params[1] = strikes
-        params[2] = barriers_type
-      Returns:
-      returns mask used to price specified option
-      """
-      out_map = down_and_in_call_tensor_greater_strike # Default
-      if tf.math.less(params[1], params[0]):
-        if tf.equal(params[2], down_and_in_call):
-          out_map = down_and_in_call_tensor_lower_strike
-        if tf.equal(params[2], down_and_in_put):
-          out_map = down_and_in_put_tensor_lower_strike
-        if tf.equal(params[2], up_and_in_call):
-          out_map = up_and_in_call_tensor_lower_strike
-        if tf.equal(params[2], up_and_in_put):
-          out_map = up_and_in_put_tensor_lower_strike
-        if tf.equal(params[2], down_and_out_call):
-          out_map = down_and_out_call_tensor_lower_strike
-        if tf.equal(params[2], down_and_out_put):
-          out_map = down_and_out_put_tensor_lower_strike
-        if tf.equal(params[2], up_and_out_call):
-          out_map = up_and_out_call_tensor_lower_strike
-        if tf.equal(params[2], up_and_out_put):
-          out_map = up_and_out_put_tensor_lower_strike
-      else:
-        if tf.equal(params[2], down_and_in_call):
-          out_map = down_and_in_call_tensor_greater_strike
-        if tf.equal(params[2], down_and_in_put):
-          out_map = down_and_in_put_tensor_greater_strike
-        if tf.equal(params[2], up_and_in_call):
-          out_map = up_and_in_call_tensor_greater_strike
-        if tf.equal(params[2], up_and_in_put):
-          out_map = up_and_in_put_tensor_greater_strike
-        if tf.equal(params[2], down_and_out_call):
-          out_map = down_and_out_call_tensor_greater_strike
-        if tf.equal(params[2], down_and_out_put):
-          out_map = down_and_out_put_tensor_greater_strike
-        if tf.equal(params[2], up_and_out_call):
-          out_map = up_and_out_call_tensor_greater_strike
-        if tf.equal(params[2], up_and_out_put):
-          out_map = up_and_out_put_tensor_greater_strike
-      return out_map
+    mask_matrix_lower_strike = tf.constant([
+        [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0], # up and in put
+        [0, 0, 1, 1, -1, -1, 1, 1, 1, 1, 0, 0], # up and in call
+        [1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0], # down and in put
+        [1, 1, -1, -1, 0, 0, 1, 1, 1, 1, 0, 0], # down and in call
+        [1, 1, 0, 0, -1, -1, 0, 0, 0, 0, 1, 1], # up and out put
+        [1, 1, -1, -1, 1, 1, -1, -1, 0, 0, 1, 1], # up and out call
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1], # down and out put
+        [0, 0, 1, 1, 0, 0, -1, -1, 0, 0, 1, 1]]) # down and out call
 
-    @tf.function
-    def get_below_or_above(x):
-      if tf.math.less(x[0], x[1]):
-        return -1.
-      return 1.
+    # Get mask for each option
+    masks_lower = tf.gather(mask_matrix_lower_strike, indices)
+    masks_greater = tf.gather(mask_matrix_greater_strike, indices)
+    strikes_greater = tf.expand_dims(strikes > barriers, axis=-1)
+    masks = tf.where(strikes_greater, masks_greater, masks_lower)
+    masks = tf.cast(masks, dtype=dtype)
 
-    @tf.function
-    def get_call_or_put(x):
-      if tf.equal(tf.math.mod(x, 2), 0):
-        return -1.
-      return 1.
+    call_or_put = tf.where(tf.equal(is_call_options, 0), -1., 1.)
+    below_or_above = tf.where(tf.equal(is_knock_out, 0), -1., 1.)
 
-    # build call or put, below or above barriers price, and masks
-    if barriers_type.shape == ():
-      below_or_above = get_below_or_above((spots, barriers))
-      call_or_put = get_call_or_put(barriers_type)
-      masks = get_out_map((barriers, strikes, barriers_type))
-    else:
-      masks = tf.map_fn(
-          get_out_map,
-          (barriers, strikes, barriers_type), dtype=tf.float32)
-      below_or_above = tf.map_fn(
-          get_below_or_above,
-          (spots, barriers), dtype=tf.float32)
-      call_or_put = tf.map_fn(
-          get_call_or_put,
-          barriers_type, dtype=tf.float32)
     # Calculate params for integrals
     time_volatilities = volatilities*expiries**.5
     mu = (discount_rates-continuous_dividends)-((volatilities**2)/2)
@@ -459,11 +375,14 @@ def price_barrier_option(
 
 
     # Other params used for integrals
-    discount_rates_exponent = tf.math.exp(-1*discount_rates*expiries, name="discount_rates_exponent")
-    continuous_dividends_exponent = tf.math.exp(-1*continuous_dividends*expiries,
-                                       name="continuous_dividends_exponent")
+    discount_rates_exponent = tf.math.exp(
+        -1*discount_rates*expiries,
+        name="discount_rates_exponent")
+    continuous_dividends_exponent = tf.math.exp(
+        -1*continuous_dividends*expiries,
+        name="continuous_dividends_exponent")
     barriers_ratio = tf.math.divide(barriers, spots,
-                                   name="barriers_ratio")
+                                    name="barriers_ratio")
     spots_term = call_or_put*spots*continuous_dividends_exponent
     strikes_term = call_or_put*strikes*discount_rates_exponent
 
