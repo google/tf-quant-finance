@@ -205,7 +205,8 @@ def price_barrier_option(
   appropriate terms for calculating the integral. Then a dot product
   of each row calculates the approximate price of the barriers option.
 
-  #### Examples
+  #### Examples Espen Gaarder Haug, The Complete guide to Option
+   Pricing Formulas, Second Edition Page 154
 
   ```python
   dtype = np.float32
@@ -299,7 +300,7 @@ def price_barrier_option(
     continuous_dividends = tf.convert_to_tensor(
         continuous_dividends, dtype=dtype, name="continuous_dividends")
     spots = tf.convert_to_tensor(
-        spots, dtype=dtype, name="continuous_dividends")
+        spots, dtype=dtype, name="spots")
     strikes = tf.convert_to_tensor(
         strikes, dtype=dtype, name="strikes")
     barriers = tf.convert_to_tensor(
