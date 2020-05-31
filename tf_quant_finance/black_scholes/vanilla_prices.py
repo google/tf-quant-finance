@@ -182,7 +182,7 @@ def option_price(*,
                                        undiscounted_puts)
 
 
-def price_barrier_option(
+def barrier_price(
     volatilities,
     strikes,
     expiries,

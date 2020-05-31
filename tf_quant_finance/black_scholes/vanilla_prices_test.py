@@ -360,7 +360,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     5 -> cuo
     4 -> puo
     """
-    price = tff.black_scholes.barrier_option_price(
+    price = tff.black_scholes.barrier_price(
         volatilities, strikes, expiries, spots,
         discount_rates, continuous_dividends, barriers, rebates,
         is_barrier_down, is_knock_out, is_call_options)
@@ -400,7 +400,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     is_knock_out = [True, True, False, False, True, False, True, False]
     is_barrier_down = [True, False, True, False, True, True, False, False]
     continuous_dividends = [.04, .04, .04, .04, .04, .04, .04, .04]
-    price = tff.black_scholes.barrier_option_price(
+    price = tff.black_scholes.barrier_price(
         volatilities, strikes, expiries, spots,
         discount_rates, continuous_dividends, barriers, rebates,
         is_barrier_down, is_knock_out, is_call_options)
