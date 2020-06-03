@@ -334,14 +334,14 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
         tf.where(is_call_options, -implied_binary_price, implied_binary_price))
     self.assertArrayNear(implied_binary_price, actual_binary_price, 1e-10)
 
-  def test_price_barrier_option_1d(self):
+  def test_barrier_option_1d_puo(self):
     """Function tests barrier option pricing for scalar input"""
     spots = 100.0
     rebates = 3.0
     expiries = 0.5
     discount_rates = 0.08
     continuous_dividends = 0.04
-    exp = self.get_test_vals("puo")
+    exp = self.get_barrier_option_test_vals("puo")
     strikes = exp[0]
     barriers = exp[1]
     price_true = exp[2]
@@ -371,7 +371,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
         is_call_options=is_call_options)
     self.assertAllClose(price, price_true, 10e-3)
 
-  def get_test_vals(self, param):
+  def get_barrier_option_test_vals(self, param):
     """Function returns testing vals for type of option"""
     if param == "cdo":
       return (90, 95, 9.0246, True, True, True, 7)
@@ -384,13 +384,13 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     if param == "pdo":
       return (90, 95, 2.2798, False, True, True, 6)
     if param == "puo":
-      return (90, 105, 3.7760, False, True, False, 4) # False True False
+      return (90, 105, 3.7760, False, True, False, 4)
     if param == "pdi":
-      return (90, 95, 2.9586, False, False, True, 2) # False False True
+      return (90, 95, 2.9586, False, False, True, 2)
     if param == "pui":
       return (90, 105, 1.4653, False, False, False, 0)
 
-  def test_price_barrier_option_2d(self):
+  def test_barrier_option_2d(self):
     """Function tests barrier option pricing for vector inputs"""
     spots = [100., 100., 100., 100., 100., 100., 100., 100.]
     rebates = [3., 3., 3., 3., 3., 3., 3., 3.]
@@ -410,6 +410,32 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
         expiries=expiries, spots=spots,
         discount_rates=discount_rates,
         continuous_dividends=continuous_dividends,
+        barriers=barriers, rebates=rebates,
+        is_barrier_down=is_barrier_down,
+        is_knock_out=is_knock_out,
+        is_call_options=is_call_options)
+    self.assertAllClose(price, price_true, 10e-3)
+
+  def test_barrier_option_cost_of_carriers(self):
+    """Function tests barrier option pricing for scalar input"""
+    spots = 100.0
+    rebates = 3.0
+    expiries = 0.5
+    discount_rates = 0.08
+    cost_of_carries = 0.04
+    exp = self.get_barrier_option_test_vals("cdo")
+    strikes = exp[0]
+    barriers = exp[1]
+    price_true = exp[2]
+    is_call_options = exp[3]
+    is_barrier_down = exp[4]
+    is_knock_out = exp[5]
+    volatilities = 0.25
+    price = tff.black_scholes.barrier_price(
+        volatilities=volatilities, strikes=strikes,
+        expiries=expiries, spots=spots,
+        discount_rates=discount_rates,
+        cost_of_carries=cost_of_carries,
         barriers=barriers, rebates=rebates,
         is_barrier_down=is_barrier_down,
         is_knock_out=is_knock_out,

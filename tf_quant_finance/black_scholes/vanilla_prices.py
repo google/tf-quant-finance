@@ -187,13 +187,14 @@ def barrier_price(*,
                   strikes,
                   expiries,
                   spots,
-                  discount_rates,
-                  continuous_dividends,
+                  discount_rates=None,
+                  continuous_dividends=None,
+                  cost_of_carries=None,
                   barriers,
                   rebates,
-                  is_barrier_down=True,
-                  is_knock_out=True,
-                  is_call_options=True,
+                  is_barrier_down,
+                  is_knock_out,
+                  is_call_options,
                   dtype=None,
                   name=None):
   """Prices barrier options in a Black-Scholes Model
@@ -252,21 +253,22 @@ def barrier_price(*,
       `volatilities`. The expiry of each option. The units should be such that
       `expiry * volatility**2` is dimensionless.
     spots: A real `Tensor` of any shape that broadcasts to the shape of the
-      `volatilities`. The current spot price of the underlying. Either this
-      argument or the `forwards` (but not both) must be supplied.
-    discount_ratess: A real `Tensor` of same dtype as the
+      `volatilities`. The current spot price of the underlying.
+    discount_rates: A real `Tensor` of same dtype as the
       `volatilities` and of the shape that broadcasts with `volatilities`.
-      If not `None`, discount factors are calculated as e^(-rT),
-      where r are the discount rates, or risk free rates. At most one of
-      discount_ratess and discount_factors can be supplied.
-      Default value: `None`, equivalent to r = 0 and discount factors = 1 when
-      discount_factors also not given.
+      Discount rates, or risk free rates.
+      Default value: `None`, equivalent to discount_rate = 0.
     continuous_dividends: A real `Tensor` of same dtype as the
       `volatilities` and of the shape that broadcasts with `volatilities`.
-      If not `None`, `cost_of_carries` is calculated as r - q,
-      where r are the `discount_ratess` and q is `continuous_dividends`. Either
-      this or `cost_of_carries` can be given.
-      Default value: `None`, equivalent to q = 0.
+      Either this or `cost_of_carries` can be given. If `None`,
+      `cost_of_carries` must be supplied.
+      Default value: `None`, calculated from `cost_of_carries`.
+    cost_of_carries: A optional real `Tensor` of same dtype as the
+      `volatilities` and of the shape that broadcasts with `volatilities`.
+      Cost of storing a physical commodity, the cost of interest paid when
+      long, or the opportunity cost, o the cost of paying dividends when short.
+      If not `None`, `continuous_dividends` is calculated as r - c,
+      where r are the `discount_rates` and c is `cost_of_carries`.
     barriers: A real `Tensor` of same dtype as the `volatilities` and of the
       shape that broadcasts with `volatilities`. The barriers of each option.
     rebates: A real `Tensor` of same dtype as the `volatilities` and of the
@@ -292,13 +294,29 @@ def barrier_price(*,
     the barriers option under black scholes.
 
   """
+  if (continuous_dividends is None) == (cost_of_carries is None):
+    raise ValueError('At most one of continuous_dividends and cost of carries '
+                     'may be supplied')
   with tf.name_scope(name or "barrier_price"):
     # Convert all to tensor and enforce float dtype where required
-    discount_rates = tf.convert_to_tensor(
-        discount_rates, dtype=dtype, name="discount_rates")
+    if discount_rates is not None:
+      discount_rates = tf.convert_to_tensor(
+          discount_rates, dtype=dtype, name="discount_rates")
+    else:
+      discount_rates = tf.convert_to_tensor(
+          1, dtype=dtype, name="discount_rates")
+
     dtype = discount_rates.dtype
-    continuous_dividends = tf.convert_to_tensor(
-        continuous_dividends, dtype=dtype, name="continuous_dividends")
+
+    if continuous_dividends is not None:
+      continuous_dividends = tf.convert_to_tensor(
+          continuous_dividends, dtype=dtype, name="continuous_dividends")
+
+    if cost_of_carries is not None:
+      continuous_dividends = tf.convert_to_tensor(
+          discount_rates-cost_of_carries, dtype=dtype,
+          name="continuous_dividends")
+
     spots = tf.convert_to_tensor(
         spots, dtype=dtype, name="spots")
     strikes = tf.convert_to_tensor(
@@ -386,7 +404,6 @@ def barrier_price(*,
                                     name="barriers_ratio")
     spots_term = call_or_put*spots*continuous_dividends_exponent
     strikes_term = call_or_put*strikes*discount_rates_exponent
-
     # Constructing Matrix with first and second algebraic terms for each integral
     terms_mat = tf.stack(
         (spots_term, -1.*strikes_term,
