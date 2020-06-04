@@ -204,7 +204,8 @@ def barrier_price(*,
   The first matrix contains the algebraic terms and the second matrix
   contains the probability distribution terms. Masks are used to filter
   appropriate terms for calculating the integral. Then a dot product
-  of each row calculates the approximate price of the barriers option.
+  of each row in the matricies coupled with the masks work to
+  calculate the approximate price of the barriers option.
 
   #### Examples Espen Gaarder Haug, The Complete guide to Option
    Pricing Formulas, Second Edition Page 154
@@ -275,8 +276,8 @@ def barrier_price(*,
       shape that broadcasts with `volatilities`. A rebates contingent upon
       reaching the barriers price.
     is_barrier_down: A real `Tensor` of `boolean` values and of the shape
-      that broadcasts with `volatilities`. True if barrier is below spot
-      else false.
+      that broadcasts with `volatilities`. True if barrier is below asset
+      price at expiration.
     is_knock_out: A real `Tensor` of `boolean` values and of the shape
       that broadcasts with `volatilities`. True if option is knock out
       else false.
@@ -348,20 +349,20 @@ def barrier_price(*,
     mask_matrix_greater_strike = tf.constant([
         [1, 1, -1, -1, 0, 0, 1, 1, 1, 1, 0, 0], # up and in put
         [1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0], # up and in call
-        [0, 0, 1, 1, -1, -1, 1, 1, 0, 0, 1, 1], # down and in put
-        [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0], # down and in call
         [0, 0, 1, 1, 0, 0, -1, -1, 0, 0, 1, 1], # up and out put
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1], # up and out call
+        [0, 0, 1, 1, -1, -1, 1, 1, 0, 0, 1, 1], # down and in put
+        [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0], # down and in call
         [1, 1, -1, -1, 1, 1, -1, -1, 0, 0, 1, 1], # down and out put
         [1, 1, 0, 0, -1, -1, 0, 0, 0, 0, 1, 1]]) # down and out call
 
     mask_matrix_lower_strike = tf.constant([
         [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0], # up and in put
         [0, 0, 1, 1, -1, -1, 1, 1, 1, 1, 0, 0], # up and in call
-        [1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0], # down and in put
-        [1, 1, -1, -1, 0, 0, 1, 1, 1, 1, 0, 0], # down and in call
         [1, 1, 0, 0, -1, -1, 0, 0, 0, 0, 1, 1], # up and out put
         [1, 1, -1, -1, 1, 1, -1, -1, 0, 0, 1, 1], # up and out call
+        [1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0], # down and in put
+        [1, 1, -1, -1, 0, 0, 1, 1, 1, 1, 0, 0], # down and in call
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1], # down and out put
         [0, 0, 1, 1, 0, 0, -1, -1, 0, 0, 1, 1]]) # down and out call
 
@@ -372,8 +373,10 @@ def barrier_price(*,
     masks = tf.where(strikes_greater, masks_greater, masks_lower)
     masks = tf.cast(masks, dtype=dtype)
 
-    call_or_put = tf.where(tf.equal(is_call_options, 0), -1., 1.)
-    below_or_above = tf.where(tf.equal(is_knock_out, 0), -1., 1.)
+    call_or_put = tf.cast(tf.where(tf.equal(is_call_options, 0), -1., 1.),
+                          dtype=dtype)
+    below_or_above = tf.cast(tf.where(tf.equal(is_barrier_down, 0), -1., 1.),
+                             dtype=dtype)
 
     # Calculate params for integrals
     time_volatilities = volatilities*expiries**.5
@@ -391,7 +394,6 @@ def barrier_price(*,
     z = tf.math.log(barriers/spots)/(
         time_volatilities)+(b*time_volatilities)
     a = mu/(volatilities**2)
-
 
     # Other params used for integrals
     discount_rates_exponent = tf.math.exp(

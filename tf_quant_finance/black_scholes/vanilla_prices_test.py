@@ -28,7 +28,7 @@ import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
-@test_util.run_all_in_graph_and_eager_modes
+#@test_util.run_all_in_graph_and_eager_modes
 class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
   """Tests for methods for the vanilla pricing module."""
 
@@ -341,10 +341,10 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     expiries = 0.5
     discount_rates = 0.08
     continuous_dividends = 0.04
-    exp = self.get_barrier_option_test_vals("puo")
+    exp = self.get_barrier_option_test_vals("pui")
     strikes = exp[0]
     barriers = exp[1]
-    price_true = exp[2]
+    expected_price = exp[2]
     is_call_options = exp[3]
     is_barrier_down = exp[4]
     is_knock_out = exp[5]
@@ -369,7 +369,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
         is_barrier_down=is_barrier_down,
         is_knock_out=is_knock_out,
         is_call_options=is_call_options)
-    self.assertAllClose(price, price_true, 10e-3)
+    self.assertAllClose(price, expected_price, 10e-3)
 
   def get_barrier_option_test_vals(self, param):
     """Function returns testing vals for type of option"""
@@ -384,9 +384,9 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     if param == "pdo":
       return (90, 95, 2.2798, False, True, True, 6)
     if param == "puo":
-      return (90, 105, 3.7760, False, True, False, 4)
+      return (90, 105, 3.7760, False, False, True, 4)
     if param == "pdi":
-      return (90, 95, 2.9586, False, False, True, 2)
+      return (90, 95, 2.9586, False, True, False, 2)
     if param == "pui":
       return (90, 105, 1.4653, False, False, False, 0)
 
@@ -399,11 +399,11 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     volatilities = [.25, .25, .25, .25, .25, .25, .25, .25]
     strikes = [90., 90., 90., 90., 90., 90., 90., 90.]
     barriers = [95., 95., 105., 105., 95., 105., 95., 105.]
-    price_true = [
+    expected_price = [
         9.024, 7.7627, 2.6789, 14.1112, 2.2798, 3.7760, 2.95586, 1.4653]
     is_call_options = [True, True, True, True, False, False, False, False]
-    is_knock_out = [True, True, False, False, True, False, True, False]
-    is_barrier_down = [True, False, True, False, True, True, False, False]
+    is_barrier_down = [True, True, False, False, True, False, True, False]
+    is_knock_out =    [True, False, True, False, True, True, False, False]
     continuous_dividends = [.04, .04, .04, .04, .04, .04, .04, .04]
     price = tff.black_scholes.barrier_price(
         volatilities=volatilities, strikes=strikes,
@@ -414,10 +414,11 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
         is_barrier_down=is_barrier_down,
         is_knock_out=is_knock_out,
         is_call_options=is_call_options)
-    self.assertAllClose(price, price_true, 10e-3)
+    self.assertAllClose(price, expected_price, 10e-3)
 
   def test_barrier_option_cost_of_carriers(self):
-    """Function tests barrier option pricing for scalar input"""
+    """Function tests barrier option pricing for scalar input
+       with `cost_of_carries` input"""
     spots = 100.0
     rebates = 3.0
     expiries = 0.5
@@ -426,7 +427,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     exp = self.get_barrier_option_test_vals("cdo")
     strikes = exp[0]
     barriers = exp[1]
-    price_true = exp[2]
+    expected_price = exp[2]
     is_call_options = exp[3]
     is_barrier_down = exp[4]
     is_knock_out = exp[5]
@@ -440,7 +441,37 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
         is_barrier_down=is_barrier_down,
         is_knock_out=is_knock_out,
         is_call_options=is_call_options)
-    self.assertAllClose(price, price_true, 10e-3)
+    self.assertAllClose(price, expected_price, 10e-3)
+
+  def test_barrier_option_dtype(self):
+    """Function tests barrier option pricing for scalar input
+       with given data type"""
+    dtype = tf.float64
+    spots = 100.0
+    rebates = 3.0
+    expiries = 0.5
+    discount_rates = 0.08
+    cost_of_carries = 0.04
+    exp = self.get_barrier_option_test_vals("cdo")
+    strikes = exp[0]
+    barriers = exp[1]
+    expected_price = exp[2]
+    is_call_options = exp[3]
+    is_barrier_down = exp[4]
+    is_knock_out = exp[5]
+    volatilities = 0.25
+    price = tff.black_scholes.barrier_price(
+        volatilities=volatilities, strikes=strikes,
+        expiries=expiries, spots=spots,
+        discount_rates=discount_rates,
+        cost_of_carries=cost_of_carries,
+        barriers=barriers, rebates=rebates,
+        is_barrier_down=is_barrier_down,
+        is_knock_out=is_knock_out,
+        is_call_options=is_call_options,
+        dtype=dtype)
+    self.assertAllClose(price, expected_price, 10e-3)
+    self.assertEqual(price.dtype, dtype)
 
 if __name__ == '__main__':
   tf.test.main()
