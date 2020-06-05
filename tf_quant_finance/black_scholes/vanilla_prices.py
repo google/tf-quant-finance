@@ -207,7 +207,7 @@ def barrier_price(*,
   of each row in the matricies coupled with the masks work to
   calculate the approximate price of the barriers option.
 
-  #### Examples Espen Gaarder Haug, The Complete guide to Option
+  #### Examples The Complete guide to Option
    Pricing Formulas, Second Edition Page 154
 
   ```python
@@ -236,12 +236,10 @@ def barrier_price(*,
 
   #### References
 
-  # Technical Report
   [1]: Lee Clewlow, Javier Llanos, Chris Strickland, Caracas Venezuela
   Pricing Exotic Options in a Black-Scholes World, 1994
   https://warwick.ac.uk/fac/soc/wbs/subjects/finance/research/wpaperseries/1994/94-54.pdf
 
-  # Textbook
   [2]: Espen Gaarder Haug, The complete guide to option pricing formulas,
   2nd Edition, 1997
 
@@ -289,7 +287,7 @@ def barrier_price(*,
       Default value: `None` which maps to the default dtype inferred by
       TensorFlow.
     name: str. The name for the ops created by this function.
-      Default value: `None` which is mapped to the default name `option_price`.
+      Default value: `None` which is mapped to the default name `barrier_price`.
   Returns:
     option_prices: A `Tensor` of same shape as `spots`. The approximate price of
     the barriers option under black scholes.
@@ -337,15 +335,17 @@ def barrier_price(*,
                                         name="is_knock_out")
     is_call_options = tf.convert_to_tensor(is_call_options, dtype=tf.int32,
                                            name="is_call_options")
+    # Indices which range from 0-7 are used to select the appropriate
+    # mask for each barrier
     indices = tf.bitwise.left_shift(
         is_barrier_down, 2) + tf.bitwise.left_shift(
             is_knock_out, 1) + is_call_options
 
     # Masks select the appropriate terms for integral approximations
-    # Interals are seperated by algebraic terms and probability
+    # Integrals are seperated by algebraic terms and probability
     # distribution terms. This give 12 different terms per matrix
     # (6 integrals, 2 terms each)
-    # shape = [1, 12]
+    # shape = [8, 12]
     mask_matrix_greater_strike = tf.constant([
         [1, 1, -1, -1, 0, 0, 1, 1, 1, 1, 0, 0], # up and in put
         [1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0], # up and in call
@@ -372,10 +372,10 @@ def barrier_price(*,
     strikes_greater = tf.expand_dims(strikes > barriers, axis=-1)
     masks = tf.where(strikes_greater, masks_greater, masks_lower)
     masks = tf.cast(masks, dtype=dtype)
-
-    call_or_put = tf.cast(tf.where(tf.equal(is_call_options, 0), -1., 1.),
+    one = tf.constant(1, dtype=dtype)
+    call_or_put = tf.cast(tf.where(tf.equal(is_call_options, 0), -one, one),
                           dtype=dtype)
-    below_or_above = tf.cast(tf.where(tf.equal(is_barrier_down, 0), -1., 1.),
+    below_or_above = tf.cast(tf.where(tf.equal(is_barrier_down, 0), -one, one),
                              dtype=dtype)
 
     # Calculate params for integrals
@@ -406,7 +406,9 @@ def barrier_price(*,
                                     name="barriers_ratio")
     spots_term = call_or_put*spots*continuous_dividends_exponent
     strikes_term = call_or_put*strikes*discount_rates_exponent
+
     # Constructing Matrix with first and second algebraic terms for each integral
+    # [12, n] where n is len(strikes)
     terms_mat = tf.stack(
         (spots_term, -1.*strikes_term,
          spots_term, -1.*strikes_term,
@@ -421,6 +423,7 @@ def barrier_price(*,
         name="term_matrix")
 
     # Constructing Matrix with first and second norm for each integral
+    # [12, n] where n is len(strikes)
     cdf_mat = tf.stack(
         (_ncdf(call_or_put*x),
          _ncdf(call_or_put*(x-time_volatilities)),
