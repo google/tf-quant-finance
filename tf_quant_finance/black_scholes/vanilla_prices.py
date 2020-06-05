@@ -299,6 +299,21 @@ def barrier_price(*,
     raise ValueError('At most one of continuous_dividends and cost of carries '
                      'may be supplied')
   with tf.name_scope(name or "barrier_price"):
+    strikes = tf.convert_to_tensor(
+        strikes, dtype=dtype, name="strikes")
+    dtype = strikes.dtype
+    spots = tf.convert_to_tensor(
+        spots, dtype=dtype, name="spots")
+    volatilities = tf.convert_to_tensor(
+        volatilities, dtype=dtype, name="volatilities")
+    expiries = tf.convert_to_tensor(
+        expiries, dtype=dtype, name="expiries")
+    barriers = tf.convert_to_tensor(
+        barriers, dtype=dtype, name="barriers")
+    rebates = tf.convert_to_tensor(
+        rebates, dtype=dtype, name="rebates")
+
+
     # Convert all to tensor and enforce float dtype where required
     if discount_rates is not None:
       discount_rates = tf.convert_to_tensor(
@@ -306,8 +321,6 @@ def barrier_price(*,
     else:
       discount_rates = tf.convert_to_tensor(
           1, dtype=dtype, name="discount_rates")
-
-    dtype = discount_rates.dtype
 
     if continuous_dividends is not None:
       continuous_dividends = tf.convert_to_tensor(
@@ -317,19 +330,6 @@ def barrier_price(*,
       continuous_dividends = tf.convert_to_tensor(
           discount_rates-cost_of_carries, dtype=dtype,
           name="continuous_dividends")
-
-    spots = tf.convert_to_tensor(
-        spots, dtype=dtype, name="spots")
-    strikes = tf.convert_to_tensor(
-        strikes, dtype=dtype, name="strikes")
-    barriers = tf.convert_to_tensor(
-        barriers, dtype=dtype, name="barriers")
-    rebates = tf.convert_to_tensor(
-        rebates, dtype=dtype, name="rebates")
-    volatilities = tf.convert_to_tensor(
-        volatilities, dtype=dtype, name="volatilities")
-    expiries = tf.convert_to_tensor(
-        expiries, dtype=dtype, name="expiries")
 
     is_barrier_down = tf.convert_to_tensor(is_barrier_down, dtype=tf.int32,
                                            name="is_barrier_down")

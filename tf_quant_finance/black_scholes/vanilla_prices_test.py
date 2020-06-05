@@ -336,8 +336,8 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
 
   def test_barrier_option_1d_puo(self):
     """Function tests barrier option pricing for scalar input"""
-    spots = 100.0
-    rebates = 3.0
+    spots = 100
+    rebates = 3
     expiries = 0.5
     discount_rates = 0.08
     continuous_dividends = 0.04
@@ -374,21 +374,21 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
   def get_barrier_option_test_vals(self, param):
     """Function returns testing vals for type of option"""
     if param == "cdo":
-      return (90, 95, 9.0246, True, True, True, 7)
+      return (90.0, 95, 9.0246, True, True, True, 7)
     if param == "cdi":
-      return (90, 95, 7.7627, True, True, False, 3)
+      return (90.0, 95, 7.7627, True, True, False, 3)
     if param == "cuo":
-      return (90, 105, 2.6789, True, False, True, 5)
+      return (90.0, 105, 2.6789, True, False, True, 5)
     if param == "cui":
-      return (90, 105, 14.1112, True, False, False, 1)
+      return (90.0, 105, 14.1112, True, False, False, 1)
     if param == "pdo":
-      return (90, 95, 2.2798, False, True, True, 6)
+      return (90.0, 95, 2.2798, False, True, True, 6)
     if param == "puo":
-      return (90, 105, 3.7760, False, False, True, 4)
+      return (90.0, 105, 3.7760, False, False, True, 4)
     if param == "pdi":
-      return (90, 95, 2.9586, False, True, False, 2)
+      return (90.0, 95, 2.9586, False, True, False, 2)
     if param == "pui":
-      return (90, 105, 1.4653, False, False, False, 0)
+      return (90.0, 105, 1.4653, False, False, False, 0)
 
   def test_barrier_option_2d(self):
     """Function tests barrier option pricing for vector inputs"""
