@@ -297,20 +297,14 @@ def barrier_price(*,
     raise ValueError('At most one of continuous_dividends and cost of carries '
                      'may be supplied')
   with tf.name_scope(name or "barrier_price"):
-    strikes = tf.convert_to_tensor(
-        strikes, dtype=dtype, name="strikes")
+    strikes = tf.convert_to_tensor(strikes, dtype=dtype, name="strikes")
     dtype = strikes.dtype
-    spots = tf.convert_to_tensor(
-        spots, dtype=dtype, name="spots")
+    spots = tf.convert_to_tensor(spots, dtype=dtype, name="spots")
     volatilities = tf.convert_to_tensor(
         volatilities, dtype=dtype, name="volatilities")
-    expiries = tf.convert_to_tensor(
-        expiries, dtype=dtype, name="expiries")
-    barriers = tf.convert_to_tensor(
-        barriers, dtype=dtype, name="barriers")
-    rebates = tf.convert_to_tensor(
-        rebates, dtype=dtype, name="rebates")
-
+    expiries = tf.convert_to_tensor(expiries, dtype=dtype, name="expiries")
+    barriers = tf.convert_to_tensor(barriers, dtype=dtype, name="barriers")
+    rebates = tf.convert_to_tensor(rebates, dtype=dtype, name="rebates")
 
     # Convert all to tensor and enforce float dtype where required
     if discount_rates is not None:
@@ -326,7 +320,7 @@ def barrier_price(*,
 
     if cost_of_carries is not None:
       continuous_dividends = tf.convert_to_tensor(
-          discount_rates-cost_of_carries, dtype=dtype,
+          discount_rates - cost_of_carries, dtype=dtype,
           name="continuous_dividends")
 
     is_barrier_down = tf.convert_to_tensor(is_barrier_down, dtype=tf.int32,
@@ -379,64 +373,58 @@ def barrier_price(*,
                              dtype=dtype)
 
     # Calculate params for integrals
-    time_volatilities = volatilities*expiries**.5
-    mu = (discount_rates-continuous_dividends)-((volatilities**2)/2)
-    lamda = 1+(mu/(volatilities**2))
-    x = tf.math.log(spots/strikes)/(
-        time_volatilities)+(lamda*time_volatilities)
-    x1 = tf.math.log(spots/barriers)/(
-        time_volatilities)+(lamda*time_volatilities)
-    y = tf.math.log((barriers**2)/(spots*strikes))/(
-        time_volatilities)+(lamda*time_volatilities)
-    y1 = tf.math.log(barriers/spots)/(
-        time_volatilities)+(lamda*time_volatilities)
-    b = ((mu**2)+(2*(volatilities**2)*discount_rates))/(volatilities**2)
-    z = tf.math.log(barriers/spots)/(
-        time_volatilities)+(b*time_volatilities)
-    a = mu/(volatilities**2)
+    sqrt_var = volatilities * tf.math.sqrt(expiries)
+    mu = (discount_rates - continuous_dividends) - ((volatilities**2) / 2)
+    lamda = 1 + (mu / (volatilities**2))
+    x = (tf.math.log(spots / strikes) / (sqrt_var)) + (lamda * sqrt_var)
+    x1 = (tf.math.log(spots / barriers) / (sqrt_var)) + (lamda * sqrt_var)
+    y = (tf.math.log((barriers**2) / (spots * strikes)) / (
+        sqrt_var)) + (lamda * sqrt_var)
+    y1 = (tf.math.log(barriers / spots) / (sqrt_var)) + (lamda * sqrt_var)
+    b = ((mu**2) + (2 * (volatilities**2) * discount_rates)) / (volatilities**2)
+    z = (tf.math.log(barriers / spots) / (sqrt_var)) + (b * sqrt_var)
+    a = mu / (volatilities**2)
 
     # Other params used for integrals
-    discount_rates_exponent = tf.math.exp(
-        -1*discount_rates*expiries,
-        name="discount_rates_exponent")
+    discount_rates_exponent = tf.math.exp(-discount_rates * expiries,
+                                          name="discount_rates_exponent")
     continuous_dividends_exponent = tf.math.exp(
-        -1*continuous_dividends*expiries,
+        -continuous_dividends * expiries,
         name="continuous_dividends_exponent")
-    barriers_ratio = tf.math.divide(barriers, spots,
-                                    name="barriers_ratio")
-    spots_term = call_or_put*spots*continuous_dividends_exponent
-    strikes_term = call_or_put*strikes*discount_rates_exponent
+    barriers_ratio = tf.math.divide(barriers, spots, name="barriers_ratio")
+    spots_term = call_or_put * spots * continuous_dividends_exponent
+    strikes_term = call_or_put * strikes * discount_rates_exponent
 
     # Constructing Matrix with first and second algebraic terms for each integral
     # [12, n] where n is len(strikes)
     terms_mat = tf.stack(
-        (spots_term, -1.*strikes_term,
-         spots_term, -1.*strikes_term,
-         spots_term*(barriers_ratio**(2*lamda)),
-         -1*strikes_term*(barriers_ratio**((2*lamda)-2)),
-         spots_term*(barriers_ratio**(2*lamda)),
-         -1*strikes_term*(barriers_ratio**((2*lamda)-2)),
-         rebates*discount_rates_exponent,
-         -1*rebates*discount_rates_exponent*(barriers_ratio**((2*lamda)-2)),
-         rebates*(barriers_ratio**(a+b)),
-         rebates*(barriers_ratio**(a-b))),
+        (spots_term, -strikes_term,
+         spots_term, -strikes_term,
+         spots_term * (barriers_ratio**(2 * lamda)),
+         -strikes_term * (barriers_ratio**((2 * lamda) - 2)),
+         spots_term * (barriers_ratio**(2 * lamda)),
+         -strikes_term * (barriers_ratio**((2 * lamda) - 2)),
+         rebates * discount_rates_exponent,
+         -rebates * discount_rates_exponent * (barriers_ratio**((2 * lamda) - 2)),
+         rebates * (barriers_ratio**(a + b)),
+         rebates * (barriers_ratio**(a - b))),
         name="term_matrix")
 
     # Constructing Matrix with first and second norm for each integral
     # [12, n] where n is len(strikes)
     cdf_mat = tf.stack(
-        (_ncdf(call_or_put*x),
-         _ncdf(call_or_put*(x-time_volatilities)),
-         _ncdf(call_or_put*x1),
-         _ncdf(call_or_put*(x1-time_volatilities)),
-         _ncdf(below_or_above*y),
-         _ncdf(below_or_above*(y-time_volatilities)),
-         _ncdf(below_or_above*y1),
-         _ncdf(below_or_above*(y1-time_volatilities)),
-         _ncdf(below_or_above*(x1-time_volatilities)),
-         _ncdf(below_or_above*(y1-time_volatilities)),
-         _ncdf(below_or_above*z),
-         _ncdf(below_or_above*(z-(2*b*time_volatilities)))),
+        (_ncdf(call_or_put * x),
+         _ncdf(call_or_put * (x - sqrt_var)),
+         _ncdf(call_or_put * x1),
+         _ncdf(call_or_put * (x1 - sqrt_var)),
+         _ncdf(below_or_above * y),
+         _ncdf(below_or_above * (y - sqrt_var)),
+         _ncdf(below_or_above * y1),
+         _ncdf(below_or_above * (y1 - sqrt_var)),
+         _ncdf(below_or_above * (x1 - sqrt_var)),
+         _ncdf(below_or_above * (y1 - sqrt_var)),
+         _ncdf(below_or_above * z),
+         _ncdf(below_or_above * (z - (2 * b * sqrt_var)))),
         name="cdf_matrix")
 
     # Calculating and returning price for each option
