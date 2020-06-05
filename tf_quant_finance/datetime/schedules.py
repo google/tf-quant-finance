@@ -340,9 +340,12 @@ def _gen_periodic_schedule(start_date,
 
   # Validate inputs.
   control_deps = [
-      tf.debugging.assert_greater_equal(end_date.ordinal(),
-                                        start_date.ordinal()),
-      tf.debugging.assert_positive(tenor.quantity())
+      tf.debugging.assert_greater_equal(
+          end_date.ordinal(),
+          start_date.ordinal(),
+          message="End date must be >= to start date."),
+      tf.debugging.assert_positive(
+          tenor.quantity(), message="Tenor quantity must be positive.")
   ]
 
   with tf.compat.v1.control_dependencies(control_deps):
@@ -428,8 +431,10 @@ def _gen_business_days(start_date, end_date, holiday_calendar, backward=False):
 
   # Validate inputs.
   control_deps = [
-      tf.debugging.assert_greater_equal(end_date.ordinal(),
-                                        start_date.ordinal()),
+      tf.debugging.assert_greater_equal(
+          end_date.ordinal(),
+          start_date.ordinal(),
+          message="End date must be >= Start date."),
   ]
   with tf.compat.v1.control_dependencies(control_deps):
     # Reshape the input Tensors.
