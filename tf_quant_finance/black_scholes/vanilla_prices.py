@@ -410,8 +410,8 @@ def barrier_price(*,
          spots_term * (barriers_ratio**(2 * lamda)),
          -strikes_term * (barriers_ratio**((2 * lamda) - 2)),
          rebates * discount_rates_exponent,
-         -rebates * discount_rates_exponent * (barriers_ratio**
-                                               ((2 * lamda) - 2)),
+         -rebates * discount_rates_exponent * (
+           barriers_ratio**((2 * lamda) - 2)),
          rebates * (barriers_ratio**(a + b)),
          rebates * (barriers_ratio**(a - b))),
         name="term_matrix")
@@ -419,19 +419,20 @@ def barrier_price(*,
     # Constructing Matrix with first and second norm for each integral
     # [12, n] where n is len(strikes)
     cdf_mat = tf.stack(
-        (_ncdf(call_or_put * x),
-         _ncdf(call_or_put * (x - sqrt_var)),
-         _ncdf(call_or_put * x1),
-         _ncdf(call_or_put * (x1 - sqrt_var)),
-         _ncdf(below_or_above * y),
-         _ncdf(below_or_above * (y - sqrt_var)),
-         _ncdf(below_or_above * y1),
-         _ncdf(below_or_above * (y1 - sqrt_var)),
-         _ncdf(below_or_above * (x1 - sqrt_var)),
-         _ncdf(below_or_above * (y1 - sqrt_var)),
-         _ncdf(below_or_above * z),
-         _ncdf(below_or_above * (z - (2 * b * sqrt_var)))),
+        (call_or_put * x,
+         call_or_put * (x - sqrt_var),
+         call_or_put * x1,
+         call_or_put * (x1 - sqrt_var),
+         below_or_above * y,
+         below_or_above * (y - sqrt_var),
+         below_or_above * y1,
+         below_or_above * (y1 - sqrt_var),
+         below_or_above * (x1 - sqrt_var),
+         below_or_above * (y1 - sqrt_var),
+         below_or_above * z,
+         below_or_above * (z - (2 * b * sqrt_var))),
         name="cdf_matrix")
+    cdf_mat = _ncdf(cdf_mat)
     # Calculating and returning price for each option
     return tf.reduce_sum(masks * terms_mat * cdf_mat, axis=0)
 
