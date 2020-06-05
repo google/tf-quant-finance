@@ -349,17 +349,6 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     is_barrier_down = exp[4]
     is_knock_out = exp[5]
     volatilities = 0.25
-
-    """
-    3 -> cdi
-    2 -> pdi
-    1 -> cui
-    0 -> pui
-    7 -> cdo
-    6 -> pdo
-    5 -> cuo
-    4 -> puo
-    """
     price = tff.black_scholes.barrier_price(
         volatilities=volatilities, strikes=strikes,
         expiries=expiries, spots=spots,

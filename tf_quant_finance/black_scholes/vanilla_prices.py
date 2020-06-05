@@ -360,18 +360,23 @@ def barrier_price(*,
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1], # down and out put
         [0, 0, 1, 1, 0, 0, -1, -1, 0, 0, 1, 1]]) # down and out call
 
+    # print(mask_matrix_lower_strike)
     # Get mask for each option
-    masks_lower = tf.gather(mask_matrix_lower_strike, indices)
-    masks_greater = tf.gather(mask_matrix_greater_strike, indices)
+    mask_matrix_greater_strike = tf.transpose(mask_matrix_greater_strike)
+    mask_matrix_lower_strike = tf.transpose(mask_matrix_lower_strike)
+    masks_lower = tf.gather(mask_matrix_lower_strike, indices, axis=1)
+    masks_greater = tf.gather(mask_matrix_greater_strike, indices, axis=1)
     strikes_greater = tf.expand_dims(strikes > barriers, axis=-1)
-    masks = tf.where(strikes_greater, masks_greater, masks_lower)
+
+    # Masks are shape [12, n] where n is len(strikes)
+    masks = tf.where(tf.transpose(strikes_greater), masks_greater, masks_lower)
     masks = tf.cast(masks, dtype=dtype)
+
     one = tf.constant(1, dtype=dtype)
     call_or_put = tf.cast(tf.where(tf.equal(is_call_options, 0), -one, one),
                           dtype=dtype)
     below_or_above = tf.cast(tf.where(tf.equal(is_barrier_down, 0), -one, one),
                              dtype=dtype)
-
     # Calculate params for integrals
     sqrt_var = volatilities * tf.math.sqrt(expiries)
     mu = (discount_rates - continuous_dividends) - ((volatilities**2) / 2)
@@ -405,7 +410,8 @@ def barrier_price(*,
          spots_term * (barriers_ratio**(2 * lamda)),
          -strikes_term * (barriers_ratio**((2 * lamda) - 2)),
          rebates * discount_rates_exponent,
-         -rebates * discount_rates_exponent * (barriers_ratio**((2 * lamda) - 2)),
+         -rebates * discount_rates_exponent * (barriers_ratio**
+                                               ((2 * lamda) - 2)),
          rebates * (barriers_ratio**(a + b)),
          rebates * (barriers_ratio**(a - b))),
         name="term_matrix")
@@ -426,10 +432,8 @@ def barrier_price(*,
          _ncdf(below_or_above * z),
          _ncdf(below_or_above * (z - (2 * b * sqrt_var)))),
         name="cdf_matrix")
-
     # Calculating and returning price for each option
-    return tf.reduce_sum(tf.transpose(masks)*terms_mat*cdf_mat, axis=0)
-
+    return tf.reduce_sum(masks * terms_mat * cdf_mat, axis=0)
 
 # TODO(b/154806390): Binary price signature should be the same as that of the
 # vanilla price.
