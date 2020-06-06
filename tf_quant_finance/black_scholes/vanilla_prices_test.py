@@ -405,6 +405,33 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
         is_call_options=is_call_options)
     self.assertAllClose(price, expected_price, 10e-3)
 
+
+  def test_barrier_option_3d(self):
+    """Function tests barrier option pricing for vector inputs"""
+    spots = [[100., 100.], [100., 100.], [100., 100.], [100., 100.]]
+    rebates = [[3., 3.], [3., 3.], [3., 3.], [3., 3.]]
+    expiries = [[.5, .5], [.5, .5], [.5, .5], [.5, .5]]
+    discount_rates = [[.08, .08], [.08, .08], [.08, .08], [.08, .08]]
+    volatilities = [[.25, .25], [.25, .25], [.25, .25], [.25, .25]]
+    strikes = [[90., 90.], [90., 90.], [90., 90.], [90., 90.]]
+    barriers = [[95., 95.], [105., 105.], [95., 105.], [95., 105.]]
+    expected_price = [
+        [9.024, 7.7627], [2.6789, 14.1112], [2.2798, 3.7760], [2.95586, 1.4653]]
+    is_call_options = [[True, True], [True, True], [False, False], [False, False]]
+    is_barrier_down = [[True, True], [False, False], [True, False], [True, False]]
+    is_knock_out = [[True, False], [True, False], [True, True], [False, False]]
+    continuous_dividends = [[.04, .04], [.04, .04], [.04, .04], [.04, .04]]
+    price = tff.black_scholes.barrier_price(
+        volatilities=volatilities, strikes=strikes,
+        expiries=expiries, spots=spots,
+        discount_rates=discount_rates,
+        continuous_dividends=continuous_dividends,
+        barriers=barriers, rebates=rebates,
+        is_barrier_down=is_barrier_down,
+        is_knock_out=is_knock_out,
+        is_call_options=is_call_options)
+    self.assertAllClose(price, expected_price, 10e-3)
+    
   def test_barrier_option_cost_of_carriers(self):
     """Function tests barrier option pricing for scalar input
        with `cost_of_carries` input"""
