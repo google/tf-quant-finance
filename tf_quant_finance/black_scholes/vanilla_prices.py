@@ -240,7 +240,7 @@ def barrier_price(*,
   Pricing Exotic Options in a Black-Scholes World, 1994
   https://warwick.ac.uk/fac/soc/wbs/subjects/finance/research/wpaperseries/1994/94-54.pdf
 
-  [2]: Espen Gaarder Haug, The complete guide to option pricing formulas,
+  [2]: Espen Gaarder Haug, The Complete Guide to Option Pricing Formulas,
   2nd Edition, 1997
 
   Args:
@@ -297,9 +297,9 @@ def barrier_price(*,
     raise ValueError('At most one of continuous_dividends and cost of carries '
                      'may be supplied')
   with tf.name_scope(name or "barrier_price"):
-    strikes = tf.convert_to_tensor(strikes, dtype=dtype, name="strikes")
-    dtype = strikes.dtype
     spots = tf.convert_to_tensor(spots, dtype=dtype, name="spots")
+    dtype = spots.dtype
+    strikes = tf.convert_to_tensor(strikes, dtype=dtype, name="strikes")
     volatilities = tf.convert_to_tensor(
         volatilities, dtype=dtype, name="volatilities")
     expiries = tf.convert_to_tensor(expiries, dtype=dtype, name="expiries")
