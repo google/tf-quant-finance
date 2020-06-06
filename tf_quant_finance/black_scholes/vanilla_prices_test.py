@@ -333,148 +333,157 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     implied_binary_price = self.evaluate(
         tf.where(is_call_options, -implied_binary_price, implied_binary_price))
     self.assertArrayNear(implied_binary_price, actual_binary_price, 1e-10)
+    return (90.0, 105, 1.4653, False, False, False, 0)
 
-  def test_barrier_option_1d_puo(self):
-    """Function tests barrier option pricing for scalar input"""
-    spots = 100
-    rebates = 3
-    expiries = 0.5
-    discount_rates = 0.08
-    continuous_dividends = 0.04
-    exp = self.get_barrier_option_test_vals("pui")
-    strikes = exp[0]
-    barriers = exp[1]
-    expected_price = exp[2]
-    is_call_options = exp[3]
-    is_barrier_down = exp[4]
-    is_knock_out = exp[5]
-    volatilities = 0.25
-    price = tff.black_scholes.barrier_price(
-        volatilities=volatilities, strikes=strikes,
-        expiries=expiries, spots=spots,
-        discount_rates=discount_rates,
-        continuous_dividends=continuous_dividends,
-        barriers=barriers, rebates=rebates,
-        is_barrier_down=is_barrier_down,
-        is_knock_out=is_knock_out,
-        is_call_options=is_call_options)
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'ScalarInputsUIP',
+          'volatilities': 0.25,
+          'strikes': 90.0,
+          'expiries': 0.5,
+          'spots': 100.0,
+          'discount_rates': 0.08,
+          'continuous_dividends': 0.04,
+          'barriers': 105.0,
+          'rebates': 3.0,
+          'is_barrier_down': False,
+          'is_knock_out': False,
+          'is_call_options': False,
+          'expected_price': 1.4653,
+      },
+      {
+          'testcase_name': 'VectorInputs',
+          'volatilities': [.25, .25, .25, .25, .25, .25, .25, .25],
+          'strikes': [90., 90., 90., 90., 90., 90., 90., 90.],
+          'expiries': [.5, .5, .5, .5, .5, .5, .5, .5],
+          'spots': [100., 100., 100., 100., 100., 100., 100., 100.],
+          'discount_rates': [.08, .08, .08, .08, .08, .08, .08, .08],
+          'continuous_dividends': [.04, .04, .04, .04, .04, .04, .04, .04],
+          'barriers': [95., 95., 105., 105., 95., 105., 95., 105.],
+          'rebates': [3., 3., 3., 3., 3., 3., 3., 3.],
+          'is_barrier_down': [
+              True, True, False, False, True, False, True, False],
+          'is_knock_out': [
+              True, False, True, False, True, True, False, False],
+          'is_call_options': [
+              True, True, True, True, False, False, False, False],
+          'expected_price': [
+              9.024, 7.7627, 2.6789, 14.1112, 2.2798, 3.7760, 2.95586, 1.4653],
+      },
+      {
+          'testcase_name': 'MatrixInputs',
+          'volatilities': [[.25, .25], [.25, .25], [.25, .25], [.25, .25]],
+          'strikes': [[90., 90.], [90., 90.], [90., 90.], [90., 90.]],
+          'expiries': [[.5, .5], [.5, .5], [.5, .5], [.5, .5]],
+          'spots': [[100., 100.], [100., 100.], [100., 100.], [100., 100.]],
+          'discount_rates': [[.08, .08], [.08, .08], [.08, .08], [.08, .08]],
+          'continuous_dividends': [
+              [.04, .04], [.04, .04], [.04, .04], [.04, .04]
+          ],
+          'barriers': [[95., 95.], [105., 105.], [95., 105.], [95., 105.]],
+          'rebates': [[3., 3.], [3., 3.], [3., 3.], [3., 3.]],
+          'is_barrier_down': [
+              [True, True],
+              [False, False],
+              [True, False],
+              [True, False]
+          ],
+          'is_knock_out': [
+              [True, False],
+              [True, False],
+              [True, True],
+              [False, False]
+          ],
+          'is_call_options': [
+              [True, True],
+              [True, True],
+              [False, False],
+              [False, False]
+          ],
+          'expected_price': [
+              [9.024, 7.7627],
+              [2.6789, 14.1112],
+              [2.2798, 3.7760],
+              [2.95586, 1.4653]
+          ],
+      },
+      {
+          'testcase_name': 'cost_of_carries',
+          'volatilities': 0.25,
+          'strikes': 90.0,
+          'expiries': 0.5,
+          'spots': 100.0,
+          'discount_rates': 0.08,
+          'cost_of_carries': 0.04,
+          'barriers': 105.0,
+          'rebates': 3.0,
+          'is_barrier_down': False,
+          'is_knock_out': False,
+          'is_call_options': False,
+          'expected_price': 1.4653,
+      })
+  def test_barrier_option(self, *,
+                          volatilities,
+                          strikes,
+                          expiries,
+                          spots,
+                          discount_rates,
+                          continuous_dividends=None,
+                          cost_of_carries=None,
+                          barriers,
+                          rebates,
+                          is_barrier_down,
+                          is_knock_out,
+                          is_call_options,
+                          expected_price):
+    """Function tests barrier option pricing for the parameterized
+    input. The input values are from examples in the following textbook:
+    The Complete guide to Option Pricing Formulas, 2nd Edition, Page 154
+    """
+    if cost_of_carries is not None:
+      price = tff.black_scholes.barrier_price(
+          volatilities=volatilities, strikes=strikes,
+          expiries=expiries, spots=spots,
+          discount_rates=discount_rates,
+          cost_of_carries=cost_of_carries,
+          continuous_dividends=continuous_dividends,
+          barriers=barriers, rebates=rebates,
+          is_barrier_down=is_barrier_down,
+          is_knock_out=is_knock_out,
+          is_call_options=is_call_options)
+    else:
+      price = tff.black_scholes.barrier_price(
+          volatilities=volatilities, strikes=strikes,
+          expiries=expiries, spots=spots,
+          discount_rates=discount_rates,
+          continuous_dividends=continuous_dividends,
+          barriers=barriers, rebates=rebates,
+          is_barrier_down=is_barrier_down,
+          is_knock_out=is_knock_out,
+          is_call_options=is_call_options)
     self.assertAllClose(price, expected_price, 10e-3)
 
-  def get_barrier_option_test_vals(self, param):
-    """Function returns testing vals for type of option"""
-    if param == "cdo":
-      return (90.0, 95, 9.0246, True, True, True, 7)
-    if param == "cdi":
-      return (90.0, 95, 7.7627, True, True, False, 3)
-    if param == "cuo":
-      return (90.0, 105, 2.6789, True, False, True, 5)
-    if param == "cui":
-      return (90.0, 105, 14.1112, True, False, False, 1)
-    if param == "pdo":
-      return (90.0, 95, 2.2798, False, True, True, 6)
-    if param == "puo":
-      return (90.0, 105, 3.7760, False, False, True, 4)
-    if param == "pdi":
-      return (90.0, 95, 2.9586, False, True, False, 2)
-    if param == "pui":
-      return (90.0, 105, 1.4653, False, False, False, 0)
-
-  def test_barrier_option_2d(self):
-    """Function tests barrier option pricing for vector inputs"""
-    spots = [100., 100., 100., 100., 100., 100., 100., 100.]
-    rebates = [3., 3., 3., 3., 3., 3., 3., 3.]
-    expiries = [.5, .5, .5, .5, .5, .5, .5, .5]
-    discount_rates = [.08, .08, .08, .08, .08, .08, .08, .08]
-    volatilities = [.25, .25, .25, .25, .25, .25, .25, .25]
-    strikes = [90., 90., 90., 90., 90., 90., 90., 90.]
-    barriers = [95., 95., 105., 105., 95., 105., 95., 105.]
-    expected_price = [
-        9.024, 7.7627, 2.6789, 14.1112, 2.2798, 3.7760, 2.95586, 1.4653]
-    is_call_options = [True, True, True, True, False, False, False, False]
-    is_barrier_down = [True, True, False, False, True, False, True, False]
-    is_knock_out =    [True, False, True, False, True, True, False, False]
-    continuous_dividends = [.04, .04, .04, .04, .04, .04, .04, .04]
-    price = tff.black_scholes.barrier_price(
-        volatilities=volatilities, strikes=strikes,
-        expiries=expiries, spots=spots,
-        discount_rates=discount_rates,
-        continuous_dividends=continuous_dividends,
-        barriers=barriers, rebates=rebates,
-        is_barrier_down=is_barrier_down,
-        is_knock_out=is_knock_out,
-        is_call_options=is_call_options)
-    self.assertAllClose(price, expected_price, 10e-3)
-
-
-  def test_barrier_option_3d(self):
-    """Function tests barrier option pricing for vector inputs"""
-    spots = [[100., 100.], [100., 100.], [100., 100.], [100., 100.]]
-    rebates = [[3., 3.], [3., 3.], [3., 3.], [3., 3.]]
-    expiries = [[.5, .5], [.5, .5], [.5, .5], [.5, .5]]
-    discount_rates = [[.08, .08], [.08, .08], [.08, .08], [.08, .08]]
-    volatilities = [[.25, .25], [.25, .25], [.25, .25], [.25, .25]]
-    strikes = [[90., 90.], [90., 90.], [90., 90.], [90., 90.]]
-    barriers = [[95., 95.], [105., 105.], [95., 105.], [95., 105.]]
-    expected_price = [
-        [9.024, 7.7627], [2.6789, 14.1112], [2.2798, 3.7760], [2.95586, 1.4653]]
-    is_call_options = [[True, True], [True, True], [False, False], [False, False]]
-    is_barrier_down = [[True, True], [False, False], [True, False], [True, False]]
-    is_knock_out = [[True, False], [True, False], [True, True], [False, False]]
-    continuous_dividends = [[.04, .04], [.04, .04], [.04, .04], [.04, .04]]
-    price = tff.black_scholes.barrier_price(
-        volatilities=volatilities, strikes=strikes,
-        expiries=expiries, spots=spots,
-        discount_rates=discount_rates,
-        continuous_dividends=continuous_dividends,
-        barriers=barriers, rebates=rebates,
-        is_barrier_down=is_barrier_down,
-        is_knock_out=is_knock_out,
-        is_call_options=is_call_options)
-    self.assertAllClose(price, expected_price, 10e-3)
-    
-  def test_barrier_option_cost_of_carriers(self):
-    """Function tests barrier option pricing for scalar input
-       with `cost_of_carries` input"""
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'SinglePrecision',
+          'dtype': np.float32
+      }, {
+          'testcase_name': 'DoublePrecision',
+          'dtype': np.float64
+      })
+  def test_barrier_option_dtype(self, dtype):
+    """Function tests barrier option pricing for with given data type"""
     spots = 100.0
     rebates = 3.0
     expiries = 0.5
     discount_rates = 0.08
     cost_of_carries = 0.04
-    exp = self.get_barrier_option_test_vals("cdo")
-    strikes = exp[0]
-    barriers = exp[1]
-    expected_price = exp[2]
-    is_call_options = exp[3]
-    is_barrier_down = exp[4]
-    is_knock_out = exp[5]
-    volatilities = 0.25
-    price = tff.black_scholes.barrier_price(
-        volatilities=volatilities, strikes=strikes,
-        expiries=expiries, spots=spots,
-        discount_rates=discount_rates,
-        cost_of_carries=cost_of_carries,
-        barriers=barriers, rebates=rebates,
-        is_barrier_down=is_barrier_down,
-        is_knock_out=is_knock_out,
-        is_call_options=is_call_options)
-    self.assertAllClose(price, expected_price, 10e-3)
-
-  def test_barrier_option_dtype(self):
-    """Function tests barrier option pricing for scalar input
-       with given data type"""
-    dtype = tf.float64
-    spots = 100.0
-    rebates = 3.0
-    expiries = 0.5
-    discount_rates = 0.08
-    cost_of_carries = 0.04
-    exp = self.get_barrier_option_test_vals("cdo")
-    strikes = exp[0]
-    barriers = exp[1]
-    expected_price = exp[2]
-    is_call_options = exp[3]
-    is_barrier_down = exp[4]
-    is_knock_out = exp[5]
+    strikes = 90.0
+    barriers = 95.0
+    expected_price = 9.0246
+    is_call_options = True
+    is_barrier_down = True
+    is_knock_out = True
     volatilities = 0.25
     price = tff.black_scholes.barrier_price(
         volatilities=volatilities, strikes=strikes,

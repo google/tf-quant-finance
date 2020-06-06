@@ -359,23 +359,20 @@ def barrier_price(*,
         [1, 1, -1, -1, 0, 0, 1, 1, 1, 1, 0, 0], # down and in call
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1], # down and out put
         [0, 0, 1, 1, 0, 0, -1, -1, 0, 0, 1, 1]]) # down and out call
-    mask_matrix_greater_strike = tf.transpose(mask_matrix_greater_strike)
-    mask_matrix_lower_strike = tf.transpose(mask_matrix_lower_strike)
 
     # Create masks
-    # Masks are shape [12, n] where n is len(strikes)
-    masks_lower = tf.gather(mask_matrix_lower_strike, indices, axis=1)
-    masks_greater = tf.gather(mask_matrix_greater_strike, indices, axis=1)
-    strikes_greater = tf.expand_dims(strikes > barriers, axis=0)
+    # Masks are shape [strikes.shape, 12]
+    masks_lower = tf.gather(mask_matrix_lower_strike, indices, axis=0)
+    masks_greater = tf.gather(mask_matrix_greater_strike, indices, axis=0)
+    strikes_greater = tf.expand_dims(strikes > barriers, axis=-1)
     masks = tf.where(strikes_greater, masks_greater, masks_lower)
     masks = tf.cast(masks, dtype=dtype)
-
     one = tf.constant(1, dtype=dtype)
     call_or_put = tf.cast(tf.where(tf.equal(is_call_options, 0), -one, one),
                           dtype=dtype)
     below_or_above = tf.cast(tf.where(tf.equal(is_barrier_down, 0), -one, one),
                              dtype=dtype)
-    
+
     # Calculate params for integrals
     sqrt_var = volatilities * tf.math.sqrt(expiries)
     mu = (discount_rates - continuous_dividends) - ((volatilities**2) / 2)
@@ -399,8 +396,11 @@ def barrier_price(*,
     spots_term = call_or_put * spots * continuous_dividends_exponent
     strikes_term = call_or_put * strikes * discount_rates_exponent
 
+    # rank is used to stack elements and reduce_sum
+    strike_rank = tf.rank(strikes)
+
     # Constructing Matrix with first and second algebraic terms for each integral
-    # [12, n] where n is len(strikes)
+    # [strike.shape, 12]
     terms_mat = tf.stack(
         (spots_term, -strikes_term,
          spots_term, -strikes_term,
@@ -413,10 +413,10 @@ def barrier_price(*,
              barriers_ratio**((2 * lamda) - 2)),
          rebates * (barriers_ratio**(a + b)),
          rebates * (barriers_ratio**(a - b))),
-        name="term_matrix")
+        name="term_matrix", axis=strike_rank)
 
     # Constructing Matrix with first and second norm for each integral
-    # [12, n] where n is len(strikes)
+    # [strikes.shape, 12]
     cdf_mat = tf.stack(
         (call_or_put * x,
          call_or_put * (x - sqrt_var),
@@ -430,10 +430,10 @@ def barrier_price(*,
          below_or_above * (y1 - sqrt_var),
          below_or_above * z,
          below_or_above * (z - (2 * b * sqrt_var))),
-        name="cdf_matrix")
+        name="cdf_matrix", axis=strike_rank)
     cdf_mat = _ncdf(cdf_mat)
     # Calculating and returning price for each option
-    return tf.reduce_sum(masks * terms_mat * cdf_mat, axis=0)
+    return tf.reduce_sum(masks * terms_mat * cdf_mat, axis=strike_rank)
 
 # TODO(b/154806390): Binary price signature should be the same as that of the
 # vanilla price.
