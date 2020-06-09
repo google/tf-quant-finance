@@ -329,6 +329,7 @@ def barrier_price(*,
                                         name="is_knock_out")
     is_call_options = tf.convert_to_tensor(is_call_options, dtype=tf.int32,
                                            name="is_call_options")
+
     # Indices which range from 0-7 are used to select the appropriate
     # mask for each barrier
     indices = tf.bitwise.left_shift(
@@ -397,7 +398,7 @@ def barrier_price(*,
     strikes_term = call_or_put * strikes * discount_rates_exponent
 
     # rank is used to stack elements and reduce_sum
-    strike_rank = tf.rank(strikes)
+    strike_rank = strikes.get_shape().ndims
 
     # Constructing Matrix with first and second algebraic terms for each integral
     # [strike.shape, 12]

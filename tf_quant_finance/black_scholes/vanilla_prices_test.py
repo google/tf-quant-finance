@@ -498,5 +498,38 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     self.assertAllClose(price, expected_price, 10e-3)
     self.assertEqual(price.dtype, dtype)
 
+  def barrier_option_call_xla(self):
+    """Tests barrier option price with XLA"""
+    dtype = tf.float64
+    spots = tf.convert_to_tensor(100.0, dtype=dtype)
+    rebates = tf.convert_to_tensor(3.0, dtype=dtype)
+    expiries = tf.convert_to_tensor(0.5, dtype=dtype)
+    discount_rates = tf.convert_to_tensor(0.08, dtype=dtype)
+    continuous_dividends = tf.convert_to_tensor(0.04, dtype=dtype)
+    strikes = tf.convert_to_tensor(90.0, dtype=dtype)
+    barriers = tf.convert_to_tensor(95.0, dtype=dtype)
+    expected_price = tf.convert_to_tensor(9.0246, dtype=dtype)
+    is_call_options = tf.convert_to_tensor(True)
+    is_barrier_down = tf.convert_to_tensor(True)
+    is_knock_out = tf.convert_to_tensor(True)
+    volatilities = tf.convert_to_tensor(0.25, dtype=dtype)
+    def price_barriers_option(samples):
+      return tff.black_scholes.barrier_price(
+          volatilities=samples[0], strikes=samples[1],
+          expiries=samples[2], spots=samples[3],
+          discount_rates=samples[3], continuous_dividends=samples[4],
+          barriers=samples[5], rebates=samples[6],
+          is_barrier_down=samples[7], is_knock_out=samples[8],
+          is_call_options=samples[9])[0]
+
+    @tf.function
+    def xla_compiled_op(samples):
+      return tf.xla.experimental.compile(price_barriers_option, samples)
+    price = xla_compiled_op([volatilities, strikes, expiries, spots,
+                             discount_rates, continuous_dividends,
+                             barriers, rebates, is_barrier_down,
+                             is_knock_out, is_call_options])
+    self.assertAllClose(price, expected_price, 10e-3)
+
 if __name__ == '__main__':
   tf.test.main()
