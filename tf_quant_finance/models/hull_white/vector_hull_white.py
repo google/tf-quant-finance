@@ -260,6 +260,14 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
     super(VectorHullWhiteModel, self).__init__(dim, _drift_fn, _vol_fn,
                                                dtype, name)
 
+  @property
+  def mean_reversion(self):
+    return self._mean_reversion
+
+  @property
+  def volatility(self):
+    return self._volatility
+
   def sample_paths(self,
                    times,
                    num_samples=1,
@@ -373,9 +381,12 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         Default value: `sample_discount_curve_paths`.
 
     Returns:
-      A `Tensor` of shape [num_samples, m, k, dim] containing the simulated
-      bond curves where `m` is the size of `curve_times`, `k` is the size of
-      `times` and `dim` is the dimension of the process.
+      A tuple containing two `Tensor`s. The first element is a `Tensor` of
+      shape [num_samples, m, k, dim] and contains the simulated bond curves
+      where `m` is the size of `curve_times`, `k` is the size of `times` and
+      `dim` is the dimension of the process. The second element is a `Tensor`
+      of shape [num_samples, k, dim] and contains the simulated short rate
+      paths.
 
     ### References:
       [1]: Leif B.G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling,
@@ -487,7 +498,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
     if curve_times is not None:
       # Discount curve paths are desired.
       return self._bond_reconstitution(
-          times, curve_times, mean_reversion, rate_paths, y_t)
+          times, curve_times, mean_reversion, rate_paths, y_t), rate_paths
     else:
       return rate_paths
 
@@ -633,7 +644,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
     return var_x_t
 
   def _variance_int(self, t0, t, vol, k):
-    """Computes int_t0^t exp(2*k*s) ds."""
+    """Computes int_t0^t exp(2*k*s) vol(s)^2 ds."""
     return vol * vol / (2 * k) * (
         tf.math.exp(2 * k * t) - tf.math.exp(2 * k * t0))
 

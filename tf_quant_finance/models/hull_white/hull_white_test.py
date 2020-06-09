@@ -149,7 +149,7 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
           initial_discount_rate_fn=discount_fn,
           dtype=dtype)
       curve_times = np.array([0.0, 1.0, 2.0, 3.0])
-      paths = process.sample_discount_curve_paths(
+      paths, _ = process.sample_discount_curve_paths(
           [0.1, 1.0, 2.0],
           curve_times,
           num_samples=500000,
