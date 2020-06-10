@@ -230,7 +230,7 @@ def barrier_price(*,
 
   # Expected output
   #  `Tensor` with values [9.024, 7.7627]
-  ````
+  ```
 
   #### References
 

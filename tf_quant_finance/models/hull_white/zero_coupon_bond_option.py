@@ -176,7 +176,7 @@ def bond_option_price(*,
       `hw_bond_option_price`.
 
   Returns:
-    A `Tensor` of real dtype and shape  strikes.shape + [dim] containing the
+    A `Tensor` of real dtype and shape  `strikes.shape + [dim]` containing the
     computed option prices.
   """
   name = name or 'hw_bond_option_price'
