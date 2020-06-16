@@ -34,6 +34,7 @@ from tf_quant_finance.datetime.date_tensor import random_dates
 from tf_quant_finance.datetime.daycounts import actual_360 as daycount_actual_360
 from tf_quant_finance.datetime.daycounts import actual_365_actual as daycount_actual_365_actual
 from tf_quant_finance.datetime.daycounts import actual_365_fixed as daycount_actual_365_fixed
+from tf_quant_finance.datetime.daycounts import actual_actual_isda as daycount_actual_actual_isda
 from tf_quant_finance.datetime.daycounts import thirty_360_isda as daycount_thirty_360_isda
 from tf_quant_finance.datetime.holiday_calendar import HolidayCalendar
 from tf_quant_finance.datetime.holiday_calendar_factory import create_holiday_calendar
@@ -81,6 +82,7 @@ _allowed_symbols = [
     'PeriodTensor',
     'PeriodicSchedule',
     'random_dates',
+    'daycount_actual_actual_isda',
     'daycount_actual_360',
     'daycount_actual_365_actual',
     'daycount_actual_365_fixed',

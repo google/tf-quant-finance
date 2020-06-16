@@ -230,6 +230,7 @@ py_test(
     size = "small",
     srcs = ["daycounts_test.py"],
     python_version = "PY3",
+    shard_count = 4,
     deps = [
         "//tf_quant_finance",
         # test util,

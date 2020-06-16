@@ -251,7 +251,57 @@ def thirty_360_isda(*,
     return total_day_difference / 360
 
 
+def actual_actual_isda(*,
+                       start_date,
+                       end_date,
+                       schedule_info=None,
+                       dtype=None,
+                       name=None):
+  """Computes the year fraction between the specified dates.
+
+  Computes the year fraction between the dates by dividing the actual number of
+  days in a leap year by 366 and the actual number of days in a standard year by
+  365.
+
+  When determining whether a leap day is contained in the date range,
+  'start_date' is excluded and 'end_date' is included.
+
+  Note that the schedule info is not needed for this convention and is ignored
+  if supplied.
+
+  https://en.wikipedia.org/wiki/Day_count_convention#Actual/Actual_ISDA
+
+  Args:
+    start_date: A `DateTensor` object of any shape.
+    end_date: A `DateTensor` object of compatible shape with `start_date`.
+    schedule_info: The schedule info. Ignored for this convention.
+    dtype: The dtype of the result. Either `tf.float32` or `tf.float64`. If not
+      supplied, `tf.float32` is returned.
+    name: Python `str` name prefixed to ops created by this function. If not
+      supplied, `actual_actual_isda` is used.
+
+  Returns:
+    A real `Tensor` of supplied `dtype` and shape of `start_date`. The year
+    fraction between the start and end date as computed by Actual/Actual ISDA
+    convention.
+  """
+  del schedule_info
+  with tf.name_scope(name or 'actual_actual_isda'):
+    end_date = dt.convert_to_date_tensor(end_date)
+    start_date = dt.convert_to_date_tensor(start_date)
+    dtype = dtype or tf.float32
+    (
+        days_in_leap_years,
+        days_in_nonleap_years
+    ) = du.days_in_leap_and_nonleap_years_between(start_date, end_date)
+    # Cast to the target dtype
+    days_in_leap_years = tf.cast(days_in_leap_years, dtype=dtype)
+    days_in_nonleap_years = tf.cast(days_in_nonleap_years, dtype=dtype)
+    return days_in_leap_years / 366 + days_in_nonleap_years / 365
+
+
 __all__ = [
+    'actual_actual_isda',
     'actual_360',
     'actual_365_actual',
     'actual_365_fixed',
