@@ -6,11 +6,11 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2020-06-17.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.datetime.daycount_actual_365_actual" />
+<meta itemprop="name" content="tf_quant_finance.datetime.daycount_actual_actual_isda" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.datetime.daycount_actual_365_actual
+# tf_quant_finance.datetime.daycount_actual_actual_isda
 
 <!-- Insert buttons and diff -->
 
@@ -24,23 +24,26 @@ For open-source contributions the docs will be updated automatically.
 Computes the year fraction between the specified dates.
 
 ```python
-tf_quant_finance.datetime.daycount_actual_365_actual(
+tf_quant_finance.datetime.daycount_actual_actual_isda(
     *, start_date, end_date, schedule_info=None, dtype=None, name=None
 )
 ```
 
 
+
 <!-- Placeholder for "Used in" -->
 
-The actual/365 actual convention specifies the year fraction between the
-start and end date as the actual number of days between the two dates divided
-365 if no leap day is contained in the date range and 366 otherwise.
+Computes the year fraction between the dates by dividing the actual number of
+days in a leap year by 366 and the actual number of days in a standard year by
+365.
 
 When determining whether a leap day is contained in the date range,
-`start_date` is excluded and `end_date` is included.
+'start_date' is excluded and 'end_date' is included.
 
 Note that the schedule info is not needed for this convention and is ignored
 if supplied.
+
+https://en.wikipedia.org/wiki/Day_count_convention#Actual/Actual_ISDA
 
 #### Args:
 
@@ -51,11 +54,11 @@ if supplied.
 * <b>`dtype`</b>: The dtype of the result. Either `tf.float32` or `tf.float64`. If not
   supplied, `tf.float32` is returned.
 * <b>`name`</b>: Python `str` name prefixed to ops created by this function. If not
-  supplied, `actual_365_actual` is used.
+  supplied, `actual_actual_isda` is used.
 
 
 #### Returns:
 
 A real `Tensor` of supplied `dtype` and shape of `start_date`. The year
-fraction between the start and end date as computed by Actual/365 Actual
+fraction between the start and end date as computed by Actual/Actual ISDA
 convention.

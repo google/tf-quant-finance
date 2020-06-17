@@ -145,7 +145,7 @@ def actual_365_actual(*,
   365 if no leap day is contained in the date range and 366 otherwise.
 
   When determining whether a leap day is contained in the date range,
-  'start_date' is excluded and 'end_date' is included.
+  `start_date` is excluded and `end_date` is included.
 
   Note that the schedule info is not needed for this convention and is ignored
   if supplied.
