@@ -442,6 +442,9 @@ def convert_to_date_tensor(date_inputs):
   if isinstance(date_inputs, DateTensor):
     return date_inputs
 
+  if hasattr(date_inputs, "year"):  # Case 1.
+    return from_datetimes(date_inputs)
+
   if isinstance(date_inputs, np.ndarray):  # Case 2.
     date_inputs = date_inputs.astype("datetime64[D]")
     return from_np_datetimes(date_inputs)
