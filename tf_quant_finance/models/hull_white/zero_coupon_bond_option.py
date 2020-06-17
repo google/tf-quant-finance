@@ -50,13 +50,14 @@ _SQRT_2 = np.sqrt(2.0, dtype=np.float64)
 
 
 def bond_option_price(*,
-                      strikes=None,
-                      expiries=None,
-                      maturities=None,
-                      discount_rate_fn=None,
-                      dim=None,
-                      mean_reversion=None,
-                      volatility=None,
+                      strikes,
+                      expiries,
+                      maturities,
+                      discount_rate_fn,
+                      dim,
+                      mean_reversion,
+                      volatility,
+                      # TODO(b/159040541) Add correlation as an input.
                       is_call_options=True,
                       use_analytic_pricing=True,
                       num_samples=1,
@@ -207,13 +208,12 @@ def bond_option_price(*,
 
     sim_times, _ = tf.unique(tf.reshape(expiries, shape=[-1]))
     longest_expiry = tf.reduce_max(sim_times)
-    sim_times, _ = tf.unique(
-        tf.concat([sim_times, tf.range(
-            time_step, longest_expiry, time_step)], axis=0))
-    sim_times = tf.sort(sim_times)
+    sim_times, _ = tf.unique(tf.concat([sim_times, tf.range(
+        time_step, longest_expiry, time_step)], axis=0))
+    sim_times = tf.sort(sim_times, name='sort_sim_times')
     tau = maturities - expiries
     curve_times_builder, _ = tf.unique(tf.reshape(tau, shape=[-1]))
-    curve_times = tf.sort(curve_times_builder)
+    curve_times = tf.sort(curve_times_builder, name='sort_curve_times')
 
     p_t_tau, r_t = model.sample_discount_curve_paths(
         times=sim_times,
@@ -229,7 +229,8 @@ def bond_option_price(*,
     dt = tf.expand_dims(tf.expand_dims(dt_builder, axis=-1), axis=0)
     discount_factors_builder = tf.math.exp(-r_t * dt)
     # Transpose before (and after) because we want the cumprod along axis=1
-    # and `matvec` operates on the last axis.
+    # and `matvec` operates on the last axis. The shape before and after would
+    # be `(num_samples, len(times), dim)`
     discount_factors_builder = tf.transpose(
         _cumprod_using_matvec(
             tf.transpose(discount_factors_builder, [0, 2, 1])), [0, 2, 1])
@@ -251,17 +252,20 @@ def bond_option_price(*,
         tf.range(0, num_samples), curve_time_index, sim_time_index,
         tf.range(0, dim))
 
+    # The shape after `gather_nd` would be (num_samples*num_strikes*dim,)
     payoff_discount_factors_builder = tf.gather_nd(
         discount_factors_simulated, gather_index)
+    # Reshape to `[num_samples] + strikes.shape + [dim]`
     payoff_discount_factors = tf.reshape(
         payoff_discount_factors_builder,
         [num_samples] + strikes.shape + [dim])
     payoff_bond_price_builder = tf.gather_nd(p_t_tau, gather_index)
     payoff_bond_price = tf.reshape(
-        payoff_bond_price_builder, [num_samples]+strikes.shape+[dim])
+        payoff_bond_price_builder, [num_samples] + strikes.shape + [dim])
 
-    is_call_options = tf.transpose(
-        tf.broadcast_to(is_call_options, [dim] + strikes.shape))
+    is_call_options = tf.reshape(
+        tf.broadcast_to(is_call_options, strikes.shape),
+        [1] + strikes.shape + [1])
 
     strikes = tf.reshape(strikes, [1] + strikes.shape + [1])
     payoff = tf.where(

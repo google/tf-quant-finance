@@ -344,7 +344,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                                      skip=skip,
                                      dtype=self._dtype)
       return self._sample_paths(
-          times, None, num_samples, random_type, skip, seed)
+          times, num_samples, random_type, skip, seed)
 
   def sample_discount_curve_paths(self,
                                   times,
@@ -396,12 +396,39 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
     with tf.name_scope(name):
       times = tf.convert_to_tensor(times, self._dtype)
       curve_times = tf.convert_to_tensor(curve_times, self._dtype)
-      return self._sample_paths(times, curve_times, num_samples,
-                                random_type, skip, seed)
+      mean_reversion = self._mean_reversion(times)
+      volatility = self._volatility(times)
+      y_t = self._compute_yt(times, mean_reversion, volatility)
+      rate_paths = self._sample_paths(
+          times, num_samples, random_type, skip, seed)
+      short_rate = tf.expand_dims(rate_paths, axis=1)
+
+      # Reshape all `Tensor`s so that they have the dimensions same as (or
+      # broadcastable to) the output shape
+      # ([num_smaples,num_curve_times,num_sim_times,dim]).
+      num_curve_nodes = curve_times.shape.as_list()[0]  # m
+      num_sim_steps = times.shape.as_list()[0]  # k
+      times = tf.reshape(
+          tf.repeat(tf.expand_dims(times, axis=-1), self._dim, axis=-1),
+          (1, 1, num_sim_steps, self._dim))
+      curve_times = tf.reshape(curve_times, (1, num_curve_nodes, 1, 1))
+      curve_times = tf.repeat(curve_times, self._dim, axis=-1)
+
+      mean_reversion = tf.reshape(
+          mean_reversion, (1, 1, self._dim, num_sim_steps))
+      # Transpose so the `dim` is the trailing dimension.
+      mean_reversion = tf.transpose(mean_reversion, [0, 1, 3, 2])
+
+      # Calculate the variable `y(t)` (described in [1], section 10.1.6.1)
+      # so that we have the full Markovian state to compute the P(t,T).
+      y_t = tf.reshape(tf.transpose(y_t), (1, 1, num_sim_steps, self._dim))
+
+      return self._bond_reconstitution(times, times + curve_times,
+                                       mean_reversion, short_rate,
+                                       y_t), rate_paths
 
   def _sample_paths(self,
                     times,
-                    curve_times,
                     num_samples,
                     random_type,
                     skip,
@@ -454,7 +481,6 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
 
     exp_x_t = self._conditional_mean_x(times, mean_reversion, volatility)
     var_x_t = self._conditional_variance_x(times, mean_reversion, volatility)
-    y_t = self._compute_yt(times, mean_reversion, volatility)
     if self._dim == 1:
       mean_reversion = tf.expand_dims(mean_reversion, axis=0)
 
@@ -495,38 +521,24 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
     _, _, _, rate_paths = tf.while_loop(
         cond_fn, body_fn, (0, 0, initial_x, rate_paths))
 
-    if curve_times is not None:
-      # Discount curve paths are desired.
-      return self._bond_reconstitution(
-          times, curve_times, mean_reversion, rate_paths, y_t), rate_paths
-    else:
-      return rate_paths
+    return rate_paths
 
   def _bond_reconstitution(self,
                            times,
-                           curve_times,
+                           maturities,
                            mean_reversion,
-                           rate_paths,
+                           short_rate,
                            y_t):
     """Compute discount bond prices using Eq. 10.18 in Ref [2]."""
-    num_curve_nodes = curve_times.shape.as_list()[0]  # m
-    num_sim_steps = times[1:].shape.as_list()[0]  # k
-    t = tf.reshape(
-        tf.repeat(tf.expand_dims(times[1:], axis=-1), self._dim, axis=-1),
-        (1, 1, num_sim_steps, self._dim))
-    curve_times = tf.reshape(curve_times, (1, num_curve_nodes, 1, 1))
-    curve_times = tf.repeat(curve_times, self._dim, axis=-1)
-    f_0_t = self._instant_forward_rate_fn(t)
-    x_t = tf.expand_dims(rate_paths, axis=1) - f_0_t
-    p_0_t = tf.math.exp(-self._initial_discount_rate_fn(t) * t)
-    p_0_t_tau = tf.math.exp(-self._initial_discount_rate_fn(curve_times + t) *
-                            (curve_times + t)) / p_0_t
-    # Transpose so the `dim` is the trailing dimension.
-    kappa = tf.transpose(mean_reversion[:, 1:])
-    kappa = tf.reshape(kappa, (1, 1, num_sim_steps, self._dim))
-    g_t_tau = (1. - tf.math.exp(-kappa * curve_times)) / kappa
+    f_0_t = self._instant_forward_rate_fn(times)
+    x_t = short_rate - f_0_t
+    p_0_t = tf.math.exp(-self._initial_discount_rate_fn(times) * times)
+    p_0_t_tau = tf.math.exp(
+        -self._initial_discount_rate_fn(maturities) *
+        (maturities)) / p_0_t
+    g_t_tau = (1. - tf.math.exp(
+        -mean_reversion * (maturities - times))) / mean_reversion
     term1 = x_t * g_t_tau
-    y_t = tf.reshape(tf.transpose(y_t[:, 1:]), (1, 1, num_sim_steps, self._dim))
     term2 = y_t * g_t_tau**2
     p_t_tau = p_0_t_tau * tf.math.exp(-term1 - 0.5 * term2)
     return p_t_tau
