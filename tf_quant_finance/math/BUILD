@@ -11,6 +11,7 @@ py_library(
     deps = [
         ":diff_ops",
         ":gradient",
+        ":jacobian",
         ":piecewise",
         ":root_search",
         ":segment_ops",
@@ -81,6 +82,29 @@ py_test(
     name = "gradient_test",
     size = "small",
     srcs = ["gradient_test.py"],
+    python_version = "PY3",
+    shard_count = 4,
+    deps = [
+        "//tf_quant_finance",
+        # test util,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "jacobian",
+    srcs = ["jacobian.py"],
+    srcs_version = "PY3",
+    deps = [
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "jacobian_test",
+    size = "small",
+    srcs = ["jacobian_test.py"],
     python_version = "PY3",
     shard_count = 4,
     deps = [
