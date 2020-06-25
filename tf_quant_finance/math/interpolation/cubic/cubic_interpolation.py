@@ -163,12 +163,29 @@ def interpolate(x_values,
     x_data = spline_data.x_data
     y_data = spline_data.y_data
     spline_coeffs = spline_data.spline_coeffs
-    # Check that all the x_values are within the boundaries
+    rank = max(x_data.shape.rank,
+               x_values.shape.rank)
+    x_data = _expand_to_rank(x_data, rank)
+    y_data = _expand_to_rank(y_data, rank)
+    x_values = _expand_to_rank(x_values, rank)
+    spline_coeffs = _expand_to_rank(spline_coeffs, rank)
+    # Try broadcast batch_shapes
     if x_values.shape.as_list()[:-1] != x_data.shape.as_list()[:-1]:
-      msg = ("The input tensor has a different number of rows than the "
-             "number of splines: {} != {}")
-      raise ValueError(msg.format(x_values.shape.as_list()[:-1],
-                                  x_data.shape.as_list()[:-1]))
+      try:
+        x_values = _broadcast_batch_shape(x_values,
+                                          x_data.shape[:-1])
+      except (tf.errors.InvalidArgumentError, ValueError):
+        try:
+          x_data = _broadcast_batch_shape(
+              x_data, x_values.shape[:-1])
+          y_data = _broadcast_batch_shape(
+              y_data, x_values.shape[:-1])
+          spline_coeffs = _broadcast_batch_shape(
+              spline_coeffs, x_values.shape[:-1])
+        except (tf.errors.InvalidArgumentError, ValueError):
+          msg = ("Can not broadcast batch shapes {} and {}")
+          raise ValueError(msg.format(x_values.shape.as_list()[:-1],
+                                      x_data.shape.as_list()[:-1]))
     # Determine the splines to use.
     indices = tf.searchsorted(x_data, x_values, side="right") - 1
     # This selects all elements for the start of the spline interval.
@@ -352,3 +369,18 @@ def _prepare_indices(indices):
   index_matrix = tf.expand_dims(index_matrix, -2) + tf.zeros(
       broadcasted_shape, dtype=indices.dtype)
   return index_matrix
+
+
+def _broadcast_batch_shape(x, batch_shape):
+  """Broadcasts batch shape of `x`."""
+  return tf.broadcast_to(x, batch_shape + x.shape[-1])
+
+
+def _expand_to_rank(x, rank):
+  """Expands zero dimension of `x` to match the `rank`."""
+  rank_x = x.shape.rank
+  if rank_x < rank:
+    # Output shape with extra dimensions
+    output_shape = tf.concat([(rank - rank_x) * [1], tf.shape(x)], axis=-1)
+    x = tf.reshape(x, output_shape)
+  return x

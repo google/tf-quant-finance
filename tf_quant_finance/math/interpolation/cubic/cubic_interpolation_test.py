@@ -86,25 +86,33 @@ class CubicInterpolationTest(tf.test.TestCase, parameterized.TestCase):
       ("default_interpolation", False),
       ("one_hot_interpolation", True),
   )
-  def test_invalid_interpolate_parameter_shape(self, optimize_for_tpu):
-    """Tests batch shape of spline and interpolation should be the same."""
+  def test_spline_broadcast_batch(self, optimize_for_tpu):
+    """Tests batch shape of spline and interpolation are broadcasted."""
     x_data1 = np.linspace(-5.0, 5.0, num=11)
     x_data2 = np.linspace(0.0, 10.0, num=11)
-    x_series = np.array([x_data1, x_data2])
-    y_data1 = 1.0 / (1.0 + x_data1**2)
-    y_data2 = 1.0 / (2.0 + x_data2**2)
-    y_series = np.array([y_data1, y_data2])
-    x_data_series = tf.stack(x_series, axis=0)
-    y_data_series = tf.stack(y_series, axis=0)
-    search_args = tf.constant([[-1.2, 0.0, 0.3]], dtype=tf.float64)
-    x_test = tf.stack(search_args, axis=0)
-    spline = tff.math.interpolation.cubic.build_spline(x_data_series,
-                                                       y_data_series)
+    x_data = np.array([x_data1, x_data2])
+    y_data = 1.0 / (2.0 + x_data**2)
+    x_data = tf.stack(x_data, axis=0)
+    dtype = np.float64
+    x_value_1 = tf.constant([[[-1.2, 0.0, 0.3]]], dtype=dtype)
+    x_value_2 = tf.constant([-1.2, 0.0, 0.3], dtype=dtype)
+    spline = tff.math.interpolation.cubic.build_spline(x_data,
+                                                       y_data)
 
-    msg = "Failed to catch that the test vector has less rows than x_points"
-    with self.assertRaises(ValueError, msg=msg):
-      tff.math.interpolation.cubic.interpolate(
-          x_test, spline)
+    result_1 = tff.math.interpolation.cubic.interpolate(
+        x_value_1, spline,
+        optimize_for_tpu=optimize_for_tpu, dtype=dtype)
+    result_2 = tff.math.interpolation.cubic.interpolate(
+        x_value_2, spline,
+        optimize_for_tpu=optimize_for_tpu, dtype=dtype)
+    expected_1 = np.array([[[0.29131469, 0.5, 0.4779499],
+                            [0.5, 0.5, 0.45159077]]], dtype=dtype)
+    expected_2 = np.array([[0.29131469, 0.5, 0.4779499],
+                           [0.5, 0.5, 0.45159077]], dtype=dtype)
+    with self.subTest("BroadcastData"):
+      self.assertAllClose(result_1, expected_1)
+    with self.subTest("BroadcastValues"):
+      self.assertAllClose(result_2, expected_2)
 
   def test_invalid_spline_x_points(self):
     """Tests a spline where the x_points are not increasing."""
