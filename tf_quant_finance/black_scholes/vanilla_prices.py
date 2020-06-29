@@ -293,9 +293,9 @@ def barrier_price(*,
     the barriers option under black scholes.
 
   """
-  if (continuous_dividends is None) == (cost_of_carries is None):
-    raise ValueError('At most one of continuous_dividends and cost of carries '
-                     'may be supplied')
+  if (continuous_dividends is not None) == (cost_of_carries is not None):
+    raise ValueError('At least one of continuous_dividends or cost of carries '
+                     'must be supplied.')
   with tf.name_scope(name or "barrier_price"):
     spots = tf.convert_to_tensor(spots, dtype=dtype, name="spots")
     dtype = spots.dtype
