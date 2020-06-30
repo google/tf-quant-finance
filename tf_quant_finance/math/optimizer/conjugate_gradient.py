@@ -299,7 +299,7 @@ def minimize(value_and_gradients_function,
         params.initial_guess_step_multiplier, dtype=dtype, name='psi_2')
 
     f0, df0 = value_and_gradients_function(initial_position)
-    converged = tf.norm(df0, axis=-1) < tolerance
+    converged = _norm(df0) < tolerance
 
     initial_state = _OptimizerState(
         converged=converged,
@@ -409,12 +409,13 @@ def minimize(value_and_gradients_function,
       x_converged = (_norm_inf(x_kp1 - x_k) <= x_tolerance)
       f_converged = (
           tf.math.abs(f_kp1 - f_k) <= f_relative_tolerance * tf.math.abs(f_k))
-      converged = grad_converged | x_converged | f_converged
-
+      converged = ls_result.converged & (grad_converged
+                                         | x_converged | f_converged)
+      failed = ls_result.failed
       # Construct new state for next iteration.
       new_state = _OptimizerState(
           converged=converged,
-          failed=state.failed,
+          failed=failed,
           num_iterations=state.num_iterations + 1,
           num_objective_evaluations=state.num_objective_evaluations +
           step_guess_result.func_evals + ls_result.func_evals,
@@ -500,11 +501,12 @@ def _init_step(pos, prev_step, func, psi_1, psi_2, quad_step):
       return _StepGuessResult(
           step=func(new_x),
           func_evals=result.func_evals + 1,
-          can_take=tf.logical_or(result.can_take, quad_step_success),
-          may_terminate=tf.logical_or(result.may_terminate, quad_step_success))
+          can_take=tf.math.logical_or(result.can_take, quad_step_success),
+          may_terminate=tf.math.logical_or(result.may_terminate,
+                                           quad_step_success))
 
     result = tf.cond(
-        tf.reduce_any(quad_step_success), update_result_1, lambda: result)
+        tf.math.reduce_any(quad_step_success), update_result_1, lambda: result)
 
   def update_result_2():
     new_x = tf.compat.v1.where(can_take, result.step.x, psi_2 * prev_step)
@@ -519,24 +521,24 @@ def _init_step(pos, prev_step, func, psi_1, psi_2, quad_step):
   # psi_1*prev_step if func(psi_1 * prev_step) > func(0), because then local
   # minimum is within (0, psi_1*prev_step).
   result = tf.cond(
-      tf.reduce_all(result.can_take), lambda: result, update_result_2)
+      tf.math.reduce_all(result.can_take), lambda: result, update_result_2)
 
   return result
 
 
 def _dot(x, y):
   """Evaluates scalar product."""
-  return tf.reduce_sum(x * y, axis=-1)
+  return tf.math.reduce_sum(x * y, axis=-1)
 
 
 def _norm(x):
   """Evaluates L2 norm."""
-  return tf.norm(x, axis=-1)
+  return tf.linalg.norm(x, axis=-1)
 
 
 def _norm_sq(x):
   """Evaluates L2 norm squared."""
-  return tf.reduce_sum(tf.square(x), axis=-1)
+  return tf.math.reduce_sum(tf.square(x), axis=-1)
 
 
 def _norm_inf(x):
