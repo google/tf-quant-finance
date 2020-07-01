@@ -6,28 +6,29 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2020-07-01.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.models.hull_white.bond_option_price" />
+<meta itemprop="name" content="tf_quant_finance.models.hull_white.cap_floor_price" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.models.hull_white.bond_option_price
+# tf_quant_finance.models.hull_white.cap_floor_price
 
 <!-- Insert buttons and diff -->
 
 <table class="tfo-notebook-buttons tfo-api" align="left">
 </table>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/hull_white/zero_coupon_bond_option.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/hull_white/cap_floor.py">View source</a>
 
 
 
-Calculates European bond option prices using the Hull-White model.
+Calculates the prices of interest rate Caps/Floors using Hull-White model.
 
 ```python
-tf_quant_finance.models.hull_white.bond_option_price(
-    *, strikes, expiries, maturities, discount_rate_fn, dim, mean_reversion,
-    volatility, is_call_options=True, use_analytic_pricing=True, num_samples=1,
-    random_type=None, seed=None, skip=0, time_step=None, dtype=None, name=None
+tf_quant_finance.models.hull_white.cap_floor_price(
+    *, strikes, expiries, maturities, daycount_fractions, reference_rate_fn, dim,
+    mean_reversion, volatility, notional=1.0, is_cap=True,
+    use_analytic_pricing=True, num_samples=1, random_type=None, seed=None, skip=0,
+    time_step=None, dtype=None, name=None
 )
 ```
 
@@ -35,19 +36,39 @@ tf_quant_finance.models.hull_white.bond_option_price(
 
 <!-- Placeholder for "Used in" -->
 
-Bond options are fixed income securities which give the holder a right to
-exchange at a future date (the option expiry) a zero coupon bond for a fixed
-price (the strike of the option). The maturity date of the bond is after the
-the expiry of the option. If `P(t,T)` denotes the price at time `t` of a zero
-coupon bond with maturity `T`, then the payoff from the option at option
-expiry, `T0`, is given by:
+An interest Cap (or Floor) is a portfolio of call (or put) options where the
+underlying for the individual options are successive forward rates. The
+individual options comprising a Cap are called Caplets and the corresponding
+options comprising a Floor are called Floorlets. For example, a
+caplet on forward rate `F(T_i, T_{i+1})` has the following payoff at time
+`T_{i_1}`:
 
 ```None
-payoff = max(P(T0, T) - X, 0)
+
+ caplet payoff = tau_i * max[F(T_i, T_{i+1}) - X, 0]
+
 ```
-where `X` is the strike price of the option.
+where where `X` is the strake rate and `tau_i` is the daycount fraction. The
+caplet payoff (at `T_{i+1}`) can be expressed as the following at `T_i`:
+
+```None
+
+caplet_payoff = (1.0 + tau_i * X) *
+                max[1.0 / (1 + tau_i * X) - P(T_i, T_{t+1}), 0]
+
+```
+
+where `P(T_i, T_{i+1})` is the price at `T_i` of a zero coupon bond with
+maturity `T_{i+1}. Thus, a caplet can be priced as a put option on zero
+coupon bond [1].
+
+#### References
+  [1]: D. Brigo, F. Mercurio. Interest Rate Models-Theory and Practice.
+  Second Edition. 2007.
 
 #### Example
+The example shows how value a batch containing spot starting 1-year and
+2-year Caps and with quarterly frequency.
 
 ````python
 import numpy as np
@@ -56,36 +77,51 @@ import tf_quant_finance as tff
 
 dtype = tf.float64
 
-discount_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
-expiries = np.array([1.0])
-maturities = np.array([5.0])
-strikes = np.exp(-0.01 * maturities) / np.exp(-0.01 * expiries)
-price = tff.models.hull_white.bond_option_price(
+reference_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+expiries = np.array([[0.0, 0.25, 0.5, 0.75, 1.0, 1.0, 1.0, 1.0],
+                     [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75]])
+maturities = np.array([[0.25, 0.5, 0.75, 1.0, 1.0, 1.0, 1.0, 1.0],
+                     [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]])
+strikes = 0.01 * np.ones_like(expiries)
+daycount_fractions = np.array([[0.25, 0.25, 0.25, 0.25, 0.0, 0.0, 0.0, 0.0],
+                     [0.0, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25]])
+price = tff.models.hull_white.cap_floor_price(
     strikes=strikes,
     expiries=expiries,
     maturities=maturities,
+    daycount_fractions=daycount_fractions,
+    notional=1.0e6,
     dim=1,
     mean_reversion=[0.03],
     volatility=[0.02],
-    discount_rate_fn=discount_rate_fn,
+    reference_rate_fn=reference_rate_fn,
     use_analytic_pricing=True,
     dtype=dtype)
-# Expected value: [[0.02817777]]
+# Expected value: [[0.4072088281493774], [1.3031872853339002]]
 ````
 
 #### Args:
 
 
-* <b>`strikes`</b>: A real `Tensor` of any shape and dtype. The strike price of the
-  options. The shape of this input determines the number (and shape) of the
-  options to be priced and the output.
+* <b>`strikes`</b>: A real `Tensor` of any shape and dtype. The strike rate of the
+  caplets or floorlets. The shape of this input determines the number
+  (and shape) of the options to be priced and the shape of the output. For
+  an N-dimensional input `Tensor`, the first N-1 dimensions correspond to
+  the batch dimension, i.e., the distinct caps and floors and the last
+  dimension correspond to the caplets or floorlets contained with an
+  intrument.
 * <b>`expiries`</b>: A real `Tensor` of the same dtype and compatible shape as
-  `strikes`.  The time to expiry of each bond option.
+  `strikes`.  The reset time of each caplet (or floorlet).
 * <b>`maturities`</b>: A real `Tensor` of the same dtype and compatible shape as
-  `strikes`.  The time to maturity of the underlying zero coupon bonds.
-* <b>`discount_rate_fn`</b>: A Python callable that accepts expiry time as a real
-  `Tensor` and returns a `Tensor` of shape `input_shape + dim`. Computes
-  the zero coupon bond yield at the present time for the input expiry time.
+  `strikes`.  The maturity time of each caplet (or floorlet) and also the
+  time at which payment is made.
+* <b>`daycount_fractions`</b>: A real `Tensor` of the same dtype and compatible shape
+  as `strikes`. The daycount fractions associated with the underlying
+  forward rates.
+* <b>`reference_rate_fn`</b>: A Python callable that accepts expiry time as a real
+  `Tensor` and returns a `Tensor` of shape `input_shape + dim`. Returns
+  the continuously compounded zero rate at the present time for the input
+  expiry time.
 * <b>`dim`</b>: A Python scalar which corresponds to the number of Hull-White Models
   to be used for pricing.
 * <b>`mean_reversion`</b>: A real positive `Tensor` of shape `[dim]` or a Python
@@ -104,9 +140,12 @@ price = tff.models.hull_white.bond_option_price(
 * <b>`volatility`</b>: A real positive `Tensor` of the same `dtype` as
   `mean_reversion` or a callable with the same specs as above.
   Corresponds to the lond run price variance.
-* <b>`is_call_options`</b>: A boolean `Tensor` of a shape compatible with
-  `strikes`. Indicates whether the option is a call (if True) or a put
-  (if False). If not supplied, call options are assumed.
+* <b>`notional`</b>: An optional `Tensor` of same dtype and compatible shape as
+  `strikes`specifying the notional amount for the cap (or floor).
+   Default value: None in which case the notional is set to 1.
+* <b>`is_cap`</b>: A boolean `Tensor` of a shape compatible with `strikes`. Indicates
+  whether the option is a Cap (if True) or a Floor (if False). If not
+  supplied, Caps are assumed.
 * <b>`use_analytic_pricing`</b>: A Python boolean specifying if analytic valuation
   should be performed. Analytic valuation is only supported for constant
   `mean_reversion` and piecewise constant `volatility`. If the input is
@@ -142,10 +181,11 @@ price = tff.models.hull_white.bond_option_price(
   TensorFlow are used.
 * <b>`name`</b>: Python string. The name to give to the ops created by this class.
   Default value: `None` which maps to the default name
-  `hw_bond_option_price`.
+  `hw_cap_floor_price`.
 
 
 #### Returns:
 
-A `Tensor` of real dtype and shape  `strikes.shape + [dim]` containing the
-computed option prices.
+A `Tensor` of real dtype and shape  strikes.shape[:-1] + [dim] containing
+the computed option prices. For caplets that have reset in the past
+(expiries<0), the function sets the corresponding caplet prices to 0.0.
