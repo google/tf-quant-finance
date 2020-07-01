@@ -263,6 +263,33 @@ class LinearInterpolation(tf.test.TestCase, parameterized.TestCase):
 
     self.assertFalse(self.evaluate(tf.reduce_any(tf.math.is_nan(gradients))))
 
+  @parameterized.named_parameters(
+      ('default_interpolation', False),
+      ('one_hot_interpolation', True),
+  )
+  def test_spline_broadcast_batch(self, optimize_for_tpu):
+    """Tests batch shape of spline and interpolation are broadcasted."""
+    x = np.array([1.0, 1.5, 3.0])
+    x_data = np.array([1.1, 2.2, 3.0, 4.0])
+    y_data = x_data**2
+
+    x_1 = tf.expand_dims(x, axis=0)
+    x_data_2 = tf.expand_dims(x_data, axis=0)
+    y_data_3 = tf.expand_dims(y_data, axis=0)
+
+    result_1 = tff.math.interpolation.linear.interpolate(
+        x_1, x_data, y_data, optimize_for_tpu=optimize_for_tpu)
+    result_2 = tff.math.interpolation.linear.interpolate(
+        x, x_data_2, y_data, optimize_for_tpu=optimize_for_tpu)
+    result_3 = tff.math.interpolation.linear.interpolate(
+        x, x_data, y_data_3, optimize_for_tpu=optimize_for_tpu)
+    expected = np.array([[1.21, 2.53, 9.0]])
+    with self.subTest('BroadcastData'):
+      self.assertAllClose(result_1, expected)
+    with self.subTest('BroadcastXData'):
+      self.assertAllClose(result_2, expected)
+    with self.subTest('BroadcastYData'):
+      self.assertAllClose(result_3, expected)
 
 if __name__ == '__main__':
   tf.test.main()

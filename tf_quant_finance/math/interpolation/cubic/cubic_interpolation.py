@@ -16,8 +16,8 @@
 
 
 import collections
-import numpy as np
 import tensorflow.compat.v2 as tf
+from tf_quant_finance.math.interpolation import utils
 
 SplineParameters = collections.namedtuple(
     "SplineParameters",
@@ -103,7 +103,7 @@ def build(x_data, y_data, validate_args=False, dtype=None, name=None):
       assert_sanity_check = [_validate_arguments(x_data)]
     else:
       assert_sanity_check = []
-
+    x_data, y_data = utils.broadcast_common_batch_shape(x_data, y_data)
     with tf.compat.v1.control_dependencies(assert_sanity_check):
       spline_coeffs = _calculate_spline_coeffs(x_data, y_data)
 
@@ -163,29 +163,11 @@ def interpolate(x_values,
     x_data = spline_data.x_data
     y_data = spline_data.y_data
     spline_coeffs = spline_data.spline_coeffs
-    rank = max(x_data.shape.rank,
-               x_values.shape.rank)
-    x_data = _expand_to_rank(x_data, rank)
-    y_data = _expand_to_rank(y_data, rank)
-    x_values = _expand_to_rank(x_values, rank)
-    spline_coeffs = _expand_to_rank(spline_coeffs, rank)
     # Try broadcast batch_shapes
-    if x_values.shape.as_list()[:-1] != x_data.shape.as_list()[:-1]:
-      try:
-        x_values = _broadcast_batch_shape(x_values,
-                                          x_data.shape[:-1])
-      except (tf.errors.InvalidArgumentError, ValueError):
-        try:
-          x_data = _broadcast_batch_shape(
-              x_data, x_values.shape[:-1])
-          y_data = _broadcast_batch_shape(
-              y_data, x_values.shape[:-1])
-          spline_coeffs = _broadcast_batch_shape(
-              spline_coeffs, x_values.shape[:-1])
-        except (tf.errors.InvalidArgumentError, ValueError):
-          msg = ("Can not broadcast batch shapes {} and {}")
-          raise ValueError(msg.format(x_values.shape.as_list()[:-1],
-                                      x_data.shape.as_list()[:-1]))
+    x_values, x_data = utils.broadcast_common_batch_shape(x_values, x_data)
+    x_values, y_data = utils.broadcast_common_batch_shape(x_values, y_data)
+    x_values, spline_coeffs = utils.broadcast_common_batch_shape(x_values,
+                                                                 spline_coeffs)
     # Determine the splines to use.
     indices = tf.searchsorted(x_data, x_values, side="right") - 1
     # This selects all elements for the start of the spline interval.
@@ -204,7 +186,7 @@ def interpolate(x_values,
       upper_encoding = tf.one_hot(indices_upper, x_data_size,
                                   dtype=dtype)
     else:
-      index_matrix = _prepare_indices(indices)
+      index_matrix = utils.prepare_indices(indices)
       lower_encoding = tf.concat(
           [index_matrix, tf.expand_dims(indices_lower, -1)], -1)
       upper_encoding = tf.concat(
@@ -351,36 +333,3 @@ def _validate_arguments(x_data):
       diffs,
       tf.zeros_like(diffs),
       message="x_data is not sorted in non-decreasing order.")
-
-
-def _prepare_indices(indices):
-  """Prepares `tf.searchsorted` output for index argument of `tf.gather_nd`."""
-  batch_shape = indices.shape.as_list()[:-1]
-  num_points = indices.shape.as_list()[-1]
-  batch_shape_reverse = indices.shape.as_list()[:-1]
-  batch_shape_reverse.reverse()
-  index_matrix = tf.constant(
-      np.flip(np.transpose(np.indices(batch_shape_reverse)), -1),
-      dtype=indices.dtype)
-  batch_rank = len(batch_shape)
-  # Broadcast index matrix to the shape of
-  # `batch_shape + [num_points] + [batch_rank]`
-  broadcasted_shape = batch_shape + [num_points] + [batch_rank]
-  index_matrix = tf.expand_dims(index_matrix, -2) + tf.zeros(
-      broadcasted_shape, dtype=indices.dtype)
-  return index_matrix
-
-
-def _broadcast_batch_shape(x, batch_shape):
-  """Broadcasts batch shape of `x`."""
-  return tf.broadcast_to(x, batch_shape + x.shape[-1])
-
-
-def _expand_to_rank(x, rank):
-  """Expands zero dimension of `x` to match the `rank`."""
-  rank_x = x.shape.rank
-  if rank_x < rank:
-    # Output shape with extra dimensions
-    output_shape = tf.concat([(rank - rank_x) * [1], tf.shape(x)], axis=-1)
-    x = tf.reshape(x, output_shape)
-  return x
