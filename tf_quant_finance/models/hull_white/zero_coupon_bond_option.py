@@ -293,8 +293,9 @@ def _analytic_valuation(discount_rate_fn, model, strikes, expiries, maturities,
                                          maturities)
   forward_bond_price = discount_factor_maturity / discount_factor_expiry
   sqrt_variance = tf.math.sqrt(variance)
-  d1 = (tf.expand_dims(tf.math.log(forward_bond_price / strikes), axis=0) +
-        0.5 * variance) / sqrt_variance
+  log_moneyness = tf.expand_dims(tf.math.log(forward_bond_price / strikes),
+                                 axis=0)
+  d1 = tf.math.divide_no_nan(log_moneyness + 0.5 * variance, sqrt_variance)
   d2 = d1 - tf.math.sqrt(variance)
   option_value_call = (
       tf.expand_dims(discount_factor_maturity, axis=0) * _ncdf(d1) -
@@ -304,8 +305,14 @@ def _analytic_valuation(discount_rate_fn, model, strikes, expiries, maturities,
       - tf.expand_dims(discount_factor_maturity, axis=0) * _ncdf(-d1))
 
   is_call_options = tf.broadcast_to(is_call_options, [dim] + strikes.shape)
-  option_value = tf.where(is_call_options, option_value_call,
-                          option_value_put)
+  intrinsic_value = tf.where(is_call_options,
+                             tf.math.maximum(forward_bond_price - strikes, 0),
+                             tf.math.maximum(strikes - forward_bond_price, 0))
+  option_value = tf.where(
+      maturities < expiries, tf.zeros_like(maturities),
+      tf.where(sqrt_variance > 0.0,
+               tf.where(is_call_options, option_value_call, option_value_put),
+               intrinsic_value))
 
   # Make `dim` as the last dimension and return.
   return tf.transpose(

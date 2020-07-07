@@ -427,6 +427,46 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                                        mean_reversion, short_rate,
                                        y_t), rate_paths
 
+  def discount_bond_price(self, short_rate, times, maturities, name=None):
+    """Returns zero-copoun bond prices `P(t,T)` conditional on `r(t)`.
+
+    Args:
+      short_rate: A `Tensor` of real dtype and shape `batch_shape + [dim]`
+        specifying the short rate `r(t)`.
+      times: A `Tensor` of real dtype and shape `batch_shape`. The time `t`
+        at which discount bond prices are computed.
+      maturities: A `Tensor` of real dtype and shape `batch_shape`. The time
+        to maturity of the discount bonds.
+      name: Str. The name to give this op.
+        Default value: `discount_bond_prices`.
+
+    Returns:
+      A `Tensor` of real dtype and the same shape as `batch_shape + [dim]`
+      containing the price of zero coupon bonds.
+    """
+    name = name or self._name + '_discount_bond_prices'
+    with tf.name_scope(name):
+      short_rate = tf.convert_to_tensor(short_rate, self._dtype)
+      times = tf.convert_to_tensor(times, self._dtype)
+      maturities = tf.convert_to_tensor(maturities, self._dtype)
+      # Flatten it because `PiecewiseConstantFunction` expects the first
+      # dimension to be broadcastable to [dim]
+      input_shape_times = times.shape.as_list()
+      times = tf.reshape(times, shape=[-1])
+      # The shape of `mean_reversion` will be (dim,n) where `n` is the number
+      # of elements in `times`.
+      mean_reversion = self._mean_reversion(times)
+      volatility = self._volatility(times)
+      y_t = self._compute_yt(times, mean_reversion, volatility)
+      times = tf.reshape(times, input_shape_times + [1])
+      maturities = tf.reshape(maturities, input_shape_times + [1])
+      mean_reversion = tf.reshape(tf.transpose(mean_reversion),
+                                  input_shape_times + [self._dim])
+      y_t = tf.reshape(tf.transpose(y_t), input_shape_times + [self._dim])
+      values = self._bond_reconstitution(
+          times, maturities, mean_reversion, short_rate, y_t)
+      return values
+
   def _sample_paths(self,
                     times,
                     num_samples,

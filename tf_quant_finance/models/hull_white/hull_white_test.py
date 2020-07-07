@@ -400,5 +400,28 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
         dtype=dtype)
     self.assertTrue(process._sample_with_generic)
 
+  def test_discount_bond_price_fn(self):
+    """Tests implementation of P(t,T)|r(t)."""
+    dtype = tf.float64
+    mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
+        [], values=[self.mean_reversion[0]], dtype=dtype)
+    volatility = tff.math.piecewise.PiecewiseConstantFunc(
+        [], values=[self.volatility[0]], dtype=dtype)
+    process = tff.models.hull_white.HullWhiteModel1F(
+        mean_reversion=mean_reversion,
+        volatility=volatility,
+        initial_discount_rate_fn=self.instant_forward_rate_1d_fn,
+        dtype=dtype)
+    bond_prices = process.discount_bond_price(
+        [[0.011], [0.01]],
+        [1.0, 2.0],
+        [2.0, 3.5])
+    self.assertEqual(bond_prices.dtype, dtype)
+    self.assertAllEqual(bond_prices.shape, [2, 1])
+    bond_prices = self.evaluate(bond_prices)
+    expected = [0.98906753, 0.98495442]
+    self.assertAllClose(np.squeeze(bond_prices), expected, atol=1e-12)
+
+
 if __name__ == '__main__':
   tf.test.main()

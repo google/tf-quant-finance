@@ -16,6 +16,7 @@
 
 from tf_quant_finance.models.hull_white.cap_floor import cap_floor_price
 from tf_quant_finance.models.hull_white.one_factor import HullWhiteModel1F
+from tf_quant_finance.models.hull_white.swaption import swaption_price
 from tf_quant_finance.models.hull_white.vector_hull_white import VectorHullWhiteModel
 from tf_quant_finance.models.hull_white.zero_coupon_bond_option import bond_option_price
 
@@ -26,6 +27,7 @@ _allowed_symbols = [
     'VectorHullWhiteModel',
     'bond_option_price',
     'cap_floor_price',
+    'swaption_price',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
