@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Pricing of Interest rate Swaptions using Hull-White model."""
+"""Pricing of Interest rate Swaptions using the Hull-White model."""
 
 import numpy as np
 import tensorflow.compat.v2 as tf
@@ -270,7 +270,7 @@ def swaption_price(*,
     Second Edition. 2007.
 
   #### Example
-  The example shows how value a batch of 1y x 1y and 1y x 2y swaptions using
+  The example shows how value a batch of 1y x 1y and 1y x 2y swaptions using the
   Hull-White model.
 
   ````python

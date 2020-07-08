@@ -428,7 +428,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                                        y_t), rate_paths
 
   def discount_bond_price(self, short_rate, times, maturities, name=None):
-    """Returns zero-copoun bond prices `P(t,T)` conditional on `r(t)`.
+    """Returns zero-coupon bond prices `P(t,T)` conditional on `r(t)`.
 
     Args:
       short_rate: A `Tensor` of real dtype and shape `batch_shape + [dim]`
@@ -442,7 +442,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
 
     Returns:
       A `Tensor` of real dtype and the same shape as `batch_shape + [dim]`
-      containing the price of zero coupon bonds.
+      containing the price of zero-coupon bonds.
     """
     name = name or self._name + '_discount_bond_prices'
     with tf.name_scope(name):
