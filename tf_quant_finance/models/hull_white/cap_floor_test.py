@@ -202,7 +202,8 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
         use_analytic_pricing=use_analytic_pricing,
         num_samples=500000,
         time_step=0.1,
-        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        seed=[1, 2],
         dtype=dtype)
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [2, 2, 1])
@@ -239,7 +240,8 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
         use_analytic_pricing=use_analytic_pricing,
         num_samples=500000,
         time_step=0.1,
-        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        seed=[1, 2],
         dtype=dtype)
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [1, 2])
@@ -282,7 +284,8 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
         use_analytic_pricing=use_analytic_pricing,
         num_samples=500000,
         time_step=0.1,
-        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        seed=[4, 2],
         dtype=dtype)
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [3, 2])
@@ -329,7 +332,8 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
         use_analytic_pricing=use_analytic_pricing,
         num_samples=500000,
         time_step=0.1,
-        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        seed=[6, 7],
         dtype=dtype)
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [3, 2])

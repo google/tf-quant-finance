@@ -214,13 +214,11 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
           values=[4 * [self.volatility[0]],
                   4 * [self.volatility[1]]], dtype=dtype)
       expected_corr_matrix = [[1., 0.5], [0.5, 1.]]
-      corr_matrix = tff.math.piecewise.PiecewiseConstantFunc(
-          [0.5, 1.0], values=3 * [expected_corr_matrix], dtype=dtype)
       process = tff.models.hull_white.VectorHullWhiteModel(
           dim=2,
           mean_reversion=mean_reversion,
           volatility=volatility,
-          corr_matrix=corr_matrix,
+          corr_matrix=expected_corr_matrix,
           initial_discount_rate_fn=self.instant_forward_rate_2d_fn,
           dtype=dtype)
       paths = process.sample_paths(
@@ -241,8 +239,8 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
       self.assertAllClose(estimated_corr_matrix, expected_corr_matrix,
                           rtol=1e-4, atol=1e-4)
 
-  def test_mean_variance_correlation_constant_piecewise_2d(self):
-    """Tests model with piecewise constant or constant parameters in 2."""
+  def test_mean_variance_correlation_piecewise_constant_2d(self):
+    """Tests model with piecewise constant or constant parameters in 2 dim."""
     for dtype in [tf.float32, tf.float64]:
       tf.random.set_seed(10)  # Fix global random seed
       mean_reversion = self.mean_reversion
@@ -264,8 +262,8 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
       paths = process.sample_paths(
           [0.1, 0.5, 1.0],
           num_samples=500000,
-          random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
-          seed=42)
+          random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+          seed=[4, 2])
       self.assertEqual(paths.dtype, dtype)
       self.assertAllEqual(paths.shape, [500000, 3, 2])
       paths = self.evaluate(paths)

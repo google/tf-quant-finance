@@ -79,10 +79,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   dtype = tf.float64
   # Mean-reversion is constant for the two processes. `mean_reversion(t)`
   # has shape `[dim] + t.shape`.
-  mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
-        jump_locations=[[], []],
-        values=[[0.03], [0.1]],
-        dtype=dtype)
+  mean_reversion = [0.03, 0.02]
   # Volatility is a piecewise constant function with jumps at the same locations
   # for both Hull-White processes. `volatility(t)` has shape `[dim] + t.shape`.
   volatility = tff.math.piecewise.PiecewiseConstantFunc(
@@ -92,11 +89,11 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   # Correlation matrix is constant
   corr_matrix = [[1., 0.1], [0.1, 1.]]
   initial_discount_rate_fn = lambda *args: [0.01, 0.015]
-  process = VectorHullWhiteModel(
+  process = tff.models.hull_white.VectorHullWhiteModel(
       dim=2, mean_reversion=mean_reversion,
       volatility=volatility,
       initial_discount_rate_fn=initial_discount_rate_fn,
-      corr_matrix=None,
+      corr_matrix=corr_matrix,
       dtype=dtype)
   # Sample 10000 paths using Sobol numbers as a random type.
   times = np.linspace(0., 1.0, 10)
@@ -104,7 +101,8 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   paths = process.sample_paths(
       times,
       num_samples=num_samples,
-      initial_state=None)
+      random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+      seed=[4, 2])
   # Compute mean for each Hull-White process at the terminal value
   tf.math.reduce_mean(paths[:, -1, :], axis=0)
   # Expected value: [0.01013373 0.01494516]
@@ -793,19 +791,19 @@ def _input_type(param, dim, dtype, name):
     # Otherwise, input is a `Tensor`, return a `PiecewiseConstantFunc`.
     param = tf.convert_to_tensor(param, dtype=dtype, name=name)
     param_shape = param.shape.as_list()
-    if len(param_shape) > 1:
-      # For `Tensor` inputs we assume constant parameters, so this would be an
-      # error
-      raise ValueError(
-          'Rank of {} should be `1`, but instead is {}'.format(
-              name, len(param_shape)))
-    if param_shape[0] != dim:
+    param_rank = param.shape.rank
+    if param_shape[-1] != dim:
       # This is an error, we need as many parameters as the number of `dim`
       raise ValueError(
           'Length of {} ({}) should be the same as `dims`({}).'.format(
               name, param_shape[0], dim))
-    jump_locations = [] if dim == 1 else [[]] * dim
-    values = param if dim == 1 else tf.expand_dims(param, axis=-1)
+    if param_rank == 2:
+      # This is when the parameter is a correlation matrix
+      jump_locations = []
+      values = tf.expand_dims(param, axis=0)
+    else:
+      jump_locations = [] if dim == 1 else [[]] * dim
+      values = param if dim == 1 else tf.expand_dims(param, axis=-1)
     param = piecewise.PiecewiseConstantFunc(
         jump_locations=jump_locations, values=values,
         dtype=dtype)
