@@ -4,8 +4,16 @@ licenses(["notice"])
 
 package(default_visibility = ["//visibility:public"])
 
+py_library(
+    name = "instrument_protos",
+    srcs = ["__init__.py"],
+    deps = [
+        ":instruments_py_pb2",
+    ],
+)
+
 proto_library(
-    name = "instruments_proto",
+    name = "instrument_proto_lib",
     srcs = [
         "forward_rate_agreement.proto",
         "interest_rate_swap.proto",
@@ -26,7 +34,7 @@ proto_library(
 py_proto_library(
     name = "instruments_py_pb2",
     api_version = 2,
-    deps = [":instruments_proto"],
+    deps = [":instrument_proto_lib"],
 )
 
 proto_library(

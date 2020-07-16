@@ -6,6 +6,14 @@ licenses(["notice"])
 
 package(default_visibility = ["//visibility:public"])
 
+py_library(
+    name = "instrument_protos",
+    srcs = ["__init__.py"],
+    deps = [
+        ":instruments_py_pb2",
+    ],
+)
+
 py_proto_library(
     name = "instruments_py_pb2",
     srcs = [
