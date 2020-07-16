@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package tf_quant_finance.experimental.pricing_platform.instrument_protos;
+
+option java_multiple_files = true;
+
+// Holds metadata for an instrument.
+message InstrumentMetadata {
+  // The type of the instrument. This should be the name of the containing
+  // message (e.g. ForwardRateAgreement).
+  string instrument_type = 1;
+  // An arbitrary identifier for the instrument/trade. This ID should be
+  // immutable once assigned to an instrument - in particular, aging events
+  // shouldn't change this ID.
+  string id = 2;
+  // Counterparty to this trade.
+  string counterparty = 3;
+}

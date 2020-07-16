@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package tf_quant_finance.experimental.pricing_platform.instrument_protos;
+
+option java_multiple_files = true;
+
+// Day count convention proto. Used to determine how to compute accrued
+// interest. See https://en.wikipedia.org/wiki/Day_count_convention
+enum DayCountConvention {
+  // Unknown day count.
+  DAY_COUNT_CONVENTION_UNKNOWN = 0;
+  // Actual calendar day count
+  ACTUAL_ACTUAL_ISDA = 1;
+  // Actual day count assuming 360 days in a year
+  ACTUAL_360 = 2;
+  // Actual day count assuming 365 days in a year
+  ACTUAL_365 = 3;
+  // 30 days in a month, 360 days in a year
+  CONVENTION_30_360 = 4;
+}

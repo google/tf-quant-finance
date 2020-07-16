@@ -1,0 +1,50 @@
+// Instrument protos for swaps.
+syntax = "proto3";
+
+package tf_quant_finance.experimental.pricing_platform.instrument_protos;
+
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/business_days.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/currencies.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/date.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/day_count_conventions.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/decimal.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/metadata.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/period.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/rate_indices.proto";
+
+// Floating rate term
+message FloatingRateTerm {
+  RateIndexType floating_rate_type = 1;
+  // Reset frequency
+  Period term = 2;
+}
+
+// Interest rate swap proto
+message ForwardRateAgreement {
+  // Whether the contract holder lends or borrows the money
+  // (i.e., floating or fixed rate payer).
+  // short_position = True means that the contract holder lends the money at
+  // the fixed rate.
+  bool short_position = 1;
+  // Fixing date. Fixing date is the date at which the interest rate
+  // accumulation starts.
+  Date fixing_date = 2;
+  // Denominated currency
+  Currency currency = 3;
+  // Floating rate term
+  FloatingRateTerm floating_rate_term = 4;
+  // Contract notional
+  Decimal notional_amount = 5;
+  // Fixed rate
+  Decimal fixed_rate = 6;
+  // Day count convention
+  DayCountConvention day_count_convention = 7;
+  // Business day convention
+  BusinessDayConvention business_day_convention = 8;
+  // Holiday calendar
+  BankHolidays bank_holidays = 9;
+  // Settlement days
+  int32 settlement_days = 10;
+  // Common metadata needed to identify the trade.
+  InstrumentMetadata metadata = 11;
+}

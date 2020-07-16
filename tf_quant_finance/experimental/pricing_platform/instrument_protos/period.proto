@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package tf_quant_finance.experimental.pricing_platform.instrument_protos;
+
+option java_multiple_files = true;
+
+// Period types
+enum PeriodType {
+  TYPE_UNKNOWN = 0;
+  DAY = 1;
+  WEEK = 2;
+  MONTH = 3;
+  QUARTER = 4;
+  YEAR = 5;
+}
+
+// Period message
+message Period {
+  PeriodType type = 1;
+  int32 amount = 2;
+}

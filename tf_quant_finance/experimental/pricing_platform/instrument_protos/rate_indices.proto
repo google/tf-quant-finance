@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package tf_quant_finance.experimental.pricing_platform.instrument_protos;
+
+option java_multiple_files = true;
+
+// TODO(b/159106041): Complete RateIndexType definitions
+enum RateIndexType {
+  // As in ISDA 2006 Definitions. See, e.g.,
+  // https://spec.edmcouncil.org/fibo/ontology/IND/InterestRates/InterestRates/InterestRateBenchmark
+  RATE_INDEX_TYPE_UNKNOWN = 0;  // LIBOR rate
+  AUD_LIBOR_BBA = 1;
+  AUD_AONIA_OIS_COMPOUND = 2;
+  CAD_LIBOR_BBA = 3;
+  CAD_CORRA_OIS_COMPOUND = 4;
+  CHF_LIBOR_BBA = 5;
+  CHF_TOIS_OIS_COMPOUND = 6;
+  CHF_SARON_OIS_COMPOUND = 7;  // Substitute for TOIS
+  USD_LIBOR_BBA = 8;
+  USD_SOFR_COMPOUND = 9;
+  USD_TBILL_H15 = 10;
+  GBP_LIBOR_BBA = 11;
+  GBP_SONIA_COMPOUND = 12;
+  EUR_EONIA_OIS_COMPOUND = 13;
+  EUR_LIBOR_BBA = 14;
+  JPY_LIBOR_BBA = 15;
+  JPY_TONA_OIS_COMPOUND = 16;
+
+  // USER-specific rates
+  USD_LIBOR = 1001;
+  GBP_LIBOR = 1002;
+  CHF_LIBOR = 1003;
+  JPY_LIBOR = 1004;
+  EUR_LIBOR = 1005;
+  AUD_LIBOR = 1006;
+  CAD_LIBOR = 1007;
+  USD_OIS = 1008;
+  USD_SOFR = 1009;
+  GBP_OIS = 1010;
+  GBP_SOFR = 1011;
+  CHF_OIS = 1012;
+  CHF_SOFR = 1013;
+  JPY_OIS = 1014;
+  JPY_SOFR = 1015;
+  EUR_OIS = 1016;
+  EUR_SOFR = 1017;
+  AUD_SOFR = 1018;
+  CAD_SOFR = 1019;
+  AUD_OIS = 1020;
+  CAD_OIS = 1021;
+}

@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package tf_quant_finance.experimental.pricing_platform.instrument_protos;
+
+option java_multiple_files = true;
+
+// Date in the format CCYY-MM-DD where CC represents the century, YY the year,
+// MM the month and DD the day.
+message Date {
+  // The year for the date.
+  int32 year = 1;
+  // The month of the year. Must be between 1 and 12.
+  int32 month = 2;
+  // The day of the month. Must be within the range for the month and year.
+  int32 day = 3;
+}
