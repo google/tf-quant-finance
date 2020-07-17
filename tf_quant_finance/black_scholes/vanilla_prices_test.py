@@ -48,6 +48,25 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
         [0.0, 2.0, 2.0480684764112578, 1.0002029716043364, 2.0730313058959933])
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
 
+  def test_option_prices_normal(self):
+    """Tests that the prices using normal model are correct."""
+    forwards = np.array([0.01, 0.02, 0.03, 0.03, 0.05])
+    strikes = np.array([0.03, 0.03, 0.03, 0.03, 0.03])
+    volatilities = np.array([0.0001, 0.001, 0.01, 0.005, 0.02])
+    expiries = 1.0
+    computed_prices = self.evaluate(
+        tff.black_scholes.option_price(
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
+            forwards=forwards,
+            is_normal_volatility=True))
+
+    expected_prices = np.array(
+        [0.0, 0.0, 0.0039894228040143, 0.0019947114020072,
+         0.0216663094117537])
+    self.assertArrayNear(expected_prices, computed_prices, 1e-10)
+
   def test_price_zero_vol(self):
     """Tests that zero volatility is handled correctly."""
     # If the volatility is zero, the option's value should be correct.
@@ -495,6 +514,60 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
         dtype=dtype)
     self.assertAllClose(price, expected_price, 10e-3)
     self.assertEqual(price.dtype, dtype)
+
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'NormalModel',
+          'is_normal_model': True,
+          'volatilities': [0.01, 0.005],
+          'expected_price': [0.3458467885511461, 0.3014786656395892],
+      }, {
+          'testcase_name': 'LognormalModel',
+          'is_normal_model': False,
+          'volatilities': [1.0, 0.5],
+          'expected_price': [0.34885593, 0.31643427],
+      })
+  def test_swaption_price(self, is_normal_model, volatilities,
+                          expected_price):
+    """Function tests swaption pricing."""
+    dtype = tf.float64
+
+    expiries = [1.0, 1.0]
+    float_leg_start_times = [[1.0, 1.25, 1.5, 1.75, 2.0, 2.0, 2.0, 2.0],
+                             [1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75]]
+    float_leg_end_times = [[1.25, 1.5, 1.75, 2.0, 2.0, 2.0, 2.0, 2.0],
+                           [1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0]]
+    fixed_leg_payment_times = [[1.25, 1.5, 1.75, 2.0, 2.0, 2.0, 2.0, 2.0],
+                               [1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0]]
+    float_leg_daycount_fractions = [[
+        0.25, 0.25, 0.25, 0.25, 0.0, 0.0, 0.0, 0.0
+    ], [0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25]]
+    fixed_leg_daycount_fractions = [[
+        0.25, 0.25, 0.25, 0.25, 0.0, 0.0, 0.0, 0.0
+    ], [0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25]]
+    fixed_leg_coupon = [0.011, 0.011]
+    discount_fn = lambda x: np.exp(-0.01 * np.array(x))
+    price = self.evaluate(
+        tff.black_scholes.swaption_price(
+            volatilities=volatilities,
+            expiries=expiries,
+            floating_leg_start_times=float_leg_start_times,
+            floating_leg_end_times=float_leg_end_times,
+            fixed_leg_payment_times=fixed_leg_payment_times,
+            floating_leg_daycount_fractions=float_leg_daycount_fractions,
+            fixed_leg_daycount_fractions=fixed_leg_daycount_fractions,
+            fixed_leg_coupon=fixed_leg_coupon,
+            floating_leg_start_times_discount_factors=discount_fn(
+                float_leg_start_times),
+            floating_leg_end_times_discount_factors=discount_fn(
+                float_leg_end_times),
+            fixed_leg_payment_times_discount_factors=discount_fn(
+                fixed_leg_payment_times),
+            is_normal_volatility=is_normal_model,
+            notional=100.,
+            dtype=dtype))
+
+    self.assertAllClose(price, expected_price, 1e-6)
 
 if __name__ == '__main__':
   tf.test.main()

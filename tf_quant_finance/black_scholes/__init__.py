@@ -31,6 +31,7 @@ brownian_bridge_single = brownian_bridge.brownian_bridge_single
 brownian_bridge_double = brownian_bridge.brownian_bridge_double
 option_price = vanilla_prices.option_price
 option_price_binomial = crr_binomial_tree.option_price_binomial
+swaption_price = vanilla_prices.swaption_price
 
 _allowed_symbols = [
     'approximations',
@@ -44,6 +45,7 @@ _allowed_symbols = [
     'option_price_binomial',
     'ImpliedVolMethod',
     'barrier_price',
+    'swaption_price',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
