@@ -19,9 +19,9 @@ from typing import Any, Dict, List, Optional
 
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.experimental.pricing_platform.framework import curve_types
-from tf_quant_finance.experimental.pricing_platform.framework import processed_market_data as pmd
-from tf_quant_finance.experimental.pricing_platform.framework import types
+from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
+from tf_quant_finance.experimental.pricing_platform.framework.core import processed_market_data as pmd
+from tf_quant_finance.experimental.pricing_platform.framework.core import types
 
 
 class Instrument(abc.ABC):

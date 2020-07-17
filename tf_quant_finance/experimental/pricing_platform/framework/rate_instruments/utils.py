@@ -12,19 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Framework module."""
+"""Common utilities."""
 
-from tf_quant_finance.experimental.pricing_platform.framework import core
-from tf_quant_finance.experimental.pricing_platform.framework import market_data
-from tf_quant_finance.experimental.pricing_platform.framework import rate_instruments
+from tf_quant_finance.experimental.pricing_platform.instrument_protos import decimal_pb2
+
+_NANO = 1e-9
 
 
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
-
-_allowed_symbols = [
-    "core",
-    "market_data",
-    "rate_instruments",
-]
-
-remove_undocumented(__name__, _allowed_symbols)
+def decimal_to_double(decimal: decimal_pb2.Decimal) -> float:
+  return decimal.units + decimal.nanos * _NANO

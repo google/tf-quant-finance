@@ -20,10 +20,10 @@ from typing import List, Union
 import tensorflow.compat.v2 as tf
 from tf_quant_finance import datetime as datetime_tff
 
-from tf_quant_finance.experimental.pricing_platform.framework import business_days
-from tf_quant_finance.experimental.pricing_platform.framework import currencies
-from tf_quant_finance.experimental.pricing_platform.framework import daycount_conventions
-from tf_quant_finance.experimental.pricing_platform.framework import rate_indices
+from tf_quant_finance.experimental.pricing_platform.framework.core import business_days
+from tf_quant_finance.experimental.pricing_platform.framework.core import currencies
+from tf_quant_finance.experimental.pricing_platform.framework.core import daycount_conventions
+from tf_quant_finance.experimental.pricing_platform.framework.core import rate_indices
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import period_pb2
 
 

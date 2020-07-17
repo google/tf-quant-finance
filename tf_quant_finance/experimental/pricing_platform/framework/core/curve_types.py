@@ -16,7 +16,7 @@
 
 import enum
 import dataclasses
-from tf_quant_finance.experimental.pricing_platform.framework import currencies
+from tf_quant_finance.experimental.pricing_platform.framework.core import currencies
 
 
 class Index(enum.Enum):

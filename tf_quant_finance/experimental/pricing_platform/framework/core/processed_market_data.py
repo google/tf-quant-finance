@@ -20,10 +20,10 @@ from typing import Any, List, Tuple, Callable
 
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.experimental.pricing_platform.framework import curve_types
+from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
 
-from tf_quant_finance.experimental.pricing_platform.framework import interpolation_method
-from tf_quant_finance.experimental.pricing_platform.framework import types
+from tf_quant_finance.experimental.pricing_platform.framework.core import interpolation_method
+from tf_quant_finance.experimental.pricing_platform.framework.core import types
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import period_pb2
 
 
