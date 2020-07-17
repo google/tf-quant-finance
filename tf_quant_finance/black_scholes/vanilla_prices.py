@@ -188,7 +188,7 @@ def barrier_price(*,
                   expiries,
                   spots,
                   barriers,
-                  rebates,
+                  rebates=None,
                   discount_rates=None,
                   continuous_dividends=None,
                   cost_of_carries=None,
@@ -199,16 +199,16 @@ def barrier_price(*,
                   name=None):
   """Prices barrier options in a Black-Scholes Model.
 
-  Function determines the analytical price for the barriers option. The
-  computation is done as in [2] where each integral is split into two matrices.
-  The first matrix contains the algebraic terms and the second matrix contains
-  the probability distribution terms. Masks are used to filter appropriate terms
-  for calculating the integral. Then a dot product of each row in the matricies
-  coupled with the masks work to calculate the prices of the barriers option.
+  Computes the prices of options with a single barrier in Black-Scholes world as
+  described in Ref. [1]. Note that the barrier is applied continuously.
 
-  #### Example [2], Page 154
+  #### Example
+
+  This example is taken from Ref. [2], Page 154.
 
   ```python
+  import tf_quant_finance as tff
+
   dtype = np.float32
   discount_rates = np.array([.08, .08])
   continuous_dividends = np.array([.04, .04])
@@ -223,7 +223,7 @@ def barrier_price(*,
   is_knock_out = np.array([False, False])
   is_call_option = np.array([True, True])
 
-  price = price_barriers_option(
+  price = tff.black_scholes.barrier_price(
     discount_rates, continuous_dividends, spots, strikes,
     barriers, rebates, volatilities,
     expiries, is_barrier_down, is_knock_out, is_call_options)
@@ -235,11 +235,10 @@ def barrier_price(*,
   #### References
 
   [1]: Lee Clewlow, Javier Llanos, Chris Strickland, Caracas Venezuela
-  Pricing Exotic Options in a Black-Scholes World, 1994
-  https://warwick.ac.uk/fac/soc/wbs/subjects/finance/research/wpaperseries/1994/94-54.pdf
-
+    Pricing Exotic Options in a Black-Scholes World, 1994
+    https://warwick.ac.uk/fac/soc/wbs/subjects/finance/research/wpaperseries/1994/94-54.pdf
   [2]: Espen Gaarder Haug, The Complete Guide to Option Pricing Formulas,
-  2nd Edition, 1997
+    2nd Edition, 1997
 
   Args:
     volatilities: Real `Tensor` of any shape and dtype. The volatilities to
@@ -254,21 +253,25 @@ def barrier_price(*,
     barriers: A real `Tensor` of same dtype as the `volatilities` and of the
       shape that broadcasts with `volatilities`. The barriers of each option.
     rebates: A real `Tensor` of same dtype as the `volatilities` and of the
-      shape that broadcasts with `volatilities`. A rebates contingent upon
-      reaching the barriers price.
+      shape that broadcasts with `volatilities`. For knockouts, this is a
+      fixed cash payout in case the barrier is breached. For knockins, this is a
+      fixed cash payout in case the barrier level is not breached. In the former
+      case, the rebate is paid immediately on breach whereas in the latter, the
+      rebate is paid at the expiry of the option.
+      Default value: `None` which maps to no rebates.
     discount_rates: A real `Tensor` of same dtype as the
       `volatilities` and of the shape that broadcasts with `volatilities`.
       Discount rates, or risk free rates.
       Default value: `None`, equivalent to discount_rate = 0.
     continuous_dividends: A real `Tensor` of same dtype as the
-      `volatilities` and of the shape that broadcasts with `volatilities`.
-      Either this or `cost_of_carries` can be given. If `None`,
-      `cost_of_carries` must be supplied.
-      Default value: `None`, calculated from `cost_of_carries`.
+      `volatilities` and of the shape that broadcasts with `volatilities`. A
+      continuous dividend rate paid by the underlier. If `None`, then
+      defaults to zero dividends.
+      Default value: `None`, equivalent to zero dividends.
     cost_of_carries: A optional real `Tensor` of same dtype as the
       `volatilities` and of the shape that broadcasts with `volatilities`.
       Cost of storing a physical commodity, the cost of interest paid when
-      long, or the opportunity cost, o the cost of paying dividends when short.
+      long, or the opportunity cost, or the cost of paying dividends when short.
       If not `None`, `continuous_dividends` is calculated as r - c,
       where r are the `discount_rates` and c is `cost_of_carries`.
     is_barrier_down: A real `Tensor` of `boolean` values and of the shape
@@ -292,8 +295,13 @@ def barrier_price(*,
   Returns:
     option_prices: A `Tensor` of same shape as `spots`. The approximate price of
     the barriers option under black scholes.
-
   """
+  # The computation is done as in Ref [2] where each integral is split into
+  # two matrices. The first matrix contains the algebraic terms and the second
+  # matrix contains the probability distribution terms. Masks are used to filter
+  # appropriate terms for calculating the integral. Then a dot product of each
+  # row in the matricies coupled with the masks work to calculate the prices of
+  # the barriers option.
   if (continuous_dividends is None) == (cost_of_carries is None):
     raise ValueError('At most one of continuous_dividends and cost of carries '
                      'may be supplied')
@@ -305,7 +313,10 @@ def barrier_price(*,
         volatilities, dtype=dtype, name='volatilities')
     expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')
     barriers = tf.convert_to_tensor(barriers, dtype=dtype, name='barriers')
-    rebates = tf.convert_to_tensor(rebates, dtype=dtype, name='rebates')
+    if rebates is not None:
+      rebates = tf.convert_to_tensor(rebates, dtype=dtype, name='rebates')
+    else:
+      rebates = tf.zeros_like(spots, dtype=dtype, name='rebates')
 
     # Convert all to tensor and enforce float dtype where required
     if discount_rates is not None:
