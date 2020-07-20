@@ -24,7 +24,7 @@ from tensorflow.python.framework import test_util  # pylint: disable=g-direct-te
 framework = tff.experimental.pricing_platform.framework
 business_days = framework.core.business_days
 currencies = framework.core.currencies
-day_count_conventions = framework.core.daycount_conventions
+daycount_conventions = framework.core.daycount_conventions
 interpolation_method = framework.core.interpolation_method
 rate_indices = framework.core.rate_indices
 
@@ -39,7 +39,7 @@ forward_rate_agreement = rate_instruments.forward_rate_agreement
 
 market_data = tff.experimental.pricing_platform.framework.market_data
 
-DayCountConventions = day_count_conventions.DayCountConventions
+DayCountConventions = daycount_conventions.DayCountConventions
 BusinessDayConvention = business_days.BusinessDayConvention
 RateIndexType = rate_indices.RateIndexType
 Currency = currencies.Currency
@@ -55,7 +55,7 @@ class ForwardRateAgreementTest(tf.test.TestCase):
         currency=Currency.USD(),
         fixed_rate=decimal_pb2.Decimal(nanos=31340000),
         notional_amount=decimal_pb2.Decimal(units=10000),
-        day_count_convention=DayCountConventions.ACTUAL_360(),
+        daycount_convention=DayCountConventions.ACTUAL_360(),
         business_day_convention=BusinessDayConvention.MODIFIED_FOLLOWING(),
         floating_rate_term=fra_pb2.FloatingRateTerm(
             floating_rate_type=RateIndexType.USD_LIBOR(),
@@ -68,7 +68,7 @@ class ForwardRateAgreementTest(tf.test.TestCase):
         currency=Currency.USD(),
         fixed_rate=decimal_pb2.Decimal(nanos=31340000),
         notional_amount=decimal_pb2.Decimal(units=10000),
-        day_count_convention=DayCountConventions.ACTUAL_365(),
+        daycount_convention=DayCountConventions.ACTUAL_365(),
         business_day_convention=BusinessDayConvention.MODIFIED_FOLLOWING(),
         floating_rate_term=fra_pb2.FloatingRateTerm(
             floating_rate_type=RateIndexType.USD_LIBOR(),

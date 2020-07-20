@@ -24,7 +24,7 @@ from tensorflow.python.framework import test_util  # pylint: disable=g-direct-te
 framework = tff.experimental.pricing_platform.framework
 business_days = framework.core.business_days
 currencies = framework.core.currencies
-day_count_conventions = framework.core.daycount_conventions
+daycount_conventions = framework.core.daycount_conventions
 interpolation_method = framework.core.interpolation_method
 rate_indices = framework.core.rate_indices
 
@@ -41,7 +41,7 @@ market_data = tff.experimental.pricing_platform.framework.market_data
 market_data_config = market_data.config
 
 
-DayCountConventions = day_count_conventions.DayCountConventions
+DayCountConventions = daycount_conventions.DayCountConventions
 BusinessDayConvention = business_days.BusinessDayConvention
 RateIndexType = rate_indices.RateIndexType
 Currency = currencies.Currency
@@ -61,7 +61,7 @@ class InterestRateSwapTest(tf.test.TestCase):
                 coupon_frequency=period_pb2.Period(type="MONTH", amount=6),
                 notional_amount=decimal_pb2.Decimal(units=1000000),
                 fixed_rate=decimal_pb2.Decimal(nanos=31340000),
-                day_count_convention=DayCountConventions.ACTUAL_360(),
+                daycount_convention=DayCountConventions.ACTUAL_360(),
                 business_day_convention=BusinessDayConvention.
                 MODIFIED_FOLLOWING(),
                 settlement_days=2)),
@@ -72,7 +72,7 @@ class InterestRateSwapTest(tf.test.TestCase):
                 reset_frequency=period_pb2.Period(type="MONTH", amount=3),
                 notional_amount=decimal_pb2.Decimal(units=1000000),
                 floating_rate_type=RateIndexType.USD_LIBOR(),
-                day_count_convention=DayCountConventions.ACTUAL_360(),
+                daycount_convention=DayCountConventions.ACTUAL_360(),
                 business_day_convention=BusinessDayConvention.
                 MODIFIED_FOLLOWING(),
                 settlement_days=2)))
@@ -86,7 +86,7 @@ class InterestRateSwapTest(tf.test.TestCase):
                 coupon_frequency=period_pb2.Period(type="MONTH", amount=3),
                 notional_amount=decimal_pb2.Decimal(units=1000000),
                 fixed_rate=decimal_pb2.Decimal(nanos=31340000),
-                day_count_convention=DayCountConventions.ACTUAL_360(),
+                daycount_convention=DayCountConventions.ACTUAL_360(),
                 business_day_convention=BusinessDayConvention.
                 MODIFIED_FOLLOWING(),
                 settlement_days=2)),
@@ -97,7 +97,7 @@ class InterestRateSwapTest(tf.test.TestCase):
                 reset_frequency=period_pb2.Period(type="MONTH", amount=3),
                 notional_amount=decimal_pb2.Decimal(units=1000000),
                 floating_rate_type=RateIndexType.USD_LIBOR(),
-                day_count_convention=DayCountConventions.ACTUAL_360(),
+                daycount_convention=DayCountConventions.ACTUAL_360(),
                 business_day_convention=BusinessDayConvention.
                 MODIFIED_FOLLOWING(),
                 settlement_days=2)))

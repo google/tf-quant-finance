@@ -90,7 +90,8 @@ class FixedCashflowStream:
             coupon_spec.coupon_frequency)
 
       businessday_rule = coupon_spec.businessday_rule
-      roll_convention = market_data_utils.get_business_day_convention(
+      # Business day roll convention and the end of month flag
+      roll_convention, eom = market_data_utils.get_business_day_convention(
           businessday_rule)
 
       notional = tf.convert_to_tensor(
@@ -105,7 +106,7 @@ class FixedCashflowStream:
       calendar = dateslib.create_holiday_calendar(
           weekend_mask=dateslib.WeekendMask.SATURDAY_SUNDAY)
       daycount_fn = market_data_utils.get_daycount_fn(
-          coupon_spec.day_count_convention)
+          coupon_spec.daycount_convention)
 
       self._settlement_days = tf.convert_to_tensor(
           coupon_spec.settlement_days,
@@ -119,6 +120,7 @@ class FixedCashflowStream:
           roll_convention=roll_convention,
           calendar=calendar,
           settlement_days=self._settlement_days,
+          end_of_month=eom,
           first_coupon_date=self._first_coupon_date,
           penultimate_coupon_date=self._penultimate_coupon_date)
 
@@ -290,7 +292,7 @@ class FloatingCashflowStream:
             coupon_spec.reset_frequency)
 
       businessday_rule = coupon_spec.businessday_rule
-      roll_convention = market_data_utils.get_business_day_convention(
+      roll_convention, eom = market_data_utils.get_business_day_convention(
           businessday_rule)
       notional = tf.convert_to_tensor(
           coupon_spec.notional_amount,
@@ -298,18 +300,18 @@ class FloatingCashflowStream:
           name="notional")
       self._dtype = dtype or notional.dtype
 
-      day_count_convention = coupon_spec.day_count_convention
+      daycount_convention = coupon_spec.daycount_convention
       daycount_fn = market_data_utils.get_daycount_fn(
-          coupon_spec.day_count_convention)
-      self._day_count_convention = day_count_convention
+          coupon_spec.daycount_convention)
+      self._daycount_convention = daycount_convention
 
       self._settlement_days = tf.convert_to_tensor(
           coupon_spec.settlement_days,
           dtype=tf.int32,
           name="settlement_days")
-      basis_points = tf.convert_to_tensor(coupon_spec.basis_points,
-                                          dtype=self._dtype,
-                                          name="basis_points")
+      spread = tf.convert_to_tensor(coupon_spec.spread,
+                                    dtype=self._dtype,
+                                    name="spread")
 
       coupon_dates = _generate_schedule(
           start_date=self._start_date,
@@ -318,6 +320,7 @@ class FloatingCashflowStream:
           roll_convention=roll_convention,
           calendar=calendar,
           settlement_days=self._settlement_days,
+          end_of_month=eom,
           first_coupon_date=self._first_coupon_date,
           penultimate_coupon_date=self._penultimate_coupon_date)
       # Extract batch shape
@@ -348,7 +351,7 @@ class FloatingCashflowStream:
       self._accrual_end_date = accrual_end_dates
       self._notional = notional
       self._daycount_fractions = daycount_fractions
-      self._basis_points = basis_points
+      self._spread = spread
       self._currency = coupon_spec.currency
       self._daycount_fn = daycount_fn
       # Since all swaps in a batch have the same reference curve, one of the
@@ -453,7 +456,7 @@ class FloatingCashflowStream:
       _, forward_rates = self.forward_rates(market)
 
       coupon_rate = forward_rates + tf.expand_dims(
-          self._basis_points, axis=-1)
+          self._spread, axis=-1)
       # self._notion is of shape [batch_shape], so broadcasting is needed
       notional = tf.expand_dims(self._notional, axis=-1)
 
@@ -493,6 +496,7 @@ def _generate_schedule(
     calendar: dateslib.HolidayCalendar,
     roll_convention: dateslib.BusinessDayConvention,
     settlement_days: tf.Tensor,
+    end_of_month: bool = False,
     first_coupon_date: Optional[dateslib.DateTensor] = None,
     penultimate_coupon_date: Optional[dateslib.DateTensor] = None) -> tf.Tensor:
   """Method to generate coupon dates.
@@ -506,6 +510,10 @@ def _generate_schedule(
     roll_convention: Business day roll convention of the schedule.
     settlement_days: An integer `Tensor` with the shape compatible with
       `start_date` and `end_date` specifying the number of settlement days.
+    end_of_month: Python `bool`. If `True`, shifts all dates in schedule to
+      the ends of corresponding months, if `start_date` or `end_date` (
+      depending on `backward`) is at the end of a month. The shift is applied
+      before applying `roll_convention`.
     first_coupon_date: First day of the irregular coupon, if any.
     penultimate_coupon_date: Penultimate day of the coupon, if any.
 
@@ -537,7 +545,8 @@ def _generate_schedule(
       end_date=end_date,
       tenor=coupon_frequency,
       roll_convention=roll_convention,
-      backward=backward).dates()
+      backward=backward,
+      end_of_month=end_of_month).dates()
   # Add the regular coupons
   coupon_dates = dateslib.DateTensor.concat(
       [start_date.expand_dims(-1),

@@ -20,7 +20,7 @@ package tf_quant_finance.experimental.pricing_platform.instrument_protos;
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/business_days.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/currencies.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/date.proto";
-import "tf_quant_finance/experimental/pricing_platform/instrument_protos/day_count_conventions.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/daycount_conventions.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/decimal.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/metadata.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/period.proto";
@@ -31,23 +31,23 @@ message FloatingLeg {
   // Underlying currency
   Currency currency = 1;
   // Reset frequency
-  Period reset_frequency = 2;
-  // Coupon frequency
-  Period coupon_frequency = 3;
+  Period coupon_frequency = 2;
   // Notional amount for the leg
-  Decimal notional_amount = 4;
+  Decimal notional_amount = 3;
   // Floating rate type
-  RateIndexType floating_rate_type = 5;
-  // Float leg day count convention.
-  DayCountConvention day_count_convention = 6;
+  DayCountConvention daycount_convention = 4;
   // Business day convention
-  BusinessDayConvention business_day_convention = 7;
+  BusinessDayConvention business_day_convention = 5;
   // Settlement days
-  int32 settlement_days = 8;
-  // Coupon basis points
-  Decimal basis_points = 9;
+  int32 settlement_days = 6;
   // Holiday calendar
-  BankHolidays bank_holidays = 10;
+  BankHolidays bank_holidays = 7;
+  Period reset_frequency = 8;
+  // Coupon frequency
+  RateIndexType floating_rate_type = 9;
+  // Float leg day count convention.
+  // Coupon spread
+  Decimal spread = 10;
 }
 
 message FixedLeg {
@@ -57,16 +57,16 @@ message FixedLeg {
   Period coupon_frequency = 2;
   // Notional amount for the leg
   Decimal notional_amount = 3;
-  // Fixed leg rate
-  Decimal fixed_rate = 4;
   // Fixed leg day count convention.
-  DayCountConvention day_count_convention = 5;
+  DayCountConvention daycount_convention = 4;
   // Business day convention
-  BusinessDayConvention business_day_convention = 6;
+  BusinessDayConvention business_day_convention = 5;
   // Settlement days
-  int32 settlement_days = 7;
+  int32 settlement_days = 6;
   // Holiday calendar
-  BankHolidays bank_holidays = 8;
+  BankHolidays bank_holidays = 7;
+  // Fixed leg rate
+  Decimal fixed_rate = 8;
 }
 
 // Swap leg type. Either fixed or floating type. Can be extended to

@@ -37,8 +37,7 @@ class UtilsTest(tf.test.TestCase):
   def test_get_business_day_convention(self):
     for key in BusinessDayConvention:
       # Call function for all available daycount conventions
-      if (key != BusinessDayConvention.BUSINESS_DAY_CONVENTION_UNKNOWN
-          and "EOM" not in key().split("_")):
+      if key != BusinessDayConvention.BUSINESS_DAY_CONVENTION_UNKNOWN:
         framework.market_data.utils.get_business_day_convention(key)
 
 

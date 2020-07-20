@@ -34,7 +34,7 @@ class FixedCouponSpecs:
     fixed_rate: A `Tensor` of the same `dtype` as `notional_amount` and
      of the shape that broadcasts with `batch_shape`. Represents the fixed
      rate of the leg.
-    day_count_convention: An instance of `DayCountConventions`.
+    daycount_convention: An instance of `DayCountConventions`.
     businessday_rule: An instance of `BusinessDayConvention`.
     settlement_days: An integer `Tensor` of the shape broadcastable with the
       shape of `notional_amount`.
@@ -44,7 +44,7 @@ class FixedCouponSpecs:
   coupon_frequency: types.Period
   notional_amount: Union[tf.Tensor, List[float]]
   fixed_rate: Union[tf.Tensor, List[float]]
-  day_count_convention: types.DayCountConventionsProtoType
+  daycount_convention: types.DayCountConventionsProtoType
   businessday_rule: types.BusinessDayConventionProtoType
   settlement_days: Union[int, List[int]]
   calendar: types.BankHolidaysProtoType
@@ -66,13 +66,13 @@ class FloatCouponSpecs:
       `RateIndexType` or a list of `RateIndexType`. If list, assumes that
       the batch shape is of rank 1 and the batch size is equal to the
       list length.
-    day_count_convention: An instance of `DayCountConventions`.
+    daycount_convention: An instance of `DayCountConventions`.
     businessday_rule: An instance of `BusinessDayConvention`.
     settlement_days: An integer `Tensor` of the shape broadcastable with the
       shape of `notional_amount`.
-    basis_points: A `Tensor` of the same `dtype` as `notional_amount` and
-     of the shape that broadcasts with `batch_shape`. Represents basis points
-     for the floating leg.
+    spread: A `Tensor` of the same `dtype` as `notional_amount` and of the shape
+      that broadcasts with `batch_shape`. Represents the spread for the floating
+      leg.
     calendar: A calendar to specify the weekend mask and bank holidays.
   """
   currency: types.CurrencyProtoType
@@ -81,10 +81,10 @@ class FloatCouponSpecs:
   notional_amount: Union[tf.Tensor, List[float]]
   floating_rate_type: Union[types.RateIndexProtoType,
                             List[types.RateIndexProtoType]]
-  day_count_convention: types.DayCountConventionsProtoType
+  daycount_convention: types.DayCountConventionsProtoType
   businessday_rule: types.BusinessDayConventionProtoType
   settlement_days: Union[int, List[int]]
-  basis_points: Union[tf.Tensor, List[tf.Tensor]]
+  spread: Union[tf.Tensor, List[tf.Tensor]]
   calendar: types.BankHolidaysProtoType
 
 

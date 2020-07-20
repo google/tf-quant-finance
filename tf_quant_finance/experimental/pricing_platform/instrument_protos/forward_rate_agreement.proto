@@ -20,7 +20,7 @@ package tf_quant_finance.experimental.pricing_platform.instrument_protos;
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/business_days.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/currencies.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/date.proto";
-import "tf_quant_finance/experimental/pricing_platform/instrument_protos/day_count_conventions.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/daycount_conventions.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/decimal.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/metadata.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/period.proto";
@@ -52,7 +52,7 @@ message ForwardRateAgreement {
   // Fixed rate
   Decimal fixed_rate = 6;
   // Day count convention
-  DayCountConvention day_count_convention = 7;
+  DayCountConvention daycount_convention = 7;
   // Business day convention
   BusinessDayConvention business_day_convention = 8;
   // Holiday calendar

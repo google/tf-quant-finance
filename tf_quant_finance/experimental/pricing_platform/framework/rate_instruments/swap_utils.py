@@ -41,8 +41,8 @@ def leg_from_proto(
         settlement_days=leg.settlement_days,
         businessday_rule=business_days.convention_from_proto_value(
             leg.business_day_convention),
-        day_count_convention=daycount_conventions.from_proto_value(
-            leg.day_count_convention),
+        daycount_convention=daycount_conventions.from_proto_value(
+            leg.daycount_convention),
         calendar=business_days.holiday_from_proto_value(leg.bank_holidays))
   else:
     leg = leg_proto.floating_leg
@@ -57,10 +57,10 @@ def leg_from_proto(
         settlement_days=leg.settlement_days,
         businessday_rule=business_days.convention_from_proto_value(
             leg.business_day_convention),
-        day_count_convention=daycount_conventions.from_proto_value(
-            leg.day_count_convention),
-        basis_points=instrument_utils.decimal_to_double(
-            leg.basis_points),
+        daycount_convention=daycount_conventions.from_proto_value(
+            leg.daycount_convention),
+        spread=instrument_utils.decimal_to_double(
+            leg.spread),
         calendar=business_days.holiday_from_proto_value(leg.bank_holidays))
 
 
@@ -83,7 +83,7 @@ def update_leg(
                     + _to_list(leg.fixed_rate)),
         settlement_days=current_leg.settlement_days,
         businessday_rule=current_leg.businessday_rule,
-        day_count_convention=current_leg.day_count_convention,
+        daycount_convention=current_leg.daycount_convention,
         calendar=current_leg.calendar)
   else:
     if not isinstance(leg, coupon_specs.FloatCouponSpecs):
@@ -98,10 +98,9 @@ def update_leg(
         floating_rate_type=(_to_list(current_leg.floating_rate_type)
                             + _to_list(leg.floating_rate_type)),
         settlement_days=current_leg.settlement_days,
-        basis_points=(_to_list(current_leg.basis_points)
-                      + _to_list(leg.basis_points)),
+        spread=(_to_list(current_leg.spread) + _to_list(leg.spread)),
         businessday_rule=current_leg.businessday_rule,
-        day_count_convention=current_leg.day_count_convention,
+        daycount_convention=current_leg.daycount_convention,
         calendar=current_leg.calendar)
 
 

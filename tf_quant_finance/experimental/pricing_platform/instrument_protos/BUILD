@@ -24,7 +24,7 @@ py_proto_library(
         ":business_days_py_pb2",
         ":currencies_py_pb2",
         ":date_py_pb2",
-        ":day_count_conventions_py_pb2",
+        ":daycount_conventions_py_pb2",
         ":decimal_py_pb2",
         ":metadata_py_pb2",
         ":period_py_pb2",
@@ -33,8 +33,8 @@ py_proto_library(
 )
 
 py_proto_library(
-    name = "day_count_conventions_py_pb2",
-    srcs = ["day_count_conventions.proto"],
+    name = "daycount_conventions_py_pb2",
+    srcs = ["daycount_conventions.proto"],
 )
 
 py_proto_library(

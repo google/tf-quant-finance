@@ -42,16 +42,25 @@ _daycount_map = {
         CONVENTION_30_360: dateslib.daycount_thirty_360_isda,}
 
 _business_day_convention_map = {
+    # Here True/False means whether to move the payments to the end of month
     _BusinessDayConvention.
-        NO_ADJUSTMENT: dateslib.BusinessDayConvention.NONE,
+        NO_ADJUSTMENT: (dateslib.BusinessDayConvention.NONE, False),
     _BusinessDayConvention.
-        FOLLOWING: dateslib.BusinessDayConvention.FOLLOWING,
+        FOLLOWING: (dateslib.BusinessDayConvention.FOLLOWING, False),
     _BusinessDayConvention.
-        MODIFIED_FOLLOWING: dateslib.BusinessDayConvention.MODIFIED_FOLLOWING,
+        MODIFIED_FOLLOWING: (dateslib.BusinessDayConvention.MODIFIED_FOLLOWING,
+                             False),
     _BusinessDayConvention.
-        PREVIOUS: dateslib.BusinessDayConvention.PRECEDING,
+        PREVIOUS: (dateslib.BusinessDayConvention.PRECEDING, False),
     _BusinessDayConvention.
-        MODIFIED_PREVIOUS: dateslib.BusinessDayConvention.MODIFIED_PRECEDING,}
+        MODIFIED_PREVIOUS: (dateslib.BusinessDayConvention.MODIFIED_PRECEDING,
+                            False),
+    _BusinessDayConvention.
+        EOM_FOLLOWING: (dateslib.BusinessDayConvention.FOLLOWING, True),
+    _BusinessDayConvention.
+        EOM_PREVIOUS: (dateslib.BusinessDayConvention.PRECEDING, True),
+    _BusinessDayConvention.
+        EOM_NO_ADJUSTMENT: (dateslib.BusinessDayConvention.NONE, True),}
 
 
 def get_daycount_fn(
@@ -67,7 +76,8 @@ def get_daycount_fn(
 
 def get_business_day_convention(
     business_day_convention: _BusinessDayConventionProtoType
-    ) -> dateslib.BusinessDayConvention:
+    ) -> Tuple[dateslib.BusinessDayConvention, bool]:
+  """Returns business day convention and the end of month flag."""
   try:
     return _business_day_convention_map[business_day_convention]
   except KeyError:

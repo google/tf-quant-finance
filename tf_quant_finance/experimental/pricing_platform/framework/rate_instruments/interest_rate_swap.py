@@ -72,7 +72,7 @@ class InterestRateSwap(instrument.Instrument):
   calculating its price.
 
   ```python
-  DayCountConventions = day_count_conventions.DayCountConventions
+  DayCountConventions = daycount_conventions.DayCountConventions
   BusinessDayConvention = business_days.BusinessDayConvention
   RateIndexType = rate_indices.RateIndexType
   Currency = currencies.Currency
@@ -87,7 +87,7 @@ class InterestRateSwap(instrument.Instrument):
               coupon_frequency=period_pb2.Period(type="MONTH", amount=6),
               notional_amount=decimal_pb2.Decimal(units=10000),
               fixed_rate=decimal_pb2.Decimal(nanos=31340000),
-              day_count_convention=DayCountConventions.ACTUAL_365(),
+              daycount_convention=DayCountConventions.ACTUAL_365(),
               business_day_convention=BusinessDayConvention.
                 MODIFIED_FOLLOWING(),
               settlement_days=0)),
@@ -98,7 +98,7 @@ class InterestRateSwap(instrument.Instrument):
               reset_frequency=period_pb2.Period(type="MONTH", amount=3),
               notional_amount=decimal_pb2.Decimal(units=10000),
               floating_rate_type=RateIndexType.USD_LIBOR(),
-              day_count_convention=DayCountConventions.ACTUAL_365(),
+              daycount_convention=DayCountConventions.ACTUAL_365(),
               business_day_convention=BusinessDayConvention.
                 MODIFIED_FOLLOWING(),
               settlement_days=0)))
@@ -445,7 +445,7 @@ class InterestRateSwap(instrument.Instrument):
 
 def _fixed_leg_key(leg: ir_swap.FixedLeg) -> List[Any]:
   return [leg.coupon_frequency.type, leg.coupon_frequency.amount,
-          leg.day_count_convention, leg.business_day_convention]
+          leg.daycount_convention, leg.business_day_convention]
 
 
 def _floating_leg_key(leg: ir_swap.FloatingLeg) -> List[Any]:
@@ -454,7 +454,7 @@ def _floating_leg_key(leg: ir_swap.FloatingLeg) -> List[Any]:
       leg.reset_frequency)
   return [leg.coupon_frequency.type, leg.coupon_frequency.amount,
           leg.reset_frequency.type, leg.reset_frequency.amount,
-          leg.day_count_convention, leg.business_day_convention, rate_index]
+          leg.daycount_convention, leg.business_day_convention, rate_index]
 
 
 def _get_keys(leg: ir_swap.SwapLeg) -> Tuple[List[Any], List[Any]]:

@@ -64,7 +64,7 @@ class ForwardRateAgreement(instrument.Instrument):
       currency=Currency.USD(),
       fixed_rate=decimal_pb2.Decimal(nanos=31340000),
       notional_amount=decimal_pb2.Decimal(units=10000),
-      day_count_convention=DayCountConventions.ACTUAL_360(),
+      daycount_convention=DayCountConventions.ACTUAL_360(),
       business_day_convention=BusinessDayConvention.MODIFIED_FOLLOWING(),
       floating_rate_term=fra_pb2.FloatingRateTerm(
           floating_rate_type=RateIndexType.USD_LIBOR(),
@@ -97,7 +97,7 @@ class ForwardRateAgreement(instrument.Instrument):
                fixing_date: types.DateTensor,
                fixed_rate: types.FloatTensor,
                notional_amount: types.FloatTensor,
-               day_count_convention: types.DayCountConventionsProtoType,
+               daycount_convention: types.DayCountConventionsProtoType,
                business_day_convention: types.BusinessDayConventionProtoType,
                calendar: types.BankHolidaysProtoType,
                rate_term: period_pb2.Period,
@@ -123,7 +123,7 @@ class ForwardRateAgreement(instrument.Instrument):
         specifying the notional amount for each contract. When the notional is
         specified as a scalar, it is assumed that all contracts have the same
         notional.
-      day_count_convention: A `DayCountConvention` to determine how cashflows
+      daycount_convention: A `DayCountConvention` to determine how cashflows
         are accrued for each contract. Daycount is assumed to be the same for
         all contracts in a given batch.
       business_day_convention: A business count convention.
@@ -162,7 +162,8 @@ class ForwardRateAgreement(instrument.Instrument):
       self._fixed_rate = tf.convert_to_tensor(fixed_rate, dtype=self._dtype,
                                               name="fixed_rate")
       settlement_days = tf.convert_to_tensor(settlement_days)
-      roll_convention = market_data_utils.get_business_day_convention(
+      # Business day roll convention and the end of month flag
+      roll_convention, eom = market_data_utils.get_business_day_convention(
           business_day_convention)
       # TODO(b/160446193): Calendar is ignored at the moment
       calendar = dateslib.create_holiday_calendar(
@@ -172,12 +173,13 @@ class ForwardRateAgreement(instrument.Instrument):
           self._fixing_date, settlement_days, roll_convention=roll_convention)
 
       self._day_count_fn = market_data_utils.get_daycount_fn(
-          day_count_convention)
+          daycount_convention)
       period = market_data_utils.get_period(rate_term)
       self._accrual_end_date = calendar.add_period_and_roll(
           self._accrual_start_date, period,
           roll_convention=roll_convention)
-
+      if eom:
+        self._accrual_end_date = self._accrual_end_date.to_end_of_month()
       self._daycount_fractions = self._day_count_fn(
           start_date=self._accrual_start_date,
           end_date=self._accrual_end_date,
@@ -216,7 +218,7 @@ class ForwardRateAgreement(instrument.Instrument):
       short_position = fra_instance.short_position
       currency = currencies.from_proto_value(fra_instance.currency)
       bank_holidays = fra_instance.bank_holidays
-      day_count_convention = fra_instance.day_count_convention
+      daycount_convention = fra_instance.daycount_convention
       business_day_convention = fra_instance.business_day_convention
       rate_index = fra_instance.floating_rate_term.floating_rate_type
       rate_index = rate_indices.from_proto_value(rate_index)
@@ -224,15 +226,15 @@ class ForwardRateAgreement(instrument.Instrument):
 
       h = hash(tuple([currency] + [bank_holidays] + [rate_term.type]
                      + [rate_term.amount] + [rate_index]
-                     + [day_count_convention] + [business_day_convention]))
+                     + [daycount_convention] + [business_day_convention]))
       fixing_date = fra_instance.fixing_date
       fixing_date = [fixing_date.year,
                      fixing_date.month,
                      fixing_date.day]
       notional_amount = instrument_utils.decimal_to_double(
           fra_instance.notional_amount)
-      day_count_convention = daycount_conventions.from_proto_value(
-          fra_instance.day_count_convention)
+      daycount_convention = daycount_conventions.from_proto_value(
+          fra_instance.daycount_convention)
       business_day_convention = business_days.convention_from_proto_value(
           fra_instance.business_day_convention)
       fixed_rate = instrument_utils.decimal_to_double(fra_instance.fixed_rate)
@@ -247,7 +249,7 @@ class ForwardRateAgreement(instrument.Instrument):
                             "fixing_date": [fixing_date],
                             "fixed_rate": [fixed_rate],
                             "notional_amount": [notional_amount],
-                            "day_count_convention": day_count_convention,
+                            "daycount_convention": daycount_convention,
                             "business_day_convention": business_day_convention,
                             "calendar": calendar,
                             "rate_term": rate_term,
