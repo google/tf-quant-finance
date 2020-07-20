@@ -107,11 +107,11 @@ class InterestRateSwapTest(tf.test.TestCase):
                 0.72494879, 0.37602059]
     libor_3m_config = market_data_config.RateConfig(
         interpolation_method=interpolation_method.InterpolationMethod.LINEAR)
-    self._rate_config = {"USD": {"LIBOR_3M_USD": libor_3m_config}}
+    self._rate_config = {"USD": {"LIBOR_3M": libor_3m_config}}
     self._market_data_dict = {"USD": {
-        "OIS_USD":
+        "OIS":
         {"date": date, "discount": discount},
-        "LIBOR_3M_USD":
+        "LIBOR_3M":
         {"date": date, "discount": discount},}}
     self._valuation_date = [(2020, 6, 24)]
     super(InterestRateSwapTest, self).setUp()

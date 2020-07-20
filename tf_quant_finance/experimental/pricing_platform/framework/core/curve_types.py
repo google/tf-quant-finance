@@ -20,7 +20,12 @@ from tf_quant_finance.experimental.pricing_platform.framework.core import curren
 
 
 class Index(enum.Enum):
-  """Supported rate curve indices."""
+  """Supported rate curve indices.
+
+  Index here is used to refer to a specific curve in a market data.
+  Instrument configuration specifies which curve to use for pricing and, more
+  specifically, how to map `RateIndexType` to `Index`.
+  """
   OIS = "OIS"
 
   SOFR = "SOFR"  # USD
@@ -32,18 +37,18 @@ class Index(enum.Enum):
   LIBOR_1M = "LIBOR_1M"
   LIBOR_3M = "LIBOR_3M"
   LIBOR_6M = "LIBOR_6M"
-  EURIBOR_OVERNIGHT = "EURIBOR_OVERNIGHT"
-  EURIBOR_1W = "EURIBOR_1W"
-  EURIBOR_1M = "EURIBOR_1M"
-  EURIBOR_3M = "EURIBOR_3M"
-  EURIBOR_6M = "EURIBOR_6M"
-  EURIBOR_1Y = "EURIBOR_1Y"
-  STIBOR_OVERNIGHT = "STIBOR_OVERNIGHT"
-  STIBOR_1W = "STIBOR_1W"
-  STIBOR_1M = "STIBOR_1M"
-  STIBOR_3M = "STIBOR_3M"
-  STIBOR_6M = "STIBOR_6M"
-  STIBOR_1Y = "STIBOR_1Y"
+  LIBOR_1Y = "LIBOR_1Y"
+  EURIBOR_OVERNIGHT = "EURIBOR_OVERNIGHT"  # EUR
+  EURIBOR_1W = "EURIBOR_1W"  # EUR
+  EURIBOR_1M = "EURIBOR_1M"  # EUR
+  EURIBOR_3M = "EURIBOR_3M"  # EUR
+  EURIBOR_6M = "EURIBOR_6M"  # EUR
+  EURIBOR_1Y = "EURIBOR_1Y"  # EUR
+  STIBOR_OVERNIGHT = "STIBOR_OVERNIGHT"  # SEK
+  STIBOR_1W = "STIBOR_1W"  # SEK
+  STIBOR_1M = "STIBOR_1M"  # SEK
+  STIBOR_3M = "STIBOR_3M"  # SEK
+  STIBOR_6M = "STIBOR_6M"  # SEK
 
 
 @dataclasses.dataclass(frozen=True)

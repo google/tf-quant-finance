@@ -79,9 +79,9 @@ class ForwardRateAgreementTest(tf.test.TestCase):
     discount = [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
                 0.72494879, 0.37602059]
     market_data_dict = {"USD": {
-        "OIS_USD":
+        "OIS":
         {"date": date, "discount": discount},
-        "LIBOR_3M_USD":
+        "LIBOR_3M":
         {"date": date, "discount": discount},}}
     valuation_date = [(2020, 2, 8)]
     market = market_data.MarketDataDict(valuation_date, market_data_dict)

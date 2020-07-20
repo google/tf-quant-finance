@@ -37,19 +37,23 @@ class MarketDataDict(pmd.ProcessedMarketData):
                market_data_dict: Dict[str, Any],
                config: Optional[Dict[str, Any]] = None,
                dtype: Optional[tf.DType] = None):
-    """Market data constructor..
+    """Market data constructor.
 
     ####Example
 
     ```python
     market_data_dict = {
     "Currency":  {
-        curve_id(curve_type) : {"date": DateTensor,
-                                "discount": tf.Tensor},
+        curve_index : {"date": DateTensor, "discount": tf.Tensor},
         surface_id(curve_type): "to be specified",
         fixings: "to be specified"},
     "Asset": "to be specified"}
     ```
+    Here `curve_index` refers to `curve_types.Index`. The user is expected to
+    supply all necessary curves used for pricing. The pricing functions should
+    decide which curve to use and how to map `RateIndexType` to
+    `curve_types.Index`. Default mapping can be overridden via instrument
+    configuration.
 
     Args:
       valuation_date: Valuation date.

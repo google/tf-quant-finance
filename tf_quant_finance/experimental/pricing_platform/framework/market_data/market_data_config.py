@@ -18,8 +18,8 @@ Market data configuration has a form
 
 market_data_config = {
     "Currency":  {
-        curve_id(curve_type) : RateConfig(RateCurveOption.BOOTSTRAP,
-                                          ["list of bootstrap instruments"]),
+        curve_index : RateConfig(RateCurveOption.BOOTSTRAP,
+                                 ["list of bootstrap instruments"]),
         surface_id(curve_type): "to be specified",
         fixings: "to be specified"},
     "Asset": "to be specified"}
@@ -71,7 +71,7 @@ class RateConfig:
 def curve_id(curve_type: curve_types.CurveType) -> str:
   """Mapping from curve_type object to a key.
 
-  Maps to 'index_tenor_currency'. E.g., 'LIBOR_3M_USD' or 'OIS_USD'.
+  Maps to 'index_tenor'. E.g., 'LIBOR_3M' or 'OIS'.
 
   Args:
     curve_type: An instance of `CurveType`.
@@ -79,27 +79,25 @@ def curve_id(curve_type: curve_types.CurveType) -> str:
   Returns:
     A string to mark the curve in the market data config.
   """
-  return curve_type.index_type.value + "_" + curve_type.currency.value
+  return curve_type.index_type.value
 
 
-def curve_type_from_id(curve_key: str) -> curve_types.CurveType:
+def curve_type_from_id(curve_key: str, currency: str) -> curve_types.CurveType:
   """Mapping from a curve key id to a curve_type object.
 
-  Maps 'index_tenor_currency' to the curve type. E.g., 'LIBOR_3M_USD' maps
+  Maps 'index_tenor_currency' to the curve type. E.g., ("LIBOR_3M", "USD") maps
   to `CurveType(Currency.USD, Index.OIS)`.
 
   Args:
-    curve_key: An id of a curve.
+    curve_key: Curve index as a string.
+    currency: Currency as a string
 
   Returns:
     A `CurveType` corresponding to the id.
   """
-  currency_and_index = curve_key.split("_")
-  currency = currency_and_index[-1]
-  index = "_".join(currency_and_index[:-1])
   return curve_types.CurveType(
       getattr(currencies.Currency, currency),
-      curve_types.Index[index])
+      curve_types.Index[curve_key])
 
 
 __all__ = ["RateBootstrapOption", "RateVolBootstrapOption",

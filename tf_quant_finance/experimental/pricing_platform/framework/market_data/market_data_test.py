@@ -33,11 +33,11 @@ class MarketDataTest(tf.test.TestCase):
                 0.72494879, 0.37602059]
     libor_3m_config = market_data.config.RateConfig(
         interpolation_method=interpolation_method.InterpolationMethod.LINEAR)
-    self._rate_config = {"USD": {"LIBOR_3M_USD": libor_3m_config}}
+    self._rate_config = {"USD": {"LIBOR_3M": libor_3m_config}}
     self._market_data_dict = {"USD": {
-        "OIS_USD":
+        "OIS":
         {"date": date, "discount": discount},
-        "LIBOR_3M_USD":
+        "LIBOR_3M":
         {"date": date, "discount": discount},}}
     self._valuation_date = [(2020, 6, 24)]
     self._discount = discount
@@ -49,7 +49,7 @@ class MarketDataTest(tf.test.TestCase):
         self._market_data_dict,
         config=self._rate_config)
     # Get the discount curve
-    curve_type = market_data.config.curve_type_from_id("LIBOR_3M_USD")
+    curve_type = market_data.config.curve_type_from_id("LIBOR_3M", "USD")
     yield_curve = market.yield_curve(curve_type)
     discount_factor_nodes = yield_curve.discount_factor_nodes
     self.assertAllClose(discount_factor_nodes, self._discount)
