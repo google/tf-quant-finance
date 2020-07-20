@@ -17,6 +17,7 @@ py_library(
 py_proto_library(
     name = "instruments_py_pb2",
     srcs = [
+        "all_instruments.proto",
         "forward_rate_agreement.proto",
         "interest_rate_swap.proto",
     ],
