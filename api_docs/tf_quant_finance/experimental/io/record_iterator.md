@@ -6,11 +6,11 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2020-07-22.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.experimental.io.encode_array" />
+<meta itemprop="name" content="tf_quant_finance.experimental.io.record_iterator" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.experimental.io.encode_array
+# tf_quant_finance.experimental.io.record_iterator
 
 <!-- Insert buttons and diff -->
 
@@ -21,14 +21,27 @@ For open-source contributions the docs will be updated automatically.
 
 
 
-Encodes a numpy array using `TensorProto` protocol buffer.
+Creates a `RecordIterator` object to read serialized data.
 
 ```python
-tf_quant_finance.experimental.io.encode_array(
-    x
+tf_quant_finance.experimental.io.record_iterator(
+    file_name,
+    compression_type=tf_quant_finance.experimental.io.CompressionType.NONE
 )
 ```
 
 
 
 <!-- Placeholder for "Used in" -->
+
+
+#### Args:
+
+
+* <b>`file_name`</b>: A file to which the records are written.
+* <b>`compression_type`</b>: Compression of the binary file.
+
+
+#### Returns:
+
+An iterator of the serialized data in the file.

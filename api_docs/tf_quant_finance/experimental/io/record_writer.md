@@ -6,11 +6,11 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2020-07-22.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.experimental.io.decode_array" />
+<meta itemprop="name" content="tf_quant_finance.experimental.io.record_writer" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.experimental.io.decode_array
+# tf_quant_finance.experimental.io.record_writer
 
 <!-- Insert buttons and diff -->
 
@@ -21,11 +21,12 @@ For open-source contributions the docs will be updated automatically.
 
 
 
-Decodes a bytestring into a numpy array.
+Creates a `RecordWriter` object to record serialized data.
 
 ```python
-tf_quant_finance.experimental.io.decode_array(
-    bytestring
+tf_quant_finance.experimental.io.record_writer(
+    file_name,
+    compression_type=tf_quant_finance.experimental.io.CompressionType.NONE
 )
 ```
 
@@ -33,15 +34,17 @@ tf_quant_finance.experimental.io.decode_array(
 
 <!-- Placeholder for "Used in" -->
 
-The bytestring should be a serialized `TensorProto` instance. For more details
-see `tf.make_tensor_proto`.
 
 #### Args:
 
 
-* <b>`bytestring`</b>: The serialized `TensorProto`.
+* <b>`file_name`</b>: A file to which the records are written.
+* <b>`compression_type`</b>: Compression of the binary file.
 
 
 #### Returns:
 
-A numpy array.
+An object with the following properties:
+  * write: Writes an item to file.
+  * flush: Flushes the file.
+  * close: Closes the file.

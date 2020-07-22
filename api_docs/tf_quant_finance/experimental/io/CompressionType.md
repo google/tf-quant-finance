@@ -6,11 +6,14 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2020-07-22.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.experimental.io.encode_array" />
+<meta itemprop="name" content="tf_quant_finance.experimental.io.CompressionType" />
 <meta itemprop="path" content="Stable" />
+<meta itemprop="property" content="GZIP"/>
+<meta itemprop="property" content="NONE"/>
+<meta itemprop="property" content="ZLIB"/>
 </div>
 
-# tf_quant_finance.experimental.io.encode_array
+# tf_quant_finance.experimental.io.CompressionType
 
 <!-- Insert buttons and diff -->
 
@@ -21,14 +24,13 @@ For open-source contributions the docs will be updated automatically.
 
 
 
-Encodes a numpy array using `TensorProto` protocol buffer.
-
-```python
-tf_quant_finance.experimental.io.encode_array(
-    x
-)
-```
-
-
+An enumeration.
 
 <!-- Placeholder for "Used in" -->
+
+
+## Class Variables
+
+* `GZIP` <a id="GZIP"></a>
+* `NONE` <a id="NONE"></a>
+* `ZLIB` <a id="ZLIB"></a>
