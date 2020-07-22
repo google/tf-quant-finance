@@ -16,6 +16,8 @@
 
 from typing import Callable, Optional, Tuple
 
+import tensorflow.compat.v2 as tf
+
 from tf_quant_finance import datetime as dateslib
 
 from tf_quant_finance.experimental.pricing_platform.framework.core import business_days
@@ -88,7 +90,7 @@ def get_business_day_convention(
 def get_period(period: period_pb2.Period) -> dateslib.PeriodTensor:
   period_type = period_pb2.PeriodType.Name(period.type)
   return dateslib.PeriodTensor(
-      period.amount,
+      period.amount + tf.compat.v1.placeholder_with_default(0, []),
       dateslib.PeriodType[period_type])
 
 

@@ -71,6 +71,7 @@ py_library(
         "//tf_quant_finance/experimental/pricing_platform/framework/core:rate_indices",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:types",
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos:period_py_pb2",
+        # tensorflow dep,
     ],
 )
 
