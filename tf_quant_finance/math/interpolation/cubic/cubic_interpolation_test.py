@@ -146,5 +146,24 @@ class CubicInterpolationTest(tf.test.TestCase, parameterized.TestCase):
     interpolated = self.evaluate(interpolated)
     np.testing.assert_almost_equal(expected, interpolated)
 
+  def test_linear_interpolation_dynamic_number_points(self):
+    """Tests linear interpolation with multiple batching dimensions."""
+    if tf.executing_eagerly():
+      # No dynamic shapes in eager mode
+      return
+    dtype = np.float64
+    x = tf.compat.v1.placeholder(dtype, [1, 2, None])
+    x_data = np.array([[[1, 2], [3, 4]]])
+    y_data = np.array([[[0, 1], [2, 3]]])
+    spline = tff.math.interpolation.cubic.build_spline(
+        x_data, y_data, dtype=dtype)
+    op = tff.math.interpolation.cubic.interpolate(
+        x, spline, dtype=dtype)
+    with self.cached_session() as session:
+      results = session.run(
+          op, feed_dict={x: [[[1.5, 2.0, 3.0], [3.5, 4.0, 2.0]]]})
+    self.assertAllClose(
+        results, np.array([[[0.5, 1.0, 1.0], [2.5, 3.0, 2.0]]]), 1e-8)
+
 if __name__ == "__main__":
   tf.test.main()

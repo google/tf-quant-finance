@@ -61,17 +61,14 @@ def prepare_indices(indices):
     A `Tensor` of the same dtype as `indices` and shape
     `indices.shape + [indices.shape.rank - 1]`.
   """
-  batch_shape = indices.shape.as_list()[:-1]
-  num_points = indices.shape.as_list()[-1]
   batch_shape_reverse = indices.shape.as_list()[:-1]
   batch_shape_reverse.reverse()
+  # Shape batch_shape + [batch_rank]
   index_matrix = tf.constant(
       np.flip(np.transpose(np.indices(batch_shape_reverse)), -1),
       dtype=indices.dtype)
-  batch_rank = len(batch_shape)
-  # Broadcast index matrix to the shape of
+  # Broadcast index matrix to
   # `batch_shape + [num_points] + [batch_rank]`
-  broadcasted_shape = batch_shape + [num_points] + [batch_rank]
-  index_matrix = tf.expand_dims(index_matrix, -2) + tf.zeros(
-      broadcasted_shape, dtype=indices.dtype)
+  index_matrix = (tf.expand_dims(index_matrix, -2)
+                  + tf.zeros_like(tf.expand_dims(indices, -1)))
   return index_matrix

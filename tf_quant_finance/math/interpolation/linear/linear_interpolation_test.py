@@ -291,5 +291,22 @@ class LinearInterpolation(tf.test.TestCase, parameterized.TestCase):
     with self.subTest('BroadcastYData'):
       self.assertAllClose(result_3, expected)
 
+  def test_linear_interpolation_dynamic_number_points(self):
+    """Tests linear interpolation with multiple batching dimensions."""
+    if tf.executing_eagerly():
+      # No dynamic shapes in eager mode
+      return
+    dtype = np.float64
+    x = tf.compat.v1.placeholder(dtype, [1, 2, None])
+    x_data = np.array([[[1, 2], [3, 4]]])
+    y_data = np.array([[[0, 1], [2, 3]]])
+    op = tff.math.interpolation.linear.interpolate(x, x_data, y_data,
+                                                   dtype=dtype)
+    with self.cached_session() as session:
+      results = session.run(
+          op, feed_dict={x: [[[1.5, 2.0, 3.0], [3.5, 4.0, 2.0]]]})
+    self.assertAllClose(
+        results, np.array([[[0.5, 1.0, 1.0], [2.5, 3.0, 2.0]]]), 1e-8)
+
 if __name__ == '__main__':
   tf.test.main()
