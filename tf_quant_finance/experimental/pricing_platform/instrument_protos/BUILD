@@ -20,6 +20,7 @@ py_proto_library(
         "all_instruments.proto",
         "forward_rate_agreement.proto",
         "interest_rate_swap.proto",
+        "swaption.proto",
     ],
     deps = [
         ":business_days_py_pb2",

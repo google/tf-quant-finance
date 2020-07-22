@@ -25,6 +25,7 @@ from tf_quant_finance.experimental.pricing_platform.instrument_protos import int
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import metadata_pb2 as metadata
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import period_pb2 as period
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import rate_indices_pb2 as rate_indices
+from tf_quant_finance.experimental.pricing_platform.instrument_protos import swaption_pb2 as swaption
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
@@ -43,6 +44,7 @@ _allowed_symbols = [
     "metadata",
     "period",
     "rate_indices",
+    "swaption",
 
 ]
 

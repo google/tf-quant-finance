@@ -12,20 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Proto to store one of the supported instruments
+// Instrument protos for European swaptions.
 syntax = "proto3";
 
 package tf_quant_finance.experimental.pricing_platform.instrument_protos;
 
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/date.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/metadata.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/interest_rate_swap.proto";
-import "tf_quant_finance/experimental/pricing_platform/instrument_protos/forward_rate_agreement.proto";
-import "tf_quant_finance/experimental/pricing_platform/instrument_protos/swaption.proto";
 
-// Proto for the supported instruments.
-message Instrument {
-  oneof type {
-    InterestRateSwap interest_rate_swap = 1;
-    ForwardRateAgreement forward_rate_agreement = 2;
-    Swaption swaption = 3;
-  }
+// Swaption proto
+message Swaption {
+  // The expiry date (or the exercise date) of the swaption.
+  Date expiry_date = 2;
+  // Underlying swap for the swaption.
+  InterestRateSwap swap = 3;
+  // Common metadata needed to identify the trade.
+  InstrumentMetadata metadata = 4;
 }
