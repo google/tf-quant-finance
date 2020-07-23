@@ -235,24 +235,21 @@ class InterestRateSwap(instrument.Instrument):
         receive_leg = receive_leg_shuffled
       name = swap_instance.metadata.id
       instrument_type = swap_instance.metadata.instrument_type
-      if h not in prepare_swaps:
+      if h in prepare_swaps:
+        current_pay_leg = prepare_swaps[h]["pay_leg"]
+        current_receive_leg = prepare_swaps[h]["receive_leg"]
+        swap_utils.update_leg(current_pay_leg, pay_leg)
+        swap_utils.update_leg(current_receive_leg, receive_leg)
+        prepare_swaps[h]["start_date"].append(start_date)
+        prepare_swaps[h]["maturity_date"].append(maturity_date)
+        prepare_swaps[h]["batch_names"].append([name, instrument_type])
+      else:
         prepare_swaps[h] = {"start_date": [start_date],
                             "maturity_date": [maturity_date],
                             "pay_leg": pay_leg,
                             "receive_leg": receive_leg,
                             "swap_config": swap_config,
                             "batch_names": [[name, instrument_type]]}
-      else:
-        current_pay_leg = prepare_swaps[h]["pay_leg"]
-        current_receive_leg = prepare_swaps[h]["receive_leg"]
-        updated_pay_leg = swap_utils.update_leg(current_pay_leg, pay_leg)
-        updated_receive_leg = swap_utils.update_leg(
-            current_receive_leg, receive_leg)
-        prepare_swaps[h]["start_date"].append(start_date)
-        prepare_swaps[h]["maturity_date"].append(maturity_date)
-        prepare_swaps[h]["pay_leg"] = updated_pay_leg
-        prepare_swaps[h]["receive_leg"] = updated_receive_leg
-        prepare_swaps[h]["batch_names"].append([name, instrument_type])
     intruments = []
     for kwargs in prepare_swaps.values():
       intruments.append(cls(**kwargs))
