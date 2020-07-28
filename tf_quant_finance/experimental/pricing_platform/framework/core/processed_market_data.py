@@ -16,12 +16,13 @@
 
 import abc
 import datetime
-from typing import Any, List, Tuple, Callable
+from typing import Any, List, Tuple, Callable, Optional
 
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
 
+from tf_quant_finance.experimental.pricing_platform.framework.core import implied_volatility_type
 from tf_quant_finance.experimental.pricing_platform.framework.core import interpolation_method
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import period_pb2
@@ -132,6 +133,54 @@ class RateCurve(abc.ABC):
     raise NotImplementedError
 
 
+class VolatilitySurface(abc.ABC):
+  """Interface for implied volatility surface."""
+
+  @abc.abstractmethod
+  def volatility(self,
+                 expiry: types.DateTensor,
+                 strike: types.FloatTensor,
+                 term: Optional[types.Period] = None) -> types.FloatTensor:
+    """Returns the interpolated volatility on a specified set of expiries.
+
+    Args:
+      expiry: The expiry dates for which the interpolation is desired.
+      strike: The strikes for which the interpolation is desired.
+      term: Optional input specifiying the term of the underlying rate for
+        which the interpolation is desired. Relevant for interest rate implied
+        volatility data.
+
+    Returns:
+      A `Tensor` of the same shape as `expiry` with the interpolated volatility
+      from the volatility surface.
+    """
+    pass
+
+  @property
+  @abc.abstractmethod
+  def volatility_type(self) -> implied_volatility_type.ImpliedVolatilityType:
+    """Returns the type of implied volatility."""
+    pass
+
+  @property
+  @abc.abstractmethod
+  def node_expiries(self) -> types.DateTensor:
+    """Expiry dates at which the implied volatilities are specified."""
+    return self._expiries
+
+  @property
+  @abc.abstractmethod
+  def node_strikes(self) -> tf.Tensor:
+    """Striks at which the implied volatilities are specified."""
+    return self._expiries
+
+  @property
+  @abc.abstractmethod
+  def node_terms(self) -> types.Period:
+    """Rate terms corresponding to the specified implied volatilities."""
+    return self._terms
+
+
 class ProcessedMarketData(abc.ABC):
   """Market data snapshot used by pricing library."""
 
@@ -165,7 +214,7 @@ class ProcessedMarketData(abc.ABC):
     pass
 
   @abc.abstractmethod
-  def volatility_surface(self, asset: str) -> Any:  # To be specified
+  def volatility_surface(self, asset: str) -> VolatilitySurface:
     """The volatility surface object for an asset."""
     pass
 

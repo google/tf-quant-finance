@@ -13,8 +13,10 @@ py_library(
         ":currencies",
         ":curve_types",
         ":daycount_conventions",
+        ":implied_volatility_type",
         ":instrument",
         ":interpolation_method",
+        ":models",
         ":processed_market_data",
         ":rate_indices",
         ":types",
@@ -69,8 +71,20 @@ py_library(
 )
 
 py_library(
+    name = "implied_volatility_type",
+    srcs = ["implied_volatility_type.py"],
+    srcs_version = "PY3",
+)
+
+py_library(
     name = "interpolation_method",
     srcs = ["interpolation_method.py"],
+    srcs_version = "PY3",
+)
+
+py_library(
+    name = "models",
+    srcs = ["models.py"],
     srcs_version = "PY3",
 )
 
