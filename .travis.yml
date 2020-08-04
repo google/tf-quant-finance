@@ -15,7 +15,7 @@ addons:
 
 install:
   - pip install --upgrade pip==19.3.1
-  - pip install --upgrade tf-nightly tfp-nightly numpy attrs
+  - pip install --upgrade tf-nightly tfp-nightly numpy attrs dataclasses
 
 script:
   - bazel test tf_quant_finance/... --test_summary=detailed --test_output=errors

@@ -173,7 +173,9 @@ class GenericItoProcess(ito_process.ItoProcess):
                    swap_memory=True,
                    name=None,
                    time_step=None,
-                   precompute_normal_draws=True):
+                   skip=0,
+                   precompute_normal_draws=True,
+                   watch_params=None):
     """Returns a sample of paths from the process using Euler sampling.
 
     The default implementation uses the Euler scheme. However, for particular
@@ -190,8 +192,14 @@ class GenericItoProcess(ito_process.ItoProcess):
       random_type: Enum value of `RandomType`. The type of (quasi)-random number
         generator to use to generate the paths.
         Default value: None which maps to the standard pseudo-random numbers.
-      seed: Python `int`. The random seed to use. If not supplied, no seed is
-        set.
+      seed: Seed for the random number generator. The seed is
+        only relevant if `random_type` is one of
+        `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
+          STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
+        `HALTON_RANDOMIZED` the seed should be an Python integer. For
+        `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as an integer
+        `Tensor` of shape `[2]`.
+        Default value: `None` which means no seed is set.
       swap_memory: A Python bool. Whether GPU-CPU memory swap is enabled for
         this op. See an equivalent flag in `tf.while_loop` documentation for
         more details. Useful when computing a gradient of the op since
@@ -201,12 +209,23 @@ class GenericItoProcess(ito_process.ItoProcess):
         Default value: `None` which maps to `sample_paths` is used.
       time_step: Real scalar `Tensor`. The maximal distance between time points
         in grid in Euler scheme.
+      skip: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
+        Halton sequence to skip. Used only when `random_type` is 'SOBOL',
+        'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
+        Default value: `0`.
       precompute_normal_draws: Python bool. Indicates whether the noise
         increments in Euler scheme are precomputed upfront (see
         `models.euler_sampling.sample`). For `HALTON` and `SOBOL` random types
         the increments are always precomputed. While the resulting graph
         consumes more memory, the performance gains might be significant.
         Default value: `True`.
+      watch_params: An optional list of zero-dimensional `Tensor`s of the same
+        `dtype` as `initial_state`. If provided, specifies `Tensor`s with
+        respect to which the differentiation of the sampling function will
+        happen. A more efficient algorithm is used when `watch_params` are
+        specified. Note the the function becomes differentiable onlhy wrt to
+        these `Tensor`s and the `initial_state`. The gradient wrt any other
+        `Tensor` is set to be zero.
 
     Returns:
      A real `Tensor` of shape `[num_samples, k, n]` where `k` is the size of the
@@ -231,7 +250,9 @@ class GenericItoProcess(ito_process.ItoProcess):
           time_step=time_step,
           seed=seed,
           swap_memory=swap_memory,
+          skip=skip,
           precompute_normal_draws=precompute_normal_draws,
+          watch_params=watch_params,
           dtype=self._dtype,
           name=name)
 

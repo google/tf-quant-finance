@@ -15,8 +15,8 @@
 
 """Linear interpolation method."""
 
-import numpy as np
 import tensorflow.compat.v2 as tf
+from tf_quant_finance.math.interpolation import utils
 
 
 def interpolate(x,
@@ -25,6 +25,7 @@ def interpolate(x,
                 left_slope=None,
                 right_slope=None,
                 validate_args=False,
+                optimize_for_tpu=False,
                 dtype=None,
                 name=None):
   """Performs linear interpolation for supplied points.
@@ -70,6 +71,11 @@ def interpolate(x,
       and the elements in `x_data` are not increasing, the result of linear
       interpolation may be wrong.
       Default value: `False`.
+    optimize_for_tpu: A Python bool. If `True`, the algorithm uses one-hot
+      encoding to lookup indices of `x_values` in `x_data`. This significantly
+      improves performance of the algorithm on a TPU device but may slow down
+      performance on the CPU.
+      Default value: `False`.
     dtype: Optional tf.dtype for `x`, x_data`, `y_data`, `left_slope` and
       `right_slope`.
       Default value: `None` which means that the `dtype` inferred by TensorFlow
@@ -80,13 +86,17 @@ def interpolate(x,
   Returns:
     A N-D `Tensor` of real dtype corresponding to the x-values in `x`.
   """
-  with tf.compat.v1.name_scope(
-      name,
-      default_name='linear_interpolation',
-      values=[x, x_data, y_data, left_slope, right_slope]):
-    x = tf.convert_to_tensor(x, dtype=dtype, name='x')
-    x_data = tf.convert_to_tensor(x_data, dtype=dtype, name='x_data')
-    y_data = tf.convert_to_tensor(y_data, dtype=dtype, name='y_data')
+  name = name or "linear_interpolation"
+  with tf.name_scope(name):
+    x = tf.convert_to_tensor(x, dtype=dtype, name="x")
+    dtype = dtype or x.dtype
+    x_data = tf.convert_to_tensor(x_data, dtype=dtype, name="x_data")
+    y_data = tf.convert_to_tensor(y_data, dtype=dtype, name="y_data")
+    # Try broadcast batch_shapes
+    x, x_data = utils.broadcast_common_batch_shape(x, x_data)
+    x, y_data = utils.broadcast_common_batch_shape(x, y_data)
+    x_data, y_data = utils.broadcast_common_batch_shape(x_data, y_data)
+
     batch_shape = x.shape.as_list()[:-1]
     if not batch_shape:
       x = tf.expand_dims(x, 0)
@@ -94,15 +104,15 @@ def interpolate(x,
       y_data = tf.expand_dims(y_data, 0)
 
     if left_slope is None:
-      left_slope = tf.constant(0.0, dtype=x.dtype, name='left_slope')
+      left_slope = tf.constant(0.0, dtype=x.dtype, name="left_slope")
     else:
       left_slope = tf.convert_to_tensor(left_slope, dtype=dtype,
-                                        name='left_slope')
+                                        name="left_slope")
     if right_slope is None:
-      right_slope = tf.constant(0.0, dtype=x.dtype, name='right_slope')
+      right_slope = tf.constant(0.0, dtype=x.dtype, name="right_slope")
     else:
       right_slope = tf.convert_to_tensor(right_slope, dtype=dtype,
-                                         name='right_slope')
+                                         name="right_slope")
     control_deps = []
     if validate_args:
       # Check that `x_data` elements is non-decreasing
@@ -110,7 +120,7 @@ def interpolate(x,
       assertion = tf.compat.v1.debugging.assert_greater_equal(
           diffs,
           tf.zeros_like(diffs),
-          message='x_data is not sorted in non-decreasing order.')
+          message="x_data is not sorted in non-decreasing order.")
       control_deps.append(assertion)
       # Check that the shapes of `x_data` and `y_data` are equal
       control_deps.append(
@@ -118,8 +128,7 @@ def interpolate(x,
 
     with tf.control_dependencies(control_deps):
       # Get upper bound indices for `x`.
-      upper_indices = tf.searchsorted(x_data, x, side='left', out_type=tf.int32)
-      index_matrix = _prepare_indices(upper_indices)
+      upper_indices = tf.searchsorted(x_data, x, side="left", out_type=tf.int32)
       x_data_size = x_data.shape.as_list()[-1]
       at_min = tf.equal(upper_indices, 0)
       at_max = tf.equal(upper_indices, x_data_size)
@@ -139,15 +148,32 @@ def interpolate(x,
       # `tf.where` evaluates all branches, need to cap indices to ensure it
       # won't go out of bounds.
       capped_lower_indices = tf.math.maximum(upper_indices - 1, 0)
-      selection_matrix_lower = tf.concat(
-          [index_matrix, tf.expand_dims(capped_lower_indices, -1)], -1)
       capped_upper_indices = tf.math.minimum(upper_indices, x_data_size - 1)
-      selection_matrix_upper = tf.concat(
-          [index_matrix, tf.expand_dims(capped_upper_indices, -1)], -1)
-      x_data_lower = tf.gather_nd(x_data, selection_matrix_lower)
-      x_data_upper = tf.gather_nd(x_data, selection_matrix_upper)
-      y_data_lower = tf.gather_nd(y_data, selection_matrix_lower)
-      y_data_upper = tf.gather_nd(y_data, selection_matrix_upper)
+      # Prepare indices for `tf.gather_nd` or `tf.one_hot`
+      # TODO(b/156720909): Extract get_slice logic into a common utilities
+      # module for cubic and linear interpolation
+      if optimize_for_tpu:
+        lower_encoding = tf.one_hot(capped_lower_indices, x_data_size,
+                                    dtype=dtype)
+        upper_encoding = tf.one_hot(capped_upper_indices, x_data_size,
+                                    dtype=dtype)
+      else:
+        index_matrix = utils.prepare_indices(upper_indices)
+        lower_encoding = tf.concat(
+            [index_matrix, tf.expand_dims(capped_lower_indices, -1)], -1)
+
+        upper_encoding = tf.concat(
+            [index_matrix, tf.expand_dims(capped_upper_indices, -1)], -1)
+      def get_slice(x, encoding):
+        if optimize_for_tpu:
+          return tf.math.reduce_sum(tf.expand_dims(x, axis=-2) * encoding,
+                                    axis=-1)
+        else:
+          return tf.gather_nd(x, encoding)
+      x_data_lower = get_slice(x_data, lower_encoding)
+      x_data_upper = get_slice(x_data, upper_encoding)
+      y_data_lower = get_slice(y_data, lower_encoding)
+      y_data_upper = get_slice(y_data, upper_encoding)
 
       # Nan in unselected branches could propagate through gradient calculation,
       # hence we need to clip the values to ensure no nan would occur. In this
@@ -163,21 +189,3 @@ def interpolate(x,
         return interpolated
       else:
         return tf.squeeze(interpolated, 0)
-
-
-def _prepare_indices(indices):
-  """Prepares `tf.searchsorted` output for index argument of `tf.gather_nd`."""
-  batch_shape = indices.shape.as_list()[:-1]
-  num_points = indices.shape.as_list()[-1]
-  batch_shape_reverse = indices.shape.as_list()[:-1]
-  batch_shape_reverse.reverse()
-  index_matrix = tf.constant(
-      np.flip(np.transpose(np.indices(batch_shape_reverse)), -1),
-      dtype=indices.dtype)
-  batch_rank = len(batch_shape)
-  # Broadcast index matrix to the shape of
-  # `batch_shape + [num_points] + [batch_rank]`
-  broadcasted_shape = batch_shape + [num_points] + [batch_rank]
-  index_matrix = tf.expand_dims(index_matrix, -2) + tf.zeros(
-      broadcasted_shape, dtype=indices.dtype)
-  return index_matrix

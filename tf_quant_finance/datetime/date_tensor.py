@@ -14,6 +14,7 @@
 # limitations under the License.
 """DateTensor definition."""
 import collections
+import datetime
 import numpy as np
 import tensorflow.compat.v2 as tf
 
@@ -71,9 +72,9 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     methods are available via 'dates_from_*' functions.
 
     Args:
-      ordinals: Tensor of type int32. Each value is number of days since
-        1 Jan 0001. 1 Jan 0001 has `ordinal=1`. `years`, `months` and `days`
-        must represent the same dates as `ordinals`.
+      ordinals: Tensor of type int32. Each value is number of days since 1 Jan
+        0001. 1 Jan 0001 has `ordinal=1`. `years`, `months` and `days` must
+        represent the same dates as `ordinals`.
       years: Tensor of type int32, of same shape as `ordinals`.
       months: Tensor of type int32, of same shape as `ordinals`
       days: Tensor of type int32, of same shape as `ordinals`.
@@ -116,7 +117,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     #### Example
 
     ```python
-    dates = dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
+    dates = tff.datetime.dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
     dates.day()  # [25, 2]
     ```
     """
@@ -129,9 +130,10 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     Monday is "0".
 
     #### Example
+
     ```python
-    dates = dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
-    dates.days_of_week()  # [5, 1]
+    dates = tff.datetime.dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
+    dates.day_of_week()  # [5, 1]
     ```
     """
     # 1 Jan 0001 was Monday according to the proleptic Gregorian calendar.
@@ -142,8 +144,9 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     """Returns an int32 tensor of months.
 
     #### Example
+
     ```python
-    dates = dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
+    dates = tff.datetime.dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
     dates.month()  # [1, 3]
     ```
     """
@@ -153,8 +156,9 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     """Returns an int32 tensor of years.
 
     #### Example
+
     ```python
-    dates = dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
+    dates = tff.datetime.dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
     dates.year()  # [2019, 2020]
     ```
     """
@@ -166,8 +170,9 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     Ordinal is the number of days since 1st Jan 0001.
 
     #### Example
+
     ```python
-    dates = dates_from_tuples([(2019, 3, 25), (1, 1, 1)])
+    dates = tff.datetime.dates_from_tuples([(2019, 3, 25), (1, 1, 1)])
     dates.ordinal()  # [737143, 1]
     ```
     """
@@ -184,14 +189,15 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     if one uses `tf.compat.v1.Session`, they can call
     `session.run(date_tensor.to_tensor())`.
 
-    #### Example
-    ```python
-    dates = dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
-    dates.to_tensor()  # tf.Tensor with contents [[2019, 1, 25], [2020, 3, 2]].
-    ```
-
     Returns:
       A Tensor of shape `date_tensor.shape() + (3,)`.
+
+    #### Example
+
+    ```python
+    dates = tff.datetime.dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
+    dates.to_tensor()  # tf.Tensor with contents [[2019, 1, 25], [2020, 3, 2]].
+    ```
     """
     return tf.stack((self.year(), self.month(), self.day()), axis=-1)
 
@@ -203,8 +209,9 @@ class DateTensor(tensor_wrapper.TensorWrapper):
       "1".
 
     #### Example
+
     ```python
-    dt = dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
+    dt = tff.datetime.dates_from_tuples([(2019, 1, 25), (2020, 3, 2)])
     dt.day_of_year()  # [25, 62]
     ```
     """
@@ -217,44 +224,51 @@ class DateTensor(tensor_wrapper.TensorWrapper):
                                              self.month() - 1)
       days_before_month_leap = tf.gather(cumul_days_in_month_leap,
                                          self.month() - 1)
-      days_before_month = tf.where(date_utils.is_leap_year(self.year()),
-                                   days_before_month_leap,
-                                   days_before_month_non_leap)
+      days_before_month = tf.where(
+          date_utils.is_leap_year(self.year()), days_before_month_leap,
+          days_before_month_non_leap)
       self._day_of_year = days_before_month + self.day()
     return self._day_of_year
 
   def days_until(self, target_date_tensor):
-    """Returns an int32 tensor with numbers of days until the target dates.
+    """Computes the number of days until the target dates.
 
     Args:
-      target_date_tensor: a DateTensor object broadcastable to the shape of
+      target_date_tensor: A DateTensor object broadcastable to the shape of
         "self".
 
-    #### Example
-    ```python
-    dates = dates_from_tuples([(2020, 1, 25), (2020, 3, 2)])
-    target = dates_from_tuples([(2020, 3, 5)])
-    dates.days_until(target)  # [40, 3]
+    Returns:
+      An int32 tensor with numbers of days until the target dates.
 
-    targets = dates_from_tuples([(2020, 2, 5), (2020, 3, 5)])
+     #### Example
+
+     ```python
+    dates = tff.datetime.dates_from_tuples([(2020, 1, 25), (2020, 3, 2)])
+    target = tff.datetime.dates_from_tuples([(2020, 3, 5)])
+    dates.days_until(target) # [40, 3]
+
+    targets = tff.datetime.dates_from_tuples([(2020, 2, 5), (2020, 3, 5)])
     dates.days_until(targets)  # [11, 3]
     ```
     """
     return target_date_tensor.ordinal() - self._ordinals
 
   def period_length_in_days(self, period_tensor):
-    """Returns an int32 tensor with numbers of days each period takes.
+    """Computes the number of days in each period.
 
     Args:
-      period_tensor: a periods.PeriodTensor object broadcastable to the shape of
-        "self".
+      period_tensor: A PeriodTensor object broadcastable to the shape of "self".
+
+    Returns:
+      An int32 tensor with numbers of days each period takes.
 
     #### Example
-    ```python
-    dates = dates_from_tuples([(2020, 2, 25), (2020, 3, 2)])
-    dates.period_length_in_days(period.month())  # [29, 31]
 
-    periods = periods.months([1, 2])
+    ```python
+    dates = tff.datetime.dates_from_tuples([(2020, 2, 25), (2020, 3, 2)])
+    dates.period_length_in_days(month())  # [29, 31]
+
+    periods = tff.datetime.months([1, 2])
     dates.period_length_in_days(periods)  # [29, 61]
     ```
     """
@@ -281,24 +295,24 @@ class DateTensor(tensor_wrapper.TensorWrapper):
   def __add__(self, period_tensor):
     """Adds a tensor of periods.
 
-    Args:
-      period_tensor: a PeriodTensor object broadcastable to the shape of
-        "self".
-
-    Returns:
-      The new instance of DateTensor.
-
     When adding months or years, the resulting day of the month is decreased
     to the largest valid value if necessary. E.g. 31.03.2020 + 1 month =
     30.04.2020, 29.02.2020 + 1 year = 28.02.2021.
 
+    Args:
+      period_tensor: A `PeriodTensor` object broadcastable to the shape of
+      "self".
+
+    Returns:
+      The new instance of DateTensor.
+
     #### Example
     ```python
-    dates = dates_from_tuples([(2020, 2, 25), (2020, 3, 31)])
-    new_dates = dates + period.month()
+    dates = tff.datetime.dates_from_tuples([(2020, 2, 25), (2020, 3, 31)])
+    new_dates = dates + tff.datetime.month()
     # DateTensor([(2020, 3, 25), (2020, 4, 30)])
 
-    new_dates = dates + periods.month([1, 2])
+    new_dates = dates + tff.datetime.month([1, 2])
     # DateTensor([(2020, 3, 25), (2020, 5, 31)])
     ```
     """
@@ -333,15 +347,15 @@ class DateTensor(tensor_wrapper.TensorWrapper):
   def __sub__(self, period_tensor):
     """Subtracts a tensor of periods.
 
-    Args:
-      period_tensor: a periods.PeriodTensor object broadcastable to the shape of
-        "self".
-    Returns:
-      The new instance of DateTensor.
-
     When subtracting months or years, the resulting day of the month is
     decreased to the largest valid value if necessary. E.g. 31.03.2020 - 1 month
     = 29.02.2020, 29.02.2020 - 1 year = 28.02.2019.
+
+    Args:
+      period_tensor: a PeriodTensor object broadcastable to the shape of "self".
+
+    Returns:
+      The new instance of DateTensor.
     """
     return self + periods.PeriodTensor(-period_tensor.quantity(),
                                        period_tensor.period_type())
@@ -400,8 +414,8 @@ def _num_days_in_month(month, year):
   """Returns number of days in a given month of a given year."""
   days_in_months = tf.constant(_DAYS_IN_MONTHS_COMBINED, tf.int32)
   is_leap = date_utils.is_leap_year(year)
-  return tf.gather(
-      days_in_months, month + 12 * tf.dtypes.cast(is_leap, tf.int32))
+  return tf.gather(days_in_months,
+                   month + 12 * tf.dtypes.cast(is_leap, tf.int32))
 
 
 def convert_to_date_tensor(date_inputs):
@@ -427,6 +441,9 @@ def convert_to_date_tensor(date_inputs):
   """
   if isinstance(date_inputs, DateTensor):
     return date_inputs
+
+  if hasattr(date_inputs, "year"):  # Case 1.
+    return from_datetimes(date_inputs)
 
   if isinstance(date_inputs, np.ndarray):  # Case 2.
     date_inputs = date_inputs.astype("datetime64[D]")
@@ -466,14 +483,17 @@ def from_datetimes(datetimes):
     DateTensor object.
 
   #### Example
+
   ```python
   import datetime
 
   dates = [datetime.date(2015, 4, 15), datetime.date(2017, 12, 30)]
-  date_tensor = from_datetimes(dates)
+  date_tensor = tff.datetime.dates_from_datetimes(dates)
   ```
-
   """
+  if isinstance(datetimes, (datetime.date, datetime.datetime)):
+    return from_year_month_day(datetimes.year, datetimes.month, datetimes.day,
+                               validate=False)
   years = tf.constant([dt.year for dt in datetimes], dtype=tf.int32)
   months = tf.constant([dt.month for dt in datetimes], dtype=tf.int32)
   days = tf.constant([dt.day for dt in datetimes], dtype=tf.int32)
@@ -494,6 +514,7 @@ def from_np_datetimes(np_datetimes):
     DateTensor object.
 
   #### Example
+
   ```python
   import datetime
   import numpy as np
@@ -503,7 +524,7 @@ def from_np_datetimes(np_datetimes):
      [datetime.date(2020, 9, 15), datetime.date(2020, 12, 27)]],
      dtype=np.datetime64)
 
-  date_tensor = from_np_datetimes(date_tensor_np)
+  date_tensor = tff.datetime.dates_from_np_datetimes(date_tensor_np)
   ```
   """
 
@@ -526,10 +547,10 @@ def from_tuples(year_month_day_tuples, validate=True):
     DateTensor object.
 
   #### Example
-  ```python
-  date_tensor = from_tuples([(2015, 4, 15), (2017, 12, 30)])
-  ```
 
+  ```python
+  date_tensor = tff.datetime.dates_from_tuples([(2015, 4, 15), (2017, 12, 30)])
+  ```
   """
   years, months, days = [], [], []
   for t in year_month_day_tuples:
@@ -558,11 +579,12 @@ def from_year_month_day(year, month, day, validate=True):
     DateTensor object.
 
   #### Example
+
   ```python
   year = tf.constant([2015, 2017], dtype=tf.int32)
   month = tf.constant([4, 12], dtype=tf.int32)
   day = tf.constant([15, 30], dtype=tf.int32)
-  date_tensor = from_year_month_day(year, month, day)
+  date_tensor = tff.datetime.dates_from_year_month_day(year, month, day)
   ```
   """
   year = tf.convert_to_tensor(year, tf.int32)
@@ -571,17 +593,27 @@ def from_year_month_day(year, month, day, validate=True):
 
   control_deps = []
   if validate:
-    control_deps.append(tf.debugging.assert_positive(year))
     control_deps.append(
-        tf.debugging.assert_greater_equal(month, constants.Month.JANUARY.value))
+        tf.debugging.assert_positive(year, message="Year must be positive."))
     control_deps.append(
-        tf.debugging.assert_less_equal(month, constants.Month.DECEMBER.value))
-    control_deps.append(tf.debugging.assert_positive(day))
+        tf.debugging.assert_greater_equal(
+            month,
+            constants.Month.JANUARY.value,
+            message=f"Month must be >= {constants.Month.JANUARY.value}"))
+    control_deps.append(
+        tf.debugging.assert_less_equal(
+            month,
+            constants.Month.DECEMBER.value,
+            message="Month must be <= {constants.Month.JANUARY.value}"))
+    control_deps.append(
+        tf.debugging.assert_positive(day, message="Day must be positive."))
     is_leap = date_utils.is_leap_year(year)
     days_in_months = tf.constant(_DAYS_IN_MONTHS_COMBINED, tf.int32)
     max_days = tf.gather(days_in_months,
                          month + 12 * tf.dtypes.cast(is_leap, np.int32))
-    control_deps.append(tf.debugging.assert_less_equal(day, max_days))
+    control_deps.append(
+        tf.debugging.assert_less_equal(
+            day, max_days, message="Invalid day-month pairing."))
     with tf.compat.v1.control_dependencies(control_deps):
       # Ensure years, months, days themselves are under control_deps.
       year = tf.identity(year)
@@ -605,21 +637,23 @@ def from_ordinals(ordinals, validate=True):
     DateTensor object.
 
   #### Example
-  ```python
 
+  ```python
   ordinals = tf.constant([
     735703,  # 2015-4-12
     736693   # 2017-12-30
   ], dtype=tf.int32)
 
-  date_tensor = from_ordinals(ordinals)
+  date_tensor = tff.datetime.dates_from_ordinals(ordinals)
   ```
   """
   ordinals = tf.convert_to_tensor(ordinals, dtype=tf.int32)
 
   control_deps = []
   if validate:
-    control_deps.append(tf.debugging.assert_positive(ordinals))
+    control_deps.append(
+        tf.debugging.assert_positive(
+            ordinals, message="Ordinals must be positive."))
     with tf.compat.v1.control_dependencies(control_deps):
       ordinals = tf.identity(ordinals)
 
@@ -643,17 +677,18 @@ def from_tensor(tensor, validate=True):
     DateTensor object.
 
   #### Example
-  ```python
 
+  ```python
   tensor = tf.constant([[2015, 4, 15], [2017, 12, 30]], dtype=tf.int32)
-  date_tensor = from_tensor(tensor)
+  date_tensor = tff.datetime.dates_from_tensor(tensor)
   ```
   """
   tensor = tf.convert_to_tensor(tensor, dtype=tf.int32)
-  return from_year_month_day(year=tensor[..., 0],
-                             month=tensor[..., 1],
-                             day=tensor[..., 2],
-                             validate=validate)
+  return from_year_month_day(
+      year=tensor[..., 0],
+      month=tensor[..., 1],
+      day=tensor[..., 2],
+      validate=validate)
 
 
 def random_dates(*, start_date, end_date, size=1, seed=None, name=None):
@@ -664,28 +699,6 @@ def random_dates(*, start_date, end_date, size=1, seed=None, name=None):
   uniformly distributed between the start date (inclusive) and end date
   (exclusive). Note that the dates are uniformly distributed over the calendar
   range, i.e. no holiday calendar is taken into account.
-
-  #### Example
-  ```python
-  # Import TFF.
-  import tf_quant_finance as tff
-  dates = tff.datetime
-
-  # Note that the start and end dates need to be of broadcastable shape (though
-  # not necessarily the same shape).
-  # In this example, the start dates are of shape [2] and the end dates are
-  # of a compatible but non-identical shape [1].
-  start_dates = dates_from_tuples([
-    (2020, 5, 16),
-    (2020, 6, 13)
-  ])
-  end_dates = dates_from_tuples([(2021, 5, 21)])
-  size = 3  # Generate 3 dates for each pair of (start, end date).
-  sample = dates.random_dates(start_date=start_dates, end_date=end_dates,
-                              size=size)
-  # sample is a DateTensor of shape [3, 2]. The [3] is from the size and [2] is
-  # the common broadcast shape of start and end date.
-  ```
 
   Args:
     start_date: DateTensor of arbitrary shape. The start dates of the range from
@@ -703,6 +716,25 @@ def random_dates(*, start_date, end_date, size=1, seed=None, name=None):
   Returns:
     A DateTensor of shape [size] + dates_shape where dates_shape is the common
     broadcast shape for (start_date, end_date).
+
+  #### Example
+
+  ```python
+  # Note that the start and end dates need to be of broadcastable shape (though
+  # not necessarily the same shape).
+  # In this example, the start dates are of shape [2] and the end dates are
+  # of a compatible but non-identical shape [1].
+  start_dates = tff.datetime.dates_from_tuples([
+    (2020, 5, 16),
+    (2020, 6, 13)
+  ])
+  end_dates = tff.datetime.dates_from_tuples([(2021, 5, 21)])
+  size = 3  # Generate 3 dates for each pair of (start, end date).
+  sample = tff.datetime.random_dates(start_date=start_dates, end_date=end_dates,
+                              size=size)
+  # sample is a DateTensor of shape [3, 2]. The [3] is from the size and [2] is
+  # the common broadcast shape of start and end date.
+  ```
   """
   with tf.name_scope(name or "random_dates"):
     size = tf.reshape(

@@ -18,51 +18,90 @@
 import numpy as np
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance import math
+import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
+@test_util.run_all_in_graph_and_eager_modes
 class GradientTest(tf.test.TestCase):
 
-  @test_util.run_in_graph_and_eager_modes
   def test_forward_gradient(self):
     t = tf.range(1, 3, dtype=tf.float32)  # Shape [2]
     func = lambda t: tf.stack([t, t ** 2, t ** 3], axis=0)  # Shape [3, 2]
     with self.subTest("EagerExecution"):
-      fwd_grad = self.evaluate(math.fwd_gradient(func, t))
+      fwd_grad = self.evaluate(tff.math.fwd_gradient(func, t))
       self.assertEqual(fwd_grad.shape, (3, 2))
       np.testing.assert_allclose(fwd_grad, [[1., 1.], [2., 4.], [3., 12.]])
     with self.subTest("GraphExecution"):
       @tf.function
       def grad_computation():
         y = func(t)
-        return math.fwd_gradient(y, t)
+        return tff.math.fwd_gradient(y, t)
       fwd_grad = self.evaluate(grad_computation())
       self.assertEqual(fwd_grad.shape, (3, 2))
       np.testing.assert_allclose(fwd_grad, [[1., 1.], [2., 4.], [3., 12.]])
+
+  def test_forward_unconnected_gradient(self):
+    t = tf.range(1, 3, dtype=tf.float32)  # Shape [2]
+    zeros = tf.zeros([2], dtype=t.dtype)
+    func = lambda t: tf.stack([zeros, zeros, zeros], axis=0)  # Shape [3, 2]
+    expected_result = [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]
+    with self.subTest("EagerExecution"):
+      fwd_grad = self.evaluate(tff.math.fwd_gradient(
+          func, t, unconnected_gradients=tf.UnconnectedGradients.ZERO))
+      self.assertEqual(fwd_grad.shape, (3, 2))
+      np.testing.assert_allclose(fwd_grad, expected_result)
+    with self.subTest("GraphExecution"):
+      @tf.function
+      def grad_computation():
+        y = func(t)
+        return tff.math.fwd_gradient(
+            y, t, unconnected_gradients=tf.UnconnectedGradients.ZERO)
+      fwd_grad = self.evaluate(grad_computation())
+      self.assertEqual(fwd_grad.shape, (3, 2))
+      np.testing.assert_allclose(fwd_grad, expected_result)
 
   def test_backward_gradient(self):
     t = tf.range(1, 3, dtype=tf.float32)  # Shape [2]
     func = lambda t: tf.stack([t, t ** 2, t ** 3], axis=0)  # Shape [3, 2]
     with self.subTest("EagerExecution"):
-      backward_grad = self.evaluate(math.gradients(func, t))
+      backward_grad = self.evaluate(tff.math.gradients(func, t))
       self.assertEqual(backward_grad.shape, (2,))
       np.testing.assert_allclose(backward_grad, [6., 17.])
     with self.subTest("GraphExecution"):
       @tf.function
       def grad_computation():
         y = func(t)
-        return math.gradients(y, t)
+        return tff.math.gradients(y, t)
       backward_grad = self.evaluate(grad_computation())
       self.assertEqual(backward_grad.shape, (2,))
       np.testing.assert_allclose(backward_grad, [6., 17.])
 
-  @test_util.run_in_graph_and_eager_modes
+  def test_backward_unconnected_gradient(self):
+    t = tf.range(1, 3, dtype=tf.float32)  # Shape [2]
+    zeros = tf.zeros([2], dtype=t.dtype)
+    expected_result = [0.0, 0.0]
+    func = lambda t: tf.stack([zeros, zeros, zeros], axis=0)  # Shape [3, 2]
+    with self.subTest("EagerExecution"):
+      backward_grad = self.evaluate(tff.math.gradients(
+          func, t, unconnected_gradients=tf.UnconnectedGradients.ZERO))
+      self.assertEqual(backward_grad.shape, (2,))
+      np.testing.assert_allclose(backward_grad, expected_result)
+    with self.subTest("GraphExecution"):
+      @tf.function
+      def grad_computation():
+        y = func(t)
+        return tff.math.gradients(
+            y, t, unconnected_gradients=tf.UnconnectedGradients.ZERO)
+      backward_grad = self.evaluate(grad_computation())
+      self.assertEqual(backward_grad.shape, (2,))
+      np.testing.assert_allclose(backward_grad, expected_result)
+
   def test_make_val_and_grad_fn(self):
     minimum = np.array([1.0, 1.0])
     scales = np.array([2.0, 3.0])
 
-    @math.make_val_and_grad_fn
+    @tff.math.make_val_and_grad_fn
     def quadratic(x):
       return tf.reduce_sum(input_tensor=scales * (x - minimum)**2)
 

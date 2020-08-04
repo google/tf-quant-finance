@@ -15,6 +15,29 @@ py_library(
     ],
 )
 
+py_library(
+    name = "utils",
+    srcs = ["utils.py"],
+    srcs_version = "PY3",
+    deps = [
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "utils_test",
+    size = "small",
+    srcs = ["utils_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":utils",
+        # test util,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
 filegroup(
     name = "docs",
     srcs = [

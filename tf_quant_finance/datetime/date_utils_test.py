@@ -20,11 +20,11 @@ import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
 
-from tf_quant_finance.datetime import date_utils
 from tf_quant_finance.datetime import test_data
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 dates = tff.datetime
+date_utils = tff.datetime.utils
 
 
 @test_util.run_all_in_graph_and_eager_modes

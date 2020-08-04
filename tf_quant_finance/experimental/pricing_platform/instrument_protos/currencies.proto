@@ -1,0 +1,50 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+syntax = "proto3";
+
+package tf_quant_finance.experimental.pricing_platform.instrument_protos;
+
+option java_multiple_files = true;
+
+// Currencies
+enum Currency {
+  CURRENCY_UNDEFINED = 0;
+
+  // G10 Currencies.
+  USD = 1;   // US dollar
+  GBP = 2;   // British Pound
+  EUR = 3;   // Euro
+  JPY = 4;   // Japanese Yen
+  AUD = 5;   // Australian Dollar
+  NZD = 6;   // New Zealand Dollar
+  CAD = 7;   // Canadian Dollar
+  CHF = 8;   // Swiss Franc
+  NOK = 9;   // Norwegian Krone
+  SEK = 10;  // Swedish Krona
+
+  // Not formally G10 but often included nevertheless
+  DKK = 11;  // Danish Krone
+
+  // Non G10 currencies.
+  MXN = 12;
+  CNY = 13;
+  RUB = 14;
+  HKD = 15;
+  SGD = 16;
+  TRY = 17;
+  KRW = 18;
+  ZAR = 19;
+  INR = 20;
+  BRL = 21;
+}

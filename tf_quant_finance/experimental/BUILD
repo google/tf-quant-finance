@@ -13,6 +13,7 @@ py_library(
         "//tf_quant_finance/experimental/finite_difference",
         "//tf_quant_finance/experimental/instruments",
         "//tf_quant_finance/experimental/lsm_algorithm",
+        "//tf_quant_finance/experimental/pricing_platform",
     ],
 )
 
@@ -31,6 +32,7 @@ py_library(
     srcs = ["io.py"],
     srcs_version = "PY3",
     deps = [
+        "//tf_quant_finance/experimental/pricing_platform/instrument_protos",
         # numpy dep,
         # tensorflow dep,
     ],
@@ -41,6 +43,7 @@ py_test(
     size = "small",
     srcs = ["io_test.py"],
     python_version = "PY3",
+    shard_count = 2,
     deps = [
         "//tf_quant_finance",
         # test util,

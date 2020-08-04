@@ -1,0 +1,97 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Instrument protos for swaps.
+syntax = "proto3";
+
+package tf_quant_finance.experimental.pricing_platform.instrument_protos;
+
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/business_days.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/currencies.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/date.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/daycount_conventions.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/decimal.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/metadata.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/period.proto";
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/rate_indices.proto";
+
+// Floating swap leg description
+message FloatingLeg {
+  // Underlying currency
+  Currency currency = 1;
+  // Reset frequency
+  Period coupon_frequency = 2;
+  // Notional amount for the leg
+  Decimal notional_amount = 3;
+  // Floating rate type
+  DayCountConvention daycount_convention = 4;
+  // Business day convention
+  BusinessDayConvention business_day_convention = 5;
+  // Settlement days
+  int32 settlement_days = 6;
+  // Holiday calendar
+  BankHolidays bank_holidays = 7;
+  Period reset_frequency = 8;
+  // Coupon frequency
+  RateIndex floating_rate_type = 9;
+  // Float leg day count convention.
+  // Coupon spread
+  Decimal spread = 10;
+}
+
+message FixedLeg {
+  // Underlying currency
+  Currency currency = 1;
+  // Coupon frequency
+  Period coupon_frequency = 2;
+  // Notional amount for the leg
+  Decimal notional_amount = 3;
+  // Fixed leg day count convention.
+  DayCountConvention daycount_convention = 4;
+  // Business day convention
+  BusinessDayConvention business_day_convention = 5;
+  // Settlement days
+  int32 settlement_days = 6;
+  // Holiday calendar
+  BankHolidays bank_holidays = 7;
+  // Fixed leg rate
+  Decimal fixed_rate = 8;
+}
+
+// Swap leg type. Either fixed or floating type. Can be extended to
+message SwapLeg {
+  oneof type {
+    FloatingLeg floating_leg = 1;
+    FixedLeg fixed_leg = 2;
+  }
+}
+
+// Interest rate swap proto
+message InterestRateSwap {
+  // The effective date of the instrument. Effective date is the date at which
+  // the interest rate accumulation starts.
+  Date effective_date = 2;
+  // Maturity date of the contract
+  Date maturity_date = 3;
+  // Denominated currency
+  Currency currency = 4;
+  // Receiver leg
+  SwapLeg receive_leg = 5;
+  // Payer leg
+  SwapLeg pay_leg = 6;
+  // Holiday calendar
+  BankHolidays bank_holidays = 7;
+  // Common metadata needed to identify the trade.
+  InstrumentMetadata metadata = 8;
+}

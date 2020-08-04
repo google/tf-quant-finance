@@ -1,0 +1,104 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+syntax = "proto3";
+
+package tf_quant_finance.experimental.pricing_platform.instrument_protos;
+
+option java_multiple_files = true;
+
+
+// Supported rate indices
+message  RateIndex {
+ RateIndexName name = 1;
+ RateIndexType type = 2;
+ // Source of the index info (e.g., Reuters, Bloomberg)
+ string source = 3;
+}
+
+
+// Supported rate curve indices.
+enum RateIndexType {
+  RATE_INDEX_TYPE_UNKNOWN = 0;
+  OIS = 1;
+  SOFR = 2;  // USD
+  SONIA = 3;  // GBP
+  ESTER = 4;  // EUR
+  SARON = 5;  // CHF
+  LIBOR_OVERNIGHT = 6;
+  LIBOR_1W = 7;
+  LIBOR_1M = 8;
+  LIBOR_3M = 9;
+  LIBOR_6M = 10;
+  LIBOR_1Y = 11;
+  EURIBOR_OVERNIGHT = 12;  // EUR
+  EURIBOR_1W = 13;  // EUR
+  EURIBOR_1M = 14;  // EUR
+  EURIBOR_3M = 15;  // EUR
+  EURIBOR_6M = 16;  // EUR
+  EURIBOR_1Y = 17;  // EUR
+  STIBOR_OVERNIGHT = 18;  // SEK
+  STIBOR_1W = 19;  // SEK
+  STIBOR_1M = 20;  // SEK
+  STIBOR_3M = 21;  // SEK
+  STIBOR_6M = 22;  // SEK
+}
+
+
+// TODO(b/159106041): Complete RateIndexType definitions
+enum RateIndexName {
+  // As in ISDA 2006 Definitions. See, e.g.,
+  // https://spec.edmcouncil.org/fibo/ontology/IND/InterestRates/InterestRates/InterestRateBenchmark
+  RATE_INDEX_NAME_UNKNOWN = 0;  // LIBOR rate
+  AUD_LIBOR_BBA = 1;
+  AUD_AONIA_OIS_COMPOUND = 2;
+  CAD_LIBOR_BBA = 3;
+  CAD_CORRA_OIS_COMPOUND = 4;
+  CHF_LIBOR_BBA = 5;
+  CHF_TOIS_OIS_COMPOUND = 6;
+  CHF_SARON_OIS_COMPOUND = 7;  // Substitute for TOIS
+  USD_LIBOR_BBA = 8;
+  USD_SOFR_COMPOUND = 9;
+  USD_TBILL_H15 = 10;
+  GBP_LIBOR_BBA = 11;
+  GBP_SONIA_COMPOUND = 12;
+  EUR_EONIA_OIS_COMPOUND = 13;
+  EUR_LIBOR_BBA = 14;
+  JPY_LIBOR_BBA = 15;
+  JPY_TONA_OIS_COMPOUND = 16;
+
+  // USER-specific rates
+  USD_LIBOR = 1001;
+  GBP_LIBOR = 1002;
+  CHF_LIBOR = 1003;
+  JPY_LIBOR = 1004;
+  EUR_LIBOR = 1005;
+  AUD_LIBOR = 1006;
+  CAD_LIBOR = 1007;
+  USD_OIS = 1008;
+  USD_SOFR = 1009;
+  GBP_OIS = 1010;
+  GBP_SOFR = 1011;
+  CHF_OIS = 1012;
+  CHF_SOFR = 1013;
+  JPY_OIS = 1014;
+  JPY_SOFR = 1015;
+  EUR_OIS = 1016;
+  EUR_SOFR = 1017;
+  AUD_SOFR = 1018;
+  CAD_SOFR = 1019;
+  AUD_OIS = 1020;
+  CAD_OIS = 1021;
+}
+
+

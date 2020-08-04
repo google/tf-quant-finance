@@ -150,6 +150,33 @@ class DayCountsTest(tf.test.TestCase):
         1.008333333,
         0.497222222], atol=1e-5)
 
+  def test_actual_actual_isda(self):
+    """Test Actual/Actual ISDA day count convention.
+
+    The test cases are benchmarked against Actual/Actual daycount of QuantLib
+    """
+    start_date = dateslib.dates_from_tuples([
+        (2019, 9, 21),
+        (2007, 1, 15),
+        (2020, 6, 15),
+        (2020, 12, 31),
+    ])
+    end_date = dateslib.dates_from_tuples([
+        (2020, 9, 21),
+        (2007, 2, 15),
+        (2020, 6, 16),
+        (2023, 12, 31),
+    ])
+    yf = self.evaluate(
+        dateslib.daycount_actual_actual_isda(
+            start_date=start_date, end_date=end_date,
+            dtype=tf.float64))
+    self.assertAllClose(yf, [
+        1.0007635302043567,
+        0.08493150684931511,
+        0.0027322404371585285,
+        2.9999925144097612], atol=1e-14, rtol=1e-14)
+
 
 if __name__ == '__main__':
   tf.test.main()

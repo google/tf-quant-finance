@@ -1,0 +1,32 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+syntax = "proto3";
+
+package tf_quant_finance.experimental.pricing_platform.instrument_protos;
+
+option java_multiple_files = true;
+
+// Represents decimal numbers exactly. Protobufs don't have native support for
+// decimals. A commonly used pattern to represent decimals is shown here:
+// https://github.com/googleapis/googleapis/blob/master/google/type/money.proto
+// This is also a pattern recommended here:
+// https://docs.microsoft.com/en-us/dotnet/architecture/grpc-for-wcf-developers/protobuf-data-types#decimals
+message Decimal {
+  // The number of units before the decimal point. For example, if the number
+  // is 12.38484 then units = 12.
+  int64 units = 1;
+  // The fractional part expressed as nanos (i.e. as multiple of 1e-9). For
+  // example, if the number is 12.38484, then units = 12 and nanos = 384,840,000
+  sfixed32 nanos = 2;
+}

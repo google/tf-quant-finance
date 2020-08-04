@@ -31,12 +31,12 @@ class JoinedItoProcessTest(tf.test.TestCase):
     instant_forward_rate_fn_1 = lambda t: 2 * [0.2]
     process_1 = tff.models.hull_white.VectorHullWhiteModel(
         dim=2, mean_reversion=[0.1, 0.2], volatility=[0.1, 0.2],
-        instant_forward_rate_fn=instant_forward_rate_fn_1,
+        initial_discount_rate_fn=instant_forward_rate_fn_1,
         dtype=dtype)
     instant_forward_rate_fn_2 = lambda t: 3 * [0.1]
     process_2 = tff.models.hull_white.VectorHullWhiteModel(
         dim=3, mean_reversion=[0.3, 0.4, 0.5], volatility=[0.1, 0.1, 0.1],
-        instant_forward_rate_fn=instant_forward_rate_fn_2,
+        initial_discount_rate_fn=instant_forward_rate_fn_2,
         dtype=dtype)
     # Correlation structure
     corr_1 = [[1.0, 0.3, 0.2],

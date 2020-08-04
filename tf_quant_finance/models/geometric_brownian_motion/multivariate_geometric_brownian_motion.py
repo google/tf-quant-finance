@@ -129,11 +129,13 @@ class MultivariateGeometricBrownianMotion(ito_process.ItoProcess):
       """Volatility function of the GBM."""
       del t
       # Shape [num_samples, dim]
-      vols = tf.expand_dims(self._vols * x, axis=-1)
+      vols = self._vols * x
       if self._corr_matrix is not None:
+        vols = tf.expand_dims(vols, axis=-1)
         cholesky = tf.linalg.cholesky(self._corr_matrix)
-        vols = vols * cholesky
-      return vols
+        return vols * cholesky
+      else:
+        return tf.linalg.diag(vols)
     return _vol_fn
 
   def sample_paths(self,
@@ -157,8 +159,14 @@ class MultivariateGeometricBrownianMotion(ito_process.ItoProcess):
       random_type: Enum value of `RandomType`. The type of (quasi)-random
         number generator to use to generate the paths.
         Default value: None which maps to the standard pseudo-random numbers.
-      seed: Python `int`. The random seed to use.
-        Default value: None, i.e., no seed is set.
+      seed: Seed for the random number generator. The seed is
+        only relevant if `random_type` is one of
+        `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
+          STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
+        `HALTON_RANDOMIZED` the seed should be an Python integer. For
+        `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as an integer
+        `Tensor` of shape `[2]`.
+        Default value: `None` which means no seed is set.
       skip: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
         Halton sequence to skip. Used only when `random_type` is 'SOBOL',
         'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.

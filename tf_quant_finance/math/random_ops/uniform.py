@@ -61,7 +61,7 @@ def uniform(
     seed: Seed for the random number generator. The seed is
       only relevant if `random_type` is one of
       `[STATELESS, PSEUDO, HALTON_RANDOMIZED]`. For `PSEUDO`, and
-      `HALTON_RANDOMIZED` the seed should be an integer scalar `Tensor`. For
+      `HALTON_RANDOMIZED` the seed should be a Python integer. For
       `STATELESS` must be supplied as an integer `Tensor` of shape `[2]`.
       Default value: `None` which means no seed is set.
     name: Python `str` name prefixed to ops created by this class.

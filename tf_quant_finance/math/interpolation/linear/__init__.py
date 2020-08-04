@@ -15,14 +15,11 @@
 """Linear interpolation."""
 
 
-from tf_quant_finance.math.interpolation.linear import linear_interpolation_v2
 from tf_quant_finance.math.interpolation.linear.linear_interpolation import interpolate
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
-interpolate_v2 = linear_interpolation_v2.interpolate
 _allowed_symbols = [
     'interpolate',
-    'interpolate_v2',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

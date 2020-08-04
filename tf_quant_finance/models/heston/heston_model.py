@@ -189,8 +189,14 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       random_type: Enum value of `RandomType`. The type of (quasi)-random
         number generator to use to generate the paths.
         Default value: None which maps to the standard pseudo-random numbers.
-      seed: Python `int`. The random seed to use.
-        Default value: None, i.e., no seed is set.
+      seed: Seed for the random number generator. The seed is
+        only relevant if `random_type` is one of
+        `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
+          STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
+        `HALTON_RANDOMIZED` the seed should be an Python integer. For
+        `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as an integer
+        `Tensor` of shape `[2]`.
+        Default value: `None` which means no seed is set.
       time_step: Positive Python float to denote time discretization parameter.
       skip: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
         Halton sequence to skip. Used only when `random_type` is 'SOBOL',

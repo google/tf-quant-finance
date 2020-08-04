@@ -88,7 +88,7 @@ class HullWhiteModel1F(vector_hull_white.VectorHullWhiteModel):
   def __init__(self,
                mean_reversion,
                volatility,
-               instant_forward_rate_fn,
+               initial_discount_rate_fn,
                dtype=None,
                name=None):
     """Initializes Hull-White Model.
@@ -110,11 +110,12 @@ class HullWhiteModel1F(vector_hull_white.VectorHullWhiteModel):
       volatility: A real positive `Tensor` of the same `dtype` as
         `mean_reversion` or a callable with the same specs as above.
         Corresponds to the lond run price variance.
-      instant_forward_rate_fn: A Python callable that accepts expiry time as a
-        scalar `Tensor` of the same `dtype` as `mean_reversion` and returns a
-        `Tensor` of shape `[1]`.
-        Corresponds to the instanteneous forward rate at the present time for
-        the input expiry time.
+      initial_discount_rate_fn: A Python callable that accepts expiry time as a
+        real `Tensor` of the same `dtype` as `mean_reversion` and returns a
+        `Tensor` of same shape as the output.
+        Corresponds to the initial discount rates at time `t=0` such that
+        P(0,t) = exp(-y(t) * t) where P(0,t) denotes the initial discount bond
+        prices.
       dtype: The default dtype to use when converting values to `Tensor`s.
         Default value: `None` which means that default dtypes inferred by
           TensorFlow are used.
@@ -122,5 +123,5 @@ class HullWhiteModel1F(vector_hull_white.VectorHullWhiteModel):
         Default value: `None` which maps to the default name `hull_white_model`.
     """
     super(HullWhiteModel1F, self).__init__(
-        1, mean_reversion, volatility, instant_forward_rate_fn,
+        1, mean_reversion, volatility, initial_discount_rate_fn,
         corr_matrix=None, dtype=dtype, name=name)

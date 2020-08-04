@@ -45,7 +45,7 @@ higher level components.
 
 The easiest way to get started with the library is via the pip package.
 
-Note that library requires Python 3 and Tensorflow >= 2.1.
+Note that library requires Python 3.7 and Tensorflow >= 2.2.
 
 First please install the most recent version of TensorFlow by following
 the [TensorFlow installation instructions](https://tensorflow.org/install).
@@ -102,11 +102,13 @@ development are:
 See [`tf_quant_finance/examples/`](https://github.com/google/tf-quant-finance/tree/master/tf_quant_finance/examples)
 for end-to-end examples. It includes tutorial notebooks such as:
 
-  * [American Option pricing under the Black-Scholes model](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/American_Option_Black_Scholes.ipynb)
-  * [Monte Carlo via Euler Scheme](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Monte_Carlo_Euler_Scheme.ipynb)
-  * [Black Scholes: Price and Implied Vol](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Black_Scholes_Price_and_Implied_Vol.ipynb).
-  * [Root search using Brent's method](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Root_Search.ipynb)
-  * [Optimization](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Optimization.ipynb)
+  *   [American Option pricing under the Black-Scholes model](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/American_Option_Black_Scholes.ipynb)
+  *   [Monte Carlo via Euler Scheme](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Monte_Carlo_Euler_Scheme.ipynb)
+  *   [Black Scholes: Price and Implied Vol](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Black_Scholes_Price_and_Implied_Vol.ipynb)
+  *   [Forward and Backward mode gradients in TFF](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Forward_Backward_Diff.ipynb)
+  *   [Root search using Brent's method](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Root_Search.ipynb)
+  *   [Optimization](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Optimization.ipynb)
+  *   [Swap Curve Fitting](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Swap_Curve_Fitting.ipynb)
 
 The above links will open Jupyter Notebooks in Colab.
 
@@ -126,10 +128,11 @@ This library has the following dependencies:
 
 1.  Bazel
 2.  Python 3 (Bazel uses Python 3 by default)
-3.  TensorFlow nightly build (most functions should work with TensorFLow 2.1)
+3.  TensorFlow nightly build (most functions should work with TensorFLow 2.2)
 4.  TensorFlow Probability nightly build
 5.  Numpy version 1.16 or higher
 6.  Attrs
+7.  Dataclasses (not needed if your Python version >= 3.7)
 
 This library requires the
 [Bazel](https://bazel.build/) build system. Please follow the
@@ -141,7 +144,7 @@ You can install TensorFlow and related dependencies using the ```pip3 install```
 command:
 
 ```sh
-pip3 install --upgrade tf-nightly tfp-nightly numpy==1.16.0 attrs
+pip3 install --upgrade tf-nightly tfp-nightly numpy==1.16.0 attrs dataclasses
 ```
 
 ### Commonly used commands

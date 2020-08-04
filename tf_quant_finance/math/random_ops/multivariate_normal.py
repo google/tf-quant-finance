@@ -135,11 +135,10 @@ def multivariate_normal(sample_shape,
       only relevant if `random_type` is one of
       `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
         STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
-      `HALTON_RANDOMIZED` the seed should be an integer scalar `Tensor`. For
+      `HALTON_RANDOMIZED` the seed should be a Python integer. For
       `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as an integer
       `Tensor` of shape `[2]`.
       Default value: `None` which means no seed is set.
-      Default value: None which means no seed is set.
     dtype: Optional `dtype`. The dtype of the input and output tensors.
       Default value: None which maps to the default dtype inferred by
       TensorFlow.
@@ -256,35 +255,24 @@ def _mvnormal_pseudo(sample_shape,
                      seed=None,
                      dtype=None):
   """Returns normal draws using the tfp multivariate normal distribution."""
-  if scale_matrix is not None:
-    scale_matrix = tf.convert_to_tensor(scale_matrix, dtype=dtype,
-                                        name='scale_matrix')
-  else:
-    if covariance_matrix is not None:
-      covariance_matrix = tf.convert_to_tensor(covariance_matrix, dtype=dtype,
-                                               name='covariance_matrix')
-      scale_matrix = tf.linalg.cholesky(covariance_matrix)
-  if scale_matrix is None and covariance_matrix is None:
-    scale_matrix = tf.linalg.eye(tf.shape(mean)[-1], dtype=mean.dtype)
-  dim = scale_matrix.shape.as_list()[-1]
-  if mean is None:
-    mean = tf.constant(0.0, dtype=scale_matrix.dtype,
-                       name='mean')
-    batch_shape = scale_matrix.shape.as_list()[:-2]
-  else:
-    batch_shape = mean.shape.as_list()[:-1]
-  output_shape = sample_shape + batch_shape + [dim]
+  (mean, scale_matrix,
+   batch_shape, _, dtype) = _process_mean_scale(mean, scale_matrix,
+                                                covariance_matrix, dtype)
+  output_shape = sample_shape + batch_shape
   if random_type == RandomType.PSEUDO:
     samples = tf.random.normal(shape=output_shape,
-                               dtype=scale_matrix.dtype,
+                               dtype=dtype,
                                seed=seed)
   else:
     if seed is None:
       raise ValueError('`seed` should be specified if the `random_type` is '
                        '`STATELESS` or `STATELESS_ANTITHETIC`')
     samples = tf.random.stateless_normal(
-        shape=output_shape, dtype=scale_matrix.dtype, seed=seed)
-  return mean + tf.linalg.matvec(scale_matrix, samples)
+        shape=output_shape, dtype=dtype, seed=seed)
+  if scale_matrix is None:
+    return mean + samples
+  else:
+    return mean + tf.linalg.matvec(scale_matrix, samples)
 
 
 def _mvnormal_pseudo_antithetic(sample_shape,
@@ -305,8 +293,6 @@ def _mvnormal_pseudo_antithetic(sample_shape,
       0,
       message='First dimension of `sample_shape` should be even for '
       'PSEUDO_ANTITHETIC random type')
-  # TODO(b/140722819): Make sure control_dependencies are trigerred with XLA
-  # compilation.
   with tf.control_dependencies([is_even_dim]):
     antithetic_shape = [sample_zero_dim // 2] + sample_shape[1:]
   if random_type == RandomType.PSEUDO_ANTITHETIC:
@@ -379,21 +365,9 @@ def _mvnormal_quasi(sample_shape,
                     dtype=None,
                     **kwargs):
   """Returns normal draws using low-discrepancy sequences."""
-  if scale_matrix is None and covariance_matrix is None:
-    scale_matrix = tf.linalg.eye(tf.shape(mean)[-1], dtype=mean.dtype)
-  elif scale_matrix is None and covariance_matrix is not None:
-    covariance_matrix = tf.convert_to_tensor(covariance_matrix, dtype=dtype,
-                                             name='covariance_matrix')
-    scale_matrix = tf.linalg.cholesky(covariance_matrix)
-  else:
-    scale_matrix = tf.convert_to_tensor(scale_matrix, dtype=dtype,
-                                        name='scale_matrix')
-  scale_shape = scale_matrix.shape
-  dim = scale_shape[-1]
-  if mean is None:
-    mean = tf.zeros([dim], dtype=scale_matrix.dtype)
-  # Batch shape of the output
-  batch_shape = tf.broadcast_static_shape(mean.shape, scale_shape[:-1])
+  (mean, scale_matrix,
+   batch_shape, dim, dtype) = _process_mean_scale(mean, scale_matrix,
+                                                  covariance_matrix, dtype)
   # Reverse elements of the batch shape
   batch_shape_reverse = tf.TensorShape(reversed(batch_shape))
   # Transposed shape of the output
@@ -409,7 +383,7 @@ def _mvnormal_quasi(sample_shape,
     # Shape [num_samples, dim] of the Sobol samples
     low_discrepancy_seq = sobol.sample(
         dim=dim, num_results=num_samples, skip=skip,
-        dtype=mean.dtype)
+        dtype=dtype)
   else:  # HALTON or HALTON_RANDOMIZED random_dtype
     if 'randomization_params' in kwargs:
       randomization_params = kwargs['randomization_params']
@@ -424,7 +398,7 @@ def _mvnormal_quasi(sample_shape,
         randomization_params=randomization_params,
         seed=seed,
         validate_args=validate_args,
-        dtype=mean.dtype)
+        dtype=dtype)
 
   # Transpose to the shape [dim, num_samples]
   low_discrepancy_seq = tf.transpose(low_discrepancy_seq)
@@ -440,4 +414,30 @@ def _mvnormal_quasi(sample_shape,
   # Apply inverse Normal CDF to Sobol samples to obtain the corresponding
   # Normal samples
   samples = tf.math.erfinv((low_discrepancy_seq - 0.5) * 2)* _SQRT_2
-  return  mean + tf.linalg.matvec(scale_matrix, samples)
+  if scale_matrix is None:
+    return mean + samples
+  else:
+    return mean + tf.linalg.matvec(scale_matrix, samples)
+
+
+def _process_mean_scale(mean, scale_matrix, covariance_matrix, dtype):
+  """Extracts correct mean, scale, batch_shape, dimension, and dtype."""
+  if scale_matrix is not None:
+    scale_matrix = tf.convert_to_tensor(scale_matrix, dtype=dtype,
+                                        name='scale_matrix')
+  else:
+    if covariance_matrix is not None:
+      covariance_matrix = tf.convert_to_tensor(covariance_matrix, dtype=dtype,
+                                               name='covariance_matrix')
+      scale_matrix = tf.linalg.cholesky(covariance_matrix)
+  if mean is None:
+    mean = 0.0
+    # batch_shape includes the dimension of the samples
+    batch_shape = scale_matrix.shape.as_list()[:-1]
+    dim = scale_matrix.shape.as_list()[-1]
+    dtype = scale_matrix.dtype
+  else:
+    batch_shape = mean.shape.as_list()
+    dim = mean.shape.as_list()[-1]
+    dtype = mean.dtype
+  return mean, scale_matrix, batch_shape, dim, dtype

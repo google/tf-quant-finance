@@ -59,7 +59,7 @@ def create_holiday_calendar(
           ]
 
       calendar = MyCalendar()
-      holidays_index = holidays.holidays(
+      holidays_index = calendar.holidays(
           start=datetime.date(2020, 1, 1),
           end=datetime.date(2030, 12, 31))
       holidays = np.array(holidays_index.to_pydatetime(), dtype="<M8[D]")

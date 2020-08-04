@@ -57,8 +57,14 @@ def generate_mc_normal_draws(num_normal_draws,
       Halton sequence to skip. Used only when `random_type` is 'SOBOL',
       'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
       Default value: `0`.
-    seed: Seed for the random number generator. The seed is only relevant if
-      `random_type` is one of `[PSEUDO, PSEUDO_ANTITHETIC, HALTON_RANDOMIZED]`.
+      seed: Seed for the random number generator. The seed is
+        only relevant if `random_type` is one of
+        `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
+          STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
+        `HALTON_RANDOMIZED` the seed should be an Python integer. For
+        `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as an integer
+        `Tensor` of shape `[2]`.
+        Default value: `None` which means no seed is set.
     dtype: The `dtype` of the output `Tensor`.
       Default value: `None` which maps to `float32`.
     name: Python string. The name to give this op.

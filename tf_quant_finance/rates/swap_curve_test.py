@@ -80,6 +80,7 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
             fixed_leg_dc,
             pvs,
             dtype=dtype,
+            curve_tolerance=1e-5,
             initial_curve_rates=initial_curve_rates))
 
     np.testing.assert_allclose(results.times, [1.0, 2.0, 3.0, 5.0, 7.0, 10.0,
@@ -91,7 +92,7 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
     ],
                                        dtype=dtype)
     np.testing.assert_allclose(
-        results.rates, expected_discount_rates, atol=1e-6)
+        results.rates, expected_discount_rates, atol=1e-5)
 
   @parameterized.named_parameters(
       {
@@ -156,6 +157,7 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
             pvs,
             float_leg_discount_rates=discount_rates,
             float_leg_discount_times=discount_times,
+            curve_tolerance=1e-5,
             dtype=dtype,
             initial_curve_rates=initial_curve_rates))
 
@@ -163,7 +165,7 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
                                                30.0])
     self.assertFalse(results.failed)
     np.testing.assert_allclose(
-        results.rates, expected_discount_rates, atol=1e-6)
+        results.rates, expected_discount_rates, atol=1e-5)
 
   @parameterized.named_parameters(
       {
@@ -217,6 +219,7 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
             fixed_leg_cashflows,
             fixed_leg_dc,
             pvs,
+            curve_tolerance=1e-5,
             dtype=dtype,
             curve_interpolator=curve_interpolator,
             initial_curve_rates=initial_curve_rates))
@@ -231,7 +234,7 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
                                        dtype=dtype)
 
     np.testing.assert_allclose(
-        results.rates, expected_discount_rates, atol=1e-6)
+        results.rates, expected_discount_rates, atol=1e-5)
 
   @parameterized.named_parameters(
       {
@@ -295,6 +298,7 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
             fixed_leg_discount_rates=discount_rates_fixed,
             fixed_leg_discount_times=discount_times_fixed,
             present_values_settlement_times=settle_times,
+            curve_tolerance=1e-5,
             dtype=dtype,
             initial_curve_rates=initial_curve_rates))
 
@@ -308,7 +312,7 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
                                        dtype=dtype)
 
     np.testing.assert_allclose(
-        results.rates, expected_discount_rates, atol=1e-6)
+        results.rates, expected_discount_rates, atol=1e-5)
 
   @parameterized.named_parameters(
       {
@@ -372,7 +376,7 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
     ],
                                        dtype=dtype)
     np.testing.assert_allclose(
-        results.rates, expected_discount_rates, atol=1e-6)
+        results.rates, expected_discount_rates, atol=1e-5)
 
   @parameterized.named_parameters(
       {
@@ -443,7 +447,7 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
                                                30.0])
     self.assertFalse(results.failed)
     np.testing.assert_allclose(
-        results.rates, expected_discount_rates, atol=1e-6)
+        results.rates, expected_discount_rates, atol=1e-5)
 
   @parameterized.named_parameters(
       {
@@ -494,7 +498,7 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
         [0.02834814, 0.03077457, 0.03113739, 0.03130794, 0.03160892,
          0.03213901, 0.03257991], dtype=dtype)
     np.testing.assert_allclose(
-        results.rates, expected_discount_rates, atol=1e-6)
+        results.rates, expected_discount_rates, atol=1e-5)
 
 
 if __name__ == '__main__':

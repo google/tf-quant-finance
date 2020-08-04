@@ -28,7 +28,7 @@ import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
-#@test_util.run_all_in_graph_and_eager_modes
+@test_util.run_all_in_graph_and_eager_modes
 class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
   """Tests for methods for the vanilla pricing module."""
 
@@ -46,6 +46,25 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
             forwards=forwards))
     expected_prices = np.array(
         [0.0, 2.0, 2.0480684764112578, 1.0002029716043364, 2.0730313058959933])
+    self.assertArrayNear(expected_prices, computed_prices, 1e-10)
+
+  def test_option_prices_normal(self):
+    """Tests that the prices using normal model are correct."""
+    forwards = np.array([0.01, 0.02, 0.03, 0.03, 0.05])
+    strikes = np.array([0.03, 0.03, 0.03, 0.03, 0.03])
+    volatilities = np.array([0.0001, 0.001, 0.01, 0.005, 0.02])
+    expiries = 1.0
+    computed_prices = self.evaluate(
+        tff.black_scholes.option_price(
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
+            forwards=forwards,
+            is_normal_volatility=True))
+
+    expected_prices = np.array(
+        [0.0, 0.0, 0.0039894228040143, 0.0019947114020072,
+         0.0216663094117537])
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
 
   def test_price_zero_vol(self):
@@ -297,14 +316,13 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     self.assertArrayNear(binary_approximation, binary_prices, 1e-6)
 
   def test_binary_vanilla_consistency_exact(self):
-    """Tests that the binary price is the negative gradient of vanilla price.
+    """Tests that the binary price is the negative gradient of vanilla price."""
 
-      The binary call option payoff is 1 when spot > strike and 0 otherwise.
-      This payoff is the proportional to the gradient of the payoff of a vanilla
-      call option (max(S-K, 0)) with respect to K. This test verifies that this
-      relationship is satisfied. A similar relation holds true between vanilla
-      puts and binary puts.
-    """
+    # The binary call option payoff is 1 when spot > strike and 0 otherwise.
+    # This payoff is the proportional to the gradient of the payoff of a vanilla
+    # call option (max(S-K, 0)) with respect to K. This test verifies that this
+    # relationship is satisfied. A similar relation holds true between vanilla
+    # puts and binary puts.
     dtype = np.float64
     strikes = tf.constant([1.0, 2.0], dtype=dtype)
     spots = tf.constant([1.5, 1.5], dtype=dtype)
@@ -428,18 +446,17 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
                           expiries,
                           spots,
                           discount_rates,
-                          continuous_dividends=None,
-                          cost_of_carries=None,
                           barriers,
                           rebates,
                           is_barrier_down,
                           is_knock_out,
                           is_call_options,
-                          expected_price):
-    """Function tests barrier option pricing for the parameterized
-    input. The input values are from examples in the following textbook:
-    The Complete guide to Option Pricing Formulas, 2nd Edition, Page 154
-    """
+                          expected_price,
+                          continuous_dividends=None,
+                          cost_of_carries=None):
+    """Computes test barrier option prices for the parameterized inputs."""
+    # The input values are from examples in the following textbook:
+    # The Complete guide to Option Pricing Formulas, 2nd Edition, Page 154
     if cost_of_carries is not None:
       price = tff.black_scholes.barrier_price(
           volatilities=volatilities, strikes=strikes,
@@ -472,7 +489,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
           'dtype': np.float64
       })
   def test_barrier_option_dtype(self, dtype):
-    """Function tests barrier option pricing for with given data type"""
+    """Function tests barrier option pricing for with given data type."""
     spots = 100.0
     rebates = 3.0
     expiries = 0.5
@@ -530,6 +547,60 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
                              barriers, rebates, is_barrier_down,
                              is_knock_out, is_call_options])
     self.assertAllClose(price, expected_price, 10e-3)
+
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'NormalModel',
+          'is_normal_model': True,
+          'volatilities': [0.01, 0.005],
+          'expected_price': [0.3458467885511461, 0.3014786656395892],
+      }, {
+          'testcase_name': 'LognormalModel',
+          'is_normal_model': False,
+          'volatilities': [1.0, 0.5],
+          'expected_price': [0.34885593, 0.31643427],
+      })
+  def test_swaption_price(self, is_normal_model, volatilities,
+                          expected_price):
+    """Function tests swaption pricing."""
+    dtype = tf.float64
+
+    expiries = [1.0, 1.0]
+    float_leg_start_times = [[1.0, 1.25, 1.5, 1.75, 2.0, 2.0, 2.0, 2.0],
+                             [1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75]]
+    float_leg_end_times = [[1.25, 1.5, 1.75, 2.0, 2.0, 2.0, 2.0, 2.0],
+                           [1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0]]
+    fixed_leg_payment_times = [[1.25, 1.5, 1.75, 2.0, 2.0, 2.0, 2.0, 2.0],
+                               [1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0]]
+    float_leg_daycount_fractions = [[
+        0.25, 0.25, 0.25, 0.25, 0.0, 0.0, 0.0, 0.0
+    ], [0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25]]
+    fixed_leg_daycount_fractions = [[
+        0.25, 0.25, 0.25, 0.25, 0.0, 0.0, 0.0, 0.0
+    ], [0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25]]
+    fixed_leg_coupon = [0.011, 0.011]
+    discount_fn = lambda x: np.exp(-0.01 * np.array(x))
+    price = self.evaluate(
+        tff.black_scholes.swaption_price(
+            volatilities=volatilities,
+            expiries=expiries,
+            floating_leg_start_times=float_leg_start_times,
+            floating_leg_end_times=float_leg_end_times,
+            fixed_leg_payment_times=fixed_leg_payment_times,
+            floating_leg_daycount_fractions=float_leg_daycount_fractions,
+            fixed_leg_daycount_fractions=fixed_leg_daycount_fractions,
+            fixed_leg_coupon=fixed_leg_coupon,
+            floating_leg_start_times_discount_factors=discount_fn(
+                float_leg_start_times),
+            floating_leg_end_times_discount_factors=discount_fn(
+                float_leg_end_times),
+            fixed_leg_payment_times_discount_factors=discount_fn(
+                fixed_leg_payment_times),
+            is_normal_volatility=is_normal_model,
+            notional=100.,
+            dtype=dtype))
+
+    self.assertAllClose(price, expected_price, 1e-6)
 
 if __name__ == '__main__':
   tf.test.main()

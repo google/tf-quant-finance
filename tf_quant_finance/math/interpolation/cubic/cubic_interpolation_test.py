@@ -16,6 +16,8 @@
 """Tests for cubic spline interpolation."""
 
 
+from absl.testing import parameterized
+
 import numpy as np
 import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
@@ -25,14 +27,14 @@ from tensorflow.python.framework import test_util  # pylint: disable=g-direct-te
 
 
 @test_util.run_all_in_graph_and_eager_modes
-class CubicInterpolationTest(tf.test.TestCase):
+class CubicInterpolationTest(tf.test.TestCase, parameterized.TestCase):
 
-  def test_error_calc(self):
-    """Test that the deviation between the interpolated values and the actual values.
-
-       This should be less than 0.02. This value was derived by running the
-       same test with scipy cubic interpolation
-    """
+  @parameterized.named_parameters(
+      ("default_interpolation", False),
+      ("one_hot_interpolation", True),
+  )
+  def test_error_calc(self, optimize_for_tpu):
+    """Test the deviation of the interpolated values from the actual."""
     sampling_points = 1000
     spline_x = np.linspace(0.0, 10.0, num=11, dtype=np.float64)
     spline_y = [1.0 / (1.0 + x * x) for x in spline_x]
@@ -43,7 +45,8 @@ class CubicInterpolationTest(tf.test.TestCase):
     # There is an error if we go to 10.0
     test_range_x = np.linspace(0.0, 9.99, num=sampling_points, dtype=np.float64)
     search_args = tf.constant(np.array([test_range_x]), dtype=tf.float64)
-    projected_y = tff.math.interpolation.cubic.interpolate(search_args, spline)
+    projected_y = tff.math.interpolation.cubic.interpolate(
+        search_args, spline, optimize_for_tpu=optimize_for_tpu)
     expected_y = tf.constant([[1.0 / (1.0 + x * x) for x in test_range_x]],
                              dtype=tf.float64)
     errors = expected_y - projected_y
@@ -51,7 +54,11 @@ class CubicInterpolationTest(tf.test.TestCase):
     limit = 0.02
     self.assertLess(deviation, limit)
 
-  def test_spline_batch(self):
+  @parameterized.named_parameters(
+      ("default_interpolation", False),
+      ("one_hot_interpolation", True),
+  )
+  def test_spline_batch(self, optimize_for_tpu):
     """Tests batching of four splines."""
     for dtype in (np.float32, np.float64):
       x_data = np.linspace(-11, 12, 24)
@@ -62,8 +69,9 @@ class CubicInterpolationTest(tf.test.TestCase):
 
       spline = tff.math.interpolation.cubic.build_spline(
           x_data, y_data, dtype=dtype)
-      result = tff.math.interpolation.cubic.interpolate(search_args, spline,
-                                                        dtype=dtype)
+      result = tff.math.interpolation.cubic.interpolate(
+          search_args, spline,
+          optimize_for_tpu=optimize_for_tpu, dtype=dtype)
 
       expected = np.array([[[0.00900778, 0.02702703],
                             [0.04705774, 1.]],
@@ -74,24 +82,37 @@ class CubicInterpolationTest(tf.test.TestCase):
       result = self.evaluate(result)
       np.testing.assert_almost_equal(expected, result)
 
-  def test_invalid_interpolate_parameter_shape(self):
-    """Tests batch shape of spline and interpolation should be the same."""
+  @parameterized.named_parameters(
+      ("default_interpolation", False),
+      ("one_hot_interpolation", True),
+  )
+  def test_spline_broadcast_batch(self, optimize_for_tpu):
+    """Tests batch shape of spline and interpolation are broadcasted."""
     x_data1 = np.linspace(-5.0, 5.0, num=11)
     x_data2 = np.linspace(0.0, 10.0, num=11)
-    x_series = np.array([x_data1, x_data2])
-    y_data1 = 1.0 / (1.0 + x_data1**2)
-    y_data2 = 1.0 / (2.0 + x_data2**2)
-    y_series = np.array([y_data1, y_data2])
-    x_data_series = tf.stack(x_series, axis=0)
-    y_data_series = tf.stack(y_series, axis=0)
-    search_args = tf.constant([[-1.2, 0.0, 0.3]], dtype=tf.float64)
-    x_test = tf.stack(search_args, axis=0)
-    spline = tff.math.interpolation.cubic.build_spline(x_data_series,
-                                                       y_data_series)
+    x_data = np.array([x_data1, x_data2])
+    y_data = 1.0 / (2.0 + x_data**2)
+    x_data = tf.stack(x_data, axis=0)
+    dtype = np.float64
+    x_value_1 = tf.constant([[[-1.2, 0.0, 0.3]]], dtype=dtype)
+    x_value_2 = tf.constant([-1.2, 0.0, 0.3], dtype=dtype)
+    spline = tff.math.interpolation.cubic.build_spline(x_data,
+                                                       y_data)
 
-    msg = "Failed to catch that the test vector has less rows than x_points"
-    with self.assertRaises(ValueError, msg=msg):
-      tff.math.interpolation.cubic.interpolate(x_test, spline)
+    result_1 = tff.math.interpolation.cubic.interpolate(
+        x_value_1, spline,
+        optimize_for_tpu=optimize_for_tpu, dtype=dtype)
+    result_2 = tff.math.interpolation.cubic.interpolate(
+        x_value_2, spline,
+        optimize_for_tpu=optimize_for_tpu, dtype=dtype)
+    expected_1 = np.array([[[0.29131469, 0.5, 0.4779499],
+                            [0.5, 0.5, 0.45159077]]], dtype=dtype)
+    expected_2 = np.array([[0.29131469, 0.5, 0.4779499],
+                           [0.5, 0.5, 0.45159077]], dtype=dtype)
+    with self.subTest("BroadcastData"):
+      self.assertAllClose(result_1, expected_1)
+    with self.subTest("BroadcastValues"):
+      self.assertAllClose(result_2, expected_2)
 
   def test_invalid_spline_x_points(self):
     """Tests a spline where the x_points are not increasing."""
@@ -104,7 +125,11 @@ class CubicInterpolationTest(tf.test.TestCase):
           tff.math.interpolation.cubic.build_spline(
               x_data, y_data, validate_args=True)[2])
 
-  def test_duplicate_x_points(self):
+  @parameterized.named_parameters(
+      ("default_interpolation", False),
+      ("one_hot_interpolation", True),
+  )
+  def test_duplicate_x_points(self, optimize_for_tpu):
     """Tests a spline where there are x_points of the same value."""
     # Repeated boundary values are allowed
     x_data = np.array([[1.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0],
@@ -114,11 +139,31 @@ class CubicInterpolationTest(tf.test.TestCase):
     spline = tff.math.interpolation.cubic.build_spline(x_data, y_data)
     x_values = np.array([[0.0, 1.0, 1.5, 2.0, 2.5, 3.5, 4.0, 5.0],
                          [0.0, 1.0, 1.5, 2.0, 2.5, 3.5, 4.0, 5.0]])
-    interpolated = tff.math.interpolation.cubic.interpolate(x_values, spline)
+    interpolated = tff.math.interpolation.cubic.interpolate(
+        x_values, spline, optimize_for_tpu=optimize_for_tpu)
     expected = np.array([[3.0, 3.0, 1.525, 1.0, 1.925, 2.9, 2.0, 2.0],
                          [1.0, 1.0, 1.5, 2.0, 2.5, 3.5, 4.0, 5.0]])
     interpolated = self.evaluate(interpolated)
     np.testing.assert_almost_equal(expected, interpolated)
+
+  def test_linear_interpolation_dynamic_number_points(self):
+    """Tests linear interpolation with multiple batching dimensions."""
+    if tf.executing_eagerly():
+      # No dynamic shapes in eager mode
+      return
+    dtype = np.float64
+    x = tf.compat.v1.placeholder(dtype, [1, 2, None])
+    x_data = np.array([[[1, 2], [3, 4]]])
+    y_data = np.array([[[0, 1], [2, 3]]])
+    spline = tff.math.interpolation.cubic.build_spline(
+        x_data, y_data, dtype=dtype)
+    op = tff.math.interpolation.cubic.interpolate(
+        x, spline, dtype=dtype)
+    with self.cached_session() as session:
+      results = session.run(
+          op, feed_dict={x: [[[1.5, 2.0, 3.0], [3.5, 4.0, 2.0]]]})
+    self.assertAllClose(
+        results, np.array([[[0.5, 1.0, 1.0], [2.5, 3.0, 2.0]]]), 1e-8)
 
 if __name__ == "__main__":
   tf.test.main()
