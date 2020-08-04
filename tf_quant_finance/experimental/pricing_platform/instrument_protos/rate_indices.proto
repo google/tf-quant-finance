@@ -17,11 +17,49 @@ package tf_quant_finance.experimental.pricing_platform.instrument_protos;
 
 option java_multiple_files = true;
 
-// TODO(b/159106041): Complete RateIndexType definitions
+
+// Supported rate indices
+message  RateIndex {
+ RateIndexName name = 1;
+ RateIndexType type = 2;
+ // Source of the index info (e.g., Reuters, Bloomberg)
+ string source = 3;
+}
+
+
+// Supported rate curve indices.
 enum RateIndexType {
+  RATE_INDEX_TYPE_UNKNOWN = 0;
+  OIS = 1;
+  SOFR = 2;  // USD
+  SONIA = 3;  // GBP
+  ESTER = 4;  // EUR
+  SARON = 5;  // CHF
+  LIBOR_OVERNIGHT = 6;
+  LIBOR_1W = 7;
+  LIBOR_1M = 8;
+  LIBOR_3M = 9;
+  LIBOR_6M = 10;
+  LIBOR_1Y = 11;
+  EURIBOR_OVERNIGHT = 12;  // EUR
+  EURIBOR_1W = 13;  // EUR
+  EURIBOR_1M = 14;  // EUR
+  EURIBOR_3M = 15;  // EUR
+  EURIBOR_6M = 16;  // EUR
+  EURIBOR_1Y = 17;  // EUR
+  STIBOR_OVERNIGHT = 18;  // SEK
+  STIBOR_1W = 19;  // SEK
+  STIBOR_1M = 20;  // SEK
+  STIBOR_3M = 21;  // SEK
+  STIBOR_6M = 22;  // SEK
+}
+
+
+// TODO(b/159106041): Complete RateIndexType definitions
+enum RateIndexName {
   // As in ISDA 2006 Definitions. See, e.g.,
   // https://spec.edmcouncil.org/fibo/ontology/IND/InterestRates/InterestRates/InterestRateBenchmark
-  RATE_INDEX_TYPE_UNKNOWN = 0;  // LIBOR rate
+  RATE_INDEX_NAME_UNKNOWN = 0;  // LIBOR rate
   AUD_LIBOR_BBA = 1;
   AUD_AONIA_OIS_COMPOUND = 2;
   CAD_LIBOR_BBA = 3;
@@ -62,3 +100,5 @@ enum RateIndexType {
   AUD_OIS = 1020;
   CAD_OIS = 1021;
 }
+
+

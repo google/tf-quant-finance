@@ -26,7 +26,6 @@ business_days = framework.core.business_days
 currencies = framework.core.currencies
 daycount_conventions = framework.core.daycount_conventions
 interpolation_method = framework.core.interpolation_method
-rate_indices = framework.core.rate_indices
 
 instrument_protos = tff.experimental.pricing_platform.instrument_protos
 date_pb2 = instrument_protos.date
@@ -41,7 +40,7 @@ market_data = tff.experimental.pricing_platform.framework.market_data
 
 DayCountConventions = daycount_conventions.DayCountConventions
 BusinessDayConvention = business_days.BusinessDayConvention
-RateIndexType = rate_indices.RateIndexType
+RateIndex = instrument_protos.rate_indices.RateIndex
 Currency = currencies.Currency
 
 
@@ -58,7 +57,7 @@ class ForwardRateAgreementTest(tf.test.TestCase):
         daycount_convention=DayCountConventions.ACTUAL_360(),
         business_day_convention=BusinessDayConvention.MODIFIED_FOLLOWING(),
         floating_rate_term=fra_pb2.FloatingRateTerm(
-            floating_rate_type=RateIndexType.USD_LIBOR(),
+            floating_rate_type=RateIndex(type="LIBOR_3M"),
             term=period_pb2.Period(type="MONTH", amount=3)),
         settlement_days=2)
 
@@ -71,7 +70,7 @@ class ForwardRateAgreementTest(tf.test.TestCase):
         daycount_convention=DayCountConventions.ACTUAL_365(),
         business_day_convention=BusinessDayConvention.MODIFIED_FOLLOWING(),
         floating_rate_term=fra_pb2.FloatingRateTerm(
-            floating_rate_type=RateIndexType.USD_LIBOR(),
+            floating_rate_type=RateIndex(type="LIBOR_3M"),
             term=period_pb2.Period(type="MONTH", amount=3)),
         settlement_days=2)
     date = [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
@@ -79,10 +78,10 @@ class ForwardRateAgreementTest(tf.test.TestCase):
     discount = [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
                 0.72494879, 0.37602059]
     market_data_dict = {"USD": {
-        "OIS":
-        {"date": date, "discount": discount},
+        "risk_free_curve":
+        {"dates": date, "discounts": discount},
         "LIBOR_3M":
-        {"date": date, "discount": discount},}}
+        {"dates": date, "discounts": discount},}}
     valuation_date = [(2020, 2, 8)]
     market = market_data.MarketDataDict(valuation_date, market_data_dict)
     fra_portfolio = forward_rate_agreement.ForwardRateAgreement.from_protos(

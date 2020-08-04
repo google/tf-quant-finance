@@ -202,7 +202,7 @@ class ProcessedMarketData(abc.ABC):
   @abc.abstractmethod
   def fixings(self,
               date: types.DateTensor,
-              fixing_type: str,
+              fixing_type: curve_types.RateIndexCurve,
               tenor: period_pb2.Period) -> tf.Tensor:
     """Returns past fixings of the market rates at the specified dates."""
     pass

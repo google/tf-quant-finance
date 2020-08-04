@@ -44,7 +44,7 @@ message FloatingLeg {
   BankHolidays bank_holidays = 7;
   Period reset_frequency = 8;
   // Coupon frequency
-  RateIndexType floating_rate_type = 9;
+  RateIndex floating_rate_type = 9;
   // Float leg day count convention.
   // Coupon spread
   Decimal spread = 10;

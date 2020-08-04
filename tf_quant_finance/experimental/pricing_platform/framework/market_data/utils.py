@@ -14,14 +14,13 @@
 # limitations under the License.
 """Utility functions to create an instance of processed market data."""
 
-from typing import Callable, Optional, Tuple
+from typing import Callable, Tuple
 
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import datetime as dateslib
 
 from tf_quant_finance.experimental.pricing_platform.framework.core import business_days
-from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
 from tf_quant_finance.experimental.pricing_platform.framework.core import daycount_conventions
 from tf_quant_finance.experimental.pricing_platform.framework.core import processed_market_data as pmd
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
@@ -94,41 +93,6 @@ def get_period(period: period_pb2.Period) -> dateslib.PeriodTensor:
       dateslib.PeriodType[period_type])
 
 
-def get_index(
-    rate_ind: types.RateIndexProtoType,
-    period: Optional[period_pb2.Period] = None) -> curve_types.Index:
-  """Maps rate indices from proto to the indices of supported curves.
-
-  Assumes that `rate_ind` has a form of `CURRENCY_INDEX_...`. If index is not
-  found, OIS rate is returned as default.
-
-  Args:
-    rate_ind: An instance of `RateIndexType`.
-    period: An instance of `period_pb2.Period`. Stands for the index tenor.
-
-  Returns:
-    An instance of `Index` for the supported curve types.
-  """
-  rate_name = rate_ind.value
-  rate_components = rate_name.split("_")
-  tenor = ""
-  if period is not None:
-    tenor_type = period_pb2.PeriodType.Name(period.type)[0]
-    tenor_amount = period.amount
-    if tenor_type == "D" and tenor_amount == 1:
-      tenor = "_OVERNIGHT"
-    else:
-      tenor = "_" + str(tenor_amount) + tenor_type
-  try:
-    ind = curve_types.Index(rate_components[1] + tenor)
-  except KeyError:
-    try:
-      ind = curve_types.Index(rate_components[2] + tenor)
-    except KeyError:
-      ind = curve_types.Index.OIS
-  return ind
-
-
 def get_yield_and_time(
     discount_curve: pmd.RateCurve,
     valuation_date: types.DateTensor,
@@ -146,4 +110,4 @@ def get_yield_and_time(
 
 
 __all__ = ["get_daycount_fn", "get_business_day_convention",
-           "get_period", "get_index", "get_yield_and_time"]
+           "get_period", "get_yield_and_time"]

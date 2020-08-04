@@ -28,7 +28,7 @@ import "tf_quant_finance/experimental/pricing_platform/instrument_protos/rate_in
 
 // Floating rate term
 message FloatingRateTerm {
-  RateIndexType floating_rate_type = 1;
+  RateIndex floating_rate_type = 1;
   // Reset frequency
   Period term = 2;
 }

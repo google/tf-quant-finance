@@ -23,7 +23,6 @@ from tf_quant_finance import datetime as datetime_tff
 from tf_quant_finance.experimental.pricing_platform.framework.core import business_days
 from tf_quant_finance.experimental.pricing_platform.framework.core import currencies
 from tf_quant_finance.experimental.pricing_platform.framework.core import daycount_conventions
-from tf_quant_finance.experimental.pricing_platform.framework.core import rate_indices
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import period_pb2
 
 
@@ -33,7 +32,6 @@ DayCountConventionsProtoType = daycount_conventions.DayCountConventionsProtoType
 CurrencyProtoType = currencies.CurrencyProtoType
 BankHolidaysProtoType = business_days.BankHolidaysProtoType
 BusinessDayConventionProtoType = business_days.BusinessDayConventionProtoType
-RateIndexProtoType = rate_indices.RateIndexType.mro()[0]
 Period = Union[period_pb2.Period, datetime_tff.PeriodType]
 
 Dtype = tf.compat.v1.DType
@@ -53,7 +51,6 @@ __all__ = ["DayCountConventionsProtoType",
            "CurrencyProtoType",
            "BankHolidaysProtoType",
            "BusinessDayConventionProtoType",
-           "RateIndexProtoType",
            "Period",
            "Dtype",
            "BoolTensor",

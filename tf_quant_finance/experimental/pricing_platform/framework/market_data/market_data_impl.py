@@ -24,7 +24,6 @@ from tf_quant_finance.experimental.pricing_platform.framework.core import curren
 from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
 from tf_quant_finance.experimental.pricing_platform.framework.core import processed_market_data as pmd
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
-from tf_quant_finance.experimental.pricing_platform.framework.market_data import market_data_config
 from tf_quant_finance.experimental.pricing_platform.framework.market_data import rate_curve
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import period_pb2
 
@@ -44,8 +43,9 @@ class MarketDataDict(pmd.ProcessedMarketData):
     ```python
     market_data_dict = {
     "Currency":  {
-        curve_index : {"date": DateTensor, "discount": tf.Tensor},
-        surface_id(curve_type): "to be specified",
+        "risk_free_curve": {"dates": DateTensor, "discounts": tf.Tensor},
+        rate_index : {"dates": DateTensor, "discounts": tf.Tensor},
+        surface_id: "to be specified",
         fixings: "to be specified"},
     "Asset": "to be specified"}
     ```
@@ -80,24 +80,28 @@ class MarketDataDict(pmd.ProcessedMarketData):
   def yield_curve(self,
                   curve_type: curve_types.CurveType) -> rate_curve.RateCurve:
     """The yield curve object."""
+    # Extract the currency of the curve
     currency = curve_type.currency.value
     if currency not in self.supported_currencies:
       raise ValueError(f"Currency '{curve_type.currency}' is not supported")
     try:
-      curve_id = market_data_config.curve_id(curve_type)
+      if isinstance(curve_type, curve_types.RiskFreeCurve):
+        curve_id = "risk_free_curve"
+      else:
+        curve_id = curve_type.index.type.name
       curve_data = self._market_data_dict[currency][curve_id]
     except KeyError:
       raise KeyError(
           "No data for {0} which corresponds to curve {1}".format(
-              market_data_config.curve_id(curve_type), curve_type))
+              curve_id, curve_type))
     rate_config = None
     if self._config is not None:
       try:
         rate_config = self._config[currency][curve_id]
       except KeyError:
         pass
-    dates = curve_data["date"]
-    discount_factors = curve_data["discount"]
+    dates = curve_data["dates"]
+    discount_factors = curve_data["discounts"]
     if rate_config is None:
       return rate_curve.RateCurve(dates,
                                   discount_factors,
@@ -117,7 +121,7 @@ class MarketDataDict(pmd.ProcessedMarketData):
 
   def fixings(self,
               date: types.DateTensor,
-              fixing_type: str,
+              fixing_type: curve_types.RateIndexCurve,
               tenor: period_pb2.Period) -> types.FloatTensor:
     """Returns past fixings of the market rates at the specified dates."""
     return tf.constant(0, dtype=self._dtype, name="fixings")

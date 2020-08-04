@@ -18,6 +18,7 @@ from typing import List, Union
 import dataclasses
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance.experimental.pricing_platform.framework.core import rate_indices
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
 
 
@@ -62,10 +63,8 @@ class FloatCouponSpecs:
       rate which determines the coupon payments.
     notional_amount: A real `Tensor` of  `batch_shape` specifying the notional
       for the payments.
-    floating_rate_type: A type of the floating leg. Either an instance of
-      `RateIndexType` or a list of `RateIndexType`. If list, assumes that
-      the batch shape is of rank 1 and the batch size is equal to the
-      list length.
+    floating_rate_type: A type of the floating leg. An instance of
+        `core.rate_indices.RateIndex`.
     daycount_convention: An instance of `DayCountConventions`.
     businessday_rule: An instance of `BusinessDayConvention`.
     settlement_days: An integer `Tensor` of the shape broadcastable with the
@@ -79,8 +78,7 @@ class FloatCouponSpecs:
   reset_frequency: types.Period
   coupon_frequency: types.Period
   notional_amount: Union[tf.Tensor, List[float]]
-  floating_rate_type: Union[types.RateIndexProtoType,
-                            List[types.RateIndexProtoType]]
+  floating_rate_type: rate_indices.RateIndex
   daycount_convention: types.DayCountConventionsProtoType
   businessday_rule: types.BusinessDayConventionProtoType
   settlement_days: Union[int, List[int]]

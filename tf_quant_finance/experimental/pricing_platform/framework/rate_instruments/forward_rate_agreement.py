@@ -29,6 +29,7 @@ from tf_quant_finance.experimental.pricing_platform.framework.core import proces
 from tf_quant_finance.experimental.pricing_platform.framework.core import rate_indices
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
 from tf_quant_finance.experimental.pricing_platform.framework.market_data import utils as market_data_utils
+from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import swap_utils
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import utils as instrument_utils
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import forward_rate_agreement_pb2 as fra
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import period_pb2
@@ -36,7 +37,7 @@ from tf_quant_finance.experimental.pricing_platform.instrument_protos import per
 
 @dataclasses.dataclass(frozen=True)
 class ForwardRateAgreementConfig:
-  discounting_index: Dict[types.CurrencyProtoType, curve_types.Index]
+  discounting_curve: Dict[types.CurrencyProtoType, curve_types.CurveType]
   model: str = ""
 
 
@@ -58,6 +59,8 @@ class ForwardRateAgreement(instrument.Instrument):
   calculating its price.
 
   ```python
+  RateIndex = instrument_protos.rate_indices.RateIndex
+
   fra = fra_pb2.ForwardRateAgreement(
       short_position=True,
       fixing_date=date_pb2.Date(year=2021, month=5, day=21),
@@ -67,7 +70,7 @@ class ForwardRateAgreement(instrument.Instrument):
       daycount_convention=DayCountConventions.ACTUAL_360(),
       business_day_convention=BusinessDayConvention.MODIFIED_FOLLOWING(),
       floating_rate_term=fra_pb2.FloatingRateTerm(
-          floating_rate_type=RateIndexType.USD_LIBOR(),
+          floating_rate_type=RateIndex(type="LIBOR_3M"),
           term = period_pb2.Period(type="MONTH", amount=3)),
       settlement_days=2)
   date = [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
@@ -75,9 +78,9 @@ class ForwardRateAgreement(instrument.Instrument):
   discount = [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
               0.72494879, 0.37602059]
   market_data_dict = {"USD": {
-      "OIS_USD":
+      "risk_free_curve":
       {"date": date, "discount": discount},
-      "LIBOR_3M_USD":
+      "LIBOR_3M":
       {"date": date, "discount": discount},}}
   valuation_date = [(2020, 2, 8)]
   market = market_data.MarketDataDict(valuation_date, market_data_dict)
@@ -101,7 +104,7 @@ class ForwardRateAgreement(instrument.Instrument):
                business_day_convention: types.BusinessDayConventionProtoType,
                calendar: types.BankHolidaysProtoType,
                rate_term: period_pb2.Period,
-               rate_index: types.RateIndexProtoType,
+               rate_index: rate_indices.RateIndex,
                settlement_days: Optional[types.IntTensor] = 0,
                fra_config: ForwardRateAgreementConfig = None,
                batch_names: Optional[types.StringTensor] = None,
@@ -130,10 +133,8 @@ class ForwardRateAgreement(instrument.Instrument):
       calendar: A calendar to specify the weekend mask and bank holidays.
       rate_term: A tenor of the rate (usually Libor) that determines the
         floating cashflow.
-      rate_index: A type of the floating leg. Either an instance of
-        `RateIndexType` or a list of `RateIndexType`. If list, assumes that
-        the batch shape is of rank 1 and the batch size is equal to the
-        list length.
+      rate_index: A type of the floating leg. An instance of
+        `core.rate_indices.RateIndex`.
       settlement_days: An integer `Tensor` of the shape broadcastable with the
         shape of `fixing_date`.
       fra_config: Optional `ForwardRateAgreementConfig`.
@@ -187,23 +188,20 @@ class ForwardRateAgreement(instrument.Instrument):
       self._settlement_days = settlement_days
       self._roll_convention = roll_convention
       # Get discount and reference curves
-      if isinstance(rate_index, (list, tuple)):
-        rate_index = rate_index[0]
-      index_type = market_data_utils.get_index(rate_index, period=rate_term)
-      reference_curve_type = curve_types.CurveType(
-          currency=currency,
-          index_type=index_type)
+      rate_index_curve = curve_types.RateIndexCurve(
+          currency=currency, index=rate_index)
+      reference_curve_type = rate_index_curve
       if fra_config is not None:
         try:
-          self._discount_curve_type = fra_config.discounting_index
+          self._discount_curve_type = fra_config.discounting_index[currency]
         except KeyError:
+          risk_free = curve_types.RiskFreeCurve(currency=currency)
           self._discount_curve_type = curve_types.CurveType(
-              currency=currency,
-              index_type=curve_types.Index.OIS)
+              type=risk_free)
       else:
-        self._discount_curve_type = curve_types.CurveType(
-            currency=currency,
-            index_type=curve_types.Index.OIS)
+        # Default discounting is the risk free curve
+        risk_free = curve_types.RiskFreeCurve(currency=currency)
+        self._discount_curve_type = risk_free
       self._reference_curve_type = reference_curve_type
       self._batch_shape = self._daycount_fractions.shape.as_list()[:-1]
 
@@ -213,59 +211,64 @@ class ForwardRateAgreement(instrument.Instrument):
       proto_list: List[fra.ForwardRateAgreement],
       fra_config: ForwardRateAgreementConfig = None
       ) -> List["ForwardRateAgreement"]:
-    prepare_swaps = {}
-    for fra_instance in proto_list:
-      short_position = fra_instance.short_position
-      currency = currencies.from_proto_value(fra_instance.currency)
-      bank_holidays = fra_instance.bank_holidays
-      daycount_convention = fra_instance.daycount_convention
-      business_day_convention = fra_instance.business_day_convention
-      rate_index = fra_instance.floating_rate_term.floating_rate_type
-      rate_index = rate_indices.from_proto_value(rate_index)
-      rate_term = fra_instance.floating_rate_term.term
+    prepare_fras = {}
+    for fra_proto in proto_list:
+      short_position = fra_proto.short_position
+      currency = currencies.from_proto_value(fra_proto.currency)
+      bank_holidays = fra_proto.bank_holidays
+      daycount_convention = fra_proto.daycount_convention
+      business_day_convention = fra_proto.business_day_convention
+      # Get rate index
+      rate_index = fra_proto.floating_rate_term.floating_rate_type
+      rate_index = rate_indices.RateIndex.from_proto(rate_index)
+      rate_index.name = [rate_index.name]
+      rate_index.source = [rate_index.source]
+
+      rate_term = fra_proto.floating_rate_term.term
 
       h = hash(tuple([currency] + [bank_holidays] + [rate_term.type]
-                     + [rate_term.amount] + [rate_index]
+                     + [rate_term.amount] + [rate_index.type]
                      + [daycount_convention] + [business_day_convention]))
-      fixing_date = fra_instance.fixing_date
+      fixing_date = fra_proto.fixing_date
       fixing_date = [fixing_date.year,
                      fixing_date.month,
                      fixing_date.day]
       notional_amount = instrument_utils.decimal_to_double(
-          fra_instance.notional_amount)
+          fra_proto.notional_amount)
       daycount_convention = daycount_conventions.from_proto_value(
-          fra_instance.daycount_convention)
+          fra_proto.daycount_convention)
       business_day_convention = business_days.convention_from_proto_value(
-          fra_instance.business_day_convention)
-      fixed_rate = instrument_utils.decimal_to_double(fra_instance.fixed_rate)
+          fra_proto.business_day_convention)
+      fixed_rate = instrument_utils.decimal_to_double(fra_proto.fixed_rate)
       calendar = business_days.holiday_from_proto_value(
-          fra_instance.bank_holidays)
-      settlement_days = fra_instance.settlement_days
-      name = fra_instance.metadata.id
-      instrument_type = fra_instance.metadata.instrument_type
-      if h not in prepare_swaps:
-        prepare_swaps[h] = {"short_position": short_position,
-                            "currency": currency,
-                            "fixing_date": [fixing_date],
-                            "fixed_rate": [fixed_rate],
-                            "notional_amount": [notional_amount],
-                            "daycount_convention": daycount_convention,
-                            "business_day_convention": business_day_convention,
-                            "calendar": calendar,
-                            "rate_term": rate_term,
-                            "rate_index": [rate_index],
-                            "settlement_days": [settlement_days],
-                            "fra_config": fra_config,
-                            "batch_names": [[name, instrument_type]]}
+          fra_proto.bank_holidays)
+      settlement_days = fra_proto.settlement_days
+      name = fra_proto.metadata.id
+      instrument_type = fra_proto.metadata.instrument_type
+      if h not in prepare_fras:
+        prepare_fras[h] = {"short_position": short_position,
+                           "currency": currency,
+                           "fixing_date": [fixing_date],
+                           "fixed_rate": [fixed_rate],
+                           "notional_amount": [notional_amount],
+                           "daycount_convention": daycount_convention,
+                           "business_day_convention": business_day_convention,
+                           "calendar": calendar,
+                           "rate_term": rate_term,
+                           "rate_index": rate_index,
+                           "settlement_days": [settlement_days],
+                           "fra_config": fra_config,
+                           "batch_names": [[name, instrument_type]]}
       else:
-        prepare_swaps[h]["fixing_date"].append(fixing_date)
-        prepare_swaps[h]["fixed_rate"].append(fixed_rate)
-        prepare_swaps[h]["notional_amount"].append(notional_amount)
-        prepare_swaps[h]["rate_index"].append(rate_index)
-        prepare_swaps[h]["settlement_days"].append(settlement_days)
-        prepare_swaps[h]["batch_names"].append([name, instrument_type])
+        current_index = prepare_fras[h]["rate_index"]
+        swap_utils.update_rate_index(current_index, rate_index)
+        prepare_fras[h]["fixing_date"].append(fixing_date)
+        prepare_fras[h]["fixed_rate"].append(fixed_rate)
+        prepare_fras[h]["notional_amount"].append(notional_amount)
+        prepare_fras[h]["settlement_days"].append(settlement_days)
+        prepare_fras[h]["batch_names"].append([name, instrument_type])
     intruments = []
-    for kwargs in prepare_swaps.values():
+    for kwargs in prepare_fras.values():
       intruments.append(cls(**kwargs))
     return intruments
 

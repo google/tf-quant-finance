@@ -25,7 +25,6 @@ from tf_quant_finance import math as tff_math
 from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
 from tf_quant_finance.experimental.pricing_platform.framework.core import instrument
 from tf_quant_finance.experimental.pricing_platform.framework.core import processed_market_data as pmd
-from tf_quant_finance.experimental.pricing_platform.framework.core import rate_indices
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
 from tf_quant_finance.experimental.pricing_platform.framework.market_data import utils as market_data_utils
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import cashflow_streams
@@ -36,7 +35,7 @@ from tf_quant_finance.experimental.pricing_platform.instrument_protos import int
 
 @dataclasses.dataclass(frozen=True)
 class InterestRateSwapConfig:
-  discounting_index: Dict[types.CurrencyProtoType, curve_types.Index]
+  discounting_index: Dict[types.CurrencyProtoType, curve_types.CurveType]
   model: str
 
 
@@ -74,7 +73,7 @@ class InterestRateSwap(instrument.Instrument):
   ```python
   DayCountConventions = daycount_conventions.DayCountConventions
   BusinessDayConvention = business_days.BusinessDayConvention
-  RateIndexType = rate_indices.RateIndexType
+  RateIndex = instrument_protos.rate_indices.RateIndex
   Currency = currencies.Currency
 
   swap = ir_swap.InterestRateSwap(
@@ -97,18 +96,18 @@ class InterestRateSwap(instrument.Instrument):
               coupon_frequency=period_pb2.Period(type="MONTH", amount=3),
               reset_frequency=period_pb2.Period(type="MONTH", amount=3),
               notional_amount=decimal_pb2.Decimal(units=10000),
-              floating_rate_type=RateIndexType.USD_LIBOR(),
+              floating_rate_type=RateIndex(type="LIBOR_3M"),
               daycount_convention=DayCountConventions.ACTUAL_365(),
               business_day_convention=BusinessDayConvention.
                 MODIFIED_FOLLOWING(),
               settlement_days=0)))
   market_data_dict = {"USD": {
-      "OIS_USD":
+      "risk_free_curve":
       {"date": [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
                 [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]],
         "discount": [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
                      0.72494879, 0.37602059]},
-      "LIBOR_3M_USD":
+      "LIBOR_3M":
       {"date": [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
                 [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]],
         "discount": [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
@@ -118,8 +117,8 @@ class InterestRateSwap(instrument.Instrument):
       interpolation_method=interpolation_method.InterpolationMethod.LINEAR)
   libor_3m_config = market_data_config.RateConfig(
       interpolation_method=interpolation_method.InterpolationMethod.LINEAR)
-  rate_config = {"USD": {"OIS_USD": ois_config,
-                         "LIBOR_3M_USD": libor_3m_config}}
+  rate_config = {"USD": {"risk_free_curve": ois_config,
+                         "LIBOR_3M": libor_3m_config}}
   valuation_date = [(2020, 2, 8)]
   market = market_data.MarketDataDict(valuation_date, market_data_dict,
                                       config=rate_config)
@@ -185,13 +184,12 @@ class InterestRateSwap(instrument.Instrument):
         try:
           self._discount_curve_type = swap_config.discounting_index[currency]
         except KeyError:
-          self._discount_curve_type = curve_types.CurveType(
-              currency=currency,
-              index_type=curve_types.Index.OIS)
+          risk_free = curve_types.RiskFreeCurve(currency=currency)
+          self._discount_curve_type = risk_free
       else:
-        self._discount_curve_type = curve_types.CurveType(
-            currency=currency,
-            index_type=curve_types.Index.OIS)
+        # Default discounting is the risk free curve
+        risk_free = curve_types.RiskFreeCurve(currency=currency)
+        self._discount_curve_type = risk_free
       self._start_date = dateslib.convert_to_date_tensor(start_date)
       self._maturity_date = dateslib.convert_to_date_tensor(maturity_date)
       self._pay_leg = self._setup_leg(pay_leg)
@@ -446,12 +444,10 @@ def _fixed_leg_key(leg: ir_swap.FixedLeg) -> List[Any]:
 
 
 def _floating_leg_key(leg: ir_swap.FloatingLeg) -> List[Any]:
-  rate_index = market_data_utils.get_index(
-      rate_indices.from_proto_value(leg.floating_rate_type),
-      leg.reset_frequency)
+  rate_index = leg.floating_rate_type
   return [leg.coupon_frequency.type, leg.coupon_frequency.amount,
           leg.reset_frequency.type, leg.reset_frequency.amount,
-          leg.daycount_convention, leg.business_day_convention, rate_index]
+          leg.daycount_convention, leg.business_day_convention, rate_index.type]
 
 
 def _get_keys(leg: ir_swap.SwapLeg) -> Tuple[List[Any], List[Any]]:

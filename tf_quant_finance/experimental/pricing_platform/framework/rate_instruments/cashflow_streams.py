@@ -354,17 +354,10 @@ class FloatingCashflowStream:
       self._spread = spread
       self._currency = coupon_spec.currency
       self._daycount_fn = daycount_fn
-      # Since all swaps in a batch have the same reference curve, one of the
-      # first floating_rate_types is enough to infer the index type
-      if isinstance(self._floating_rate_type, (list, tuple)):
-        index_type = market_data_utils.get_index(
-            self._floating_rate_type[0], period=self._reset_frequency)
-      else:
-        index_type = market_data_utils.get_index(
-            self._floating_rate_type, period=self._reset_frequency)
-      self._reference_curve_type = curve_types.CurveType(
-          currency=self._currency,
-          index_type=index_type)
+      # Construct the reference curve object
+      rate_index_curve = curve_types.RateIndexCurve(
+          currency=self._currency, index=self._floating_rate_type)
+      self._reference_curve_type = rate_index_curve
 
   def daycount_fn(self) -> Callable[..., Any]:
     return self._daycount_fn
@@ -416,7 +409,7 @@ class FloatingCashflowStream:
       # TODO(cyrilchimisov): vectorize fixing computation
       past_fixing = market.fixings(
           self._start_date,
-          self._floating_rate_type,
+          self._reference_curve_type,
           self._reset_frequency)
       forward_rates = reference_curve.forward_rate(
           self._accrual_start_date,

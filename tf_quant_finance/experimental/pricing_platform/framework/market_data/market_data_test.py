@@ -19,6 +19,7 @@ import tf_quant_finance as tff
 
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
+core = tff.experimental.pricing_platform.framework.core
 market_data = tff.experimental.pricing_platform.framework.market_data
 interpolation_method = tff.experimental.pricing_platform.framework.core.interpolation_method
 
@@ -27,20 +28,28 @@ interpolation_method = tff.experimental.pricing_platform.framework.core.interpol
 class MarketDataTest(tf.test.TestCase):
 
   def setUp(self):
-    date = [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
-            [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]]
-    discount = [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
-                0.72494879, 0.37602059]
+    dates = [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
+             [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]]
+    discounts = [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
+                 0.72494879, 0.37602059]
     libor_3m_config = market_data.config.RateConfig(
         interpolation_method=interpolation_method.InterpolationMethod.LINEAR)
+
     self._rate_config = {"USD": {"LIBOR_3M": libor_3m_config}}
+    risk_free_dates = [
+        [2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8], [2050, 2, 8]]
+    risk_free_discounts = [
+        0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.37602059]
     self._market_data_dict = {"USD": {
+        "risk_free_curve":
+        {"dates": risk_free_dates, "discounts": risk_free_discounts},
         "OIS":
-        {"date": date, "discount": discount},
+        {"dates": dates, "discounts": discounts},
         "LIBOR_3M":
-        {"date": date, "discount": discount},}}
+        {"dates": dates, "discounts": discounts},}}
     self._valuation_date = [(2020, 6, 24)]
-    self._discount = discount
+    self._libor_discounts = discounts
+    self._risk_free_discounts = risk_free_discounts
     super(MarketDataTest, self).setUp()
 
   def test_discount_curve(self):
@@ -48,11 +57,20 @@ class MarketDataTest(tf.test.TestCase):
         self._valuation_date,
         self._market_data_dict,
         config=self._rate_config)
-    # Get the discount curve
-    curve_type = market_data.config.curve_type_from_id("LIBOR_3M", "USD")
-    yield_curve = market.yield_curve(curve_type)
-    discount_factor_nodes = yield_curve.discount_factor_nodes
-    self.assertAllClose(discount_factor_nodes, self._discount)
+    # Get the risk free discount curve
+    risk_free_curve_type = core.curve_types.RiskFreeCurve(currency="USD")
+    risk_free_curve = market.yield_curve(risk_free_curve_type)
+    # Get LIBOR 3M discount
+    libor_3m = core.rate_indices.RateIndex(type="LIBOR_3M")
+    rate_index_curve_type = core.curve_types.RateIndexCurve(
+        currency="USD", index=libor_3m)
+    libor_3m_curve = market.yield_curve(rate_index_curve_type)
+    with self.subTest("RiskFree"):
+      discount_factor_nodes = risk_free_curve.discount_factor_nodes
+      self.assertAllClose(discount_factor_nodes, self._risk_free_discounts)
+    with self.subTest("LIBOR_3M"):
+      discount_factor_nodes = libor_3m_curve.discount_factor_nodes
+      self.assertAllClose(discount_factor_nodes, self._libor_discounts)
 
 
 if __name__ == "__main__":

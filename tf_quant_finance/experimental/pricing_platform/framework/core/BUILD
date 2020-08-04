@@ -58,6 +58,8 @@ py_library(
     srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos",
+        # dataclasses dep,
+        # tensorflow dep,
     ],
 )
 
@@ -95,6 +97,7 @@ py_library(
     deps = [
         ":curve_types",
         ":interpolation_method",
+        ":rate_indices",
         ":types",
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos",
         # tensorflow dep,

@@ -18,9 +18,11 @@ Market data configuration has a form
 
 market_data_config = {
     "Currency":  {
-        curve_index : RateConfig(RateCurveOption.BOOTSTRAP,
-                                 ["list of bootstrap instruments"]),
-        surface_id(curve_type): "to be specified",
+        risk_free_curve : RateConfig(RateCurveOption.BOOTSTRAP,
+                                     ["list of bootstrap instruments"]),
+        rate_index : RateConfig(RateCurveOption.BOOTSTRAP,
+                                ["list of bootstrap instruments"]),
+        surface_id: "to be specified",
         fixings: "to be specified"},
     "Asset": "to be specified"}
 """
@@ -30,8 +32,6 @@ from typing import List, Union
 
 import dataclasses
 
-from tf_quant_finance.experimental.pricing_platform.framework.core import currencies
-from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
 from tf_quant_finance.experimental.pricing_platform.framework.core import daycount_conventions
 from tf_quant_finance.experimental.pricing_platform.framework.core import interpolation_method
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
@@ -68,37 +68,6 @@ class RateConfig:
   daycount_convention: _DayCountConventionsProtoType = _DayCountConventions.ACTUAL_365
 
 
-def curve_id(curve_type: curve_types.CurveType) -> str:
-  """Mapping from curve_type object to a key.
-
-  Maps to 'index_tenor'. E.g., 'LIBOR_3M' or 'OIS'.
-
-  Args:
-    curve_type: An instance of `CurveType`.
-
-  Returns:
-    A string to mark the curve in the market data config.
-  """
-  return curve_type.index_type.value
-
-
-def curve_type_from_id(curve_key: str, currency: str) -> curve_types.CurveType:
-  """Mapping from a curve key id to a curve_type object.
-
-  Maps 'index_tenor_currency' to the curve type. E.g., ("LIBOR_3M", "USD") maps
-  to `CurveType(Currency.USD, Index.OIS)`.
-
-  Args:
-    curve_key: Curve index as a string.
-    currency: Currency as a string
-
-  Returns:
-    A `CurveType` corresponding to the id.
-  """
-  return curve_types.CurveType(
-      getattr(currencies.Currency, currency),
-      curve_types.Index[curve_key])
-
-
-__all__ = ["RateBootstrapOption", "RateVolBootstrapOption",
-           "RateConfig", "curve_id", "curve_type_from_id"]
+__all__ = ["RateBootstrapOption",
+           "RateVolBootstrapOption",
+           "RateConfig"]

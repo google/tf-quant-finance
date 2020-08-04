@@ -14,48 +14,46 @@
 # limitations under the License.
 """Curve types."""
 
-import enum
+from typing import Union
 import dataclasses
 from tf_quant_finance.experimental.pricing_platform.framework.core import currencies
+from tf_quant_finance.experimental.pricing_platform.framework.core import rate_indices
 
 
-class Index(enum.Enum):
-  """Supported rate curve indices.
-
-  Index here is used to refer to a specific curve in a market data.
-  Instrument configuration specifies which curve to use for pricing and, more
-  specifically, how to map `RateIndexType` to `Index`.
-  """
-  OIS = "OIS"
-
-  SOFR = "SOFR"  # USD
-  SONIA = "SONIA"  # GBP
-  ESTER = "ESTER"  # EUR
-  SARON = "SARON"  # CHF
-  LIBOR_OVERNIGHT = "LIBOR_OVERNIGHT"
-  LIBOR_1W = "LIBOR_1W"
-  LIBOR_1M = "LIBOR_1M"
-  LIBOR_3M = "LIBOR_3M"
-  LIBOR_6M = "LIBOR_6M"
-  LIBOR_1Y = "LIBOR_1Y"
-  EURIBOR_OVERNIGHT = "EURIBOR_OVERNIGHT"  # EUR
-  EURIBOR_1W = "EURIBOR_1W"  # EUR
-  EURIBOR_1M = "EURIBOR_1M"  # EUR
-  EURIBOR_3M = "EURIBOR_3M"  # EUR
-  EURIBOR_6M = "EURIBOR_6M"  # EUR
-  EURIBOR_1Y = "EURIBOR_1Y"  # EUR
-  STIBOR_OVERNIGHT = "STIBOR_OVERNIGHT"  # SEK
-  STIBOR_1W = "STIBOR_1W"  # SEK
-  STIBOR_1M = "STIBOR_1M"  # SEK
-  STIBOR_3M = "STIBOR_3M"  # SEK
-  STIBOR_6M = "STIBOR_6M"  # SEK
+def _init_currency(
+    currency: Union[currencies.CurrencyProtoType, str]
+    ) -> currencies.CurrencyProtoType:
+  """Converts input to a currency object."""
+  if isinstance(currency, str):
+    try:
+      return getattr(currencies.Currency, currency)
+    except KeyError:
+      raise ValueError(f"{currency} is not a valid currency")
+  return currency
 
 
-@dataclasses.dataclass(frozen=True)
-class CurveType:
-  """"Rate curve types."""
+@dataclasses.dataclass
+class RiskFreeCurve:
+  """Risk free curve description."""
+  currency: Union[currencies.CurrencyProtoType, str]
+
+  def __post_init__(self):
+    self.currency = _init_currency(self.currency)
+
+
+@dataclasses.dataclass
+class RateIndexCurve:
+  """Rate index curve description."""
   currency: currencies.CurrencyProtoType
-  index_type: Index
+  index: rate_indices.RateIndex
+
+  def __post_init__(self):
+    self.currency = _init_currency(self.currency)
 
 
-__all__ = ["Index", "CurveType"]
+CurveType = Union[RiskFreeCurve, RateIndexCurve]
+
+
+__all__ = ["CurveType",
+           "RiskFreeCurve",
+           "RateIndexCurve"]

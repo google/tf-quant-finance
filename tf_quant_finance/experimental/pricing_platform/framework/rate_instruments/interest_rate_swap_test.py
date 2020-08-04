@@ -26,7 +26,6 @@ business_days = framework.core.business_days
 currencies = framework.core.currencies
 daycount_conventions = framework.core.daycount_conventions
 interpolation_method = framework.core.interpolation_method
-rate_indices = framework.core.rate_indices
 
 instrument_protos = tff.experimental.pricing_platform.instrument_protos
 date_pb2 = instrument_protos.date
@@ -43,7 +42,7 @@ market_data_config = market_data.config
 
 DayCountConventions = daycount_conventions.DayCountConventions
 BusinessDayConvention = business_days.BusinessDayConvention
-RateIndexType = rate_indices.RateIndexType
+RateIndex = instrument_protos.rate_indices.RateIndex
 Currency = currencies.Currency
 
 
@@ -71,7 +70,7 @@ class InterestRateSwapTest(tf.test.TestCase):
                 coupon_frequency=period_pb2.Period(type="MONTH", amount=3),
                 reset_frequency=period_pb2.Period(type="MONTH", amount=3),
                 notional_amount=decimal_pb2.Decimal(units=1000000),
-                floating_rate_type=RateIndexType.USD_LIBOR(),
+                floating_rate_type=RateIndex(type="LIBOR_3M"),
                 daycount_convention=DayCountConventions.ACTUAL_360(),
                 business_day_convention=BusinessDayConvention.
                 MODIFIED_FOLLOWING(),
@@ -96,23 +95,23 @@ class InterestRateSwapTest(tf.test.TestCase):
                 coupon_frequency=period_pb2.Period(type="MONTH", amount=3),
                 reset_frequency=period_pb2.Period(type="MONTH", amount=3),
                 notional_amount=decimal_pb2.Decimal(units=1000000),
-                floating_rate_type=RateIndexType.USD_LIBOR(),
+                floating_rate_type=RateIndex(type="LIBOR_3M"),
                 daycount_convention=DayCountConventions.ACTUAL_360(),
                 business_day_convention=BusinessDayConvention.
                 MODIFIED_FOLLOWING(),
                 settlement_days=2)))
-    date = [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
-            [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]]
-    discount = [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
-                0.72494879, 0.37602059]
+    dates = [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
+             [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]]
+    discounts = [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
+                 0.72494879, 0.37602059]
     libor_3m_config = market_data_config.RateConfig(
         interpolation_method=interpolation_method.InterpolationMethod.LINEAR)
     self._rate_config = {"USD": {"LIBOR_3M": libor_3m_config}}
     self._market_data_dict = {"USD": {
-        "OIS":
-        {"date": date, "discount": discount},
+        "risk_free_curve":
+        {"dates": dates, "discounts": discounts},
         "LIBOR_3M":
-        {"date": date, "discount": discount},}}
+        {"dates": dates, "discounts": discounts},}}
     self._valuation_date = [(2020, 6, 24)]
     super(InterestRateSwapTest, self).setUp()
 

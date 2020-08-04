@@ -46,14 +46,18 @@ def leg_from_proto(
         calendar=business_days.holiday_from_proto_value(leg.bank_holidays))
   else:
     leg = leg_proto.floating_leg
+    # Get the index rate object
+    rate_index = leg.floating_rate_type
+    rate_index = rate_indices.RateIndex.from_proto(rate_index)
+    rate_index.name = [rate_index.name]
+    rate_index.source = [rate_index.source]
     return coupon_specs.FloatCouponSpecs(
         currency=currencies.from_proto_value(leg.currency),
         coupon_frequency=leg.coupon_frequency,
         reset_frequency=leg.reset_frequency,
         notional_amount=[instrument_utils.decimal_to_double(
             leg.notional_amount)],
-        floating_rate_type=[rate_indices.from_proto_value(
-            leg.floating_rate_type)],
+        floating_rate_type=rate_index,
         settlement_days=[leg.settlement_days],
         businessday_rule=business_days.convention_from_proto_value(
             leg.business_day_convention),
@@ -66,8 +70,7 @@ def leg_from_proto(
 def update_leg(
     current_leg: Union[coupon_specs.FixedCouponSpecs,
                        coupon_specs.FloatCouponSpecs],
-    leg: Union[coupon_specs.FixedCouponSpecs, coupon_specs.FloatCouponSpecs]
-    ):
+    leg: Union[coupon_specs.FixedCouponSpecs, coupon_specs.FloatCouponSpecs]):
   """Adds new leg info to the current leg."""
   if isinstance(current_leg, coupon_specs.FixedCouponSpecs):
     if not isinstance(leg, coupon_specs.FixedCouponSpecs):
@@ -81,6 +84,16 @@ def update_leg(
       raise ValueError("Both `current_leg` and `leg` should beof the same "
                        "fixed or float type.")
     current_leg.notional_amount += leg.notional_amount
-    current_leg.floating_rate_type += leg.floating_rate_type
+    update_rate_index(current_leg.floating_rate_type, leg.floating_rate_type)
     current_leg.settlement_days += leg.settlement_days
     current_leg.spread += leg.spread
+
+
+def update_rate_index(
+    current_index: rate_indices.RateIndex,
+    index: rate_indices.RateIndex):
+  """Concatenates index to current_index if possible."""
+  if current_index.type != index.type:
+    raise ValueError(f"Can not join {current_index.type} and {index.type}")
+  current_index.name = current_index.name + index.name
+  current_index.source = current_index.source + index.source
