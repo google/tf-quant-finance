@@ -30,15 +30,38 @@ class Instrument(abc.ABC):
   @classmethod
   def from_protos(
       cls,
-      proto_list: List[types.ProtobufBaseType]) -> List["Instrument"]:
+      proto_list: List[types.ProtobufBaseType],
+      **kwargs) -> List["Instrument"]:
     """Converts a list of protos to a list of batched `Instruments`."""
-    del proto_list
+    del proto_list, kwargs
     return []
 
   @classmethod
-  def from_dict(cls, dict_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+  def from_dict(cls,
+                dict_list: List[Dict[str, Any]],
+                **kwargs) -> List["Instrument"]:
     """Converts a list of dict messages to a list of batched `Instruments`."""
-    del dict_list
+    del dict_list, kwargs
+    return []
+
+  @classmethod
+  def group_protos(
+      cls,
+      proto_list: List[types.ProtobufBaseType],
+      **kwargs) -> Dict[str, List[types.ProtobufBaseType]]:
+    """Creates a dict of batchable protos.
+
+    For a list of protos, generates a dictionary `{key: grouped_protos}` such
+    that the `grouped_protos` can be batched together.
+
+    Args:
+      proto_list: A list of `Instrument` protos.
+      **kwargs: Any extra arguments. E.g., pricing configuration.
+
+    Returns:
+      A dictionary of grouped protos.
+    """
+    del proto_list, kwargs
     return []
 
   @abc.abstractproperty

@@ -15,7 +15,7 @@
 """Interest rate swap."""
 
 import copy
-from typing import List, Dict, Optional, Union, Any, Tuple
+from typing import List, Dict, Optional, Union
 
 import dataclasses
 import tensorflow.compat.v2 as tf
@@ -29,13 +29,13 @@ from tf_quant_finance.experimental.pricing_platform.framework.core import types
 from tf_quant_finance.experimental.pricing_platform.framework.market_data import utils as market_data_utils
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import cashflow_streams
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import coupon_specs
-from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import swap_utils
+from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.interest_rate_swap import proto_utils
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import interest_rate_swap_pb2 as ir_swap
 
 
 @dataclasses.dataclass(frozen=True)
 class InterestRateSwapConfig:
-  discounting_index: Dict[types.CurrencyProtoType, curve_types.CurveType]
+  discounting_curve: Dict[types.CurrencyProtoType, curve_types.CurveType]
   model: str
 
 
@@ -182,7 +182,7 @@ class InterestRateSwap(instrument.Instrument):
         raise ValueError("Pay and receive legs should have the same currency")
       if swap_config is not None:
         try:
-          self._discount_curve_type = swap_config.discounting_index[currency]
+          self._discount_curve_type = swap_config.discounting_curve[currency]
         except KeyError:
           risk_free = curve_types.RiskFreeCurve(currency=currency)
           self._discount_curve_type = risk_free
@@ -203,55 +203,19 @@ class InterestRateSwap(instrument.Instrument):
   def from_protos(
       cls, proto_list: List[ir_swap.InterestRateSwap],
       swap_config: InterestRateSwapConfig = None) -> List["InterestRateSwap"]:
-    prepare_swaps = {}
-    for swap_instance in proto_list:
-      pay_leg = swap_instance.pay_leg
-      receive_leg = swap_instance.receive_leg
-
-      flip_legs, key = _get_legs_hash_key(pay_leg, receive_leg)
-      currency = swap_instance.currency
-      bank_holidays = swap_instance.bank_holidays
-      h = hash(
-          tuple(key + [currency] + [bank_holidays]))
-      start_date = swap_instance.effective_date
-      start_date = [start_date.year,
-                    start_date.month,
-                    start_date.day]
-      maturity_date = swap_instance.maturity_date
-      maturity_date = [maturity_date.year,
-                       maturity_date.month,
-                       maturity_date.day]
-      pay_leg_shuffled = swap_utils.leg_from_proto(pay_leg)
-      receive_leg_shuffled = swap_utils.leg_from_proto(receive_leg)
-      if flip_legs:
-        receive_leg_shuffled.notional_amount *= -1
-        pay_leg_shuffled.notional_amount *= -1
-        pay_leg = receive_leg_shuffled
-        receive_leg = pay_leg_shuffled
-      else:
-        pay_leg = pay_leg_shuffled
-        receive_leg = receive_leg_shuffled
-      name = swap_instance.metadata.id
-      instrument_type = swap_instance.metadata.instrument_type
-      if h in prepare_swaps:
-        current_pay_leg = prepare_swaps[h]["pay_leg"]
-        current_receive_leg = prepare_swaps[h]["receive_leg"]
-        swap_utils.update_leg(current_pay_leg, pay_leg)
-        swap_utils.update_leg(current_receive_leg, receive_leg)
-        prepare_swaps[h]["start_date"].append(start_date)
-        prepare_swaps[h]["maturity_date"].append(maturity_date)
-        prepare_swaps[h]["batch_names"].append([name, instrument_type])
-      else:
-        prepare_swaps[h] = {"start_date": [start_date],
-                            "maturity_date": [maturity_date],
-                            "pay_leg": pay_leg,
-                            "receive_leg": receive_leg,
-                            "swap_config": swap_config,
-                            "batch_names": [[name, instrument_type]]}
+    proto_dict = proto_utils.from_protos(proto_list, swap_config)
     intruments = []
-    for kwargs in prepare_swaps.values():
+    for kwargs in proto_dict.values():
       intruments.append(cls(**kwargs))
     return intruments
+
+  @classmethod
+  def group_protos(
+      cls,
+      proto_list: List[ir_swap.InterestRateSwap],
+      fra_config: InterestRateSwapConfig = None
+      ) -> Dict[str, List["InterestRateSwap"]]:
+    return proto_utils.group_protos(proto_list, fra_config)
 
   def price(self,
             market: pmd.ProcessedMarketData,
@@ -436,58 +400,6 @@ class InterestRateSwap(instrument.Instrument):
         fixed_leg.cashflow_dates)
     return tf.math.reduce_sum(
         discount_factors * fixed_leg.daycount_fractions, axis=-1)
-
-
-def _fixed_leg_key(leg: ir_swap.FixedLeg) -> List[Any]:
-  return [leg.coupon_frequency.type, leg.coupon_frequency.amount,
-          leg.daycount_convention, leg.business_day_convention]
-
-
-def _floating_leg_key(leg: ir_swap.FloatingLeg) -> List[Any]:
-  rate_index = leg.floating_rate_type
-  return [leg.coupon_frequency.type, leg.coupon_frequency.amount,
-          leg.reset_frequency.type, leg.reset_frequency.amount,
-          leg.daycount_convention, leg.business_day_convention, rate_index.type]
-
-
-def _get_keys(leg: ir_swap.SwapLeg) -> Tuple[List[Any], List[Any]]:
-  """Computes key values for a function that partitions swaps into batches."""
-  if leg.HasField("fixed_leg"):
-    fixed_leg = leg.fixed_leg
-    key_1 = _fixed_leg_key(fixed_leg)
-    key_2 = 7 * [None]
-  else:
-    floating_leg = leg.floating_leg
-    key_1 = 4 * [None]
-    key_2 = _floating_leg_key(floating_leg)
-  # len(key_1) + len(key_2) = 11 - this is the number of features involved into
-  # the batching procedure
-  return key_1, key_2
-
-
-def _get_legs_hash_key(
-    leg_1: ir_swap.SwapLeg,
-    leg_2: ir_swap.SwapLeg) -> Tuple[bool, List[Any]]:
-  """Computes hash keys for the legs in order to perform batching."""
-  # Batching is performed on start_date, end_date, float_rate_type (if it is
-  # associated with the same CurveType), fixed_rate, notional amount,
-  # settlement days, and basis points.
-  pay_leg_key_1, pay_leg_key_2 = _get_keys(leg_1)
-  receive_leg_key_1, receive_leg_key_2 = _get_keys(leg_2)
-  key_1 = pay_leg_key_1 + pay_leg_key_2
-  key_2 = receive_leg_key_1 + receive_leg_key_2
-  flip_legs = False
-  if (pay_leg_key_1[0] is not None
-      and receive_leg_key_1[0] is not None):
-    if pay_leg_key_1[:2] > receive_leg_key_1[:2]:
-      flip_legs = True
-  elif (receive_leg_key_1[0] is not None
-        and pay_leg_key_1[:4] > receive_leg_key_1[:4]):
-    flip_legs = True
-  if flip_legs:
-    return flip_legs, key_2 + key_1
-  else:
-    return flip_legs, key_1 + key_2
 
 
 __all__ = ["InterestRateSwapConfig", "InterestRateSwap"]

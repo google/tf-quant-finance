@@ -12,22 +12,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Rate instruments module."""
+"""Interest rate swap."""
 
-from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import cashflow_streams
-from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import coupon_specs
-from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import utils
-from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.forward_rate_agreement import forward_rate_agreement
-from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.interest_rate_swap import interest_rate_swap
+from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.interest_rate_swap.interest_rate_swap import InterestRateSwap
+from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.interest_rate_swap.interest_rate_swap import InterestRateSwapConfig
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
-    "cashflow_streams",
-    "coupon_specs",
-    "forward_rate_agreement",
-    "interest_rate_swap",
-    "utils",
+    "InterestRateSwap",
+    "InterestRateSwapConfig",
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

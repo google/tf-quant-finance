@@ -20,17 +20,13 @@ import dataclasses
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import datetime as dateslib
-from tf_quant_finance.experimental.pricing_platform.framework.core import business_days
-from tf_quant_finance.experimental.pricing_platform.framework.core import currencies
 from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
-from tf_quant_finance.experimental.pricing_platform.framework.core import daycount_conventions
 from tf_quant_finance.experimental.pricing_platform.framework.core import instrument
 from tf_quant_finance.experimental.pricing_platform.framework.core import processed_market_data as pmd
 from tf_quant_finance.experimental.pricing_platform.framework.core import rate_indices
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
 from tf_quant_finance.experimental.pricing_platform.framework.market_data import utils as market_data_utils
-from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import swap_utils
-from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import utils as instrument_utils
+from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.forward_rate_agreement import proto_utils
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import forward_rate_agreement_pb2 as fra
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import period_pb2
 
@@ -193,7 +189,7 @@ class ForwardRateAgreement(instrument.Instrument):
       reference_curve_type = rate_index_curve
       if fra_config is not None:
         try:
-          self._discount_curve_type = fra_config.discounting_index[currency]
+          self._discount_curve_type = fra_config.discounting_curve[currency]
         except KeyError:
           risk_free = curve_types.RiskFreeCurve(currency=currency)
           self._discount_curve_type = curve_types.CurveType(
@@ -211,66 +207,19 @@ class ForwardRateAgreement(instrument.Instrument):
       proto_list: List[fra.ForwardRateAgreement],
       fra_config: ForwardRateAgreementConfig = None
       ) -> List["ForwardRateAgreement"]:
-    prepare_fras = {}
-    for fra_proto in proto_list:
-      short_position = fra_proto.short_position
-      currency = currencies.from_proto_value(fra_proto.currency)
-      bank_holidays = fra_proto.bank_holidays
-      daycount_convention = fra_proto.daycount_convention
-      business_day_convention = fra_proto.business_day_convention
-      # Get rate index
-      rate_index = fra_proto.floating_rate_term.floating_rate_type
-      rate_index = rate_indices.RateIndex.from_proto(rate_index)
-      rate_index.name = [rate_index.name]
-      rate_index.source = [rate_index.source]
-
-      rate_term = fra_proto.floating_rate_term.term
-
-      h = hash(tuple([currency] + [bank_holidays] + [rate_term.type]
-                     + [rate_term.amount] + [rate_index.type]
-                     + [daycount_convention] + [business_day_convention]))
-      fixing_date = fra_proto.fixing_date
-      fixing_date = [fixing_date.year,
-                     fixing_date.month,
-                     fixing_date.day]
-      notional_amount = instrument_utils.decimal_to_double(
-          fra_proto.notional_amount)
-      daycount_convention = daycount_conventions.from_proto_value(
-          fra_proto.daycount_convention)
-      business_day_convention = business_days.convention_from_proto_value(
-          fra_proto.business_day_convention)
-      fixed_rate = instrument_utils.decimal_to_double(fra_proto.fixed_rate)
-      calendar = business_days.holiday_from_proto_value(
-          fra_proto.bank_holidays)
-      settlement_days = fra_proto.settlement_days
-      name = fra_proto.metadata.id
-      instrument_type = fra_proto.metadata.instrument_type
-      if h not in prepare_fras:
-        prepare_fras[h] = {"short_position": short_position,
-                           "currency": currency,
-                           "fixing_date": [fixing_date],
-                           "fixed_rate": [fixed_rate],
-                           "notional_amount": [notional_amount],
-                           "daycount_convention": daycount_convention,
-                           "business_day_convention": business_day_convention,
-                           "calendar": calendar,
-                           "rate_term": rate_term,
-                           "rate_index": rate_index,
-                           "settlement_days": [settlement_days],
-                           "fra_config": fra_config,
-                           "batch_names": [[name, instrument_type]]}
-      else:
-        current_index = prepare_fras[h]["rate_index"]
-        swap_utils.update_rate_index(current_index, rate_index)
-        prepare_fras[h]["fixing_date"].append(fixing_date)
-        prepare_fras[h]["fixed_rate"].append(fixed_rate)
-        prepare_fras[h]["notional_amount"].append(notional_amount)
-        prepare_fras[h]["settlement_days"].append(settlement_days)
-        prepare_fras[h]["batch_names"].append([name, instrument_type])
+    proto_dict = proto_utils.from_protos(proto_list, fra_config)
     intruments = []
-    for kwargs in prepare_fras.values():
+    for kwargs in proto_dict.values():
       intruments.append(cls(**kwargs))
     return intruments
+
+  @classmethod
+  def group_protos(
+      cls,
+      proto_list: List[fra.ForwardRateAgreement],
+      fra_config: ForwardRateAgreementConfig = None
+      ) -> Dict[str, List["ForwardRateAgreement"]]:
+    return proto_utils.group_protos(proto_list, fra_config)
 
   def price(self,
             market: pmd.ProcessedMarketData,

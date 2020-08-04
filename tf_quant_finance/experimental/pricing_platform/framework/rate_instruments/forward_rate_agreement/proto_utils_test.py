@@ -12,14 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for forward rate agreement."""
+"""Tests for proto_utils."""
 
-import numpy as np
 import tensorflow.compat.v2 as tf
-
 import tf_quant_finance as tff
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
+from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.forward_rate_agreement import proto_utils
+from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 framework = tff.experimental.pricing_platform.framework
 business_days = framework.core.business_days
@@ -45,10 +44,10 @@ Currency = currencies.Currency
 
 
 @test_util.run_all_in_graph_and_eager_modes
-class ForwardRateAgreementTest(tf.test.TestCase):
+class ProtoUtilsTest(tf.test.TestCase):
 
-  def test_from_proto_price(self):
-    fra_1 = fra_pb2.ForwardRateAgreement(
+  def setUp(self):
+    self._fra_1 = fra_pb2.ForwardRateAgreement(
         short_position=True,
         fixing_date=date_pb2.Date(year=2021, month=5, day=21),
         currency=Currency.USD(),
@@ -61,7 +60,7 @@ class ForwardRateAgreementTest(tf.test.TestCase):
             term=period_pb2.Period(type="MONTH", amount=3)),
         settlement_days=2)
 
-    fra_2 = fra_pb2.ForwardRateAgreement(
+    self._fra_2 = fra_pb2.ForwardRateAgreement(
         short_position=False,
         fixing_date=date_pb2.Date(year=2021, month=5, day=21),
         currency=Currency.USD(),
@@ -73,29 +72,20 @@ class ForwardRateAgreementTest(tf.test.TestCase):
             floating_rate_type=RateIndex(type="LIBOR_3M"),
             term=period_pb2.Period(type="MONTH", amount=3)),
         settlement_days=2)
-    date = [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
-            [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]]
-    discount = [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
-                0.72494879, 0.37602059]
-    market_data_dict = {"USD": {
-        "risk_free_curve":
-        {"dates": date, "discounts": discount},
-        "LIBOR_3M":
-        {"dates": date, "discounts": discount},}}
-    valuation_date = [(2020, 2, 8)]
-    market = market_data.MarketDataDict(valuation_date, market_data_dict)
-    fra_portfolio = forward_rate_agreement.ForwardRateAgreement.from_protos(
-        [fra_1, fra_2, fra_1])
-    with self.subTest("Batching"):
-      self.assertLen(fra_portfolio, 2)
-    price1 = fra_portfolio[0].price(market)
-    expected1 = np.array([4.05463257, 4.05463257])
-    with self.subTest("PriceBatch"):
-      self.assertAllClose(price1, expected1)
-    price2 = fra_portfolio[1].price(market)
-    expected2 = np.array([-5.10228969])
-    with self.subTest("PriceSingle"):
-      self.assertAllClose(price2, expected2)
+    super(ProtoUtilsTest, self).setUp()
+
+  def test_group_protos(self):
+    proto_dict = proto_utils.group_protos(
+        [self._fra_1, self._fra_2, self._fra_1])
+    with self.subTest("NumGroups"):
+      self.assertLen(proto_dict.keys(), 2)
+    with self.subTest("CorrectBatches"):
+      proto_list_1, proto_list_2 = proto_dict.values()
+      # One of the lists contains two identical protos
+      if len(proto_list_1) == 2:
+        self.assertProtoEquals(proto_list_1[0], proto_list_1[1])
+      else:
+        self.assertProtoEquals(proto_list_2[0], proto_list_2[1])
 
 if __name__ == "__main__":
   tf.test.main()
