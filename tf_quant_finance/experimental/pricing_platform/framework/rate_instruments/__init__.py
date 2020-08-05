@@ -16,9 +16,9 @@
 
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import cashflow_streams
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import coupon_specs
+from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import forward_rate_agreement
+from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import interest_rate_swap
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import utils
-from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.forward_rate_agreement import forward_rate_agreement
-from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.interest_rate_swap import interest_rate_swap
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 

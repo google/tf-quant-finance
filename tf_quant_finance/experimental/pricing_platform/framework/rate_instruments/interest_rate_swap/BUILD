@@ -6,7 +6,16 @@ package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 
 py_library(
     name = "interest_rate_swap",
-    srcs = ["interest_rate_swap.py"],
+    srcs = ["__init__.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":interest_rate_swap_impl",
+    ],
+)
+
+py_library(
+    name = "interest_rate_swap_impl",
+    srcs = ["interest_rate_swap_impl.py"],
     srcs_version = "PY3",
     deps = [
         ":proto_utils",

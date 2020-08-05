@@ -6,7 +6,16 @@ package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 
 py_library(
     name = "forward_rate_agreement",
-    srcs = ["forward_rate_agreement.py"],
+    srcs = ["__init__.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":forward_rate_agreement_impl",
+    ],
+)
+
+py_library(
+    name = "forward_rate_agreement_impl",
+    srcs = ["forward_rate_agreement_impl.py"],
     srcs_version = "PY3",
     deps = [
         ":proto_utils",

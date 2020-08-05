@@ -14,8 +14,8 @@
 # limitations under the License.
 """Interest rate swap."""
 
-from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.interest_rate_swap.interest_rate_swap import InterestRateSwap
-from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.interest_rate_swap.interest_rate_swap import InterestRateSwapConfig
+from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.interest_rate_swap.interest_rate_swap_impl import InterestRateSwap
+from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.interest_rate_swap.interest_rate_swap_impl import InterestRateSwapConfig
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
