@@ -58,7 +58,7 @@ if release_suffix:
   __version__ += release_suffix
 
 REQUIRED_PACKAGES = [
-    'attrs >= 18.2.0', tfp_package, 'numpy >= 1.16.0'
+    'attrs >= 18.2.0', tfp_package, 'numpy >= 1.16.0', 'protobuf'
 ]
 
 
