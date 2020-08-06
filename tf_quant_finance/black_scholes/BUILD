@@ -41,6 +41,7 @@ py_test(
         # numpy dep,
         # tensorflow dep,
         # tensorflow_probability dep,
+        # xla_cpu_jit xla dep,
     ],
 )
 

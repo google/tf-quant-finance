@@ -314,7 +314,7 @@ def barrier_price(*,
   # appropriate terms for calculating the integral. Then a dot product of each
   # row in the matricies coupled with the masks work to calculate the prices of
   # the barriers option.
-  if (continuous_dividends is None) == (cost_of_carries is None):
+  if (continuous_dividends is not None) and (cost_of_carries is not None):
     raise ValueError('At most one of continuous_dividends and cost of carries '
                      'may be supplied')
   with tf.name_scope(name or 'barrier_price'):
@@ -338,14 +338,15 @@ def barrier_price(*,
       discount_rates = tf.convert_to_tensor(
           1, dtype=dtype, name='discount_rates')
 
-    if continuous_dividends is not None:
+    if continuous_dividends is None:
       continuous_dividends = tf.convert_to_tensor(
-          continuous_dividends, dtype=dtype, name='continuous_dividends')
+          0.0, dtype=dtype, name='continuous_dividends')
 
     if cost_of_carries is not None:
-      continuous_dividends = tf.convert_to_tensor(
-          discount_rates - cost_of_carries, dtype=dtype,
-          name='continuous_dividends')
+      cost_of_carries = tf.convert_to_tensor(
+          cost_of_carries, dtype=dtype, name='cost_of_carries')
+    else:
+      cost_of_carries = discount_rates - continuous_dividends
 
     if is_barrier_down is None:
       is_barrier_down = tf.constant(1, name='is_barrier_down')
@@ -365,6 +366,7 @@ def barrier_price(*,
       is_call_options = tf.convert_to_tensor(is_call_options, dtype=tf.bool,
                                              name='is_call_options')
       is_call_options = tf.where(is_call_options, 1, 0)
+
     # Indices which range from 0-7 are used to select the appropriate
     # mask for each barrier
     indices = tf.bitwise.left_shift(
@@ -411,7 +413,7 @@ def barrier_price(*,
 
     # Calculate params for integrals
     sqrt_var = volatilities * tf.math.sqrt(expiries)
-    mu = (discount_rates - continuous_dividends) - ((volatilities**2) / 2)
+    mu = (cost_of_carries) - ((volatilities**2) / 2)
     lamda = 1 + (mu / (volatilities**2))
     x = (tf.math.log(spots / strikes) / (sqrt_var)) + (lamda * sqrt_var)
     x1 = (tf.math.log(spots / barriers) / (sqrt_var)) + (lamda * sqrt_var)
@@ -426,14 +428,14 @@ def barrier_price(*,
     discount_rates_exponent = tf.math.exp(-discount_rates * expiries,
                                           name='discount_rates_exponent')
     continuous_dividends_exponent = tf.math.exp(
-        -continuous_dividends * expiries,
+        (cost_of_carries-discount_rates) * expiries,
         name='continuous_dividends_exponent')
     barriers_ratio = tf.math.divide(barriers, spots, name='barriers_ratio')
     spots_term = call_or_put * spots * continuous_dividends_exponent
     strikes_term = call_or_put * strikes * discount_rates_exponent
 
     # rank is used to stack elements and reduce_sum
-    strike_rank = len(strikes.shape)
+    strike_rank = strikes.shape.rank
 
     # Constructing Matrix with first and second algebraic terms for each
     # integral [strike.shape, 12]
