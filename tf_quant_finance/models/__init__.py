@@ -17,12 +17,14 @@
 from tf_quant_finance.models import euler_sampling
 from tf_quant_finance.models import heston
 from tf_quant_finance.models import hull_white
+from tf_quant_finance.models import sabr
 from tf_quant_finance.models.generic_ito_process import GenericItoProcess
 from tf_quant_finance.models.geometric_brownian_motion.multivariate_geometric_brownian_motion import MultivariateGeometricBrownianMotion
 from tf_quant_finance.models.geometric_brownian_motion.univariate_geometric_brownian_motion import GeometricBrownianMotion
 from tf_quant_finance.models.heston import HestonModel
 from tf_quant_finance.models.ito_process import ItoProcess
 from tf_quant_finance.models.joined_ito_process import JoinedItoProcess
+from tf_quant_finance.models.sabr import SabrModel
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
@@ -36,6 +38,7 @@ _allowed_symbols = [
     'GeometricBrownianMotion',
     'ItoProcess',
     'JoinedItoProcess',
+    'SabrModel',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

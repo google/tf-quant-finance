@@ -15,6 +15,7 @@ py_library(
         "//tf_quant_finance/models/geometric_brownian_motion",
         "//tf_quant_finance/models/heston",
         "//tf_quant_finance/models/hull_white",
+        "//tf_quant_finance/models/sabr",
     ],
 )
 
