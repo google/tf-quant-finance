@@ -79,23 +79,20 @@ def interpolate(interpolation_times,
       default_name='constant_fwd_interpolation',
       values=[interpolation_times, reference_times, reference_yields]):
     interpolation_times = tf.convert_to_tensor(interpolation_times, dtype=dtype)
+    dtype = dtype or interpolation_times.dtype
     reference_times = tf.convert_to_tensor(reference_times, dtype=dtype)
-    reference_yields = tf.broadcast_to(
-        tf.convert_to_tensor(reference_yields, dtype=dtype),
-        shape=tf.shape(reference_times))
+    reference_yields = tf.convert_to_tensor(reference_yields, dtype=dtype)
 
     # Currently only flat extrapolation is being supported. We achieve this by
     # clipping the interpolation times between minimum and maximum times of the
     # input curve.
     reference_times_min = tf.reduce_min(
-        reference_times, axis=tf.rank(reference_times) - 1, keepdims=True)
+        reference_times, axis=-1, keepdims=True)
     reference_times_max = tf.reduce_max(
-        reference_times, axis=tf.rank(reference_times) - 1, keepdims=True)
+        reference_times, axis=-1, keepdims=True)
     interpolation_times = tf.minimum(
-        tf.broadcast_to(reference_times_max, interpolation_times.shape),
-        tf.maximum(
-            tf.broadcast_to(reference_times_min, interpolation_times.shape),
-            interpolation_times))
+        reference_times_max,
+        tf.maximum(reference_times_min, interpolation_times))
 
     interpolated_prod = linear_interpolation.interpolate(
         interpolation_times, reference_times,

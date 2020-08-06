@@ -20,6 +20,7 @@ import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import datetime as dateslib
 from tf_quant_finance import math
+from tf_quant_finance import rates as rates_lib
 from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
 from tf_quant_finance.experimental.pricing_platform.framework.core import daycount_conventions
 from tf_quant_finance.experimental.pricing_platform.framework.core import interpolation_method
@@ -94,7 +95,10 @@ class RateCurve(pmd.RateCurve):
         interpolator = linear_interpolator
         self._interpolation_method = _InterpolationMethod.LINEAR
       elif interpolator == _InterpolationMethod.CONSTANT_FORWARD:
-        raise ValueError("Coming soon.")
+        def constant_fwd(xi, x, y):
+          return rates_lib.constant_fwd.interpolate(xi, x, y, dtype=dtype)
+        interpolator = constant_fwd
+        self._interpolation_method = _InterpolationMethod.CONSTANT_FORWARD
       else:
         raise ValueError(f"Unknown interpolation method {interpolator}.")
       self._dates = dateslib.convert_to_date_tensor(maturity_dates)
