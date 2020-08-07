@@ -10,6 +10,7 @@ py_library(
     srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/math/interpolation/cubic",
+        "//tf_quant_finance/math/interpolation/interpolation_2d",
         "//tf_quant_finance/math/interpolation/linear",
         # tensorflow dep,
     ],

@@ -12,19 +12,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Ops related to interpolation."""
+"""2D - interpolation."""
 
 
-from tf_quant_finance.math.interpolation import cubic
-from tf_quant_finance.math.interpolation import interpolation_2d
-from tf_quant_finance.math.interpolation import linear
-
+from tf_quant_finance.math.interpolation.interpolation_2d import interpolation_2d
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
+Interpolation2D = interpolation_2d.Interpolation2D
 _allowed_symbols = [
-    'cubic',
-    'interpolation_2d',
-    'linear',
+    'Interpolation2D',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
