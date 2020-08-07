@@ -28,6 +28,8 @@ from tf_quant_finance.math.gradient import fwd_gradient
 from tf_quant_finance.math.gradient import gradients
 from tf_quant_finance.math.gradient import make_val_and_grad_fn
 from tf_quant_finance.math.gradient import value_and_gradient
+from tf_quant_finance.math.jacobian import jacobian
+from tf_quant_finance.math.jacobian import value_and_jacobian
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
@@ -45,6 +47,8 @@ _allowed_symbols = [
     'segment_ops',
     'value_and_gradient',
     'make_val_and_grad_fn',
+    'jacobian',
+    'value_and_jacobian',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
