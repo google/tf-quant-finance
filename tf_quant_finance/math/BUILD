@@ -104,6 +104,7 @@ py_library(
 py_test(
     name = "jacobian_test",
     size = "small",
+    timeout = "moderate",
     srcs = ["jacobian_test.py"],
     python_version = "PY3",
     shard_count = 4,
