@@ -259,7 +259,7 @@ class SabrModelTest(parameterized.TestCase, tf.test.TestCase):
   def test_relative_error(self):
     """Replicate tests from reference [1] test case 4."""
     dtype = np.float64
-    num_samples = 2500
+    num_samples = 1000
     test_seed = [123, 124]
 
     initial_forward = tf.constant(0.07, dtype=dtype)
@@ -267,8 +267,8 @@ class SabrModelTest(parameterized.TestCase, tf.test.TestCase):
     volvol = tf.constant(0.8, dtype=dtype)
     beta = tf.constant(0.4, dtype=dtype)
     rho = tf.constant(-0.6, dtype=dtype)
-    times = [5]
-    timesteps = [0.5, 0.25, 0.125, 0.0625, 0.03125]
+    times = [1]
+    timesteps = [0.0625, 0.03125]
     strike = 0.4
     process = SabrModel(
         beta=beta,
