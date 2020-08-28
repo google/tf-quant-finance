@@ -346,18 +346,19 @@ def _prepare_grid(*, times, time_step, dtype):
     `times` indices in `all_times`.
   """
   grid = tf.range(0.0, times[-1], time_step, dtype=dtype)
-  all_times = tf.concat([grid, times], axis=0)
-  mask = tf.concat([
-      tf.zeros_like(grid, dtype=tf.bool),
-      tf.ones_like(times, dtype=tf.bool)
-  ],
-                   axis=0)
-  perm = tf.argsort(all_times, stable=True)
-  all_times = tf.gather(all_times, perm)
+  all_times = tf.concat([times, grid], axis=0)
   # Remove duplicate points
   all_times = tf.unique(all_times).y
-  time_indices = tf.searchsorted(all_times, times)
-  mask = tf.gather(mask, perm)
+  # Sort sequence. Identify the time indices of interest
+  all_times = tf.sort(all_times)
+  time_indices = tf.searchsorted(all_times, times, out_type=tf.int32)
+  # Create a boolean mask to identify the iterations that have to be recorded.
+  mask_sparse = tf.sparse.SparseTensor(
+      indices=tf.expand_dims(
+          tf.cast(time_indices, dtype=tf.int64), axis=1),
+      values=tf.fill(times.shape, True),
+      dense_shape=all_times.shape)
+  mask = tf.sparse.to_dense(mask_sparse)
   return all_times, mask, time_indices
 
 
