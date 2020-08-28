@@ -147,29 +147,22 @@ def interpolate(x,
 
       # `tf.where` evaluates all branches, need to cap indices to ensure it
       # won't go out of bounds.
-      capped_lower_indices = tf.math.maximum(upper_indices - 1, 0)
-      capped_upper_indices = tf.math.minimum(upper_indices, x_data_size - 1)
+      lower_encoding = tf.math.maximum(upper_indices - 1, 0)
+      upper_encoding = tf.math.minimum(upper_indices, x_data_size - 1)
       # Prepare indices for `tf.gather_nd` or `tf.one_hot`
       # TODO(b/156720909): Extract get_slice logic into a common utilities
       # module for cubic and linear interpolation
       if optimize_for_tpu:
-        lower_encoding = tf.one_hot(capped_lower_indices, x_data_size,
+        lower_encoding = tf.one_hot(lower_encoding, x_data_size,
                                     dtype=dtype)
-        upper_encoding = tf.one_hot(capped_upper_indices, x_data_size,
+        upper_encoding = tf.one_hot(upper_encoding, x_data_size,
                                     dtype=dtype)
-      else:
-        index_matrix = utils.prepare_indices(upper_indices)
-        lower_encoding = tf.concat(
-            [index_matrix, tf.expand_dims(capped_lower_indices, -1)], -1)
-
-        upper_encoding = tf.concat(
-            [index_matrix, tf.expand_dims(capped_upper_indices, -1)], -1)
       def get_slice(x, encoding):
         if optimize_for_tpu:
           return tf.math.reduce_sum(tf.expand_dims(x, axis=-2) * encoding,
                                     axis=-1)
         else:
-          return tf.gather_nd(x, encoding)
+          return tf.gather(x, encoding, axis=-1, batch_dims=x.shape.rank - 1)
       x_data_lower = get_slice(x_data, lower_encoding)
       x_data_upper = get_slice(x_data, upper_encoding)
       y_data_lower = get_slice(y_data, lower_encoding)

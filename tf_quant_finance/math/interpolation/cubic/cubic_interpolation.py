@@ -172,26 +172,19 @@ def interpolate(x_values,
     indices = tf.searchsorted(x_data, x_values, side="right") - 1
     # This selects all elements for the start of the spline interval.
     # Make sure indices lie in the permissible range
-    indices_lower = tf.maximum(indices, 0)
+    lower_encoding = tf.maximum(indices, 0)
     # This selects all elements for the end of the spline interval.
     # Make sure indices lie in the permissible range
-    indices_upper = tf.minimum(indices + 1, x_data.shape.as_list()[-1] - 1)
+    upper_encoding = tf.minimum(indices + 1, x_data.shape.as_list()[-1] - 1)
     # Prepare indices for `tf.gather_nd` or `tf.one_hot`
     # TODO(b/156720909): Extract get_slice logic into a common utilities module
     # for cubic and linear interpolation
     if optimize_for_tpu:
       x_data_size = x_data.shape.as_list()[-1]
-      lower_encoding = tf.one_hot(indices_lower, x_data_size,
+      lower_encoding = tf.one_hot(lower_encoding, x_data_size,
                                   dtype=dtype)
-      upper_encoding = tf.one_hot(indices_upper, x_data_size,
+      upper_encoding = tf.one_hot(upper_encoding, x_data_size,
                                   dtype=dtype)
-    else:
-      index_matrix = utils.prepare_indices(indices)
-      lower_encoding = tf.concat(
-          [index_matrix, tf.expand_dims(indices_lower, -1)], -1)
-      upper_encoding = tf.concat(
-          [index_matrix, tf.expand_dims(indices_upper, -1)], -1)
-
     # Calculate dx and dy.
     # Simplified logic:
     # dx = x_data[indices + 1] - x_data[indices]
@@ -203,7 +196,7 @@ def interpolate(x_values,
         return tf.math.reduce_sum(tf.expand_dims(x, axis=-2) * encoding,
                                   axis=-1)
       else:
-        return tf.gather_nd(x, encoding)
+        return tf.gather(x, encoding, axis=-1, batch_dims=x.shape.rank - 1)
     x0 = get_slice(x_data, lower_encoding)
     x1 = get_slice(x_data, upper_encoding)
     dx = x1 - x0

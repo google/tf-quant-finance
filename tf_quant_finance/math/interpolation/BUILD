@@ -21,7 +21,6 @@ py_library(
     srcs = ["utils.py"],
     srcs_version = "PY3",
     deps = [
-        # numpy dep,
         # tensorflow dep,
     ],
 )

@@ -34,11 +34,5 @@ class UtilsTest(tf.test.TestCase):
       y_eval = self.evaluate(y)
       self.assertAllEqual(y_eval, np.zeros([2, 1, 3, 4]))
 
-  def test_prepare_indices(self):
-    indices = tf.zeros([5, 3, 5, 8])
-    index_matrix = utils.prepare_indices(indices)
-    self.assertAllEqual(index_matrix.shape,
-                        indices.shape + [indices.shape.rank - 1])
-
 if __name__ == "__main__":
   tf.test.main()
