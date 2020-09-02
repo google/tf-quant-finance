@@ -88,7 +88,7 @@ py_library(
 py_test(
     name = "cap_floor_test",
     size = "medium",
-    timeout = "moderate",
+    timeout = "long",
     srcs = ["cap_floor_test.py"],
     python_version = "PY3",
     shard_count = 6,
@@ -125,5 +125,21 @@ py_test(
         # numpy dep,
         # tensorflow dep,
         # xla_cpu_jit xla dep,
+    ],
+)
+
+py_test(
+    name = "bermudan_swaption_test",
+    size = "medium",
+    timeout = "moderate",
+    srcs = ["bermudan_swaption_test.py"],
+    python_version = "PY3",
+    shard_count = 5,
+    deps = [
+        "//tf_quant_finance",
+        # test util,
+        # absl/testing:parameterized dep,
+        # numpy dep,
+        # tensorflow dep,
     ],
 )

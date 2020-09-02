@@ -56,7 +56,7 @@ class LsmTest(tf.test.TestCase):
     exercise_index = 2
     for dtype in (np.float32, np.float64):
       discount_factors = tf.constant(
-          [1.0, 0.9, 0.8, 0.7, 0.6], dtype=dtype)
+          [[1.0, 0.9, 0.8, 0.7, 0.6]], dtype=dtype)
       cashflow = tf.ones(shape=[10, 5, 4], dtype=dtype)
       continuation_value = lsm.continuation_value_fn(cashflow,
                                                      discount_factors,

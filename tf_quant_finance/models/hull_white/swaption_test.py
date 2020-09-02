@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for cap_floor.py."""
+"""Tests for swaption.py."""
 
 from absl.testing import parameterized
 

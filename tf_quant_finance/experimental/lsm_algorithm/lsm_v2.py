@@ -43,9 +43,10 @@ LsmLoopVars = collections.namedtuple(
 def make_polynomial_basis(degree):
   """Produces a callable from samples to polynomial basis for use in regression.
 
-  The output callable accepts a `Tensor` `X` of shape `[num_samples, dim]`,
-  computes a centered value `Y = X - mean(X, axis=0)` and outputs a `Tensor`
-  of shape `[degree * dim, num_samples]`, where
+  The output callable accepts a scalar `Tensor` `t` and a `Tensor` `X` of
+  shape `[num_samples, dim]`, computes a centered value
+  `Y = X - mean(X, axis=0)` and outputs a `Tensor` of shape
+  `[degree * dim, num_samples]`, where
   ```
   Z[i*j, k] = X[k, j]**(degree - i) * X[k, j]**i, 0<=i<degree - 1, 0<=j<dim
   ```
@@ -55,12 +56,13 @@ def make_polynomial_basis(degree):
 
   #### Example
   ```python
-  basis = make_polynomial_basis(2)
-  x = [1.0, 2.0, 3.0, 4.0]
+  basis = tff.experimental.lsm_algorithm.make_polynomial_basis_v2(2)
+  x = [[1.0], [2.0], [3.0], [4.0]]
   x = tf.expand_dims(x, axis=-1)
-  basis(x)
+  basis(x, tf.constant(0, dtype=np.int32))
   # Expected result:
-  [[ 1.0, 1.0, 1.0, 1.0], [-1.5, -0.5, 0.5, 1.5]]
+  [[ 1.  ,  1.  ,  1.  ,  1.  ], [-1.5 , -0.5 ,  0.5 ,  1.5 ],
+  [ 2.25,  0.25,  0.25,  2.25]]
   ```
 
   Args:
@@ -195,9 +197,9 @@ def least_square_mc(sample_paths,
       time index) to a `Tensor` of shape `[basis_size, num_samples]` of the same
       dtype as `sample_paths`. The result being the design matrix used in
       regression of the continuation value of options.
-    discount_factors: A `Tensor` of shape `[num_exercise_times]` and the same
-      `dtype` as `samples`, the k-th element of which represents the discount
-      factor at time index `k`.
+    discount_factors: A `Tensor` of shape `[num_exercise_times]` or
+      `[num_samples, num_exercise_times]`and the same `dtype` as `samples`,
+      the k-th element of which represents the discount factor at time tick `k`.
       Default value: `None` which maps to a one-`Tensor` of the same `dtype`
         as `samples` and shape `[num_exercise_times]`.
     dtype: Optional `dtype`. Either `tf.float32` or `tf.float64`. The `dtype`
@@ -227,7 +229,13 @@ def least_square_mc(sample_paths,
     else:
       discount_factors = tf.convert_to_tensor(
           discount_factors, dtype=dtype, name="discount_factors")
-    discount_factors = tf.concat([[1], discount_factors], axis=-1)
+      if discount_factors.shape.rank == 1:
+        discount_factors = tf.expand_dims(discount_factors, axis=0)
+
+    rank_discount_factors = discount_factors.shape.rank
+    discount_factors = tf.pad(
+        discount_factors, (rank_discount_factors - 1) * [[0, 0]] + [[1, 0]],
+        constant_values=1)
     # Initialise cashflow as the payoff at final sample.
     time_index = exercise_times[num_times - 1]
     # Calculate the payoff of each path if exercised now. Shape
@@ -271,10 +279,11 @@ def _continuation_value_fn(cashflow, discount_factors, exercise_index):
     cashflow: A real `Tensor` of shape
       `[num_samples, payoff_dim, num_exercise]`. Tracks the optimal cashflow of
        each sample path for each payoff dimension at each exercise time.
-    discount_factors: A `Tensor` of shape `[num_exercise_times + 1]` and the
-      same `dtype` as `samples`, the `k`-th element of which represents the
-      discount factor at time index `k + 1`. `discount_factors[0]` is `1` which
-      is the discount factor at time `0`.
+    discount_factors: A `Tensor` of shape `[num_exercise_times + 1]` or a shape
+      compatible with `[num_samples, num_exercise_times + 1]` and the same
+      `dtype` as `samples`, the `k`-th element of which represents the discount
+      factor at time tick `k + 1`. `discount_factors[0]` is `1` which is the
+      discount factor at time `0`.
     exercise_index: An integer scalar `Tensor` representing the index of the
       exercise time of interest. Should be less than `num_exercise_times`.
 
@@ -287,13 +296,18 @@ def _continuation_value_fn(cashflow, discount_factors, exercise_index):
   """
   _, _, num_cashflow = cashflow.shape.as_list()
   disc_factors_are_used = tf.range(num_cashflow + 1) >= exercise_index + 1
+  discount_factors_slice = tf.transpose(
+      tf.transpose(discount_factors)[exercise_index])
   total_discount_factors = (
       tf.where(disc_factors_are_used, discount_factors, 0)
-      / discount_factors[exercise_index])
+      / tf.expand_dims(discount_factors_slice, axis=-1))
   cashflows_are_used = tf.range(num_cashflow) >= exercise_index
   cashflow_masked = tf.where(cashflows_are_used, cashflow, 0)
+  total_discount_factors = tf.expand_dims(total_discount_factors, axis=1)
+  total_discount_factors_slice = tf.transpose(
+      tf.transpose(total_discount_factors)[1:])
   return tf.math.reduce_sum(
-      cashflow_masked * total_discount_factors[1:], axis=2)
+      cashflow_masked * total_discount_factors_slice, axis=2)
 
 
 def _expected_exercise_fn(design, continuation_value, exercise_value):

@@ -15,11 +15,12 @@
 
 import numpy as np
 import tensorflow.compat.v2 as tf
+from tf_quant_finance.experimental.lsm_algorithm import lsm_v2
 from tf_quant_finance.math import root_search
 from tf_quant_finance.models.hull_white import vector_hull_white
 from tf_quant_finance.models.hull_white import zero_coupon_bond_option as zcb
 
-__all__ = ['swaption_price']
+__all__ = ['swaption_price', 'bermudan_swaption_price']
 
 
 def _jamshidian_decomposition(hw_model,
@@ -157,6 +158,68 @@ def _prepare_indices(idx0, idx1, idx2, idx3):
   idx3 = tf.tile(idx3, [len0 * len1])
 
   return tf.stack([idx0, idx1, idx2, idx3], axis=-1)
+
+
+def _map_payoff_to_sim_times(indices, payoff, num_samples):
+  """Maps the swaption payoffs to short rate simulation times.
+
+  Swaption payoffs are calculated on bermudan swaption's expiries. However, for
+  the LSM algorithm, we need short rate simulations and swaption payoffs at
+  the union of all exercise times in the batch of swaptions. This function
+  takes the payoff of individual swaption at their respective exercise times
+  and maps it to all simulation times. This is done by setting the payoff to
+  -1 whenever the simulation time is not equal to the swaption exercise time.
+
+  Args:
+    indices: A `Tensor` of shape `batch_shape + num_exercise_times` containing
+      the index of exercise time in the vector of simulation times.
+    payoff: A real tensor of shape
+      `[num_samples] + batch_shape + num_exercise_times` containing the
+      exercise value of the underlying swap on each exercise time.
+    num_samples: A scalar `Tensor` specifying the number of samples on which
+      swaption payoff is computed.
+
+  Returns:
+    A tuple of `Tensors`. The first tensor is a integer `Tensor` of shape
+    `[num_samples] + batch_shape + [num_simulation_times]` and contains `1`
+    if the corresponding simulation time is one of the exercise times for the
+    swaption. The second `Tensor` is a real `Tensor` of same shape and contains
+    the exercise value of the swaption if the corresponding simulation time is
+    an exercise time for the swaption or -1 otherwise.
+  """
+  indices = tf.expand_dims(indices, axis=0)
+  indices = tf.repeat(indices, num_samples, axis=0)
+  index_list = list()
+  tensor_shape = np.array(indices.shape.as_list())
+  output_shape = indices.shape.as_list()[:-1] + [
+      tf.math.reduce_max(indices) + 1
+  ]
+  num_elements = np.prod(tensor_shape)
+  for dim, _ in enumerate(tensor_shape[:-1]):
+    idx = tf.range(0, tensor_shape[dim], dtype=indices.dtype)
+    idx = tf.tile(
+        tf.repeat(idx, np.prod(tensor_shape[dim + 1:])),
+        [np.prod(tensor_shape[:dim])])
+    index_list.append(idx)
+
+  index_list.append(tf.reshape(indices, [-1]))
+  # We need to transform `payoff` from the initial shape of
+  # [num_samples, batch_shape, num_exercise_times] to a new `Tensor` with
+  # shape = [num_samples, batch_shape, num_exercise_times] such that
+  # payoff_new[..., indices] = payoff
+  # We achieve this by first creating a `payoff_new` as a SparseTensor with
+  # nonzero values at appropriate indices based on the payoff_new.shape and
+  # then converting the sparse tenson to dense tensor.
+  sparse_indices = tf.cast(tf.stack(index_list, axis=-1), dtype=np.int64)
+  is_exercise_time = tf.sparse.to_dense(
+      tf.sparse.SparseTensor(sparse_indices, tf.ones(shape=num_elements),
+                             output_shape),
+      validate_indices=False)
+  payoff = tf.sparse.to_dense(
+      tf.sparse.SparseTensor(sparse_indices, tf.reshape(payoff, [-1]),
+                             output_shape),
+      validate_indices=False)
+  return is_exercise_time, payoff
 
 
 def _cumprod_using_matvec(input_tensor):
@@ -543,3 +606,383 @@ def swaption_price(*,
     option_value = notional * tf.math.reduce_mean(payoff_swaption, axis=0)
 
     return tf.reshape(option_value, output_shape)
+
+
+def bermudan_swaption_price(*,
+                            exercise_times,
+                            floating_leg_start_times,
+                            floating_leg_end_times,
+                            fixed_leg_payment_times,
+                            floating_leg_daycount_fractions,
+                            fixed_leg_daycount_fractions,
+                            fixed_leg_coupon,
+                            reference_rate_fn,
+                            dim,
+                            mean_reversion,
+                            volatility,
+                            notional=None,
+                            is_payer_swaption=None,
+                            lsm_basis=None,
+                            num_samples=100,
+                            random_type=None,
+                            seed=None,
+                            skip=0,
+                            time_step=None,
+                            dtype=None,
+                            name=None):
+  """Calculates the price of Bermudan Swaptions using the Hull-White model.
+
+  A Bermudan Swaption is a contract that gives the holder an option to enter a
+  swap contract on a set of future exercise dates. The exercise dates are
+  typically the fixing dates (or a subset thereof) of the underlying swap. If
+  `T_N` denotes the final payoff date and `T_i, i = {1,...,n}` denote the set
+  of exercise dates, then if the option is exercised at `T_i`, the holder is
+  left with a swap with first fixing date equal to `T_i` and maturity `T_N`.
+
+  Simulation based pricing of Bermudan swaptions is performed using the least
+  squares Monte-carlo approach [1].
+
+  #### References:
+    [1]: D. Brigo, F. Mercurio. Interest Rate Models-Theory and Practice.
+    Second Edition. 2007.
+
+  #### Example
+  The example shows how value a batch of 5-no-call-1 and 5-no-call-2
+  swaptions using the Hull-White model.
+
+  ````python
+  import numpy as np
+  import tensorflow.compat.v2 as tf
+  import tf_quant_finance as tff
+
+  dtype = tf.float64
+
+  exercise_swaption_1 = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5]
+  exercise_swaption_2 = [2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.0]
+  exercise_times = [exercise_swaption_1, exercise_swaption_2]
+
+  float_leg_start_times_1y = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5]
+  float_leg_start_times_18m = [1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]
+  float_leg_start_times_2y = [2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.0]
+  float_leg_start_times_30m = [2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.0, 5.0]
+  float_leg_start_times_3y = [3.0, 3.5, 4.0, 4.5, 5.0, 5.0, 5.0, 5.0]
+  float_leg_start_times_42m = [3.5, 4.0, 4.5, 5.0, 5.0, 5.0, 5.0, 5.0]
+  float_leg_start_times_4y = [4.0, 4.5, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+  float_leg_start_times_54m = [4.5, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+  float_leg_start_times_5y = [5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+
+  float_leg_start_times_swaption_1 = [float_leg_start_times_1y,
+                                      float_leg_start_times_18m,
+                                      float_leg_start_times_2y,
+                                      float_leg_start_times_30m,
+                                      float_leg_start_times_3y,
+                                      float_leg_start_times_42m,
+                                      float_leg_start_times_4y,
+                                      float_leg_start_times_54m]
+
+  float_leg_start_times_swaption_2 = [float_leg_start_times_2y,
+                                      float_leg_start_times_30m,
+                                      float_leg_start_times_3y,
+                                      float_leg_start_times_42m,
+                                      float_leg_start_times_4y,
+                                      float_leg_start_times_54m,
+                                      float_leg_start_times_5y,
+                                      float_leg_start_times_5y]
+  float_leg_start_times = [float_leg_start_times_swaption_1,
+                         float_leg_start_times_swaption_2]
+
+  float_leg_end_times = np.clip(np.array(float_leg_start_times) + 0.5, 0.0, 5.0)
+
+  fixed_leg_payment_times = float_leg_end_times
+  float_leg_daycount_fractions = (np.array(float_leg_end_times) -
+                                  np.array(float_leg_start_times))
+  fixed_leg_daycount_fractions = float_leg_daycount_fractions
+  fixed_leg_coupon = 0.011 * np.ones_like(fixed_leg_payment_times)
+  zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+  price = bermudan_swaption_price(
+      exercise_times=exercise_times,
+      floating_leg_start_times=float_leg_start_times,
+      floating_leg_end_times=float_leg_end_times,
+      fixed_leg_payment_times=fixed_leg_payment_times,
+      floating_leg_daycount_fractions=float_leg_daycount_fractions,
+      fixed_leg_daycount_fractions=fixed_leg_daycount_fractions,
+      fixed_leg_coupon=fixed_leg_coupon,
+      reference_rate_fn=zero_rate_fn,
+      notional=100.,
+      dim=1,
+      mean_reversion=[0.03],
+      volatility=[0.01],
+      num_samples=1000000,
+      time_step=0.1,
+      random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
+      seed=0,
+      dtype=dtype)
+  # Expected value: [1.8913050118443016, 1.6618681421434984] # shape = (2,)
+  ````
+
+  Args:
+    exercise_times: A real `Tensor` of any shape `batch_shape + [num_exercise]`
+      `and real dtype. The times corresponding to exercise dates of the
+      swaptions. `num_exercise` corresponds to the number of exercise dates for
+      the Bermudan swaption. The shape of this input determines the number (and
+      shape) of Bermudan swaptions to be priced and the shape of the output.
+    floating_leg_start_times: A real `Tensor` of the same dtype as
+      `exercise_times`. The times when accrual begins for each payment in the
+      floating leg upon exercise of the option. The shape of this input should
+      be `exercise_times.shape + [m]` where `m` denotes the number of floating
+      payments in each leg of the underlying swap until the swap maturity.
+    floating_leg_end_times: A real `Tensor` of the same dtype as
+      `exercise_times`. The times when accrual ends for each payment in the
+      floating leg upon exercise of the option. The shape of this input should
+      be `exercise_times.shape + [m]` where `m` denotes the number of floating
+      payments in each leg of the underlying swap until the swap maturity.
+    fixed_leg_payment_times: A real `Tensor` of the same dtype as
+      `exercise_times`. The payment times for each payment in the fixed leg.
+      The shape of this input should be `exercise_times.shape + [n]` where `n`
+      denotes the number of fixed payments in each leg of the underlying swap
+      until the swap maturity.
+    floating_leg_daycount_fractions: A real `Tensor` of the same dtype and
+      compatible shape as `floating_leg_start_times`. The daycount fractions
+      for each payment in the floating leg.
+    fixed_leg_daycount_fractions: A real `Tensor` of the same dtype and
+      compatible shape as `fixed_leg_payment_times`. The daycount fractions
+      for each payment in the fixed leg.
+    fixed_leg_coupon: A real `Tensor` of the same dtype and compatible shape
+      as `fixed_leg_payment_times`. The fixed rate for each payment in the
+      fixed leg.
+    reference_rate_fn: A Python callable that accepts expiry time as a real
+      `Tensor` and returns a `Tensor` of shape `input_shape + [dim]`. Returns
+      the continuously compounded zero rate at the present time for the input
+      expiry time.
+    dim: A Python scalar which corresponds to the number of Hull-White Models
+      to be used for pricing.
+    mean_reversion: A real positive `Tensor` of shape `[dim]` or a Python
+      callable. The callable can be one of the following:
+      (a) A left-continuous piecewise constant object (e.g.,
+      `tff.math.piecewise.PiecewiseConstantFunc`) that has a property
+      `is_piecewise_constant` set to `True`. In this case the object should
+      have a method `jump_locations(self)` that returns a `Tensor` of shape
+      `[dim, num_jumps]` or `[num_jumps]`. In the first case,
+      `mean_reversion(t)` should return a `Tensor` of shape `[dim] + t.shape`,
+      and in the second, `t.shape + [dim]`, where `t` is a rank 1 `Tensor` of
+      the same `dtype` as the output. See example in the class docstring.
+      (b) A callable that accepts scalars (stands for time `t`) and returns a
+      `Tensor` of shape `[dim]`.
+      Corresponds to the mean reversion rate.
+    volatility: A real positive `Tensor` of the same `dtype` as
+      `mean_reversion` or a callable with the same specs as above.
+      Corresponds to the lond run price variance.
+    notional: An optional `Tensor` of same dtype and compatible shape as
+      `strikes`specifying the notional amount for the underlying swap.
+       Default value: None in which case the notional is set to 1.
+    is_payer_swaption: A boolean `Tensor` of a shape compatible with `expiries`.
+      Indicates whether the swaption is a payer (if True) or a receiver
+      (if False) swaption. If not supplied, payer swaptions are assumed.
+    lsm_basis: A Python callable specifying the basis to be used in the LSM
+      algorithm. The callable must accept a `Tensor`s of shape
+      `[num_samples, dim]` and output `Tensor`s of shape `[m, num_samples]`
+      where `m` is the nimber of basis functions used.
+      Default value: `None`, in which case a polynomial basis of order 2 is
+      used.
+    num_samples: Positive scalar `int32` `Tensor`. The number of simulation
+      paths during Monte-Carlo valuation. This input is ignored during analytic
+      valuation.
+      Default value: The default value is 100.
+    random_type: Enum value of `RandomType`. The type of (quasi)-random
+      number generator to use to generate the simulation paths.
+      Default value: `None` which maps to the standard pseudo-random numbers.
+    seed: Seed for the random number generator. The seed is only relevant if
+      `random_type` is one of
+      `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
+        STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
+      `HALTON_RANDOMIZED` the seed should be an Python integer. For
+      `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as an integer
+      `Tensor` of shape `[2]`.
+      Default value: `None` which means no seed is set.
+    skip: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
+      Halton sequence to skip. Used only when `random_type` is 'SOBOL',
+      'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
+      Default value: `0`.
+    time_step: Scalar real `Tensor`. Maximal distance between time grid points
+      in Euler scheme. Relevant when Euler scheme is used for simulation.
+      Default value: `None`.
+    dtype: The default dtype to use when converting values to `Tensor`s.
+      Default value: `None` which means that default dtypes inferred by
+      TensorFlow are used.
+    name: Python string. The name to give to the ops created by this function.
+      Default value: `None` which maps to the default name
+      `hw_bermudan_swaption_price`.
+
+  Returns:
+    A `Tensor` of real dtype and shape  batch_shape + [dim] containing the
+    computed swaption prices.
+
+  Raises:
+    (a) `ValueError` if exercise_times.rank is less than
+    floating_leg_start_times.rank - 1, which would mean exercise times are not
+    specified for all swaptions.
+    (b) `ValueError` if `time_step` is not specified for Monte-Carlo
+    simulations.
+    (c) `ValueError` if `dim` > 1.
+  """
+  if dim > 1:
+    raise ValueError('dim > 1 is currently not supported.')
+
+  name = name or 'hw_bermudan_swaption_price'
+  del floating_leg_daycount_fractions, floating_leg_start_times
+  del floating_leg_end_times
+  with tf.name_scope(name):
+    exercise_times = tf.convert_to_tensor(
+        exercise_times, dtype=dtype, name='exercise_times')
+    dtype = dtype or exercise_times.dtype
+    fixed_leg_payment_times = tf.convert_to_tensor(
+        fixed_leg_payment_times, dtype=dtype, name='fixed_leg_payment_times')
+    fixed_leg_daycount_fractions = tf.convert_to_tensor(
+        fixed_leg_daycount_fractions, dtype=dtype,
+        name='fixed_leg_daycount_fractions')
+    fixed_leg_coupon = tf.convert_to_tensor(
+        fixed_leg_coupon, dtype=dtype, name='fixed_leg_coupon')
+    notional = tf.convert_to_tensor(notional, dtype=dtype, name='notional')
+    if is_payer_swaption is None:
+      is_payer_swaption = True
+    is_payer_swaption = tf.convert_to_tensor(
+        is_payer_swaption, dtype=tf.bool, name='is_payer_swaption')
+
+    if lsm_basis is None:
+      basis_fn = lsm_v2.make_polynomial_basis(2)
+    else:
+      basis_fn = lsm_basis
+
+    batch_shape = exercise_times.shape.as_list()[:-1] or [1]
+    unique_exercise_times, exercise_time_index = tf.unique(
+        tf.reshape(exercise_times, shape=[-1]))
+    exercise_time_index = tf.reshape(
+        exercise_time_index, shape=exercise_times.shape)
+
+    # Add a dimension corresponding to multiple cashflows in a swap
+    if exercise_times.shape.rank == fixed_leg_payment_times.shape.rank - 1:
+      exercise_times = tf.expand_dims(exercise_times, axis=-1)
+    elif exercise_times.shape.rank < fixed_leg_payment_times.shape.rank - 1:
+      raise ValueError('Swaption exercise times not specified for all '
+                       'swaptions in the batch. Expected rank '
+                       '{} but received {}.'.format(
+                           fixed_leg_payment_times.shape.rank - 1,
+                           exercise_times.shape.rank))
+
+    exercise_times = tf.repeat(
+        exercise_times, fixed_leg_payment_times.shape.as_list()[-1], axis=-1)
+
+    # Monte-Carlo pricing
+    model = vector_hull_white.VectorHullWhiteModel(
+        dim,
+        mean_reversion,
+        volatility,
+        initial_discount_rate_fn=reference_rate_fn,
+        dtype=dtype)
+
+    if time_step is None:
+      raise ValueError('`time_step` must be provided for LSM valuation.')
+
+    sim_times = unique_exercise_times
+    longest_exercise_time = sim_times[-1]
+    sim_times, _ = tf.unique(tf.concat([sim_times, tf.range(
+        time_step, longest_exercise_time, time_step)], axis=0))
+    sim_times = tf.sort(sim_times, name='sort_sim_times')
+
+    maturities = fixed_leg_payment_times
+    maturities_shape = maturities.shape
+    tau = maturities - exercise_times
+
+    curve_times_builder, _ = tf.unique(tf.reshape(tau, shape=[-1]))
+    curve_times = tf.sort(curve_times_builder, name='sort_curve_times')
+
+    # Simulate short rates and discount factors.
+    p_t_tau, r_t = model.sample_discount_curve_paths(
+        times=sim_times,
+        curve_times=curve_times,
+        num_samples=num_samples,
+        random_type=random_type,
+        seed=seed,
+        skip=skip)
+
+    dt = tf.concat(
+        [tf.convert_to_tensor([0.0], dtype=dtype),
+         sim_times[1:] - sim_times[:-1]], axis=0)
+    dt = tf.expand_dims(tf.expand_dims(dt, axis=-1), axis=0)
+    discount_factors_builder = tf.math.exp(-r_t * dt)
+    # Transpose before (and after) because we want the cumprod along axis=1
+    # and `matvec` operates on the last axis.
+    discount_factors_builder = tf.transpose(
+        _cumprod_using_matvec(
+            tf.transpose(discount_factors_builder, [0, 2, 1])), [0, 2, 1])
+
+    # make discount factors the same shape as `p_t_tau`. This involves adding
+    # an extra dimenstion (corresponding to `curve_times`).
+    discount_factors_builder = tf.expand_dims(
+        discount_factors_builder,
+        axis=1)
+    # tf.repeat is needed because we will use gather_nd later on this tensor.
+    discount_factors_simulated = tf.repeat(
+        discount_factors_builder, p_t_tau.shape.as_list()[1], axis=1)
+
+    # `sim_times` and `curve_times` are sorted for simulation. We need to
+    # select the indices corresponding to our input.
+    sim_time_index = tf.searchsorted(
+        sim_times, tf.reshape(exercise_times, [-1]))
+    curve_time_index = tf.searchsorted(curve_times, tf.reshape(tau, [-1]))
+
+    gather_index = _prepare_indices(
+        tf.range(0, num_samples), curve_time_index, sim_time_index,
+        tf.range(0, dim))
+
+    # TODO(b/167421126): Replace `tf.gather_nd` with `tf.gather`.
+    payoff_bond_price_builder = tf.gather_nd(p_t_tau, gather_index)
+    payoff_bond_price = tf.reshape(
+        payoff_bond_price_builder, [num_samples] + maturities_shape + [dim])
+
+    # Add an axis corresponding to `dim`
+    fixed_leg_pv = tf.expand_dims(
+        fixed_leg_coupon * fixed_leg_daycount_fractions,
+        axis=-1) * payoff_bond_price
+    # Sum fixed coupon payments within each swap to calculate the swap payoff
+    # at each exercise time.
+    fixed_leg_pv = tf.math.reduce_sum(fixed_leg_pv, axis=-2)
+    float_leg_pv = 1.0 - payoff_bond_price[..., -1, :]
+    payoff_swap = float_leg_pv - fixed_leg_pv
+    payoff_swap = tf.where(is_payer_swaption, payoff_swap, -1.0 * payoff_swap)
+
+    # Get the short rate simulations for the set of unique exercise times
+    sim_time_index = tf.searchsorted(sim_times, unique_exercise_times)
+    short_rate = tf.gather(r_t, sim_time_index, axis=1)
+
+    # Currently the payoffs are computed on exercise times of each option.
+    # They need to be mapped to the short rate simulation times, which is a
+    # union of all exercise times.
+    is_exercise_time, payoff_swap = _map_payoff_to_sim_times(
+        exercise_time_index, payoff_swap, num_samples)
+
+    # Transpose so that `time_index` is the leading dimension
+    # (for XLA compatibility)
+    perm = [is_exercise_time.shape.rank - 1] + list(
+        range(is_exercise_time.shape.rank - 1))
+    is_exercise_time = tf.transpose(is_exercise_time, perm=perm)
+    payoff_swap = tf.transpose(payoff_swap, perm=perm)
+
+    # Time to call LSM
+    def _payoff_fn(rt, time_index):
+      del rt
+      result = tf.where(is_exercise_time[time_index] > 0,
+                        tf.nn.relu(payoff_swap[time_index]), 0.0)
+      return tf.reshape(result, shape=[num_samples] + batch_shape)
+
+    discount_factors_simulated = tf.gather(
+        discount_factors_simulated, sim_time_index, axis=2)
+
+    option_value = lsm_v2.least_square_mc(
+        short_rate, tf.range(0, tf.shape(short_rate)[1]),
+        _payoff_fn,
+        basis_fn,
+        discount_factors=discount_factors_simulated[:, -1, :, 0],
+        dtype=dtype)
+
+    return notional * option_value

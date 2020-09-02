@@ -172,9 +172,9 @@ def least_square_mc(sample_paths,
       `Tensor` of shape `[basis_size, num_samples]` of the same dtype as
       `samples`. The result being the design matrix used in regression of the
       continuation value of options.
-    discount_factors: A `Tensor` of shape `[num_exercise_times]` and the same
-      `dtype` as `samples`, the k-th element of which represents the discount
-      factor at time tick `k`.
+    discount_factors: A `Tensor` of shape `[num_exercise_times]` or
+      `[num_samples, num_exercise_times]`and the same `dtype` as `samples`,
+      the k-th element of which represents the discount factor at time tick `k`.
       Default value: `None` which maps to a one-`Tensor` of the same `dtype`
         as `samples` and shape `[num_exercise_times]`.
     dtype: Optional `dtype`. Either `tf.float32` or `tf.float64`. The `dtype`
@@ -202,7 +202,13 @@ def least_square_mc(sample_paths,
     else:
       discount_factors = tf.convert_to_tensor(
           discount_factors, dtype=dtype, name='discount_factors')
-    discount_factors = tf.concat([[1], discount_factors], -1)
+      if discount_factors.shape.rank == 1:
+        discount_factors = tf.expand_dims(discount_factors, axis=0)
+
+    discount_factors = tf.concat([
+        tf.ones_like(tf.expand_dims(discount_factors[..., 0], axis=-1)),
+        discount_factors], axis=-1)
+
     # Initialise cashflow as the payoff at final sample.
     tick = exercise_times[num_times - 1]
     # Calculate the payoff of each path if exercised now. Shape
@@ -241,10 +247,11 @@ def continuation_value_fn(cashflow, discount_factors, exercise_index):
     cashflow: A real `Tensor` of shape
       `[num_samples, payoff_dim, num_exercise]`. Tracks the optimal cashflow of
        each sample path for each payoff dimension at each exercise time.
-    discount_factors: A `Tensor` of shape `[num_exercise_times + 1]` and the
-      same `dtype` as `samples`, the `k`-th element of which represents the
-      discount factor at time tick `k + 1`. `discount_factors[0]` is `1` which
-      is the discount factor at time `0`.
+    discount_factors: A `Tensor` of shape `[num_exercise_times + 1]` or a shape
+      compatible with `[num_samples, num_exercise_times + 1]` and the same
+      `dtype` as `samples`, the `k`-th element of which represents the discount
+      factor at time tick `k + 1`. `discount_factors[0]` is `1` which is the
+      discount factor at time `0`.
     exercise_index: An integer scalar `Tensor` representing the index of the
       exercise time of interest. Should be less than `num_exercise_times`.
 
@@ -255,10 +262,12 @@ def continuation_value_fn(cashflow, discount_factors, exercise_index):
     return represents the sum of the cashflow discounted to present value for
     each sample path.
   """
-  total_discount_factors = (discount_factors[exercise_index + 1:]
-                            / discount_factors[exercise_index])
+  total_discount_factors = (
+      discount_factors[..., exercise_index + 1:] /
+      tf.expand_dims(discount_factors[..., exercise_index], axis=-1))
   return tf.math.reduce_sum(
-      cashflow[..., exercise_index:] * total_discount_factors, axis=2)
+      cashflow[..., exercise_index:] *
+      tf.expand_dims(total_discount_factors, axis=1), axis=2)
 
 
 def expected_exercise_fn(design, continuation_value, exercise_value):
