@@ -149,7 +149,7 @@ def interpolate(x,
       # won't go out of bounds.
       lower_encoding = tf.math.maximum(upper_indices - 1, 0)
       upper_encoding = tf.math.minimum(upper_indices, x_data_size - 1)
-      # Prepare indices for `tf.gather_nd` or `tf.one_hot`
+      # Prepare indices for `tf.gather` or `tf.one_hot`
       # TODO(b/156720909): Extract get_slice logic into a common utilities
       # module for cubic and linear interpolation
       if optimize_for_tpu:

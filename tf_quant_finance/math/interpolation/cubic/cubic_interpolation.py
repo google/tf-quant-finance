@@ -176,7 +176,7 @@ def interpolate(x_values,
     # This selects all elements for the end of the spline interval.
     # Make sure indices lie in the permissible range
     upper_encoding = tf.minimum(indices + 1, x_data.shape.as_list()[-1] - 1)
-    # Prepare indices for `tf.gather_nd` or `tf.one_hot`
+    # Prepare indices for `tf.gather` or `tf.one_hot`
     # TODO(b/156720909): Extract get_slice logic into a common utilities module
     # for cubic and linear interpolation
     if optimize_for_tpu:
@@ -190,7 +190,6 @@ def interpolate(x_values,
     # dx = x_data[indices + 1] - x_data[indices]
     # dy = y_data[indices + 1] - y_data[indices]
     # indices is a tensor with different values per row/spline
-    # Hence use a selection matrix with gather_nd
     def get_slice(x, encoding):
       if optimize_for_tpu:
         return tf.math.reduce_sum(tf.expand_dims(x, axis=-2) * encoding,
