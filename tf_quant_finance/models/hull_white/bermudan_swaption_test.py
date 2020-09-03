@@ -104,7 +104,7 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         dim=1,
         mean_reversion=self.mean_reversion_1d,
         volatility=self.volatility_1d,
-        num_samples=500000,
+        num_samples=10000,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[0, 0],
@@ -113,7 +113,7 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [1])
     price = self.evaluate(price)
-    self.assertAllClose(price, [1.88919845], rtol=5e-3, atol=5e-3)
+    self.assertAllClose(price, [1.88919845], rtol=1e-2, atol=1e-2)
 
   def test_correctness_batch(self):
     """Tests model with constant parameters in 1 dimension."""
@@ -133,7 +133,7 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         dim=1,
         mean_reversion=self.mean_reversion_1d,
         volatility=self.volatility_1d,
-        num_samples=500000,
+        num_samples=50000,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[0, 0],
@@ -143,7 +143,7 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     self.assertAllEqual(price.shape, [2])
     price = self.evaluate(price)
     self.assertAllClose(price, [1.88919845, 1.66328599],
-                        rtol=2e-3, atol=2e-3)
+                        rtol=5e-3, atol=5e-3)
 
   def test_correctness_with_european(self):
     """Tests model with constant parameters in 1 dimension."""
@@ -164,7 +164,7 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         dim=1,
         mean_reversion=self.mean_reversion_1d,
         volatility=self.volatility_1d,
-        num_samples=100000,
+        num_samples=50000,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[0, 0],
@@ -186,7 +186,7 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         dtype=dtype)
 
     self.assertAllClose(self.evaluate(price_berm), self.evaluate(price_euro)[0],
-                        rtol=5e-4, atol=5e-4)
+                        rtol=1e-3, atol=1e-3)
 
   def test_correctness_with_quantlib(self):
     """Tests model with constant parameters in 1 dimension."""
@@ -226,7 +226,7 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         dim=1,
         mean_reversion=self.mean_reversion_1d,
         volatility=self.volatility_1d,
-        num_samples=100000,
+        num_samples=10000,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[0, 0],
