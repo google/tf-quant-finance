@@ -47,6 +47,8 @@ Currency = currencies.Currency
 class ProtoUtilsTest(tf.test.TestCase):
 
   def setUp(self):
+    self._pay_notional = 1000000
+    self._receive_notional = 1200000
     self._swap_1 = ir_swap.InterestRateSwap(
         effective_date=date_pb2.Date(year=2019, month=10, day=3),
         maturity_date=date_pb2.Date(year=2029, month=10, day=3),
@@ -55,7 +57,8 @@ class ProtoUtilsTest(tf.test.TestCase):
             fixed_leg=ir_swap.FixedLeg(
                 currency=Currency.USD(),
                 coupon_frequency=period_pb2.Period(type="MONTH", amount=6),
-                notional_amount=decimal_pb2.Decimal(units=1000000),
+                notional_amount=decimal_pb2.Decimal(
+                    units=self._pay_notional),
                 fixed_rate=decimal_pb2.Decimal(nanos=31340000),
                 daycount_convention=DayCountConventions.ACTUAL_360(),
                 business_day_convention=BusinessDayConvention.
@@ -66,32 +69,35 @@ class ProtoUtilsTest(tf.test.TestCase):
                 currency=Currency.USD(),
                 coupon_frequency=period_pb2.Period(type="MONTH", amount=3),
                 reset_frequency=period_pb2.Period(type="MONTH", amount=3),
-                notional_amount=decimal_pb2.Decimal(units=1000000),
+                notional_amount=decimal_pb2.Decimal(
+                    units=self._receive_notional),
                 floating_rate_type=RateIndex(type="LIBOR_3M"),
                 daycount_convention=DayCountConventions.ACTUAL_360(),
                 business_day_convention=BusinessDayConvention.
                 MODIFIED_FOLLOWING(),
                 settlement_days=2)))
     self._swap_2 = ir_swap.InterestRateSwap(
-        effective_date=date_pb2.Date(year=2019, month=10, day=3),
-        maturity_date=date_pb2.Date(year=2029, month=10, day=3),
-        currency=Currency.USD(),
-        pay_leg=ir_swap.SwapLeg(
+        effective_date=date_pb2.Date(year=2019, month=10, day=8),
+        maturity_date=date_pb2.Date(year=2031, month=4, day=27),
+        currency=Currency.CAD(),
+        receive_leg=ir_swap.SwapLeg(
             fixed_leg=ir_swap.FixedLeg(
-                currency=Currency.USD(),
+                currency=Currency.CAD(),
                 coupon_frequency=period_pb2.Period(type="MONTH", amount=3),
-                notional_amount=decimal_pb2.Decimal(units=1000000),
+                notional_amount=decimal_pb2.Decimal(
+                    units=self._receive_notional),
                 fixed_rate=decimal_pb2.Decimal(nanos=31340000),
                 daycount_convention=DayCountConventions.ACTUAL_360(),
                 business_day_convention=BusinessDayConvention.
                 MODIFIED_FOLLOWING(),
                 settlement_days=2)),
-        receive_leg=ir_swap.SwapLeg(
+        pay_leg=ir_swap.SwapLeg(
             floating_leg=ir_swap.FloatingLeg(
-                currency=Currency.USD(),
+                currency=Currency.CAD(),
                 coupon_frequency=period_pb2.Period(type="MONTH", amount=3),
                 reset_frequency=period_pb2.Period(type="MONTH", amount=3),
-                notional_amount=decimal_pb2.Decimal(units=1000000),
+                notional_amount=decimal_pb2.Decimal(
+                    units=self._pay_notional),
                 floating_rate_type=RateIndex(type="LIBOR_3M"),
                 daycount_convention=DayCountConventions.ACTUAL_360(),
                 business_day_convention=BusinessDayConvention.
@@ -111,6 +117,24 @@ class ProtoUtilsTest(tf.test.TestCase):
         self.assertProtoEquals(proto_list_1[0], proto_list_1[1])
       else:
         self.assertProtoEquals(proto_list_2[0], proto_list_2[1])
+
+  def test_from_protos(self):
+    """Test that from_protos keeps pay leg as a fixed leg."""
+    values_dict = proto_utils.from_protos([self._swap_2])
+    values = list(values_dict.values())[0]
+    # Notional amounts should have negative sign
+    pay_leg_notional = values["pay_leg"].notional_amount[0]
+    receive_leg_notional = values["receive_leg"].notional_amount[0]
+    with self.subTest("PayLegNotional"):
+      self.assertEqual(pay_leg_notional, -self._receive_notional)
+    with self.subTest("PayLegFixed"):
+      self.assertEqual(type(values["pay_leg"]),
+                       rate_instruments.coupon_specs.FixedCouponSpecs)
+    with self.subTest("ReceiveLegNotional"):
+      self.assertEqual(receive_leg_notional, -self._pay_notional)
+    with self.subTest("ReceiveLegFixed"):
+      self.assertEqual(type(values["receive_leg"]),
+                       rate_instruments.coupon_specs.FloatCouponSpecs)
 
 
 if __name__ == "__main__":

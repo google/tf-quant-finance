@@ -147,8 +147,10 @@ def from_protos(
     pay_leg_shuffled = leg_from_proto(pay_leg)
     receive_leg_shuffled = leg_from_proto(receive_leg)
     if flip_legs:
-      receive_leg_shuffled.notional_amount *= -1
-      pay_leg_shuffled.notional_amount *= -1
+      notional_amount = receive_leg_shuffled.notional_amount
+      receive_leg_shuffled.notional_amount = [-el for el in notional_amount]
+      notional_amount = pay_leg_shuffled.notional_amount
+      pay_leg_shuffled.notional_amount = [-el for el in notional_amount]
       pay_leg = receive_leg_shuffled
       receive_leg = pay_leg_shuffled
     else:
@@ -213,12 +215,9 @@ def _get_legs_hash_key(
   key_1 = pay_leg_key_1 + pay_leg_key_2
   key_2 = receive_leg_key_1 + receive_leg_key_2
   flip_legs = False
-  if (pay_leg_key_1[0] is not None
+  # If this is a vanilla swap, keep pay_leg fixed and receive_leg float
+  if (pay_leg_key_1[0] is None
       and receive_leg_key_1[0] is not None):
-    if pay_leg_key_1[:2] > receive_leg_key_1[:2]:
-      flip_legs = True
-  elif (receive_leg_key_1[0] is not None
-        and pay_leg_key_1[:4] > receive_leg_key_1[:4]):
     flip_legs = True
   if flip_legs:
     return flip_legs, key_2 + key_1
