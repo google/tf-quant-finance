@@ -386,6 +386,14 @@ class FloatingCashflowStream:
   def cashflow_dates(self) -> types.DateTensor:
     return self._coupon_end_dates
 
+  @property
+  def coupon_start_dates(self) -> types.DateTensor:
+    return self._coupon_start_dates
+
+  @property
+  def coupon_end_dates(self) -> types.DateTensor:
+    return self._coupon_end_dates
+
   def forward_rates(self,
                     market: pmd.ProcessedMarketData,
                     name: Optional[str] = None

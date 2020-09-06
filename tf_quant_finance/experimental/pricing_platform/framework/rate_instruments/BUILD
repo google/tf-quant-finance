@@ -14,6 +14,7 @@ py_library(
         ":utils",
         "//tf_quant_finance/experimental/pricing_platform/framework/rate_instruments/forward_rate_agreement",
         "//tf_quant_finance/experimental/pricing_platform/framework/rate_instruments/interest_rate_swap",
+        "//tf_quant_finance/experimental/pricing_platform/framework/rate_instruments/swaption",
     ],
 )
 

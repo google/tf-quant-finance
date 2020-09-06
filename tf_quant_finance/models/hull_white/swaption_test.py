@@ -260,6 +260,48 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
           'use_analytic_pricing': False,
           'error_tol': 1e-3,
       })
+  def test_1d_batch_1d_notional(self, use_analytic_pricing, error_tol):
+    """Tests 1-d batch with different notionals."""
+    dtype = tf.float64
+
+    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+
+    price = tff.models.hull_white.swaption_price(
+        expiries=self.expiries_1d,
+        floating_leg_start_times=self.float_leg_start_times_1d,
+        floating_leg_end_times=self.float_leg_end_times_1d,
+        fixed_leg_payment_times=self.fixed_leg_payment_times_1d,
+        floating_leg_daycount_fractions=self.float_leg_daycount_fractions_1d,
+        fixed_leg_daycount_fractions=self.fixed_leg_daycount_fractions_1d,
+        fixed_leg_coupon=self.fixed_leg_coupon_1d,
+        reference_rate_fn=zero_rate_fn,
+        notional=[100., 200.],
+        dim=1,
+        mean_reversion=self.mean_reversion_1d,
+        volatility=self.volatility_1d,
+        use_analytic_pricing=use_analytic_pricing,
+        num_samples=500000,
+        time_step=0.1,
+        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
+        seed=0,
+        dtype=dtype)
+    self.assertEqual(price.dtype, dtype)
+    self.assertAllEqual(price.shape, [2, 1])
+    price = self.evaluate(price)
+    self.assertAllClose(price, [[0.7163243383624043],
+                                [2 * 0.7163243383624043]],
+                        rtol=error_tol, atol=error_tol)
+
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'analytic',
+          'use_analytic_pricing': True,
+          'error_tol': 1e-8,
+      }, {
+          'testcase_name': 'simulation',
+          'use_analytic_pricing': False,
+          'error_tol': 1e-3,
+      })
   def test_2d_batch_1d(self, use_analytic_pricing, error_tol):
     """Tests 2-d batch."""
     dtype = tf.float64

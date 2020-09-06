@@ -15,6 +15,9 @@
 """Supported pricing models."""
 
 import enum
+from typing import Any
+
+import dataclasses
 
 
 class InterestRateModelType(enum.Enum):
@@ -26,6 +29,7 @@ class InterestRateModelType(enum.Enum):
     (lognormal vols).
   NORMAL_SMILE_CONSISTENT_REPLICATION: Smile consistent replication
     (normal vols).
+  HULL_WHITE_ONE_FACTOR: Hull-White single factor model of short rate.
   """
   LOGNORMAL_RATE = 1
 
@@ -35,5 +39,13 @@ class InterestRateModelType(enum.Enum):
 
   NORMAL_SMILE_CONSISTENT_REPLICATION = 4
 
+  HULL_WHITE_ONE_FACTOR = 5
 
-__all__ = ["InterestRateModelType"]
+
+@dataclasses.dataclass(frozen=True)
+class HullWhite1FactorConfig:
+  mean_reversion: Any
+  volatility: Any
+
+
+__all__ = ["InterestRateModelType", "HullWhite1FactorConfig"]

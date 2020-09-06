@@ -278,7 +278,6 @@ def _analytic_valuation(expiries, floating_leg_start_times,
         use_analytic_pricing=True,
         dtype=dtype,
         name=name + '_bond_option')
-    bond_option_prices = notional * bond_option_prices
 
     # Now compute P(T0, TN) + sum_i (c_i * tau_i * P(T0, Ti))
     # bond_option_prices.shape = [dim] + batch_shape + [m] + [dim], where `m`
@@ -289,8 +288,9 @@ def _analytic_valuation(expiries, floating_leg_start_times,
             axis=-2) + bond_option_prices[..., -1, :])
     swaption_shape = swaption_values.shape
     gather_index = _prepare_swaption_indices(swaption_shape.as_list())
-    swaption_values = tf.gather_nd(swaption_values, gather_index)
-    return tf.reshape(swaption_values, output_shape)
+    swaption_values = tf.reshape(
+        tf.gather_nd(swaption_values, gather_index), output_shape)
+    return notional * swaption_values
 
 
 def swaption_price(*,
@@ -488,6 +488,8 @@ def swaption_price(*,
     fixed_leg_coupon = tf.convert_to_tensor(
         fixed_leg_coupon, dtype=dtype, name='fixed_leg_coupon')
     notional = tf.convert_to_tensor(notional, dtype=dtype, name='notional')
+    notional = tf.expand_dims(
+        tf.broadcast_to(notional, expiries.shape), axis=-1)
     if is_payer_swaption is None:
       is_payer_swaption = True
     is_payer_swaption = tf.convert_to_tensor(
@@ -603,9 +605,10 @@ def swaption_price(*,
         float_leg_pv - fixed_leg_pv)
     payoff_swap = tf.where(is_payer_swaption, payoff_swap, -1.0 * payoff_swap)
     payoff_swaption = tf.math.maximum(payoff_swap, 0.0)
-    option_value = notional * tf.math.reduce_mean(payoff_swaption, axis=0)
+    option_value = tf.reshape(
+        tf.math.reduce_mean(payoff_swaption, axis=0), output_shape)
 
-    return tf.reshape(option_value, output_shape)
+    return notional * option_value
 
 
 def bermudan_swaption_price(*,

@@ -99,7 +99,7 @@ def update_rate_index(
   current_index.source = current_index.source + index.source
 
 
-def _get_hash(swap_proto: ir_swap.InterestRateSwap) -> Tuple[int, bool]:
+def get_hash(swap_proto: ir_swap.InterestRateSwap) -> Tuple[int, bool]:
   """Computes hash key for the batching strategy."""
   pay_leg = swap_proto.pay_leg
   receive_leg = swap_proto.receive_leg
@@ -118,7 +118,7 @@ def group_protos(
   del swap_config  # swap_config does not impact the batching
   grouped_swaps = {}
   for swap_proto in proto_list:
-    h, _ = _get_hash(swap_proto)
+    h, _ = get_hash(swap_proto)
     if h in grouped_swaps:
       grouped_swaps[h].append(swap_proto)
     else:
@@ -135,7 +135,7 @@ def from_protos(
   for swap_proto in proto_list:
     pay_leg = swap_proto.pay_leg
     receive_leg = swap_proto.receive_leg
-    h, flip_legs = _get_hash(swap_proto)
+    h, flip_legs = get_hash(swap_proto)
     start_date = swap_proto.effective_date
     start_date = [start_date.year,
                   start_date.month,

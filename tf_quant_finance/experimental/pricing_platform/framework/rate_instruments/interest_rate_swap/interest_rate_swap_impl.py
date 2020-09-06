@@ -252,6 +252,15 @@ class InterestRateSwap(instrument.Instrument):
 
     return float_pv / swap_annuity / floating_leg.notional
 
+  def fixed_rate(self):
+    """Returns fixed coupon rate from the fixed leg of the swap."""
+    if isinstance(self._pay_leg, cashflow_streams.FixedCashflowStream):
+      return self._pay_leg.fixed_rate
+    elif isinstance(self._receive_leg, cashflow_streams.FixedCashflowStream):
+      return self._receive_leg.fixed_rate
+    else:
+      return None
+
   @property
   def batch_shape(self) -> tf.Tensor:
     return self._batch_shape
