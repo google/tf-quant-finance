@@ -194,6 +194,7 @@ py_test(
     timeout = "moderate",
     srcs = ["schedules_test.py"],
     python_version = "PY3",
+    shard_count = 4,
     deps = [
         ":test_data",
         "//tf_quant_finance",

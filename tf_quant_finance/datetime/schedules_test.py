@@ -54,6 +54,33 @@ class SchedulesTest(tf.test.TestCase, parameterized.TestCase):
         end_of_month=end_of_month).dates()
     self.assertAllEqual(expected_schedule.ordinal(), actual_schedule.ordinal())
 
+  @parameterized.named_parameters(
+      *test_data.periodic_schedule_dynamic)
+  def test_periodic_schedule_dynamic(
+      self, start_dates, end_dates, period_quantities,
+      period_type, backward, expected_schedule, end_of_month=False):
+    start_dates = dates.dates_from_ordinals(
+        [s + tf.compat.v1.placeholder_with_default(0, [])
+         for s in start_dates])
+    end_dates = dates.dates_from_ordinals(
+        [s + tf.compat.v1.placeholder_with_default(0, [])
+         for s in end_dates])
+    tenors = dates.PeriodTensor(period_quantities, period_type)
+    expected_schedule = dates.dates_from_np_datetimes(
+        _to_np_datetimes(expected_schedule))
+    actual_schedule = dates.PeriodicSchedule(
+        start_date=start_dates,
+        end_date=end_dates,
+        tenor=tenors,
+        holiday_calendar=dates.create_holiday_calendar(
+            weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
+            start_year=2020,
+            end_year=2028),
+        roll_convention=dates.BusinessDayConvention.MODIFIED_FOLLOWING,
+        backward=backward,
+        end_of_month=end_of_month).dates()
+    self.assertAllEqual(expected_schedule.ordinal(), actual_schedule.ordinal())
+
   @parameterized.named_parameters(*test_data.business_day_schedule_test_cases)
   def test_business_day_schedule(self, start_dates, end_dates, holidays,
                                  backward, expected_schedule):

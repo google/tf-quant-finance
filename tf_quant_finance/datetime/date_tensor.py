@@ -338,7 +338,8 @@ class DateTensor(tensor_wrapper.TensorWrapper):
 
     if period_type == constants.PeriodType.YEAR:
       y = self._years + period_tensor.quantity()
-      m = tf.broadcast_to(self._months, y.shape)
+      # Use tf.shape to handle the case of dynamically shaped `y`
+      m = tf.broadcast_to(self._months, tf.shape(y))
       d = adjust_day(y, m, self._days)
       return from_year_month_day(y, m, d, validate=False)
 

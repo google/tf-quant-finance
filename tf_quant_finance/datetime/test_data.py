@@ -551,6 +551,32 @@ days_between_data = [
 
 # Assumes calendar with only weekends and modified-following convention.
 # end_of_month is False by default.
+periodic_schedule_dynamic = [
+    {
+        "testcase_name": "monthly_forward",
+        "start_dates": [737425],
+        "end_dates": [737880],
+        "period_type": dates.PeriodType.MONTH,
+        "period_quantities": 1,
+        "backward": False,
+        "expected_schedule": [[(2020, 1, 1), (2020, 2, 3), (2020, 3, 2),
+                               (2020, 4, 1), (2020, 5, 1), (2020, 6, 1),
+                               (2020, 7, 1), (2020, 8, 3), (2020, 9, 1),
+                               (2020, 10, 1), (2020, 11, 2), (2020, 12, 1),
+                               (2021, 1, 1), (2021, 2, 1), (2021, 3, 1),
+                               (2021, 3, 31)]]
+    },
+    {
+        "testcase_name": "yearly",
+        "start_dates": [738945],
+        "end_dates": [740712],
+        "period_type": dates.PeriodType.YEAR,
+        "period_quantities": 1,
+        "backward": False,
+        "expected_schedule": [[(2024, 2, 29), (2025, 2, 28), (2026, 2, 27),
+                               (2027, 2, 26), (2028, 2, 29), (2028, 12, 29)]]
+    }]
+
 periodic_schedule_test_cases = [
     {
         "testcase_name": "monthly_forward",
