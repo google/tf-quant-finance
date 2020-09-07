@@ -28,6 +28,9 @@ def create_holiday_calendar(
     end_year=None):
   """Creates a holiday calendar.
 
+  Each instance should be used in the context of only one graph. E.g. one can't
+  create a HolidayCalendar in one tf.function and reuse it in another.
+
   Note: providing bounds for the calendar, i.e. `holidays` and/or `start_year`,
   `end_year` yields a better-performing calendar.
 

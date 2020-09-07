@@ -33,6 +33,9 @@ class BoundedHolidayCalendar(holiday_calendar.HolidayCalendar):
   Requires the calendar to be bounded. Constructs tables of precomputed values
   of interest for each day in the calendar, which enables better performance
   compared to a more flexible UnboundedHolidayCalendar.
+
+  Each instance should be used in the context of only one graph. E.g. one can't
+  create a BoundedHolidayCalendar in one tf.function and reuse it in another.
   """
 
   def __init__(
@@ -283,13 +286,9 @@ class BoundedHolidayCalendar(holiday_calendar.HolidayCalendar):
     if already_computed is not None:
       return already_computed
 
-    # To make tensor caching safe, lift the ops out of the current scope using
-    # tf.init_scope(). This allows e.g. to cache these tensors in one
-    # tf.function and reuse them in another tf.function.
-    with tf.init_scope():
-      rolled_date_table = (
-          self._compute_rolled_dates_table_without_cache(convention))
-      self._table_cache.rolled_dates[convention] = rolled_date_table
+    rolled_date_table = (
+        self._compute_rolled_dates_table_without_cache(convention))
+    self._table_cache.rolled_dates[convention] = rolled_date_table
     return rolled_date_table
 
   def _compute_rolled_dates_table_without_cache(self, convention):
@@ -329,33 +328,32 @@ class BoundedHolidayCalendar(holiday_calendar.HolidayCalendar):
     if self._table_cache.is_bus_day is not None:
       return self._table_cache.is_bus_day
 
-    with tf.init_scope():
-      ordinals = tf.range(self._ordinal_offset,
-                          self._ordinal_offset + self._calendar_size)
-      # Apply weekend mask
-      week_days = (ordinals - 1) % 7
-      is_holiday = tf.gather(self._weekend_mask, week_days)
+    ordinals = tf.range(self._ordinal_offset,
+                        self._ordinal_offset + self._calendar_size)
+    # Apply weekend mask
+    week_days = (ordinals - 1) % 7
+    is_holiday = tf.gather(self._weekend_mask, week_days)
 
-      # Apply holidays
-      if self._holidays is not None:
-        indices = self._holidays.ordinal() - self._ordinal_offset
-        ones_at_indices = tf.scatter_nd(
-            tf.expand_dims(indices, axis=-1), tf.ones_like(indices),
-            is_holiday.shape)
-        is_holiday = tf.bitwise.bitwise_or(is_holiday, ones_at_indices)
+    # Apply holidays
+    if self._holidays is not None:
+      indices = self._holidays.ordinal() - self._ordinal_offset
+      ones_at_indices = tf.scatter_nd(
+          tf.expand_dims(indices, axis=-1), tf.ones_like(indices),
+          is_holiday.shape)
+      is_holiday = tf.bitwise.bitwise_or(is_holiday, ones_at_indices)
 
-      # Add a business day at the beginning and at the end, i.e. at 31 Dec of
-      # start_year-1 and at 1 Jan of end_year+1. This trick is to avoid dealing
-      # with special cases on boundaries.
-      # For example, for Following and Preceding conventions we'd need a special
-      # value that means "unknown" in the tables. More complicated conventions
-      # then combine the Following and Preceding tables, and would need special
-      # treatment of the "unknown" values.
-      # With these "fake" business days, all computations are automatically
-      # correct, unless we land on those extra days - for this reason we add
-      # assertions in all API calls before returning.
-      is_bus_day_table = tf.concat([[1], 1 - is_holiday, [1]], axis=0)
-      self._table_cache.is_bus_day = is_bus_day_table
+    # Add a business day at the beginning and at the end, i.e. at 31 Dec of
+    # start_year-1 and at 1 Jan of end_year+1. This trick is to avoid dealing
+    # with special cases on boundaries.
+    # For example, for Following and Preceding conventions we'd need a special
+    # value that means "unknown" in the tables. More complicated conventions
+    # then combine the Following and Preceding tables, and would need special
+    # treatment of the "unknown" values.
+    # With these "fake" business days, all computations are automatically
+    # correct, unless we land on those extra days - for this reason we add
+    # assertions in all API calls before returning.
+    is_bus_day_table = tf.concat([[1], 1 - is_holiday, [1]], axis=0)
+    self._table_cache.is_bus_day = is_bus_day_table
     return is_bus_day_table
 
   def _compute_cumul_bus_days_table(self):
@@ -364,10 +362,9 @@ class BoundedHolidayCalendar(holiday_calendar.HolidayCalendar):
       return self._table_cache.cumul_bus_days
 
     is_bus_day_table = self._compute_is_bus_day_table()
-    with tf.init_scope():
-      cumul_bus_days_table = tf.math.cumsum(is_bus_day_table, exclusive=True,
-                                            name="cumul_bus_days_table")
-      self._table_cache.cumul_bus_days = cumul_bus_days_table
+    cumul_bus_days_table = tf.math.cumsum(is_bus_day_table, exclusive=True,
+                                          name="cumul_bus_days_table")
+    self._table_cache.cumul_bus_days = cumul_bus_days_table
     return cumul_bus_days_table
 
   def _compute_bus_day_ordinals_table(self):
@@ -376,11 +373,10 @@ class BoundedHolidayCalendar(holiday_calendar.HolidayCalendar):
       return self._table_cache.bus_day_ordinals
 
     is_bus_day_table = self._compute_is_bus_day_table()
-    with tf.init_scope():
-      bus_day_ordinals_table = (
-          tf.cast(tf.where(is_bus_day_table)[:, 0], tf.int32) +
-          self._ordinal_offset - 1)
-      self._table_cache.bus_day_ordinals = bus_day_ordinals_table
+    bus_day_ordinals_table = (
+        tf.cast(tf.where(is_bus_day_table)[:, 0], tf.int32) +
+        self._ordinal_offset - 1)
+    self._table_cache.bus_day_ordinals = bus_day_ordinals_table
     return bus_day_ordinals_table
 
   def _gather(self, table, indices):

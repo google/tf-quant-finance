@@ -138,32 +138,18 @@ class HolidayCalendarTest(tf.test.TestCase, parameterized.TestCase):
     self.assertAllEqual([True, False, True, False],
                         cal.is_business_day(date_tensor))
 
-  def test_tensor_caching_in_bounded_calendar(self):
-    cal = bounded_holiday_calendar.BoundedHolidayCalendar(
-        weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
-        holidays=test_data.holidays)
-    conv = dates.BusinessDayConvention.FOLLOWING
-
+  def test_tf_function(self):
+    # Check that tensor caching doesn't mess with tf.function.
     @tf.function
     def foo():
-      # Trigger caching of all tables.
-      date_tensor = dates.dates_from_tuples([])
-      return (cal.is_business_day(date_tensor),
-              cal.roll_to_business_day(date_tensor, conv).ordinal(),
-              cal.business_days_between(date_tensor, date_tensor),
-              cal.add_business_days(date_tensor, 2, conv).ordinal())
-
-    @tf.function
-    def bar():
+      cal = bounded_holiday_calendar.BoundedHolidayCalendar(
+          weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
+          holidays=test_data.holidays)
       date_tensor = dates.dates_from_tuples([(2020, 1, 3), (2020, 1, 4),
                                              (2021, 12, 24), (2021, 12, 25)])
-      return (cal.is_business_day(date_tensor),
-              cal.roll_to_business_day(date_tensor, conv).ordinal(),
-              cal.business_days_between(date_tensor, date_tensor),
-              cal.add_business_days(date_tensor, 2, conv).ordinal())
+      return cal.is_business_day(date_tensor)
 
-    foo()
-    self.assertAllEqual([True, False, False, False], bar()[0])
+    self.assertAllEqual([True, False, False, False], foo())
 
   @parameterized.named_parameters(*rolling_test_parameters)
   @test_both_impls
