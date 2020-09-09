@@ -18,6 +18,7 @@
 from tf_quant_finance.math import integration
 from tf_quant_finance.math import interpolation
 from tf_quant_finance.math import optimizer
+from tf_quant_finance.math import pad
 from tf_quant_finance.math import pde
 from tf_quant_finance.math import piecewise
 from tf_quant_finance.math import random_ops as random
@@ -39,6 +40,7 @@ _allowed_symbols = [
     'integration',
     'interpolation',
     'optimizer',
+    'pad',
     'pde',
     'piecewise',
     'random',

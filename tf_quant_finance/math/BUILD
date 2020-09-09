@@ -12,6 +12,7 @@ py_library(
         ":diff_ops",
         ":gradient",
         ":jacobian",
+        ":pad",
         ":piecewise",
         ":root_search",
         ":segment_ops",
@@ -188,6 +189,29 @@ py_test(
         # numpy dep,
         # tensorflow dep,
         # xla_cpu_jit xla dep,
+    ],
+)
+
+py_library(
+    name = "pad",
+    srcs = ["pad.py"],
+    srcs_version = "PY3",
+    deps = [
+        "//tf_quant_finance/datetime:date_tensor",
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "pad_test",
+    size = "small",
+    srcs = ["pad_test.py"],
+    python_version = "PY3",
+    deps = [
+        "//tf_quant_finance",
+        # test util,
+        # absl/testing:parameterized dep,
+        # tensorflow dep,
     ],
 )
 
