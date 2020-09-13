@@ -17,6 +17,7 @@ import numpy as np
 import tensorflow.compat.v2 as tf
 from tf_quant_finance.experimental.lsm_algorithm import lsm_v2
 from tf_quant_finance.math import root_search
+from tf_quant_finance.models import utils
 from tf_quant_finance.models.hull_white import vector_hull_white
 from tf_quant_finance.models.hull_white import zero_coupon_bond_option as zcb
 
@@ -220,16 +221,6 @@ def _map_payoff_to_sim_times(indices, payoff, num_samples):
                              output_shape),
       validate_indices=False)
   return is_exercise_time, payoff
-
-
-def _cumprod_using_matvec(input_tensor):
-  """Computes cumprod using matrix algebra."""
-  dtype = input_tensor.dtype
-  axis_length = input_tensor.shape.as_list()[-1]
-  ones = tf.ones([axis_length, axis_length], dtype=dtype)
-  lower_triangular = tf.linalg.band_part(ones, -1, 0)
-  cumsum = tf.linalg.matvec(lower_triangular, tf.math.log(input_tensor))
-  return tf.math.exp(cumsum)
 
 
 def _analytic_valuation(expiries, floating_leg_start_times,
@@ -562,7 +553,7 @@ def swaption_price(*,
     # Transpose before (and after) because we want the cumprod along axis=1
     # and `matvec` operates on the last axis.
     discount_factors_builder = tf.transpose(
-        _cumprod_using_matvec(
+        utils.cumprod_using_matvec(
             tf.transpose(discount_factors_builder, [0, 2, 1])), [0, 2, 1])
 
     # make discount factors the same shape as `p_t_tau`. This involves adding
@@ -916,7 +907,7 @@ def bermudan_swaption_price(*,
     # Transpose before (and after) because we want the cumprod along axis=1
     # and `matvec` operates on the last axis.
     discount_factors_builder = tf.transpose(
-        _cumprod_using_matvec(
+        utils.cumprod_using_matvec(
             tf.transpose(discount_factors_builder, [0, 2, 1])), [0, 2, 1])
 
     # make discount factors the same shape as `p_t_tau`. This involves adding

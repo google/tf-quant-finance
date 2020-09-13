@@ -611,7 +611,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         self._jump_values_mr)
     y_at_vol_knots = tf.concat(
         [self._zero_padding,
-         _cumsum_using_matvec(y_between_vol_knots)], axis=1)
+         utils.cumsum_using_matvec(y_between_vol_knots)], axis=1)
 
     vn = tf.concat(
         [self._zero_padding, self._jump_locations], axis=1)
@@ -632,7 +632,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
 
     y_at_vol_knots = tf.concat(
         [self._zero_padding,
-         _cumsum_using_matvec(y_between_vol_knots)], axis=1)
+         utils.cumsum_using_matvec(y_between_vol_knots)], axis=1)
 
     ex_between_vol_knots = self._ex_integral(self._padded_knots,
                                              self._jump_locations,
@@ -642,7 +642,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
 
     ex_at_vol_knots = tf.concat(
         [self._zero_padding,
-         _cumsum_using_matvec(ex_between_vol_knots)], axis=1)
+         utils.cumsum_using_matvec(ex_between_vol_knots)], axis=1)
 
     c = tf.gather(y_at_vol_knots, time_index, batch_dims=1)
     exp_x_t = self._ex_integral(
@@ -677,7 +677,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                                                  self._jump_values_mr)
     varx_at_vol_knots = tf.concat(
         [self._zero_padding,
-         _cumsum_using_matvec(var_x_between_vol_knots)],
+         utils.cumsum_using_matvec(var_x_between_vol_knots)],
         axis=1)
 
     time_index = tf.searchsorted(self._jump_locations, t)
@@ -809,13 +809,3 @@ def _input_type(param, dim, dtype, name):
         dtype=dtype)
 
   return param, sample_with_generic
-
-
-def _cumsum_using_matvec(input_tensor):
-  """Computes cumsum using matrix algebra."""
-  dtype = input_tensor.dtype
-  axis_length = input_tensor.shape.as_list()[-1]
-  ones = tf.ones([axis_length, axis_length], dtype=dtype)
-  lower_triangular = tf.linalg.band_part(ones, -1, 0)
-  cumsum = tf.linalg.matvec(lower_triangular, input_tensor)
-  return cumsum

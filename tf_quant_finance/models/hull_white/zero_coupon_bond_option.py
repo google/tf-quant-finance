@@ -15,6 +15,7 @@
 
 import numpy as np
 import tensorflow.compat.v2 as tf
+from tf_quant_finance.models import utils
 from tf_quant_finance.models.hull_white import vector_hull_white
 
 
@@ -34,16 +35,6 @@ def _prepare_indices(idx0, idx1, idx2, idx3):
   idx3 = tf.tile(idx3, [len0*len1])
 
   return tf.stack([idx0, idx1, idx2, idx3], axis=-1)
-
-
-def _cumprod_using_matvec(input_tensor):
-  """Computes cumprod using matrix algebra."""
-  dtype = input_tensor.dtype
-  axis_length = input_tensor.shape.as_list()[-1]
-  ones = tf.ones([axis_length, axis_length], dtype=dtype)
-  lower_triangular = tf.linalg.band_part(ones, -1, 0)
-  cumsum = tf.linalg.matvec(lower_triangular, tf.math.log(input_tensor))
-  return tf.math.exp(cumsum)
 
 
 _SQRT_2 = np.sqrt(2.0, dtype=np.float64)
@@ -232,7 +223,7 @@ def bond_option_price(*,
     # and `matvec` operates on the last axis. The shape before and after would
     # be `(num_samples, len(times), dim)`
     discount_factors_builder = tf.transpose(
-        _cumprod_using_matvec(
+        utils.cumprod_using_matvec(
             tf.transpose(discount_factors_builder, [0, 2, 1])), [0, 2, 1])
 
     # make discount factors the same shape as `p_t_tau`. This involves adding
@@ -356,7 +347,7 @@ def _bond_option_variance(model, option_expiry, bond_maturity, dim):
                                               model._jump_values_mr)
   varx_at_vol_knots = tf.concat(
       [model._zero_padding,
-       vector_hull_white._cumsum_using_matvec(var_between_vol_knots)],
+       utils.cumsum_using_matvec(var_between_vol_knots)],
       axis=1)
 
   time_index = tf.searchsorted(model._jump_locations, option_expiry)

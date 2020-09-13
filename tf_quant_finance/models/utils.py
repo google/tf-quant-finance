@@ -176,3 +176,23 @@ def block_diagonal_to_dense(*matrices):
   """Given a sequence of matrices, creates a block-diagonal dense matrix."""
   operators = [tf.linalg.LinearOperatorFullMatrix(m) for m in matrices]
   return tf.linalg.LinearOperatorBlockDiag(operators).to_dense()
+
+
+def cumsum_using_matvec(input_tensor):
+  """Computes cumsum using matrix algebra."""
+  dtype = input_tensor.dtype
+  axis_length = input_tensor.shape.as_list()[-1]
+  ones = tf.ones([axis_length, axis_length], dtype=dtype)
+  lower_triangular = tf.linalg.band_part(ones, -1, 0)
+  cumsum = tf.linalg.matvec(lower_triangular, input_tensor)
+  return cumsum
+
+
+def cumprod_using_matvec(input_tensor):
+  """Computes cumprod using matrix algebra."""
+  dtype = input_tensor.dtype
+  axis_length = input_tensor.shape.as_list()[-1]
+  ones = tf.ones([axis_length, axis_length], dtype=dtype)
+  lower_triangular = tf.linalg.band_part(ones, -1, 0)
+  cumsum = tf.linalg.matvec(lower_triangular, tf.math.log(input_tensor))
+  return tf.math.exp(cumsum)

@@ -1,5 +1,5 @@
 # Lint as: python3
-# Copyright 2019 Google LLC
+# Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,23 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""HJM model."""
 
-"""Experimental modules."""
+from tf_quant_finance.experimental.hjm.quasi_gaussian_hjm import QuasiGaussianHJM
 
-from tf_quant_finance.experimental import hjm
-from tf_quant_finance.experimental import instruments
-from tf_quant_finance.experimental import lsm_algorithm
-from tf_quant_finance.experimental import pricing_platform
-import tf_quant_finance.experimental.io
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
-
 _allowed_symbols = [
-    "hjm",
-    "instruments",
-    "io",
-    "lsm_algorithm",
-    "pricing_platform",
+    'QuasiGaussianHJM',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
