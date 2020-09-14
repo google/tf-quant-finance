@@ -48,8 +48,10 @@ py_library(
         "//tf_quant_finance/experimental/pricing_platform/framework/core:curve_types",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:processed_market_data",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:types",
+        "//tf_quant_finance/experimental/pricing_platform/framework/market_data:rate_curve",
         "//tf_quant_finance/experimental/pricing_platform/framework/market_data:utils",
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos:period_py_pb2",
+        "//tf_quant_finance/math",
         # tensorflow dep,
     ],
 )

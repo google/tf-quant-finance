@@ -40,6 +40,9 @@ class RiskFreeCurve:
   def __post_init__(self):
     self.currency = _init_currency(self.currency)
 
+  def __hash__(self):
+    return hash((self.currency,))
+
 
 @dataclasses.dataclass
 class RateIndexCurve:
@@ -49,6 +52,9 @@ class RateIndexCurve:
 
   def __post_init__(self):
     self.currency = _init_currency(self.currency)
+
+  def __hash__(self):
+    return hash((self.currency, self.index.type))
 
 
 CurveType = Union[RiskFreeCurve, RateIndexCurve]

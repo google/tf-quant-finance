@@ -14,19 +14,23 @@
 # limitations under the License.
 """Cashflow streams objects."""
 
-from typing import Optional, Tuple, Callable, Any
+from typing import Optional, Tuple, Callable, Any, List, Union
 
+import numpy as np
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import datetime as dateslib
-from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
+from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types as curve_types_lib
 from tf_quant_finance.experimental.pricing_platform.framework.core import processed_market_data as pmd
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
+from tf_quant_finance.experimental.pricing_platform.framework.market_data import rate_curve
 from tf_quant_finance.experimental.pricing_platform.framework.market_data import utils as market_data_utils
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import coupon_specs
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import period_pb2
+from tf_quant_finance.math import pad
 
-_CurveType = curve_types.CurveType
+
+_CurveType = curve_types_lib.CurveType
 
 
 class FixedCashflowStream:
@@ -72,7 +76,11 @@ class FixedCashflowStream:
     self._name = name or "fixed_cashflow_stream"
 
     with tf.name_scope(self._name):
-      self._discount_curve_type = discount_curve_type
+      curve_list = to_list(discount_curve_type)
+      [
+          self._discount_curve_type,
+          self._mask
+      ] = process_curve_types(curve_list)
       self._start_date = dateslib.convert_to_date_tensor(start_date)
       self._end_date = dateslib.convert_to_date_tensor(end_date)
       self._first_coupon_date = first_coupon_date
@@ -85,7 +93,8 @@ class FixedCashflowStream:
             penultimate_coupon_date)
 
       coupon_frequency = coupon_spec.coupon_frequency
-      if isinstance(coupon_frequency, period_pb2.Period):
+      if isinstance(coupon_frequency, (
+          period_pb2.Period, list, tuple)):
         coupon_frequency = market_data_utils.get_period(
             coupon_spec.coupon_frequency)
 
@@ -213,7 +222,8 @@ class FixedCashflowStream:
     """
     name = name or (self._name + "_price")
     with tf.name_scope(name):
-      discount_curve = market.yield_curve(self._discount_curve_type)
+      discount_curve = get_discount_curve(
+          self._discount_curve_type, market, self._mask)
       discount_factors = discount_curve.discount_factor(
           self._payment_dates)
       _, cashflows = self.cashflows(market)
@@ -265,8 +275,11 @@ class FloatingCashflowStream:
 
     self._name = name or "floating_cashflow_stream"
     with tf.name_scope(self._name):
-      self._discount_curve_type = discount_curve_type
-      self._floating_rate_type = coupon_spec.floating_rate_type
+      curve_list = to_list(discount_curve_type)
+      [
+          self._discount_curve_type,
+          self._mask
+      ] = process_curve_types(curve_list)
       self._first_coupon_date = None
       self._penultimate_coupon_date = None
       self._start_date = dateslib.convert_to_date_tensor(start_date)
@@ -282,15 +295,14 @@ class FloatingCashflowStream:
           weekend_mask=dateslib.WeekendMask.SATURDAY_SUNDAY)
       # Convert coupon and reset frequencies to PeriodTensor
       coupon_frequency = coupon_spec.coupon_frequency
-      if isinstance(coupon_frequency, period_pb2.Period):
+      if isinstance(coupon_frequency, (period_pb2.Period, list, tuple)):
         coupon_frequency = market_data_utils.get_period(
             coupon_spec.coupon_frequency)
-      self._reset_frequency = coupon_spec.reset_frequency
       reset_frequency = coupon_spec.reset_frequency
-      if isinstance(reset_frequency, period_pb2.Period):
+      if isinstance(reset_frequency, (period_pb2.Period, list, tuple)):
         reset_frequency = market_data_utils.get_period(
             coupon_spec.reset_frequency)
-
+      self._reset_frequency = reset_frequency
       businessday_rule = coupon_spec.businessday_rule
       roll_convention, eom = market_data_utils.get_business_day_convention(
           businessday_rule)
@@ -355,9 +367,18 @@ class FloatingCashflowStream:
       self._currency = coupon_spec.currency
       self._daycount_fn = daycount_fn
       # Construct the reference curve object
-      rate_index_curve = curve_types.RateIndexCurve(
-          currency=self._currency, index=self._floating_rate_type)
-      self._reference_curve_type = rate_index_curve
+      # Extract all rate_curves
+      self._floating_rate_type = to_list(coupon_spec.floating_rate_type)
+      self._currency = to_list(self._currency)
+      rate_index_curves = []
+      for currency, floating_rate_type in zip(self._currency,
+                                              self._floating_rate_type):
+        rate_index_curves.append(curve_types_lib.RateIndexCurve(
+            currency=currency, index=floating_rate_type))
+      [
+          self._reference_curve_type,
+          self._reference_mask
+      ] = process_curve_types(rate_index_curves)
 
   def daycount_fn(self) -> Callable[..., Any]:
     return self._daycount_fn
@@ -412,13 +433,16 @@ class FloatingCashflowStream:
     """
     name = name or (self._name + "_forward_rates")
     with tf.name_scope(name):
-      reference_curve = market.yield_curve(self._reference_curve_type)
+      reference_curve = get_discount_curve(
+          self._reference_curve_type, market, self._reference_mask)
       valuation_date = dateslib.convert_to_date_tensor(market.date)
-      # TODO(cyrilchimisov): vectorize fixing computation
-      past_fixing = market.fixings(
+
+      past_fixing = _get_fixings(
           self._start_date,
           self._reference_curve_type,
-          self._reset_frequency)
+          self._reset_frequency,
+          self._reference_mask,
+          market)
       forward_rates = reference_curve.forward_rate(
           self._accrual_start_date,
           self._accrual_end_date,
@@ -482,7 +506,8 @@ class FloatingCashflowStream:
 
     name = name or (self._name + "_price")
     with tf.name_scope(name):
-      discount_curve = market.yield_curve(self._discount_curve_type)
+      discount_curve = get_discount_curve(
+          self._discount_curve_type, market, self._mask)
       discount_factors = discount_curve.discount_factor(self._coupon_end_dates)
       _, cashflows = self.cashflows(market)
       # Cashflows present values
@@ -555,5 +580,153 @@ def _generate_schedule(
        end_date.expand_dims(-1)], axis=-1)
   return coupon_dates
 
+
+def get_discount_curve(
+    discount_curve_types: List[Union[curve_types_lib.RiskFreeCurve,
+                                     curve_types_lib.RateIndexCurve]],
+    market: pmd.ProcessedMarketData,
+    mask: List[int]) -> rate_curve.RateCurve:
+  """Builds a batched discount curve.
+
+  Given a list of discount curve an integer mask, creates a discount curve
+  object to compute discount factors against the list of discount curves.
+
+  #### Example
+  ```none
+  curve_types = [RiskFreeCurve("USD"), RiskFreeCurve("AUD")]
+  # A mask to price a batch of 7 instruments with the corresponding discount
+  # curves ["USD", "AUD", "AUD", "AUD" "USD", "USD", "AUD"].
+  mask = [0, 1, 1, 1, 0, 0, 1]
+  market = MarketDataDict(...)
+  get_discount_curve(curve_types, market, mask)
+  # Returns a RateCurve object that can compute a discount factors for a
+  # batch of 7 dates.
+  ```
+
+  Args:
+    discount_curve_types: A list of curve types.
+    market: an instance of the processed market data.
+    mask: An integer mask.
+
+  Returns:
+    An instance of `RateCurve`.
+  """
+  discount_curves = [market.yield_curve(curve_type)
+                     for curve_type in discount_curve_types]
+  discounts = []
+  dates = []
+  interpolation_method = None
+  interpolate_rates = None
+  for curve in discount_curves:
+    discount, date = curve.discount_factors_and_dates()
+    discounts.append(discount)
+    dates.append(date)
+    interpolation_method = curve.interpolation_method
+    interpolate_rates = curve.interpolate_rates
+
+  all_discounts = tf.stack(pad.pad_tensors(discounts), axis=0)
+  all_dates = pad.pad_date_tensors(dates)
+  all_dates = dateslib.DateTensor.stack(dates, axis=0)
+  prepare_discounts = tf.gather(all_discounts, mask)
+  prepare_dates = dateslib.dates_from_ordinals(
+      tf.gather(all_dates.ordinal(), mask))
+  # All curves are assumed to have the same interpolation method
+  # TODO(b/168411153): Extend to the case with multiple curve configs.
+  discount_curve = rate_curve.RateCurve(
+      prepare_dates, prepare_discounts, market.date,
+      interpolator=interpolation_method,
+      interpolate_rates=interpolate_rates)
+  return discount_curve
+
+
+def _get_fixings(start_dates,
+                 reference_curve_types,
+                 reset_frequencies,
+                 reference_mask,
+                 market):
+  """Computes fixings for a list of reference curves."""
+  split_indices = [tf.squeeze(tf.where(tf.equal(reference_mask, i)), -1)
+                   for i in range(len(reference_curve_types))]
+  fixings = []
+  for idx, reference_curve_type in zip(split_indices, reference_curve_types):
+    start_date = dateslib.dates_from_ordinals(
+        tf.gather(start_dates.ordinal(), idx))
+    reset_quant = reset_frequencies.quantity()
+    # Do not use gather, if only one reset frequency is supplied
+    if reset_quant.shape.rank > 1:
+      reset_quant = tf.gather(reset_quant, idx)
+    fixings.append(market.fixings(
+        start_date,
+        reference_curve_type,
+        reset_quant))
+  fixings = pad.pad_tensors(fixings)
+  all_indices = tf.concat(split_indices, axis=0)
+  all_fixings = tf.concat(fixings, axis=0)
+  return tf.gather(all_fixings, tf.argsort(all_indices))
+
+
+def process_curve_types(
+    curve_types: List[Union[curve_types_lib.RiskFreeCurve,
+                            curve_types_lib.RateIndexCurve]]
+    ) -> Tuple[
+        List[Union[curve_types_lib.RiskFreeCurve,
+                   curve_types_lib.RateIndexCurve]],
+        List[int]]:
+  """Extracts unique curves and computes an integer mask.
+
+  #### Example
+  ```python
+  curve_types = [RiskFreeCurve("USD"), RiskFreeCurve("AUD"),
+                 RiskFreeCurve("USD")]
+  process_curve_types(curve_types)
+  # Returns [RiskFreeCurve("USD"), RiskFreeCurve("AUD")], [0, 1, 0]
+  ```
+  Args:
+    curve_types: A list of either `RiskFreeCurve` or `RateIndexCurve`.
+
+  Returns:
+    A list of unique curves in `curve_types` and a list of integers which is the
+    mask of `curve_types`.
+  """
+  curve_list = to_list(curve_types)
+  curve_hash = [hash(curve_type) for curve_type in curve_list]
+  hash_discount_map = {
+      hash(curve_type): curve_type for curve_type in curve_list}
+  mask, mask_map, num_unique_discounts = _create_mask(curve_hash)
+  discount_curve_types = [
+      hash_discount_map[mask_map[i]]
+      for i in range(num_unique_discounts)]
+  return discount_curve_types, mask
+
+
+def _create_mask(x):
+  """Given a list of object creates integer mask for unique values in the list.
+
+  Args:
+    x: 1-d numpy array.
+
+  Returns:
+    A tuple of three objects:
+      * A list of integers that is the mask for `x`,
+      * A dictionary map between  entries of `x` and the list
+      * The number of unique elements.
+  """
+  # For example, _create_mask("USD", "AUD", "USD") returns
+  # a list [0, 1, 0], a map {0: "USD", 1: "AUD"} and the number of unique
+  # elements which is 2.
+  unique = np.unique(x)
+  num_unique_elems = len(unique)
+  keys = range(num_unique_elems)
+  d = dict(zip(unique, keys))
+  mask_map = dict(zip(keys, unique))
+  return [d[el] for el in x], mask_map, num_unique_elems
+
+
+def to_list(x):
+  """Converts input to a list if necessary."""
+  if isinstance(x, (list, tuple)):
+    return x
+  else:
+    return [x]
 
 __all__ = ["FixedCashflowStream", "FloatingCashflowStream"]

@@ -14,7 +14,7 @@
 # limitations under the License.
 """Utility functions to create an instance of processed market data."""
 
-from typing import Callable, Tuple
+from typing import Callable, Tuple, List
 
 import tensorflow.compat.v2 as tf
 
@@ -84,6 +84,24 @@ def get_business_day_convention(
   except KeyError:
     raise KeyError(
         f"{business_day_convention} is not mapped to a business day convention")
+
+
+def period_from_list(period: Tuple[int, List[int]]
+                     ) -> dateslib.PeriodTensor:
+  """Utility to convert a list of periods to a PeriodTensor.
+
+  Args:
+    period: A tuple of an integer (which corresponds to the proto type of the
+      period (see `period_pb2.Period`)) and a list of period values.
+
+  Returns:
+    An instance of the `PeriodTensor`.
+  """
+  amount = period[1]
+  period_type = period_pb2.PeriodType.Name(period[0])
+  return dateslib.PeriodTensor(
+      amount + tf.compat.v1.placeholder_with_default(0, []),
+      dateslib.PeriodType[period_type])
 
 
 def get_period(period: period_pb2.Period) -> dateslib.PeriodTensor:

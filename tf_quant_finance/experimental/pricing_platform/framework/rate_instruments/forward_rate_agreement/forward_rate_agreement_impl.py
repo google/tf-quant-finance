@@ -26,6 +26,7 @@ from tf_quant_finance.experimental.pricing_platform.framework.core import proces
 from tf_quant_finance.experimental.pricing_platform.framework.core import rate_indices
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
 from tf_quant_finance.experimental.pricing_platform.framework.market_data import utils as market_data_utils
+from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import cashflow_streams
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.forward_rate_agreement import proto_utils
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import forward_rate_agreement_pb2 as fra
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import period_pb2
@@ -171,7 +172,9 @@ class ForwardRateAgreement(instrument.Instrument):
 
       self._day_count_fn = market_data_utils.get_daycount_fn(
           daycount_convention)
-      period = market_data_utils.get_period(rate_term)
+      period = rate_term
+      if isinstance(rate_term, period_pb2.Period):
+        period = market_data_utils.get_period(rate_term)
       self._accrual_end_date = calendar.add_period_and_roll(
           self._accrual_start_date, period,
           roll_convention=roll_convention)
@@ -184,21 +187,42 @@ class ForwardRateAgreement(instrument.Instrument):
       self._settlement_days = settlement_days
       self._roll_convention = roll_convention
       # Get discount and reference curves
-      rate_index_curve = curve_types.RateIndexCurve(
-          currency=currency, index=rate_index)
-      reference_curve_type = rate_index_curve
-      if fra_config is not None:
-        try:
-          self._discount_curve_type = fra_config.discounting_curve[currency]
-        except KeyError:
+      self._currency = cashflow_streams.to_list(currency)
+      self._rate_index = cashflow_streams.to_list(rate_index)
+      if len(self._currency) != len(self._rate_index):
+        raise ValueError(
+            "Number of currency and rate indices should be the same "
+            "but it is {0} and {1}".format(len(self._currency),
+                                           len(self._rate_index)))
+      self._reference_curve_type = []
+      self._discount_curve_type = []
+      for currency, rate_index in zip(self._currency, self._rate_index):
+        rate_index_curve = curve_types.RateIndexCurve(
+            currency=currency, index=rate_index)
+        self._reference_curve_type.append(rate_index_curve)
+      for currency in self._currency:
+        if fra_config is not None:
+          try:
+            discount_curve_type = fra_config.discounting_curve[currency]
+          except KeyError:
+            risk_free = curve_types.RiskFreeCurve(currency=currency)
+            discount_curve_type = curve_types.CurveType(
+                type=risk_free)
+          self._discount_curve_type.append(discount_curve_type)
+        else:
+          # Default discounting is the risk free curve
           risk_free = curve_types.RiskFreeCurve(currency=currency)
-          self._discount_curve_type = curve_types.CurveType(
-              type=risk_free)
-      else:
-        # Default discounting is the risk free curve
-        risk_free = curve_types.RiskFreeCurve(currency=currency)
-        self._discount_curve_type = risk_free
-      self._reference_curve_type = reference_curve_type
+          self._discount_curve_type = risk_free
+      # Get masks for discount and reference curves
+      [
+          self._discount_curve_type,
+          self._mask
+      ] = cashflow_streams.process_curve_types(self._discount_curve_type)
+      [
+          self._reference_curve_type,
+          self._reference_mask
+      ] = cashflow_streams.process_curve_types(self._reference_curve_type)
+      # Get batch shape
       self._batch_shape = self._daycount_fractions.shape.as_list()[:-1]
 
   @classmethod
@@ -207,9 +231,13 @@ class ForwardRateAgreement(instrument.Instrument):
       proto_list: List[fra.ForwardRateAgreement],
       fra_config: ForwardRateAgreementConfig = None
       ) -> List["ForwardRateAgreement"]:
-    proto_dict = proto_utils.from_protos(proto_list, fra_config)
+    proto_dict = proto_utils.from_protos_v2(proto_list, fra_config)
     intruments = []
     for kwargs in proto_dict.values():
+      # Convert rate term to the period tensors
+      kwargs["rate_term"] = market_data_utils.period_from_list(
+          kwargs["rate_term"])
+      # Create an instrument
       intruments.append(cls(**kwargs))
     return intruments
 
@@ -237,17 +265,27 @@ class ForwardRateAgreement(instrument.Instrument):
     """
     name = name or (self._name + "_price")
     with tf.name_scope(name):
-      discount_curve = market.yield_curve(self._discount_curve_type)
-      reference_curve = market.yield_curve(self._reference_curve_type)
+      discount_curve = cashflow_streams.get_discount_curve(
+          self._discount_curve_type, market, self._mask)
+      reference_curve = cashflow_streams.get_discount_curve(
+          self._reference_curve_type, market, self._reference_mask)
+      # Shape batch_shape + [1]
+      daycount_fractions = tf.expand_dims(self._daycount_fractions, axis=-1)
+      # Shape batch_shape + [1]
       fwd_rate = reference_curve.forward_rate(
-          self._accrual_start_date, self._accrual_end_date,
-          day_count_fraction=self._daycount_fractions)
+          self._accrual_start_date.expand_dims(axis=-1),
+          self._accrual_end_date.expand_dims(axis=-1),
+          day_count_fraction=daycount_fractions)
+      # Shape batch_shape + [1]
       discount_at_settlement = discount_curve.discount_factor(
-          self._accrual_start_date)
-      discount_at_settlement = tf.where(self._daycount_fractions > 0.,
+          self._accrual_start_date.expand_dims(axis=-1))
+      # Shape batch_shape + [1]
+      discount_at_settlement = tf.where(daycount_fractions > 0.,
                                         discount_at_settlement,
                                         tf.zeros_like(discount_at_settlement))
-
+      # Shape `batch_shape`
+      discount_at_settlement = tf.squeeze(discount_at_settlement, axis=-1)
+      fwd_rate = tf.squeeze(fwd_rate, axis=-1)
       return (self._short_position
               * discount_at_settlement
               * self._notional_amount * (fwd_rate - self._fixed_rate)

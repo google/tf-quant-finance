@@ -124,7 +124,9 @@ class MarketDataDict(pmd.ProcessedMarketData):
               fixing_type: curve_types.RateIndexCurve,
               tenor: period_pb2.Period) -> types.FloatTensor:
     """Returns past fixings of the market rates at the specified dates."""
-    return tf.constant(0, dtype=self._dtype, name="fixings")
+    date = dateslib.convert_to_date_tensor(date)
+    return tf.zeros(tf.shape(date.ordinal()),
+                    dtype=self._dtype, name="fixings")
 
   def spot(self, asset: str,
            data: types.DateTensor) -> tf.Tensor:

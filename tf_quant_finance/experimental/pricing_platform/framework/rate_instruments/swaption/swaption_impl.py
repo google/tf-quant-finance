@@ -298,7 +298,7 @@ class Swaption(instrument.Instrument):
       floating_leg = self._swap.receive_leg()
 
     # Get the reference curve from the floating leg of the underlying swap
-    reference_curve = market.yield_curve(floating_leg.reference_curve_type)
+    reference_curve = market.yield_curve(floating_leg.reference_curve_type[0])
     valuation_date_ordinal = tf.cast(valuation_date.ordinal(),
                                      dtype=self._dtype)
 

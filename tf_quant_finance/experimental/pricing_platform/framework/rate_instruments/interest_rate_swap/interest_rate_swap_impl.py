@@ -22,7 +22,7 @@ import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import datetime as dateslib
 from tf_quant_finance import math as tff_math
-from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
+from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types as curve_types_lib
 from tf_quant_finance.experimental.pricing_platform.framework.core import instrument
 from tf_quant_finance.experimental.pricing_platform.framework.core import processed_market_data as pmd
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
@@ -35,7 +35,7 @@ from tf_quant_finance.experimental.pricing_platform.instrument_protos import int
 
 @dataclasses.dataclass(frozen=True)
 class InterestRateSwapConfig:
-  discounting_curve: Dict[types.CurrencyProtoType, curve_types.CurveType]
+  discounting_curve: Dict[types.CurrencyProtoType, curve_types_lib.CurveType]
   model: str
 
 
@@ -177,19 +177,22 @@ class InterestRateSwap(instrument.Instrument):
       self._dtype = dtype or tf.float64
       self._model = None  # Ignore
 
-      currency = pay_leg.currency
+      currencies = cashflow_streams.to_list(pay_leg.currency)
+      self._discount_curve_type = []
       if pay_leg.currency != receive_leg.currency:
         raise ValueError("Pay and receive legs should have the same currency")
-      if swap_config is not None:
-        try:
-          self._discount_curve_type = swap_config.discounting_curve[currency]
-        except KeyError:
-          risk_free = curve_types.RiskFreeCurve(currency=currency)
-          self._discount_curve_type = risk_free
-      else:
-        # Default discounting is the risk free curve
-        risk_free = curve_types.RiskFreeCurve(currency=currency)
-        self._discount_curve_type = risk_free
+      for currency in currencies:
+        if swap_config is not None:
+          try:
+            discount_curve = swap_config.discounting_curve[currency]
+            self._discount_curve_type.append(discount_curve)
+          except KeyError:
+            risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
+            self._discount_curve_type.append(risk_free)
+        else:
+          # Default discounting is the risk free curve
+          risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
+          self._discount_curve_type.append(risk_free)
       self._start_date = dateslib.convert_to_date_tensor(start_date)
       self._maturity_date = dateslib.convert_to_date_tensor(maturity_date)
       self._pay_leg = self._setup_leg(pay_leg)
@@ -203,9 +206,13 @@ class InterestRateSwap(instrument.Instrument):
   def from_protos(
       cls, proto_list: List[ir_swap.InterestRateSwap],
       swap_config: InterestRateSwapConfig = None) -> List["InterestRateSwap"]:
-    proto_dict = proto_utils.from_protos(proto_list, swap_config)
+    proto_dict = proto_utils.from_protos_v2(proto_list, swap_config)
     intruments = []
     for kwargs in proto_dict.values():
+      # Convert coupon and rest frequencies to the period tensors
+      proto_utils.update_frequency(kwargs["pay_leg"])
+      proto_utils.update_frequency(kwargs["receive_leg"])
+      # Create an instrument
       intruments.append(cls(**kwargs))
     return intruments
 
@@ -215,7 +222,7 @@ class InterestRateSwap(instrument.Instrument):
       proto_list: List[ir_swap.InterestRateSwap],
       fra_config: InterestRateSwapConfig = None
       ) -> Dict[str, List["InterestRateSwap"]]:
-    return proto_utils.group_protos(proto_list, fra_config)
+    return proto_utils.group_protos_v2(proto_list, fra_config)
 
   def price(self,
             market: pmd.ProcessedMarketData,
@@ -286,7 +293,7 @@ class InterestRateSwap(instrument.Instrument):
   def ir_delta(self,
                tenor: types.DateTensor,
                processed_market_data: pmd.ProcessedMarketData,
-               curve_type: curve_types.CurveType,
+               curve_type: curve_types_lib.CurveType,
                shock_size: Optional[float] = None) -> tf.Tensor:
     """Computes delta wrt to the tenor perturbation."""
     raise NotImplementedError("Coming soon.")
@@ -297,46 +304,68 @@ class InterestRateSwap(instrument.Instrument):
       leg: Union[cashflow_streams.FloatingCashflowStream,
                  cashflow_streams.FixedCashflowStream],
       processed_market_data: pmd.ProcessedMarketData,
-      curve_type: Optional[curve_types.CurveType] = None,
+      curve_type: Optional[curve_types_lib.CurveType] = None,
       shock_size: Optional[float] = None) -> tf.Tensor:
     """Computes delta wrt to the curve parallel perturbation for a leg."""
     # TODO(b/160671927): Find a better way to update market data entries.
     market_bumped = copy.copy(processed_market_data)
-    reference_curve = None
-    reference_curve_type = None
+    reference_curves = None
+    reference_curve_types = None
     if curve_type is None:
       # Extract discount and reference curves
-      curve_type = leg.discount_curve_type
+      curve_types = leg.discount_curve_type
       if isinstance(leg, cashflow_streams.FloatingCashflowStream):
-        reference_curve_type = leg.reference_curve_type
-        reference_curve = processed_market_data.yield_curve(
-            reference_curve_type)
+        reference_curve_types = leg.reference_curve_type
+        reference_curves = [
+            processed_market_data.yield_curve(r_c)
+            for r_c in reference_curve_types]
+    else:
+      curve_type = cashflow_streams.to_list(curve_types)
 
-    discount_curve = processed_market_data.yield_curve(curve_type)
+    discount_curves = [
+        processed_market_data.yield_curve(c) for c in curve_types]
     # IR delta is the sensitivity wrt the yield perturbation
-    yields, times = market_data_utils.get_yield_and_time(
-        discount_curve, processed_market_data.date, self._dtype)
+    yields_list = []
+    times_list = []
+    for curve in discount_curves:
+      yields, times = market_data_utils.get_yield_and_time(
+          curve, processed_market_data.date, self._dtype)
+      yields_list.append(yields)
+      times_list.append(times)
     # Extract yields for reference curve, if needed
-    if reference_curve is not None:
-      reference_yields, reference_times = market_data_utils.get_yield_and_time(
-          reference_curve, processed_market_data.date, self._dtype)
-    def price_fn(bump):
+    reference_yields_list = []
+    reference_times_list = []
+    if reference_curves is not None:
+      for reference_curve in reference_curves:
+        yields, times = market_data_utils.get_yield_and_time(
+            reference_curve, processed_market_data.date, self._dtype)
+        reference_yields_list.append(yields)
+        reference_times_list.append(times)
+    def bump_market(bump):
       """Prices the leg with a given bump."""
-      discount_factors = (1 + yields + bump)**(-times)
-      discount_curve.set_discount_factor_nodes(discount_factors)
       def _discount_curve_fn(input_curve_type):
         """Updates discount curve."""
-        if input_curve_type == curve_type:
+        if input_curve_type in curve_types:
+          idx = curve_types.index(input_curve_type)
+          discount_factors = (1 + yields_list[idx] + bump)**(-times_list[idx])
+          discount_curve = discount_curves[idx]
+          discount_curve.set_discount_factor_nodes(discount_factors)
           return discount_curve
-        elif input_curve_type == reference_curve_type:
+        elif input_curve_type in reference_curve_types:
+          idx = reference_curve_types.index(input_curve_type)
           reference_discount_factors = (
-              1 + reference_yields + bump)**(-reference_times)
-          reference_curve.set_discount_factor_nodes(reference_discount_factors)
+              1 + reference_yields_list[idx]
+              + bump)**(-reference_times_list[idx])
+          reference_curve = reference_curves[idx]
+          reference_curve.set_discount_factor_nodes(
+              reference_discount_factors)
           return reference_curve
         else:
-          return processed_market_data.yield_curve(curve_type)
+          return processed_market_data.yield_curve(curve_types[0])
       market_bumped.yield_curve = _discount_curve_fn
-      return leg.price(market_bumped)
+      return market_bumped
+
+    price_fn = lambda bump: leg.price(bump_market(bump))
     if shock_size is None:
       bump = tf.constant(0, dtype=self._dtype,
                          name="bump")
@@ -351,7 +380,7 @@ class InterestRateSwap(instrument.Instrument):
   def ir_delta_parallel(
       self,
       processed_market_data: pmd.ProcessedMarketData,
-      curve_type: Optional[curve_types.CurveType] = None,
+      curve_type: Optional[curve_types_lib.CurveType] = None,
       shock_size: Optional[float] = None) -> tf.Tensor:
     """Computes delta wrt to the curve parallel perturbation."""
     # IR delta is the sensitivity wrt the yield perturpation

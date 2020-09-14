@@ -255,5 +255,10 @@ class RateCurve(pmd.RateCurve):
   def dtype(self) -> types.Dtype:
     return self._dtype
 
+  @property
+  def interpolate_rates(self) -> bool:
+    """Returns `True` if the interpolation is on rates and not on discounts."""
+    return self._interpolate_rates
+
 
 __all__ = ["RateCurve"]

@@ -39,7 +39,7 @@ py_test(
     size = "medium",
     srcs = ["interest_rate_swap_test.py"],
     python_version = "PY3",
-    shard_count = 4,
+    shard_count = 6,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -57,6 +57,7 @@ py_library(
         "//tf_quant_finance/experimental/pricing_platform/framework/core:currencies",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:daycount_conventions",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:rate_indices",
+        "//tf_quant_finance/experimental/pricing_platform/framework/market_data:utils",
         "//tf_quant_finance/experimental/pricing_platform/framework/rate_instruments:coupon_specs",
         "//tf_quant_finance/experimental/pricing_platform/framework/rate_instruments:utils",
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos",

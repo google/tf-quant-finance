@@ -72,20 +72,37 @@ class ProtoUtilsTest(tf.test.TestCase):
             floating_rate_type=RateIndex(type="LIBOR_3M"),
             term=period_pb2.Period(type="MONTH", amount=3)),
         settlement_days=2)
+    self._fra_3 = fra_pb2.ForwardRateAgreement(
+        short_position=False,
+        fixing_date=date_pb2.Date(year=2021, month=5, day=21),
+        currency=Currency.USD(),
+        fixed_rate=decimal_pb2.Decimal(nanos=31340000),
+        notional_amount=decimal_pb2.Decimal(units=10000),
+        daycount_convention=DayCountConventions.ACTUAL_365(),
+        business_day_convention=BusinessDayConvention.MODIFIED_FOLLOWING(),
+        floating_rate_term=fra_pb2.FloatingRateTerm(
+            floating_rate_type=RateIndex(type="LIBOR_6M"),
+            term=period_pb2.Period(type="MONTH", amount=6)),
+        settlement_days=2)
     super(ProtoUtilsTest, self).setUp()
 
   def test_group_protos(self):
     proto_dict = proto_utils.group_protos(
-        [self._fra_1, self._fra_2, self._fra_1])
+        [self._fra_1, self._fra_2, self._fra_1, self._fra_3])
+    with self.subTest("NumGroups"):
+      self.assertLen(proto_dict.keys(), 3)
+    with self.subTest("CorrectBatches"):
+      # One of the lists contains two identical protos
+      for proto_list in proto_dict.values():
+        if len(proto_list) == 2:
+          self.assertProtoEquals(proto_list[0], proto_list[1])
+
+  def test_group_protos_v2(self):
+    proto_dict = proto_utils.group_protos_v2(
+        [self._fra_1, self._fra_2, self._fra_1, self._fra_3])
     with self.subTest("NumGroups"):
       self.assertLen(proto_dict.keys(), 2)
-    with self.subTest("CorrectBatches"):
-      proto_list_1, proto_list_2 = proto_dict.values()
-      # One of the lists contains two identical protos
-      if len(proto_list_1) == 2:
-        self.assertProtoEquals(proto_list_1[0], proto_list_1[1])
-      else:
-        self.assertProtoEquals(proto_list_2[0], proto_list_2[1])
+
 
 if __name__ == "__main__":
   tf.test.main()

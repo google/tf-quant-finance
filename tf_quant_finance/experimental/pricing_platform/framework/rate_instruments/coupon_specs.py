@@ -27,7 +27,7 @@ class FixedCouponSpecs:
   """Fixed coupon leg specification.
 
   Attributes:
-    currency: An instance of `Currency`.
+    currency: An instance of `Currency` or a list of `Currency`.
     coupon_frequency: A `PeriodTensor` specifying the term of the underlying
       rate which determines the coupon payments.
     notional_amount: A real `Tensor` of  `batch_shape` specifying the notional
@@ -41,7 +41,7 @@ class FixedCouponSpecs:
       shape of `notional_amount`.
     calendar: A calendar to specify the weekend mask and bank holidays.
   """
-  currency: types.CurrencyProtoType
+  currency: Union[types.CurrencyProtoType, List[types.CurrencyProtoType]]
   coupon_frequency: types.Period
   notional_amount: Union[tf.Tensor, List[float]]
   fixed_rate: Union[tf.Tensor, List[float]]

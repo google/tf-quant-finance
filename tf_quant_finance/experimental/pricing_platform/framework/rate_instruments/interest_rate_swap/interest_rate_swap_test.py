@@ -123,15 +123,11 @@ class InterestRateSwapTest(tf.test.TestCase):
     swaps = interest_rate_swap.InterestRateSwap.from_protos(
         [self._swap_1, self._swap_2, self._swap_1])
     with self.subTest("Batching"):
-      self.assertLen(swaps, 2)
+      self.assertLen(swaps, 1)
     price1 = swaps[0].price(market)
-    expected1 = np.array([7655.98694587, 7655.98694587])
+    expected1 = np.array([7655.98694587, 6569.04475892, 7655.98694587])
     with self.subTest("PriceBatch"):
       self.assertAllClose(price1, expected1)
-    price2 = swaps[1].price(market)
-    expected2 = np.array([6569.04475892])
-    with self.subTest("PriceSingle"):
-      self.assertAllClose(price2, expected2)
 
   def test_ir_delta_parallel(self):
     """Creates ir swap from proto and tests IR delta parallel method."""
@@ -143,22 +139,26 @@ class InterestRateSwapTest(tf.test.TestCase):
         [self._swap_1, self._swap_2, self._swap_1])
     # Automatic differentiation test
     delta1 = swaps[0].ir_delta_parallel(market)
-    expected1 = np.array([7689639.46004707, 7689639.46004707])
+    expected1 = np.array([7689639.46004707, 7662889.94933313,
+                          7689639.46004707])
+    # Autograd test
     with self.subTest("DeltaBatchAutograd"):
       self.assertAllClose(delta1, expected1)
-    delta2 = swaps[1].ir_delta_parallel(market)
-    expected2 = np.array([7662889.94933313])
-    with self.subTest("DeltaSingleAutograd"):
-      self.assertAllClose(delta2, expected2)
+
+  def test_ir_delta_parallel_shock_size(self):
+    """Creates ir swap from proto and tests IR delta parallel method."""
+    market = market_data.MarketDataDict(
+        self._valuation_date,
+        self._market_data_dict,
+        config=self._rate_config)
+    swaps = interest_rate_swap.InterestRateSwap.from_protos(
+        [self._swap_1, self._swap_2, self._swap_1])
     # Shock size test
     delta1 = swaps[0].ir_delta_parallel(market, shock_size=1e-4)
-    expected1 = np.array([7685967.85230533, 7685967.85230533])
+    expected1 = np.array([7685967.85230533, 7659231.64891894,
+                          7685967.85230533])
     with self.subTest("DeltaBatch"):
       self.assertAllClose(delta1, expected1)
-    delta2 = swaps[1].ir_delta_parallel(market, shock_size=1e-4)
-    expected2 = np.array([7659231.64891894])
-    with self.subTest("DeltaSingle"):
-      self.assertAllClose(delta2, expected2)
 
 if __name__ == "__main__":
   tf.test.main()
