@@ -247,7 +247,7 @@ class ForwardRateAgreement(instrument.Instrument):
       proto_list: List[fra.ForwardRateAgreement],
       fra_config: ForwardRateAgreementConfig = None
       ) -> Dict[str, List["ForwardRateAgreement"]]:
-    return proto_utils.group_protos(proto_list, fra_config)
+    return proto_utils.group_protos_v2(proto_list, fra_config)
 
   def price(self,
             market: pmd.ProcessedMarketData,
