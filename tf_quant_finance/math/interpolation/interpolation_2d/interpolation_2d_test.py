@@ -29,7 +29,7 @@ class Interpolation2DTest(tf.test.TestCase):
   def test_docstring_example(self):
     """Computes values of example in the docstring for function interpolate."""
     for dtype in [np.float32, np.float64]:
-      times = tf.constant([2., 2.5, 3, 4.5], dtype=dtype)
+      times = tf.constant([2., 2.5, 3], dtype=dtype)
       strikes = tf.constant([16, 22, 35], dtype=dtype)
 
       times_data = tf.constant([1.5, 2.5, 3.5, 4.5, 5.5], dtype=dtype)
@@ -45,20 +45,20 @@ class Interpolation2DTest(tf.test.TestCase):
       interpolator = interpolation_2d.Interpolation2D(
           times_data, strike_data, total_variance, dtype=dtype)
       interpolated_vols = interpolator.interpolate(times, strikes)
-      self.assertEqual(interpolated_vols.dtype.as_numpy_dtype, dtype)
-      self.assertAllClose(interpolated_vols.shape.as_list(), [4, 3])
-      expected_vols = np.array([[0.382399, 0.523347, 0.95],
-                                [0.524797, 0.716694, 1.375],
-                                [0.839203, 1.159248, 1.125],
-                                [1.069968, 0.92655, 2.025]])
-      self.assertAllClose(
-          interpolated_vols, expected_vols, rtol=1e-04, atol=1e-04)
+      with self.subTest("CorrectDtype"):
+        self.assertEqual(interpolated_vols.dtype.as_numpy_dtype, dtype)
+      with self.subTest("CorrectShape"):
+        self.assertAllClose(interpolated_vols.shape.as_list(), [3])
+      expected_vols = np.array([0.382399, 0.716694, 1.125])
+      with self.subTest("CorrectResult"):
+        self.assertAllClose(
+            interpolated_vols, expected_vols, rtol=1e-04, atol=1e-04)
 
   def test_batch(self):
     """Test batching."""
     dtype = np.float64
-    times = tf.constant([2., 2.5, 3, 4.5], dtype=dtype)
-    strikes = tf.constant([16, 22, 35], dtype=dtype)
+    times = tf.constant([[2., 2.5, 3], [2., 2.5, 3]], dtype=dtype)
+    strikes = tf.constant([[16, 22, 35], [16, 22, 35]], dtype=dtype)
 
     times_data = tf.constant([[1.5, 2.5, 3.5, 4.5, 5.5],
                               [1.2, 2.2, 3.5, 4.5, 5.5]], dtype=dtype)
@@ -81,24 +81,21 @@ class Interpolation2DTest(tf.test.TestCase):
         times_data, strike_data, total_variance, dtype=dtype)
     interpolated_values = interpolator.interpolate(times, strikes)
 
-    self.assertEqual(interpolated_values.dtype.as_numpy_dtype, dtype)
-    self.assertAllClose(interpolated_values.shape.as_list(), [2, 4, 3])
-    expected_vols = np.array([[[0.38239871, 0.52334687, 0.95],
-                               [0.52479743, 0.71669375, 1.375],
-                               [0.83920309, 1.1592475, 1.125],
-                               [1.06996765, 0.92655, 2.025]],
-                              [[0.40785739, 0.5573524, 1.052],
-                               [0.62146489, 0.85479298, 1.13269231],
-                               [0.88753682, 1.22829712, 1.00384615],
-                               [1.06996765, 0.92655, 2.025]]])
-    self.assertAllClose(
-        interpolated_values, expected_vols, rtol=1e-04, atol=1e-04)
+    with self.subTest("CorrectDtype"):
+      self.assertEqual(interpolated_values.dtype.as_numpy_dtype, dtype)
+    with self.subTest("CorrectShape"):
+      self.assertAllClose(interpolated_values.shape.as_list(), [2, 3])
+    expected_vols = np.array([[0.38239871, 0.71669375, 1.125],
+                              [0.40785739, 0.85479298, 1.00384615]])
+    with self.subTest("CorrectResult"):
+      self.assertAllClose(
+          interpolated_values, expected_vols, rtol=1e-04, atol=1e-04)
 
   def test_interpolation_in_y_direction(self):
     """Test interpolation in y direction (cubic interpolation)."""
     for dtype in [np.float32, np.float64]:
-      x_values = tf.constant([1, 2], dtype=dtype)
-      y_values_list = [-1, 0, 1, 2, 2.5, 5]
+      x_values = tf.constant([1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2], dtype=dtype)
+      y_values_list = [-1, 0, 1, 2, 2.5, 5, -1, 0, 1, 2, 2.5, 5]
       y_values = tf.constant(y_values_list, dtype=dtype)
 
       # Function at x=1.
@@ -138,17 +135,20 @@ class Interpolation2DTest(tf.test.TestCase):
           x_data, y_data, z_data, dtype=dtype)
       result = interpolator.interpolate(x_values, y_values)
 
-      self.assertEqual(result.dtype.as_numpy_dtype, dtype)
-      self.assertAllClose(result.shape.as_list(), [2, 6])
-      expected_result = np.array([[f1_interpolated(x) for x in y_values_list],
-                                  [f2_interpolated(x) for x in y_values_list]])
-
-      self.assertAllClose(result, expected_result, rtol=1e-04, atol=1e-04)
+      with self.subTest("CorrectDtype"):
+        self.assertEqual(result.dtype.as_numpy_dtype, dtype)
+      with self.subTest("CorrectShape"):
+        self.assertAllClose(result.shape.as_list(), [12])
+      expected_result = np.array(
+          [f1_interpolated(x) for x in y_values_list[:6]]
+          + [f2_interpolated(x) for x in y_values_list[:6]])
+      with self.subTest("CorrectResults"):
+        self.assertAllClose(result, expected_result, rtol=1e-04, atol=1e-04)
 
   def test_interpolation_in_x_direction(self):
     """Test interpolation in x direction (linear interpolation)."""
     for dtype in [np.float32, np.float64]:
-      x_values = tf.constant([0, 1.2, 3], dtype=dtype)
+      x_values = tf.constant([0, 1.2, 3, 4, 5, 5], dtype=dtype)
       y_values_list = [-1, 0, 1, 2, 2.5, 5]
       y_values = tf.constant(y_values_list, dtype=dtype)
 
@@ -189,22 +189,24 @@ class Interpolation2DTest(tf.test.TestCase):
           x_data, y_data, z_data, dtype=dtype)
       result = interpolator.interpolate(x_values, y_values)
 
-      self.assertEqual(result.dtype.as_numpy_dtype, dtype)
-      self.assertAllClose(result.shape.as_list(), [3, 6])
-      expected_result = np.array([[f1_interpolated(x) for x in y_values_list],
-                                  [
-                                      f1_interpolated(x) + 0.2 *
-                                      (f2_interpolated(x) - f1_interpolated(x))
-                                      for x in y_values_list
-                                  ],
-                                  [f2_interpolated(x) for x in y_values_list]])
-
-      self.assertAllClose(result, expected_result, rtol=1e-04, atol=1e-04)
+      with self.subTest("CorrectDtype"):
+        self.assertEqual(result.dtype.as_numpy_dtype, dtype)
+      with self.subTest("CorrectShape"):
+        self.assertAllClose(result.shape.as_list(), [6])
+      x0 = y_values_list[0]
+      x1 = y_values_list[1]
+      expected_result = np.array(
+          [f1_interpolated(x0)]
+          + [f1_interpolated(x1)
+             + 0.2 * (f2_interpolated(x1) - f1_interpolated(x1))]
+          +  [f2_interpolated(x) for x in y_values_list[2:]])
+      with self.subTest("CorrectInterpolation"):
+        self.assertAllClose(result, expected_result, rtol=1e-04, atol=1e-04)
 
   def test_grad(self):
     """Computes forward gradient values for the interpolate function."""
     dtype = np.float64
-    times = tf.constant([2., 2.5, 3, 4.5], dtype=dtype)
+    times = tf.constant([2., 2.5, 3], dtype=dtype)
     strikes = tf.constant([16, 22, 35], dtype=dtype)
 
     times_data = tf.constant([1.5, 2.5, 3.5, 4.5, 5.5], dtype=dtype)
@@ -230,19 +232,12 @@ class Interpolation2DTest(tf.test.TestCase):
     grad_strikes = tff.math.fwd_gradient(_strike_fn, strikes)
 
     # Expected values are computed with finite difference method
-    expected_grad_times = np.array([[0.284797, 0.386694, 0.85],
-                                    [0.284797, 0.386694, 0.85],
-                                    [0.628811, 0.885107, -0.5],
-                                    [-0.083641, -0.675251, 1.15]])
-    expected_grad_strikes = np.array(
-        [[2.002702e-02, 2.926526e-02, 9.191176e-05],
-         [2.505404e-02, 4.353051e-02, -1.481618e-02],
-         [6.381515e-02, 3.588338e-02, 1.577941e-02],
-         [-5.392059e-02, 2.612647e-02, -1.191176e-01]])
+    expected_grad_times = np.array([0.284797, 0.386694, -0.5])
+    expected_grad_strikes = np.array([0.02002702, 0.04353051, 0.01577941])
     self.assertAllClose(grad_times, expected_grad_times, rtol=1e-04, atol=1e-04)
     self.assertAllClose(
         grad_strikes, expected_grad_strikes, rtol=1e-04, atol=1e-04)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
   tf.test.main()
