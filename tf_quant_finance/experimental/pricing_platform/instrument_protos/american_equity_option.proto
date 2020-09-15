@@ -26,31 +26,24 @@ import "tf_quant_finance/experimental/pricing_platform/instrument_protos/metadat
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/period.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/rate_indices.proto";
 
-// Floating rate term
-message FloatingRateTerm {
-  RateIndex floating_rate_type = 1;
-  // Reset frequency
-  Period term = 2;
-}
 
-//Forward Rate Agreement proto
-message ForwardRateAgreement {
+// Interest rate swap proto
+message AmericanEquityOption {
   // Whether the contract holder lends or borrows the money
   // (i.e., floating or fixed rate payer).
   // short_position = True means that the contract holder lends the money at
   // the fixed rate.
   bool short_position = 1;
-  // Fixing date. Fixing date is the date at which the interest rate
-  // accumulation starts.
-  Date fixing_date = 2;
+  // Expiry date
+  Date expiry_date = 2;
   // Denominated currency
   Currency currency = 3;
-  // Floating rate term
-  FloatingRateTerm floating_rate_term = 4;
+  // Underlying equity
+  string equity = 4;
   // Contract notional
-  Decimal notional_amount = 5;
-  // Fixed rate
-  Decimal fixed_rate = 6;
+  Decimal contract_amount = 5;
+  // Strike
+  Decimal strike = 6;
   // Day count convention
   DayCountConvention daycount_convention = 7;
   // Business day convention
