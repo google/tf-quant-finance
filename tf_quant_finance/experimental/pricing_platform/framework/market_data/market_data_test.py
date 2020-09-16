@@ -32,6 +32,19 @@ class MarketDataTest(tf.test.TestCase):
              [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]]
     discounts = [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
                  0.72494879, 0.37602059]
+    vol_dates = [
+        [2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8], [2027, 2, 8]]
+
+    strikes = [[1500, 1550, 1510],
+               [1500, 1550, 1510],
+               [1500, 1550, 1510],
+               [1500, 1550, 1510],
+               [1500, 1550, 1510]]
+    volatilities = [[0.1, 0.12, 0.13],
+                    [0.15, 0.2, 0.15],
+                    [0.1, 0.2, 0.1],
+                    [0.1, 0.2, 0.1],
+                    [0.1, 0.1, 0.3]]
     libor_3m_config = market_data.config.RateConfig(
         interpolation_method=interpolation_method.InterpolationMethod.LINEAR)
 
@@ -40,13 +53,20 @@ class MarketDataTest(tf.test.TestCase):
         [2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8], [2050, 2, 8]]
     risk_free_discounts = [
         0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.37602059]
-    self._market_data_dict = {"USD": {
-        "risk_free_curve":
-        {"dates": risk_free_dates, "discounts": risk_free_discounts},
-        "OIS":
-        {"dates": dates, "discounts": discounts},
-        "LIBOR_3M":
-        {"dates": dates, "discounts": discounts},}}
+    self._market_data_dict = {
+        "USD": {
+            "risk_free_curve":
+            {"dates": risk_free_dates, "discounts": risk_free_discounts},
+            "OIS":
+            {"dates": dates, "discounts": discounts},
+            "LIBOR_3M":
+            {"dates": dates, "discounts": discounts},},
+        "GOOG": {
+            "spot": 1500,
+            "volatility_surface": {"dates": vol_dates,
+                                   "strikes": strikes,
+                                   "implied_volatilities": volatilities}
+        }}
     self._valuation_date = [(2020, 6, 24)]
     self._libor_discounts = discounts
     self._risk_free_discounts = risk_free_discounts
@@ -72,6 +92,18 @@ class MarketDataTest(tf.test.TestCase):
       discount_factor_nodes = libor_3m_curve.discount_factor_nodes
       self.assertAllClose(discount_factor_nodes, self._libor_discounts)
 
+  def test_volatility(self):
+    market = market_data.MarketDataDict(
+        self._valuation_date,
+        self._market_data_dict,
+        config=self._rate_config)
+    # Get volatility surface
+    vol_surface = market.volatility_surface(["GOOG", "GOOG"])
+    expiry = tff.datetime.dates_from_year_month_day(
+        year=[[2023], [2030]], month=[[5], [10]], day=[[10], [15]])
+    vols = vol_surface.volatility(expiry, [[1510], [1520]])
+    self.assertAllClose(
+        self.evaluate(vols), [[0.108], [0.31]], atol=1e-6)
 
 if __name__ == "__main__":
   tf.test.main()

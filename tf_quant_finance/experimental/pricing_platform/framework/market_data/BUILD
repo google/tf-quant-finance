@@ -13,6 +13,7 @@ py_library(
         ":market_data_impl",
         ":rate_curve",
         ":utils",
+        ":volatility_surface",
     ],
 )
 
@@ -22,6 +23,7 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":market_data_config",
+        ":volatility_surface",
         "//tf_quant_finance/datetime",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:currencies",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:curve_types",
@@ -109,6 +111,37 @@ py_test(
     name = "rate_curve_test",
     size = "small",
     srcs = ["rate_curve_test.py"],
+    python_version = "PY3",
+    shard_count = 2,
+    deps = [
+        "//tf_quant_finance",
+        # test util,
+    ],
+)
+
+py_library(
+    name = "volatility_surface",
+    srcs = ["volatility_surface.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":utils",
+        "//tf_quant_finance/datetime",
+        "//tf_quant_finance/experimental/pricing_platform/framework/core:curve_types",
+        "//tf_quant_finance/experimental/pricing_platform/framework/core:daycount_conventions",
+        "//tf_quant_finance/experimental/pricing_platform/framework/core:implied_volatility_type",
+        "//tf_quant_finance/experimental/pricing_platform/framework/core:processed_market_data",
+        "//tf_quant_finance/experimental/pricing_platform/framework/core:types",
+        "//tf_quant_finance/experimental/pricing_platform/instrument_protos:period_py_pb2",
+        "//tf_quant_finance/math",
+        "//tf_quant_finance/rates",
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "volatility_surface_test",
+    size = "small",
+    srcs = ["volatility_surface_test.py"],
     python_version = "PY3",
     shard_count = 2,
     deps = [

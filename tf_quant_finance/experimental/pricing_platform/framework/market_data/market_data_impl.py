@@ -20,11 +20,13 @@ from typing import Dict, Any, List, Optional
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import datetime as dateslib
+from tf_quant_finance import math
 from tf_quant_finance.experimental.pricing_platform.framework.core import currencies
 from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
 from tf_quant_finance.experimental.pricing_platform.framework.core import processed_market_data as pmd
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
 from tf_quant_finance.experimental.pricing_platform.framework.market_data import rate_curve
+from tf_quant_finance.experimental.pricing_platform.framework.market_data import volatility_surface
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import period_pb2
 
 
@@ -47,7 +49,10 @@ class MarketDataDict(pmd.ProcessedMarketData):
         rate_index : {"dates": DateTensor, "discounts": tf.Tensor},
         surface_id: "to be specified",
         fixings: "to be specified"},
-    "Asset": "to be specified"}
+    "Asset": {"spot": FloatTensor,
+              "volatility_surface": {"dates": DateTensor,
+                                     "strikes": FloatTensor,
+                                     "implied_volatilities": FloatTensor}}}
     ```
     Here `curve_index` refers to `curve_types.Index`. The user is expected to
     supply all necessary curves used for pricing. The pricing functions should
@@ -133,9 +138,45 @@ class MarketDataDict(pmd.ProcessedMarketData):
     """The spot price of an asset."""
     pass
 
-  def volatility_surface(self, asset: str) -> Any:  # To be specified
-    """The volatility surface object for an asset."""
-    pass
+  def volatility_surface(
+      self, asset: List[str]) -> volatility_surface.VolatilitySurface:
+    """The volatility surface object for the lsit of assets.
+
+    Args:
+      asset: A list of strings with asset names.
+
+    Returns:
+      An instance of `VolatilitySurface`.
+    """
+    dates = []
+    strikes = []
+    implied_vols = []
+    for s in asset:
+      if s not in self.supported_assets:
+        raise ValueError(f"No data for asset {s}")
+      data_s = self._market_data_dict[s]
+      if "volatility_surface" not in data_s:
+        raise ValueError(
+            f"No volatility surface 'volatility_surface' for asset {s}")
+      vol_surface = data_s["volatility_surface"]
+      vol_dates = dateslib.convert_to_date_tensor(vol_surface["dates"])
+      vol_strikes = tf.convert_to_tensor(
+          vol_surface["strikes"], dtype=self._dtype, name="strikes")
+      vols = tf.convert_to_tensor(
+          vol_surface["implied_volatilities"], dtype=self._dtype,
+          name="implied_volatilities")
+      dates.append(vol_dates)
+      strikes.append(vol_strikes)
+      implied_vols.append(vols)
+    dates = math.pad.pad_date_tensors(dates)
+    dates = dateslib.DateTensor.stack(dates, axis=0)
+    implied_vols = math.pad.pad_tensors(implied_vols)
+    implied_vols = tf.stack(implied_vols, axis=0)
+    strikes = math.pad.pad_tensors(strikes)
+    strikes = tf.stack(strikes, axis=0)
+    vol_surface = volatility_surface.VolatilitySurface(
+        self.date, dates, strikes, implied_vols)
+    return vol_surface
 
   def forward_curve(self, asset: str):
     """The forward curve of the asset prices object."""
@@ -150,7 +191,8 @@ class MarketDataDict(pmd.ProcessedMarketData):
   @property
   def supported_assets(self) -> List[str]:
     """List of supported assets."""
-    return []
+    market_keys = self._market_data_dict.keys()
+    return [k for k in market_keys if k not in self.supported_currencies]
 
   @property
   def dtype(self) -> types.Dtype:

@@ -172,7 +172,7 @@ class VolatilitySurface(abc.ABC):
   @abc.abstractmethod
   def node_strikes(self) -> tf.Tensor:
     """Striks at which the implied volatilities are specified."""
-    return self._expiries
+    return self._strikes
 
   @property
   @abc.abstractmethod
