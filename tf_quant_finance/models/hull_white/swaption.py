@@ -976,7 +976,7 @@ def bermudan_swaption_price(*,
         short_rate, tf.range(0, tf.shape(short_rate)[1]),
         _payoff_fn,
         basis_fn,
-        discount_factors=discount_factors_simulated[:, -1, :, 0],
+        discount_factors=discount_factors_simulated[:, -1:, :, 0],
         dtype=dtype)
 
     return notional * option_value
