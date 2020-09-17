@@ -49,7 +49,7 @@ class MarketDataDict(pmd.ProcessedMarketData):
         rate_index : {"dates": DateTensor, "discounts": tf.Tensor},
         surface_id: "to be specified",
         fixings: "to be specified"},
-    "Asset": {"spot": FloatTensor,
+    "Equity": {"spot": FloatTensor,
               "volatility_surface": {"dates": DateTensor,
                                      "strikes": FloatTensor,
                                      "implied_volatilities": FloatTensor}}}
@@ -133,10 +133,16 @@ class MarketDataDict(pmd.ProcessedMarketData):
     return tf.zeros(tf.shape(date.ordinal()),
                     dtype=self._dtype, name="fixings")
 
-  def spot(self, asset: str,
-           data: types.DateTensor) -> tf.Tensor:
+  def spot(self, asset: List[str],
+           date: types.DateTensor = None) -> tf.Tensor:
     """The spot price of an asset."""
-    pass
+    spots = []
+    for s in asset:
+      if s not in self.supported_assets:
+        raise ValueError(f"No data for asset {s}")
+      data_s = self._market_data_dict[s]
+      spots.append(tf.convert_to_tensor(data_s["spot"], self._dtype))
+    return spots
 
   def volatility_surface(
       self, asset: List[str]) -> volatility_surface.VolatilitySurface:

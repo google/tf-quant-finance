@@ -692,14 +692,14 @@ def process_curve_types(
   curve_hash = [hash(curve_type) for curve_type in curve_list]
   hash_discount_map = {
       hash(curve_type): curve_type for curve_type in curve_list}
-  mask, mask_map, num_unique_discounts = _create_mask(curve_hash)
+  mask, mask_map, num_unique_discounts = create_mask(curve_hash)
   discount_curve_types = [
       hash_discount_map[mask_map[i]]
       for i in range(num_unique_discounts)]
   return discount_curve_types, mask
 
 
-def _create_mask(x):
+def create_mask(x):
   """Given a list of object creates integer mask for unique values in the list.
 
   Args:
@@ -711,7 +711,7 @@ def _create_mask(x):
       * A dictionary map between  entries of `x` and the list
       * The number of unique elements.
   """
-  # For example, _create_mask("USD", "AUD", "USD") returns
+  # For example, create_mask("USD", "AUD", "USD") returns
   # a list [0, 1, 0], a map {0: "USD", 1: "AUD"} and the number of unique
   # elements which is 2.
   unique = np.unique(x)

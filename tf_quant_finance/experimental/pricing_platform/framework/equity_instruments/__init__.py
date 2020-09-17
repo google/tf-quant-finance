@@ -12,21 +12,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Framework module."""
+"""Rate instruments module."""
 
-from tf_quant_finance.experimental.pricing_platform.framework import core
-from tf_quant_finance.experimental.pricing_platform.framework import equity_instruments
-from tf_quant_finance.experimental.pricing_platform.framework import market_data
-from tf_quant_finance.experimental.pricing_platform.framework import rate_instruments
-
+from tf_quant_finance.experimental.pricing_platform.framework.equity_instruments import american_option
+from tf_quant_finance.experimental.pricing_platform.framework.equity_instruments import utils
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
-    "core",
-    "equity_instruments",
-    "market_data",
-    "rate_instruments",
+    "american_option",
+    "utils",
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

@@ -29,10 +29,8 @@ import "tf_quant_finance/experimental/pricing_platform/instrument_protos/rate_in
 
 // Interest rate swap proto
 message AmericanEquityOption {
-  // Whether the contract holder lends or borrows the money
-  // (i.e., floating or fixed rate payer).
-  // short_position = True means that the contract holder lends the money at
-  // the fixed rate.
+  // Whether the price is computed for the contract holder.
+  //`True` means that the price is for the contract holder.
   bool short_position = 1;
   // Expiry date
   Date expiry_date = 2;
@@ -44,8 +42,6 @@ message AmericanEquityOption {
   Decimal contract_amount = 5;
   // Strike
   Decimal strike = 6;
-  // Day count convention
-  DayCountConvention daycount_convention = 7;
   // Business day convention
   BusinessDayConvention business_day_convention = 8;
   // Holiday calendar
@@ -54,4 +50,6 @@ message AmericanEquityOption {
   int32 settlement_days = 10;
   // Common metadata needed to identify the trade.
   InstrumentMetadata metadata = 11;
+  // Whether the option is call/put
+  bool is_call_option = 12;
 }

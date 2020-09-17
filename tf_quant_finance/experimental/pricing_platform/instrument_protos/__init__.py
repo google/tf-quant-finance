@@ -15,6 +15,7 @@
 """Intruments protos module."""
 
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import all_instruments_pb2 as instruments
+from tf_quant_finance.experimental.pricing_platform.instrument_protos import american_equity_option_pb2 as american_equity_option
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import business_days_pb2 as business_days
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import currencies_pb2 as currencies
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import date_pb2 as date
@@ -34,6 +35,7 @@ Instrument = instruments.Instrument
 
 _allowed_symbols = [
     "Instrument",
+    "american_equity_option",
     "business_days",
     "currencies",
     "date",

@@ -122,11 +122,22 @@ class VolatilitySurface(pmd.VolatilitySurface):
     return self._expiries
 
   def node_strikes(self) -> tf.Tensor:
-    """Striks at which the implied volatilities are specified."""
+    """Strikes at which the implied volatilities are specified."""
     return self._strikes
+
+  def node_volatilities(self) -> tf.Tensor:
+    """Market implied volatilities."""
+    return self._volatilities
+
+  @property
+  def daycount_convention(self) -> _DayCountConventionsProtoType:
+    return self._daycount_convention
 
   def node_terms(self) -> types.Period:
     """Rate terms corresponding to the specified implied volatilities."""
     pass
+
+  def interpolator(self):
+    return self._interpolator
 
 __all__ = ["VolatilitySurface"]
