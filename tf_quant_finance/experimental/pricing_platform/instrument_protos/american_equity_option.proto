@@ -20,11 +20,8 @@ package tf_quant_finance.experimental.pricing_platform.instrument_protos;
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/business_days.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/currencies.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/date.proto";
-import "tf_quant_finance/experimental/pricing_platform/instrument_protos/daycount_conventions.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/decimal.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/metadata.proto";
-import "tf_quant_finance/experimental/pricing_platform/instrument_protos/period.proto";
-import "tf_quant_finance/experimental/pricing_platform/instrument_protos/rate_indices.proto";
 
 
 // Interest rate swap proto

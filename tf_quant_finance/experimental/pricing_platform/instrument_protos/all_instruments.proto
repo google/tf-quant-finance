@@ -17,6 +17,7 @@ syntax = "proto3";
 
 package tf_quant_finance.experimental.pricing_platform.instrument_protos;
 
+import "tf_quant_finance/experimental/pricing_platform/instrument_protos/american_equity_option.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/interest_rate_swap.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/forward_rate_agreement.proto";
 import "tf_quant_finance/experimental/pricing_platform/instrument_protos/swaption.proto";
@@ -27,5 +28,6 @@ message Instrument {
     InterestRateSwap interest_rate_swap = 1;
     ForwardRateAgreement forward_rate_agreement = 2;
     Swaption swaption = 3;
+    AmericanEquityOption american_equity_option = 4;
   }
 }
