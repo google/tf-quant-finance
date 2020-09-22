@@ -7,6 +7,7 @@ py_library(
     name = "hull_white",
     srcs = ["__init__.py"],
     deps = [
+        ":calibration",
         ":cap_floor",
         ":one_factor",
         ":swaption",
@@ -111,6 +112,18 @@ py_library(
     ],
 )
 
+py_library(
+    name = "calibration",
+    srcs = ["calibration.py"],
+    deps = [
+        ":one_factor",
+        ":swaption",
+        "//tf_quant_finance/math:gradient",
+        "//tf_quant_finance/math:piecewise",
+        "//tf_quant_finance/math/optimizer",
+    ],
+)
+
 py_test(
     name = "swaption_test",
     size = "medium",
@@ -141,5 +154,22 @@ py_test(
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "calibration_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["calibration_test.py"],
+    python_version = "PY3",
+    shard_count = 8,
+    deps = [
+        "//tf_quant_finance",
+        # test util,
+        # absl/testing:parameterized dep,
+        # numpy dep,
+        # tensorflow dep,
+        # tensorflow_probability dep,
     ],
 )
