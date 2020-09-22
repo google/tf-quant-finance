@@ -35,6 +35,7 @@ def bs_lsm_price(
     basis_fn=None,
     seed: Tuple[int, int] = (1, 2),
     is_call_option: types.BoolTensor = True,
+    num_calibration_samples: int = None,
     dtype: types.Dtype = None,
     name: str = None):
   """Computes American option price via LSM under Black-Scholes model.
@@ -60,7 +61,11 @@ def bs_lsm_price(
       This is the same argument as in `lsm_algorithm.least_square_mc`.
     seed: A tuple of 2 integers setting global and local seed of the Monte Carlo
       sampler
-    is_call_option: A bool `Tensor`
+    is_call_option: A bool `Tensor`.
+    num_calibration_samples: An optional integer less or equal to `num_samples`.
+      The number of sampled trajectories used for the LSM regression step.
+      Default value: `None`, which means that all samples are used for
+        regression.
     dtype: `tf.Dtype` of the input and output real `Tensor`s.
       Default value: `None` which maps to `float64`.
     name: Python str. The name to give to the ops created by this class.
@@ -142,5 +147,6 @@ def bs_lsm_price(
           payoff_fn=_payoff_fn,
           basis_fn=basis_fn,
           discount_factors=tf.math.exp(
-              -tf.reshape(risk_free_rate / var, [1, -1, 1]) * times))
+              -tf.reshape(risk_free_rate / var, [1, -1, 1]) * times),
+          num_calibration_samples=num_calibration_samples)
     return lsm_price(samples)

@@ -76,10 +76,13 @@ class LsmTest(parameterized.TestCase, tf.test.TestCase):
   @parameterized.named_parameters(
       {
           'testcase_name': 'SinglePrecision',
-          'dtype': np.float32
+          'dtype': np.float32,
       }, {
           'testcase_name': 'DoublePrecision',
-          'dtype': np.float64
+          'dtype': np.float64,
+      }, {
+          'testcase_name': 'DoublePrecisionPassCalibrationSamples',
+          'dtype': np.float64,
       })
   def test_american_option_put(self, dtype):
     """Tests that LSM price of American put option is computed as expected."""
@@ -92,8 +95,37 @@ class LsmTest(parameterized.TestCase, tf.test.TestCase):
     # Option price
     american_put_price = lsm_algorithm.least_square_mc_v2(
         self.samples, [1, 2, 3], payoff_fn, basis_fn,
-        discount_factors=self.discount_factors, dtype=dtype)
+        discount_factors=self.discount_factors,
+        dtype=dtype)
     self.assertAllClose(american_put_price, [0.1144],
+                        rtol=1e-4, atol=1e-4)
+
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'SinglePrecision',
+          'num_calibration_samples': 4,
+          'dtype': np.float32,
+      }, {
+          'testcase_name': 'DoublePrecision',
+          'num_calibration_samples': 4,
+          'dtype': np.float64,
+      })
+  def test_american_option_put_calibration(
+      self, num_calibration_samples, dtype):
+    """Tests that LSM price of American put option is computed as expected."""
+    # This is the same example as in Section 1 of
+    # Longstaff, F.A. and Schwartz, E.S., 2001. Valuing American options by
+    # simulation: a simple least-squares approach. The review of financial
+    # studies, 14(1), pp.113-147.
+    basis_fn = lsm_algorithm.make_polynomial_basis_v2(2)
+    payoff_fn = lsm_algorithm.make_basket_put_payoff([1.1], dtype=dtype)
+    # Option price
+    american_put_price = lsm_algorithm.least_square_mc_v2(
+        self.samples, [1, 2, 3], payoff_fn, basis_fn,
+        discount_factors=self.discount_factors,
+        num_calibration_samples=num_calibration_samples,
+        dtype=dtype)
+    self.assertAllClose(american_put_price, [0.174226],
                         rtol=1e-4, atol=1e-4)
 
   def test_american_option_put_xla(self):

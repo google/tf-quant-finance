@@ -123,6 +123,7 @@ def least_square_mc(sample_paths,
                     payoff_fn,
                     basis_fn,
                     discount_factors=None,
+                    num_calibration_samples=None,
                     dtype=None,
                     name=None):
   """Values Amercian style options using the LSM algorithm.
@@ -202,6 +203,12 @@ def least_square_mc(sample_paths,
       The `dtype` should be the same as of `samples`.
       Default value: `None` which maps to a one-`Tensor` of the same `dtype`
         as `samples` and shape `[num_exercise_times]`.
+    num_calibration_samples: An optional integer less or equal to `num_samples`.
+      The number of sampled trajectories used for the LSM regression step.
+      Note that only the last`num_samples - num_calibration_samples` of the
+      sampled paths are used to determine the price of the option.
+      Default value: `None`, which means that all samples are used for
+        regression and option pricing.
     dtype: Optional `dtype`. Either `tf.float32` or `tf.float64`. The `dtype`
       If supplied, represents the `dtype` for the input and output `Tensor`s.
       Default value: `None`, which means that the `dtype` inferred by TensorFlow
@@ -248,6 +255,10 @@ def least_square_mc(sample_paths,
 
     # Shape [num_samples, payoff_dim, num_exercise]
     cashflow = tf.concat([zeros, exercise_value], axis=-1)
+    calibration_indices = None
+    if num_calibration_samples is not None:
+      # Calibration indices to perform regression
+      calibration_indices = tf.range(num_calibration_samples)
     # Starting state for loop iteration.
     lsm_loop_vars = LsmLoopVars(exercise_index=num_times - 1, cashflow=cashflow)
     def loop_body(exercise_index, cashflow):
@@ -259,11 +270,15 @@ def least_square_mc(sample_paths,
           basis_fn=basis_fn,
           num_times=num_times,
           exercise_index=exercise_index,
-          cashflow=cashflow)
+          cashflow=cashflow,
+          calibration_indices=calibration_indices)
 
     loop_value = tf.while_loop(_lsm_loop_cond, loop_body, lsm_loop_vars)
     present_values = _continuation_value_fn(
         loop_value.cashflow, discount_factors, 0)
+    if num_calibration_samples is not None:
+      # Skip num_calibration_samples to reduce bias
+      present_values = present_values[num_calibration_samples:]
     return tf.math.reduce_mean(present_values, axis=0)
 
 
@@ -308,11 +323,14 @@ def _continuation_value_fn(cashflow, discount_factors, exercise_index):
       cashflow_masked * total_discount_factors_slice, axis=2)
 
 
-def _expected_exercise_fn(design, continuation_value, exercise_value):
+def _expected_exercise_fn(
+    design, calibration_indices, continuation_value, exercise_value):
   """Returns the expected continuation value for each path.
 
   Args:
     design: A real `Tensor` of shape `[basis_size, num_samples]`.
+    calibration_indices: A rank 1 integer `Tensor` denoting indices of samples
+      used for regression.
     continuation_value: A `Tensor` of shape `[num_samples, payoff_dim]` and of
       the same dtype as `design`. The optimal value of the option conditional on
       not exercising now or earlier, taking future information into account.
@@ -335,13 +353,19 @@ def _expected_exercise_fn(design, continuation_value, exercise_value):
   # unbiased estimate are contained in the equation X'X beta = X'y. Here `lhs`
   # is X'X and `rhs` is X'y, or rather a tensor of such left hand and right hand
   # sides, one for each payoff dimension.
-  lhs = tf.matmul(masked, masked, transpose_a=True)
+  if calibration_indices is None:
+    submask = masked
+    mask_cont_value = continuation_value
+  else:
+    submask = tf.gather(masked, calibration_indices, axis=1)
+    mask_cont_value = tf.gather(continuation_value, calibration_indices)
+  lhs = tf.matmul(submask, submask, transpose_a=True)
   # Use pseudo inverse for the regression matrix to ensure stability of the
   # algorithm.
   lhs_pinv = tf.linalg.pinv(lhs)
   rhs = tf.matmul(
-      masked,
-      tf.expand_dims(tf.transpose(continuation_value), axis=-1),
+      submask,
+      tf.expand_dims(tf.transpose(mask_cont_value), axis=-1),
       transpose_a=True)
   beta = tf.matmul(lhs_pinv, rhs)
   continuation = tf.matmul(tf.transpose(batch_design, perm=(2, 1, 0)), beta)
@@ -367,14 +391,13 @@ def _updated_cashflow(num_times, exercise_index, exercise_value,
   # Has shape [num_samples, payoff_dim, 1]
   old_mask = tf.expand_dims(1 - do_exercise, axis=2)
   mask = tf.range(0, num_times) >= exercise_index
-  old_mask = tf.where(mask, old_mask, zeros)
   # Shape [num_samples, payoff_dim, num_times]
-  old_cash = old_mask * cashflow
-  return new_cash + old_cash
+  return tf.where(mask, old_mask * cashflow, new_cash)
 
 
-def _lsm_loop_body(sample_paths, exercise_times, discount_factors, payoff_fn,
-                   basis_fn, num_times, exercise_index, cashflow):
+def _lsm_loop_body(
+    sample_paths, exercise_times, discount_factors, payoff_fn,
+    basis_fn, num_times, exercise_index, cashflow, calibration_indices):
   """Finds the optimal exercise point and updates `cashflow`."""
 
   # Index of the sample path that the exercise index maps to.
@@ -391,8 +414,8 @@ def _lsm_loop_body(sample_paths, exercise_times, discount_factors, payoff_fn,
   design = basis_fn(sample_paths, time_index)
 
   # Expected present value of hanging on the options.
-  expected_continuation = _expected_exercise_fn(design, continuation_value,
-                                                exercise_value)
+  expected_continuation = _expected_exercise_fn(
+      design, calibration_indices, continuation_value, exercise_value)
   # Update the cashflow matrix to reflect where earlier exercise is optimal.
   # Shape `[num_samples, payoff_dim, num_exercise]`.
   rev_cash = _updated_cashflow(num_times, exercise_index, exercise_value,

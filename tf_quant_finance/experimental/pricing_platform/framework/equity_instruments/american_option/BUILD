@@ -40,7 +40,7 @@ py_test(
     size = "medium",
     srcs = ["american_option_impl_test.py"],
     python_version = "PY3",
-    shard_count = 2,
+    shard_count = 4,
     deps = [
         "//tf_quant_finance",
         # test util,

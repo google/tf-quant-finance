@@ -55,7 +55,7 @@ py_test(
     timeout = "moderate",
     srcs = ["lsm_v2_test.py"],
     python_version = "PY3",
-    shard_count = 6,
+    shard_count = 8,
     deps = [
         ":payoff",
         "//tf_quant_finance",

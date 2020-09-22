@@ -38,6 +38,7 @@ class AmericanOptionConfig:
                                    curve_types.CurveType]] = None
   model: str = "BS-LSM"  # default pricing model is LSM under Black-Scholes
   num_samples: int = 96000
+  num_calibration_samples: int = None
   num_exercise_times: int = 100
   seed: types.IntTensor = (42, 42)  # Should be an integer `Tensor` of shape [2]
 
@@ -164,10 +165,18 @@ class AmericanOption(instrument.Instrument):
       if american_option_config is not None:
         self._model = american_option_config.model
         self._seed = american_option_config.seed
+        self._num_calibration_samples = None
       for currency in self._currency:
         if american_option_config is not None:
-          self._num_samples = american_option_config.num_samples
-          self._num_exercise_times = american_option_config.num_exercise_times
+          [
+              self._num_samples,
+              self._num_exercise_times,
+              self._num_calibration_samples
+          ] = [
+              american_option_config.num_samples,
+              american_option_config.num_exercise_times,
+              american_option_config.num_calibration_samples
+              ]
           try:
             discount_curve_type = american_option_config.discounting_curve[
                 currency]
@@ -258,6 +267,7 @@ class AmericanOption(instrument.Instrument):
             is_call_option=self._is_call_option,
             num_samples=self._num_samples,
             num_exercise_times=self._num_exercise_times,
+            num_calibration_samples=self._num_calibration_samples,
             seed=self._seed)
         return self._short_position * self._contract_amount * prices
       else:
