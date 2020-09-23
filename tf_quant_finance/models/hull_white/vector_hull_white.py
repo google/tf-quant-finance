@@ -465,6 +465,10 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
           times, maturities, mean_reversion, short_rate, y_t)
       return values
 
+  def instant_forward_rate(self, t):
+    """Returns the instantaneous forward rate."""
+    return self._instant_forward_rate_fn(t)
+
   def _sample_paths(self,
                     times,
                     num_samples,

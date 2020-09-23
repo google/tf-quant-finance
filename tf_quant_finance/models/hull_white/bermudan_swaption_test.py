@@ -82,11 +82,21 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.named_parameters(
       {
-          'testcase_name': 'float64',
+          'testcase_name': 'float64_lsm',
           'dtype': tf.float64,
+          'use_fd': False,
+          'expected': 1.88919845,
+          'tol': 1e-2,
+      },
+      {
+          'testcase_name': 'float64_fd',
+          'dtype': tf.float64,
+          'use_fd': True,
+          'expected': 1.8768335461527803,
+          'tol': 2e-3,
       },
       )
-  def test_correctness(self, dtype):
+  def test_correctness(self, dtype, use_fd, expected, tol):
     """Tests model with constant parameters in 1 dimension."""
     # 5nc1 swaption with semiannual payments.
     # dtype = tf.float64
@@ -108,17 +118,35 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[0, 0],
+        use_finite_difference=use_fd,
+        time_step_finite_difference=0.05,
+        num_grid_points_finite_difference=500,
         dtype=dtype)
 
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [1])
     price = self.evaluate(price)
-    self.assertAllClose(price, [1.88919845], rtol=1e-2, atol=1e-2)
+    self.assertAllClose(price, [expected], rtol=tol, atol=tol)
 
-  def test_correctness_batch(self):
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'float64_lsm',
+          'dtype': tf.float64,
+          'use_fd': False,
+          'expected': [1.88919845, 1.66328599],
+          'tol': 5e-3,
+      },
+      {
+          'testcase_name': 'float64_fd',
+          'dtype': tf.float64,
+          'use_fd': True,
+          'expected': [1.8768335461527803, 1.6453487040433517],
+          'tol': 2e-3,
+      },
+      )
+  def test_correctness_batch(self, dtype, use_fd, expected, tol):
     """Tests model with constant parameters in 1 dimension."""
     # 5nc1 and 5nc2 swaptions with semiannual payments.
-    dtype = tf.float64
 
     price = tff.models.hull_white.bermudan_swaption_price(
         exercise_times=self.exercise_times,
@@ -137,28 +165,43 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[0, 0],
+        use_finite_difference=use_fd,
+        time_step_finite_difference=0.05,
+        num_grid_points_finite_difference=500,
         dtype=dtype)
 
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [2])
     price = self.evaluate(price)
-    self.assertAllClose(price, [1.88919845, 1.66328599],
-                        rtol=5e-3, atol=5e-3)
+    self.assertAllClose(price, expected, rtol=tol, atol=tol)
 
-  def test_correctness_with_european(self):
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'float64_lsm',
+          'dtype': tf.float64,
+          'use_fd': False,
+      },
+      {
+          'testcase_name': 'float64_fd',
+          'dtype': tf.float64,
+          'use_fd': True,
+      },
+      )
+  def test_correctness_with_european(self, dtype, use_fd):
     """Tests model with constant parameters in 1 dimension."""
     # Compare bermudan swaption price with single expiry to the price of
     # european swaption
-    dtype = tf.float64
 
     price_berm = tff.models.hull_white.bermudan_swaption_price(
         exercise_times=[self.exercise_times[0][0]],
-        floating_leg_start_times=self.float_leg_start_times[0][0],
-        floating_leg_end_times=self.float_leg_end_times[0][0],
-        fixed_leg_payment_times=self.fixed_leg_payment_times[0][0],
-        floating_leg_daycount_fractions=self.float_leg_daycount_fractions[0][0],
-        fixed_leg_daycount_fractions=self.fixed_leg_daycount_fractions[0][0],
-        fixed_leg_coupon=self.fixed_leg_coupon[0][0],
+        floating_leg_start_times=[self.float_leg_start_times[0][0]],
+        floating_leg_end_times=[self.float_leg_end_times[0][0]],
+        fixed_leg_payment_times=[self.fixed_leg_payment_times[0][0]],
+        floating_leg_daycount_fractions=[
+            self.float_leg_daycount_fractions[0][0]
+        ],
+        fixed_leg_daycount_fractions=[self.fixed_leg_daycount_fractions[0][0]],
+        fixed_leg_coupon=[self.fixed_leg_coupon[0][0]],
         reference_rate_fn=self.zero_rate_fn,
         notional=100.,
         dim=1,
@@ -168,6 +211,9 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[0, 0],
+        use_finite_difference=use_fd,
+        time_step_finite_difference=0.05,
+        num_grid_points_finite_difference=500,
         dtype=dtype)
 
     price_euro = tff.models.hull_white.swaption_price(
@@ -188,10 +234,21 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     self.assertAllClose(self.evaluate(price_berm), self.evaluate(price_euro)[0],
                         rtol=1e-3, atol=1e-3)
 
-  def test_correctness_with_quantlib(self):
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'float64_lsm',
+          'dtype': tf.float64,
+          'use_fd': False,
+      },
+      {
+          'testcase_name': 'float64_fd',
+          'dtype': tf.float64,
+          'use_fd': True,
+      },
+      )
+  def test_correctness_with_quantlib(self, dtype, use_fd):
     """Tests model with constant parameters in 1 dimension."""
     # Compare bermudan swaption price with quantlib
-    dtype = tf.float64
 
     exercise_times = [[0.498630137, 1.002739726], [1.002739726, 2.002739726]]
     float_leg_start_times = [
@@ -230,6 +287,9 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[0, 0],
+        use_finite_difference=use_fd,
+        time_step_finite_difference=0.05,
+        num_grid_points_finite_difference=500,
         dtype=dtype)
 
     # Quantlib price computed using finite difference HW using 5000 points for

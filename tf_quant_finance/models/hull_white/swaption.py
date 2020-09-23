@@ -16,7 +16,9 @@
 import numpy as np
 import tensorflow.compat.v2 as tf
 from tf_quant_finance.experimental.lsm_algorithm import lsm_v2
+from tf_quant_finance.math import pde
 from tf_quant_finance.math import root_search
+from tf_quant_finance.math.interpolation import linear
 from tf_quant_finance.models import utils
 from tf_quant_finance.models.hull_white import vector_hull_white
 from tf_quant_finance.models.hull_white import zero_coupon_bond_option as zcb
@@ -146,19 +148,32 @@ def _prepare_swaption_indices(tensor_shape):
   return tf.stack(index_list, axis=-1)
 
 
-def _prepare_indices(idx0, idx1, idx2, idx3):
-  """Prepares indices to get relevant slice from discount curve simulations."""
+def _prepare_indices_ijjk(idx0, idx1, idx2, idx3):
+  """Prepares indices to get x[i, j, j, k]."""
   # For a 4-D `Tensor` x, creates indices for tf.gather_nd to retrieve
   # x[i, j, j, k].
-  len0 = idx0.shape.as_list()[0]
-  len1 = idx1.shape.as_list()[0]
-  len3 = idx3.shape.as_list()[0]
+  len0 = tf.shape(idx0)[0]
+  len1 = tf.shape(idx1)[0]
+  len3 = tf.shape(idx3)[0]
   idx0 = tf.repeat(idx0, len1 * len3)
   idx1 = tf.tile(tf.repeat(idx1, len3), [len0])
   idx2 = tf.tile(tf.repeat(idx2, len3), [len0])
   idx3 = tf.tile(idx3, [len0 * len1])
 
   return tf.stack([idx0, idx1, idx2, idx3], axis=-1)
+
+
+def _prepare_indices_ijj(idx0, idx1, idx2):
+  """Prepares indices to get x[i, j, j]."""
+  # For a 3-D `Tensor` x, creates indices for tf.gather_nd to retrieve
+  # x[i, j, j].
+  len0 = tf.shape(idx0)[0]
+  len1 = tf.shape(idx1)[0]
+  idx0 = tf.repeat(idx0, len1)
+  idx1 = tf.tile(idx1, [len0])
+  idx2 = tf.tile(idx2, [len0])
+
+  return tf.stack([idx0, idx1, idx2], axis=-1)
 
 
 def _map_payoff_to_sim_times(indices, payoff, num_samples):
@@ -282,6 +297,164 @@ def _analytic_valuation(expiries, floating_leg_start_times,
     swaption_values = tf.reshape(
         tf.gather_nd(swaption_values, gather_index), output_shape)
     return notional * swaption_values
+
+
+def _bermudan_swaption_fd(batch_shape, model, exercise_times,
+                          unique_exercise_times, fixed_leg_payment_times,
+                          fixed_leg_daycount_fractions, fixed_leg_coupon,
+                          notional, is_payer_swaption, time_step_fd,
+                          num_grid_points_fd, name, dtype):
+  """Price Bermudan swaptions using finite difference."""
+  with tf.name_scope(name):
+    pde_time_grid_tol = 1e-7  # Points smaller than this are merged together
+    longest_exercise_time = unique_exercise_times[-1]
+    if time_step_fd is None:
+      time_step_fd = longest_exercise_time / 100.0
+    short_rate_min = -0.2
+    short_rate_max = 0.2
+    # grid.shape=(num_grid_points,2)
+    grid = pde.grids.uniform_grid(
+        minimums=[short_rate_min],
+        maximums=[short_rate_max],
+        sizes=[num_grid_points_fd],
+        dtype=dtype)
+
+    pde_time_grid = tf.concat([unique_exercise_times, tf.range(
+        0.0, longest_exercise_time, time_step_fd, dtype=dtype)], axis=0)
+    # This time grid is now sorted and contains the Bermudan exercise times
+    pde_time_grid = tf.sort(pde_time_grid, name='sort_pde_time_grid')
+    pde_time_grid_dt = pde_time_grid[1:] - pde_time_grid[:-1]
+    pde_time_grid_dt = tf.concat([[100.0], pde_time_grid_dt], axis=-1)
+    # Remove duplicates.
+    mask = tf.math.greater(pde_time_grid_dt, pde_time_grid_tol)
+    pde_time_grid = tf.boolean_mask(pde_time_grid, mask)
+    pde_time_grid_dt = tf.boolean_mask(pde_time_grid_dt, mask)
+
+    maturities = fixed_leg_payment_times
+    maturities_shape = maturities.shape
+
+    unique_maturities, _ = tf.unique(tf.reshape(maturities, shape=[-1]))
+    unique_maturities = tf.sort(unique_maturities, name='sort_maturities')
+
+    num_exercise_times = tf.shape(pde_time_grid)[-1]
+    num_maturities = tf.shape(unique_maturities)[-1]
+
+    short_rates = tf.reshape(grid[0], grid[0].shape + [1, 1])
+    broadcasted_exercise_times = tf.reshape(
+        pde_time_grid, [1] + pde_time_grid.shape + [1])
+    broadcasted_maturities = tf.reshape(
+        unique_maturities, [1, 1] + unique_maturities.shape)
+
+    # Reshape `short_rate`, `exercise_times` and `maturities` to
+    # (num_grid_points, num_exercise_times, num_maturities)
+    short_rates = tf.broadcast_to(
+        short_rates, grid[0].shape + [num_exercise_times, num_maturities])
+    broadcasted_exercise_times = tf.broadcast_to(
+        broadcasted_exercise_times,
+        grid[0].shape + [num_exercise_times, num_maturities])
+    broadcasted_maturities = tf.broadcast_to(
+        broadcasted_maturities,
+        grid[0].shape + [num_exercise_times, num_maturities])
+
+    # Zero-coupon bond curve
+    zcb_curve = model.discount_bond_price(
+        tf.expand_dims(short_rates, axis=-1),
+        broadcasted_exercise_times, broadcasted_maturities)[..., 0]
+
+    exercise_times_index = tf.searchsorted(
+        pde_time_grid, tf.reshape(exercise_times, [-1]))
+    maturities_index = tf.searchsorted(
+        unique_maturities, tf.reshape(maturities, [-1]))
+
+    # gather_index.shape = (num_grid_points*np.cumprod(maturities_shape), 3)
+    gather_index = _prepare_indices_ijj(
+        tf.range(0, num_grid_points_fd), exercise_times_index,
+        maturities_index)
+    zcb_curve = tf.gather_nd(zcb_curve, gather_index)
+    # zcb_curve.shape = [num_grid_points_fd] + [maturities_shape]
+    zcb_curve = tf.reshape(zcb_curve, [num_grid_points_fd] + maturities_shape)
+    # Shape after reduce_sum=(num_grid_points, batch_shape, num_exercise_times)
+    fixed_leg = tf.math.reduce_sum(
+        fixed_leg_coupon * fixed_leg_daycount_fractions * zcb_curve, axis=-1)
+    float_leg = 1.0 - zcb_curve[..., -1]
+    payoff_at_exercise = float_leg - fixed_leg
+    payoff_at_exercise = tf.where(is_payer_swaption, payoff_at_exercise,
+                                  -payoff_at_exercise)
+
+    unrepeated_exercise_times = exercise_times[..., -1]
+    exercise_times_index = tf.searchsorted(
+        pde_time_grid, tf.reshape(unrepeated_exercise_times, [-1]))
+    _, payoff_swap = _map_payoff_to_sim_times(
+        tf.reshape(exercise_times_index, unrepeated_exercise_times.shape),
+        payoff_at_exercise, num_grid_points_fd)
+
+    # payoff_swap.shape=(num_grid_points_fd, batch_shape, num_exercise_times).
+    # Transpose so that the [num_grid_points_fd] is the last dimension; this is
+    # needed for broadcasting inside the PDE solver.
+    payoff_swap = tf.transpose(payoff_swap)
+
+    def _get_index(t, tensor_to_search):
+      t = tf.expand_dims(t, axis=-1)
+      index = tf.searchsorted(tensor_to_search, t - pde_time_grid_tol, 'right')
+      y = tf.gather(tensor_to_search, index)
+      return tf.where(tf.math.abs(t - y) < pde_time_grid_tol, index, -1)[0]
+
+    def _second_order_coeff_fn(t, grid):
+      del grid
+      return [[model.volatility(t)**2 / 2]]
+
+    def _first_order_coeff_fn(t, grid):
+      s = grid[0]
+      return [model.drift_fn()(t, s)]
+
+    def _zeroth_order_coeff_fn(t, grid):
+      del t
+      return -grid[0]
+
+    @pde.boundary_conditions.dirichlet
+    def _lower_boundary_fn(t, grid):
+      del grid
+      index = _get_index(t, pde_time_grid)
+      result = tf.where(index > -1, payoff_swap[index, ..., 0], 0.0)
+      return tf.where(is_payer_swaption, 0.0, result)
+
+    @pde.boundary_conditions.dirichlet
+    def _upper_boundary_fn(t, grid):
+      del grid
+      index = _get_index(t, pde_time_grid)
+      result = tf.where(index > -1, payoff_swap[index, ..., 0], 0.0)
+      return tf.where(is_payer_swaption, result, 0.0)
+
+    def _final_value():
+      return tf.nn.relu(payoff_swap[-1])
+
+    def _values_transform_fn(t, grid, value_grid):
+      index = _get_index(t, pde_time_grid)
+      v_star = tf.where(
+          index > -1, tf.nn.relu(payoff_swap[index]), 0.0)
+      return grid, tf.maximum(value_grid, v_star)
+
+    def _pde_time_step(t):
+      index = _get_index(t, pde_time_grid)
+      dt = pde_time_grid_dt[index]
+      return dt
+
+    res = pde.fd_solvers.solve_backward(
+        longest_exercise_time,
+        0.0,
+        grid,
+        values_grid=_final_value(),
+        time_step=_pde_time_step,
+        boundary_conditions=[(_lower_boundary_fn, _upper_boundary_fn)],
+        values_transform_fn=_values_transform_fn,
+        second_order_coeff_fn=_second_order_coeff_fn,
+        first_order_coeff_fn=_first_order_coeff_fn,
+        zeroth_order_coeff_fn=_zeroth_order_coeff_fn,
+        dtype=dtype)
+
+    r0 = model.instant_forward_rate(0.0)
+    option_value = linear.interpolate(r0, res[1], res[0])
+    return tf.reshape(notional * tf.transpose(option_value), batch_shape)
 
 
 def swaption_price(*,
@@ -501,7 +674,7 @@ def swaption_price(*,
     # batch_shape + [m] bond options with different strikes along the last
     # dimension.
     expiries = tf.repeat(
-        expiries, fixed_leg_payment_times.shape.as_list()[-1], axis=-1)
+        expiries, tf.shape(fixed_leg_payment_times)[-1], axis=-1)
 
     if use_analytic_pricing:
       return _analytic_valuation(expiries, float_leg_start_times,
@@ -563,14 +736,14 @@ def swaption_price(*,
         axis=1)
     # tf.repeat is needed because we will use gather_nd later on this tensor.
     discount_factors_simulated = tf.repeat(
-        discount_factors_builder, p_t_tau.shape.as_list()[1], axis=1)
+        discount_factors_builder, tf.shape(p_t_tau)[1], axis=1)
 
     # `sim_times` and `curve_times` are sorted for simulation. We need to
     # select the indices corresponding to our input.
     sim_time_index = tf.searchsorted(sim_times, tf.reshape(expiries, [-1]))
     curve_time_index = tf.searchsorted(curve_times, tf.reshape(tau, [-1]))
 
-    gather_index = _prepare_indices(
+    gather_index = _prepare_indices_ijjk(
         tf.range(0, num_samples), curve_time_index, sim_time_index,
         tf.range(0, dim))
 
@@ -616,12 +789,15 @@ def bermudan_swaption_price(*,
                             volatility,
                             notional=None,
                             is_payer_swaption=None,
+                            use_finite_difference=False,
                             lsm_basis=None,
                             num_samples=100,
                             random_type=None,
                             seed=None,
                             skip=0,
                             time_step=None,
+                            time_step_finite_difference=None,
+                            num_grid_points_finite_difference=100,
                             dtype=None,
                             name=None):
   """Calculates the price of Bermudan Swaptions using the Hull-White model.
@@ -772,18 +948,24 @@ def bermudan_swaption_price(*,
     is_payer_swaption: A boolean `Tensor` of a shape compatible with `expiries`.
       Indicates whether the swaption is a payer (if True) or a receiver
       (if False) swaption. If not supplied, payer swaptions are assumed.
+    use_finite_difference: A Python boolean specifying if the valuation should
+      be performed using the finite difference and PDE.
+      Default value: `False`, in which case valuation is performed using least
+      squares monte-carlo method.
     lsm_basis: A Python callable specifying the basis to be used in the LSM
       algorithm. The callable must accept a `Tensor`s of shape
       `[num_samples, dim]` and output `Tensor`s of shape `[m, num_samples]`
-      where `m` is the nimber of basis functions used.
+      where `m` is the nimber of basis functions used. This input is only used
+      for valuation using LSM.
       Default value: `None`, in which case a polynomial basis of order 2 is
       used.
     num_samples: Positive scalar `int32` `Tensor`. The number of simulation
-      paths during Monte-Carlo valuation. This input is ignored during analytic
-      valuation.
+      paths during Monte-Carlo valuation. This input is only used for valuation
+      using LSM.
       Default value: The default value is 100.
     random_type: Enum value of `RandomType`. The type of (quasi)-random
-      number generator to use to generate the simulation paths.
+      number generator to use to generate the simulation paths. This input is
+      only used for valuation using LSM.
       Default value: `None` which maps to the standard pseudo-random numbers.
     seed: Seed for the random number generator. The seed is only relevant if
       `random_type` is one of
@@ -791,15 +973,26 @@ def bermudan_swaption_price(*,
         STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
       `HALTON_RANDOMIZED` the seed should be an Python integer. For
       `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as an integer
-      `Tensor` of shape `[2]`.
+      `Tensor` of shape `[2]`. This input is only used for valuation using LSM.
       Default value: `None` which means no seed is set.
     skip: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
       Halton sequence to skip. Used only when `random_type` is 'SOBOL',
-      'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
+      'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored. This input is only
+      used for valuation using LSM.
       Default value: `0`.
     time_step: Scalar real `Tensor`. Maximal distance between time grid points
       in Euler scheme. Relevant when Euler scheme is used for simulation.
+      This input is only used for valuation using LSM.
       Default value: `None`.
+    time_step_finite_difference: Scalar real `Tensor`. Spacing between time
+      grid points in finite difference discretization. This input is only
+      relevant for valuation using finite difference.
+      Default value: `None`, in which case a `time_step` corresponding to 100
+      discrete steps is used.
+    num_grid_points_finite_difference: Scalar real `Tensor`. Number of spatial
+      grid points for discretization. This input is only relevant for valuation
+      using finite difference.
+      Default value: 100.
     dtype: The default dtype to use when converting values to `Tensor`s.
       Default value: `None` which means that default dtypes inferred by
       TensorFlow are used.
@@ -864,9 +1057,8 @@ def bermudan_swaption_price(*,
                            exercise_times.shape.rank))
 
     exercise_times = tf.repeat(
-        exercise_times, fixed_leg_payment_times.shape.as_list()[-1], axis=-1)
+        exercise_times, tf.shape(fixed_leg_payment_times)[-1], axis=-1)
 
-    # Monte-Carlo pricing
     model = vector_hull_white.VectorHullWhiteModel(
         dim,
         mean_reversion,
@@ -874,6 +1066,21 @@ def bermudan_swaption_price(*,
         initial_discount_rate_fn=reference_rate_fn,
         dtype=dtype)
 
+    if use_finite_difference:
+      return _bermudan_swaption_fd(batch_shape,
+                                   model,
+                                   exercise_times,
+                                   unique_exercise_times,
+                                   fixed_leg_payment_times,
+                                   fixed_leg_daycount_fractions,
+                                   fixed_leg_coupon,
+                                   notional,
+                                   is_payer_swaption,
+                                   time_step_finite_difference,
+                                   num_grid_points_finite_difference,
+                                   name + '_fd',
+                                   dtype)
+    # Monte-Carlo pricing
     if time_step is None:
       raise ValueError('`time_step` must be provided for LSM valuation.')
 
@@ -917,7 +1124,7 @@ def bermudan_swaption_price(*,
         axis=1)
     # tf.repeat is needed because we will use gather_nd later on this tensor.
     discount_factors_simulated = tf.repeat(
-        discount_factors_builder, p_t_tau.shape.as_list()[1], axis=1)
+        discount_factors_builder, tf.shape(p_t_tau)[1], axis=1)
 
     # `sim_times` and `curve_times` are sorted for simulation. We need to
     # select the indices corresponding to our input.
@@ -925,7 +1132,7 @@ def bermudan_swaption_price(*,
         sim_times, tf.reshape(exercise_times, [-1]))
     curve_time_index = tf.searchsorted(curve_times, tf.reshape(tau, [-1]))
 
-    gather_index = _prepare_indices(
+    gather_index = _prepare_indices_ijjk(
         tf.range(0, num_samples), curve_time_index, sim_time_index,
         tf.range(0, dim))
 
