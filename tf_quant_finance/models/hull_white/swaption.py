@@ -25,6 +25,9 @@ from tf_quant_finance.models.hull_white import zero_coupon_bond_option as zcb
 
 __all__ = ['swaption_price', 'bermudan_swaption_price']
 
+# Points smaller than this are merged together in FD time grid
+_PDE_TIME_GRID_TOL = 1e-7
+
 
 def _jamshidian_decomposition(hw_model,
                               expiries,
@@ -306,7 +309,6 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
                           num_grid_points_fd, name, dtype):
   """Price Bermudan swaptions using finite difference."""
   with tf.name_scope(name):
-    pde_time_grid_tol = 1e-7  # Points smaller than this are merged together
     longest_exercise_time = unique_exercise_times[-1]
     if time_step_fd is None:
       time_step_fd = longest_exercise_time / 100.0
@@ -326,7 +328,7 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
     pde_time_grid_dt = pde_time_grid[1:] - pde_time_grid[:-1]
     pde_time_grid_dt = tf.concat([[100.0], pde_time_grid_dt], axis=-1)
     # Remove duplicates.
-    mask = tf.math.greater(pde_time_grid_dt, pde_time_grid_tol)
+    mask = tf.math.greater(pde_time_grid_dt, _PDE_TIME_GRID_TOL)
     pde_time_grid = tf.boolean_mask(pde_time_grid, mask)
     pde_time_grid_dt = tf.boolean_mask(pde_time_grid_dt, mask)
 
@@ -395,9 +397,9 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
 
     def _get_index(t, tensor_to_search):
       t = tf.expand_dims(t, axis=-1)
-      index = tf.searchsorted(tensor_to_search, t - pde_time_grid_tol, 'right')
+      index = tf.searchsorted(tensor_to_search, t - _PDE_TIME_GRID_TOL, 'right')
       y = tf.gather(tensor_to_search, index)
-      return tf.where(tf.math.abs(t - y) < pde_time_grid_tol, index, -1)[0]
+      return tf.where(tf.math.abs(t - y) < _PDE_TIME_GRID_TOL, index, -1)[0]
 
     def _second_order_coeff_fn(t, grid):
       del grid
