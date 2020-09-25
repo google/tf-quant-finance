@@ -173,7 +173,8 @@ def _sample(*, dim, drift_fn, volatility_fn, times, time_step, keep_mask,
             dtype):
   """Returns a sample of paths from the process using Euler method."""
   dt = times[1:] - times[:-1]
-  sqrt_dt = tf.sqrt(dt)
+  # TODO(b/169400743): nn.relu can be removed when the bug is fixed.
+  sqrt_dt = tf.sqrt(tf.nn.relu(dt))
   current_state = initial_state + tf.zeros([num_samples, dim],
                                            dtype=initial_state.dtype)
   if dt.shape.is_fully_defined():
@@ -247,10 +248,19 @@ def _while_loop(*, dim, steps_num, current_state,
         normal_draws=normal_draws)
   maximum_iterations = (tf.cast(1. / time_step, dtype=tf.int32)
                         + tf.size(times))
+  # Include initial state, if necessary
   result = tf.zeros((num_samples, num_requested_times, dim),
                     dtype=current_state.dtype)
+  result = utils.maybe_update_along_axis(
+      tensor=result,
+      do_update=keep_mask[0],
+      ind=0,
+      axis=1,
+      new_tensor=tf.expand_dims(current_state, axis=1))
+  written_count = tf.cast(keep_mask[0], dtype=tf.int32)
+  # Sample paths
   _, _, _, result = tf.while_loop(
-      cond_fn, step_fn, (0, 0, current_state, result),
+      cond_fn, step_fn, (0, written_count, current_state, result),
       maximum_iterations=maximum_iterations,
       swap_memory=swap_memory)
   return result
@@ -350,7 +360,10 @@ def _prepare_grid(*, times, time_step, dtype):
   # Remove duplicate points
   all_times = tf.unique(all_times).y
   # Sort sequence. Identify the time indices of interest
-  all_times = tf.sort(all_times)
+  # TODO(b/169400743): use tf.sort instead of argsort and casting when XLA
+  # float64 support is extended for tf.sort
+  args = tf.argsort(tf.cast(all_times, dtype=tf.float32))
+  all_times = tf.gather(all_times, args)
   time_indices = tf.searchsorted(all_times, times, out_type=tf.int32)
   # Create a boolean mask to identify the iterations that have to be recorded.
   mask_sparse = tf.sparse.SparseTensor(

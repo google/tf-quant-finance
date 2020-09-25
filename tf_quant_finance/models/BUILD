@@ -70,7 +70,7 @@ py_test(
     timeout = "moderate",
     srcs = ["euler_sampling_test.py"],
     python_version = "PY3",
-    shard_count = 10,
+    shard_count = 14,
     deps = [
         "//tf_quant_finance",
         # test util,

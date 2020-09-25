@@ -55,7 +55,7 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
       watch_params = None
     paths = euler_sampling.sample(
         dim=1, drift_fn=drift_fn, volatility_fn=vol_fn,
-        times=times, num_samples=num_samples, seed=42, time_step=0.005,
+        times=times, num_samples=num_samples, seed=42, time_step=0.01,
         watch_params=watch_params)
     self.assertAllEqual(paths.shape.as_list(), [num_samples, 3, 1])
     paths = self.evaluate(paths)
@@ -88,7 +88,7 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
       del x
       return (a * t + b) * tf.ones([1, 1], dtype=t.dtype)
 
-    times = np.array([0.1, 0.21, 0.32, 0.43, 0.55])
+    times = np.array([0.0, 0.1, 0.21, 0.32, 0.43, 0.55])
     num_samples = 10000
     x0 = np.array([0.1])
     paths = self.evaluate(
@@ -96,12 +96,26 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
             dim=1,
             drift_fn=drift_fn, volatility_fn=vol_fn,
             times=times, num_samples=num_samples, initial_state=x0,
-            time_step=0.01, seed=12134))
+            random_type=tff.math.random.RandomType.STATELESS,
+            time_step=0.01,
+            seed=[1, 42]))
+    paths_no_zero = self.evaluate(
+        euler_sampling.sample(
+            dim=1,
+            drift_fn=drift_fn, volatility_fn=vol_fn,
+            times=times[1:], num_samples=num_samples, initial_state=x0,
+            random_type=tff.math.random.RandomType.STATELESS,
+            time_step=0.01,
+            seed=[1, 42]))
 
-    self.assertAllClose(paths.shape, (num_samples, 5, 1), atol=0)
+    with self.subTest('CorrectShape'):
+      self.assertAllClose(paths.shape, (num_samples, 6, 1), atol=0)
     means = np.mean(paths, axis=0).reshape(-1)
     expected_means = x0 + (2.0 / 3.0) * mu * np.power(times, 1.5)
-    self.assertAllClose(means, expected_means, rtol=1e-2, atol=1e-2)
+    with self.subTest('ExpectedResult'):
+      self.assertAllClose(means, expected_means, rtol=1e-2, atol=1e-2)
+    with self.subTest('IncludeInitialState'):
+      self.assertAllClose(paths[:, 1:, :], paths_no_zero)
 
   @parameterized.named_parameters(
       {
