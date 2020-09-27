@@ -45,8 +45,8 @@ class SabrModelTest(parameterized.TestCase, tf.test.TestCase):
                       initial_volatility=0.1):
     """Tests that volatility follows a log-normal distribution."""
     dtype = tf.float64
-    times = np.arange(1, 3, 0.5)
-    num_samples = 10000
+    times = [0.1, 0.3, 0.5]
+    num_samples = 1000
     test_seed = [123, 124]
 
     process = SabrModel(
@@ -90,7 +90,7 @@ class SabrModelTest(parameterized.TestCase, tf.test.TestCase):
   def test_drift(self, beta, volvol, rho, time_step):
     """Tests E[F(t)] == F_0."""
     dtype = tf.float64
-    times = [1., 3.]
+    times = [0.1, 1.0]
     num_samples = 10
     initial_forward, initial_volatility = 1., 0.1
     test_seed = [123, 124]
@@ -116,9 +116,9 @@ class SabrModelTest(parameterized.TestCase, tf.test.TestCase):
       self.assertAllClose(mean, initial_forward, rtol=0.1, atol=0.1)
 
   @parameterized.named_parameters(
-      ("beta_too_small", -1, 1, 0, [1.]), ("beta_too_large", 1.1, 1, 0, [1.]),
+      ("beta_too_small", -1, 1, 0, [1.]), ("beta_too_large", 1.1, 1, 0, [0.5]),
       ("negative_volvol", 0.5, -1, 0, [1.]),
-      ("rho_too_small", 0.5, 1, -2, [1.]), ("rho_too_large", 0.5, 1, 2, [1.]),
+      ("rho_too_small", 0.5, 1, -2, [1.]), ("rho_too_large", 0.5, 1, 2, [0.5]),
       ("times_not_increasing", 0.5, 1, 0, [2., 1.]))
   def test_sabr_model_validate_raises_error(self, beta, volvol, rho, times):
     """Test that the SABR model raises errors appropriately."""
@@ -178,7 +178,7 @@ class SabrModelTest(parameterized.TestCase, tf.test.TestCase):
                                    put_option=True):
     """Test that the SABR model computes the same price as the Euler method."""
     dtype = np.float64
-    times = [1]
+    times = [0.5]
     num_samples = 10000
     test_seed = [123, 124]
     beta = tf.convert_to_tensor(beta, dtype=dtype)
@@ -267,7 +267,7 @@ class SabrModelTest(parameterized.TestCase, tf.test.TestCase):
     volvol = tf.constant(0.8, dtype=dtype)
     beta = tf.constant(0.4, dtype=dtype)
     rho = tf.constant(-0.6, dtype=dtype)
-    times = [1]
+    times = [1.0]
     timesteps = [0.0625, 0.03125]
     strike = 0.4
     process = SabrModel(
