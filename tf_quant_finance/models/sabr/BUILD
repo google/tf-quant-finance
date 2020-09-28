@@ -25,11 +25,11 @@ py_library(
 
 py_test(
     name = "sabr_model_test",
-    size = "large",
+    size = "medium",
     timeout = "long",
     srcs = ["sabr_model_test.py"],
     python_version = "PY3",
-    shard_count = 6,
+    shard_count = 12,
     deps = [
         ":sabr_model",
         "//tf_quant_finance",

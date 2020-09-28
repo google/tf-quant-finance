@@ -276,51 +276,12 @@ class SabrModelTest(parameterized.TestCase, tf.test.TestCase):
         rho=rho,
         dtype=dtype,
         enable_unbiased_sampling=True)
-
-    euler_table = []
     process_table = []
-    drift_fn = lambda _, x: tf.zeros_like(x)
-
-    def _vol_fn(t, x):
-      """The volatility function for the SABR model."""
-      del t
-      f = x[..., 0]
-      v = x[..., 1]
-      fb = f**beta
-      m11 = v * fb * tf.math.sqrt(1 - tf.square(rho))
-      m12 = v * fb * rho
-      m21 = tf.zeros_like(m11)
-      m22 = volvol * v
-      mc1 = tf.concat([tf.expand_dims(m11, -1), tf.expand_dims(m21, -1)], -1)
-      mc2 = tf.concat([tf.expand_dims(m12, -1), tf.expand_dims(m22, -1)], -1)
-      # Set up absorbing boundary.
-      should_be_zero = tf.expand_dims(
-          tf.expand_dims((beta != 0) & (f <= 0.), -1), -1)
-      vol_matrix = tf.concat([tf.expand_dims(mc1, -1),
-                              tf.expand_dims(mc2, -1)], -1)
-      return tf.where(should_be_zero, tf.zeros_like(vol_matrix), vol_matrix)
 
     # We compute the relative error across time steps ts for a fixed expiry T:
     # error = | C(T, ts_i) - C(S(T, ts_{i+1})) |
     # where ts_i > ts_{i+1} and C( .. ) is the call option price
     for ts in timesteps:
-      euler_paths = euler_sampling.sample(
-          dim=2,
-          drift_fn=drift_fn,
-          volatility_fn=_vol_fn,
-          times=times,
-          time_step=ts,
-          num_samples=num_samples,
-          initial_state=[initial_forward, initial_volatility],
-          random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
-          seed=test_seed,
-          dtype=dtype)
-
-      euler_paths = self.evaluate(euler_paths)
-      euler_samples = euler_paths[..., 0]
-      euler_price = np.average(np.maximum(euler_samples - strike, 0))
-      euler_table.append(euler_price)
-
       paths = process.sample_paths(
           initial_forward=initial_forward,
           initial_volatility=initial_volatility,
@@ -335,12 +296,12 @@ class SabrModelTest(parameterized.TestCase, tf.test.TestCase):
       price = np.average(np.maximum(samples - strike, 0))
       process_table.append(price)
 
-    euler_error = 0
+    euler_error = 0.0001681610489796333
     process_error = 0
     for i in range(0, len(timesteps) - 1):
-      euler_error += np.abs(euler_table[i] - euler_table[i + 1])
       process_error += np.abs(process_table[i] - process_table[i + 1])
-    # Average relative error should be lower.
+    # Average relative error should be lower. Euler error is precomputed
+    # for `test_seed` using STATELESS_ANTITHETIC random type.
     self.assertLessEqual(process_error, euler_error)
 
 
