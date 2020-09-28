@@ -81,6 +81,38 @@ class SchedulesTest(tf.test.TestCase, parameterized.TestCase):
         end_of_month=end_of_month).dates()
     self.assertAllEqual(expected_schedule.ordinal(), actual_schedule.ordinal())
 
+  @parameterized.named_parameters(
+      *test_data.periodic_schedule_dynamic)
+  def test_periodic_schedule_dynamic_shape(
+      self, start_dates, end_dates, period_quantities,
+      period_type, backward, expected_schedule, end_of_month=False):
+    # Use tf.function to postulate unknown shape of input tensors.
+    @tf.function(input_signature=(
+        tf.TensorSpec([None], tf.int32, name="start_date"),
+        tf.TensorSpec([None], tf.int32, name="end_date"),
+        tf.TensorSpec([None], tf.int32, name="period_quantities")),
+                 autograph=False)
+    def _schedule_uncknown_shape(start_dates, end_dates, period_quantities):
+      start_dates = dates.dates_from_ordinals(start_dates)
+      end_dates = dates.dates_from_ordinals(end_dates)
+      tenors = dates.PeriodTensor(period_quantities, period_type)
+      return dates.PeriodicSchedule(
+          start_date=start_dates,
+          end_date=end_dates,
+          tenor=tenors,
+          holiday_calendar=dates.create_holiday_calendar(
+              weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,
+              start_year=2020,
+              end_year=2028),
+          roll_convention=dates.BusinessDayConvention.MODIFIED_FOLLOWING,
+          backward=backward,
+          end_of_month=end_of_month).dates().ordinal()
+    actual_schedule = _schedule_uncknown_shape(
+        start_dates, end_dates, [period_quantities])
+    expected_schedule = dates.dates_from_np_datetimes(
+        _to_np_datetimes(expected_schedule))
+    self.assertAllEqual(expected_schedule.ordinal(), actual_schedule)
+
   @parameterized.named_parameters(*test_data.business_day_schedule_test_cases)
   def test_business_day_schedule(self, start_dates, end_dates, holidays,
                                  backward, expected_schedule):

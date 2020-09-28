@@ -351,11 +351,11 @@ def _gen_periodic_schedule(start_date,
   with tf.compat.v1.control_dependencies(control_deps):
     # Reshape the input Tensors.
     if backward:
-      start_date = start_date.broadcast_to(end_date.shape)
-      tenor = tenor.broadcast_to(end_date.shape)
+      start_date = start_date.broadcast_to(tf.shape(end_date.ordinal()))
+      tenor = tenor.broadcast_to(tf.shape(end_date.ordinal()))
     else:
-      end_date = end_date.broadcast_to(start_date.shape)
-      tenor = tenor.broadcast_to(start_date.shape)
+      end_date = end_date.broadcast_to(tf.shape(start_date.ordinal()))
+      tenor = tenor.broadcast_to(tf.shape(start_date.ordinal()))
     start_date = start_date.expand_dims(axis=-1)
     end_date = end_date.expand_dims(axis=-1)
     tenor = tenor.expand_dims(axis=-1)
@@ -439,9 +439,9 @@ def _gen_business_days(start_date, end_date, holiday_calendar, backward=False):
   with tf.compat.v1.control_dependencies(control_deps):
     # Reshape the input Tensors.
     if backward:
-      start_date = start_date.broadcast_to(end_date.shape)
+      start_date = start_date.broadcast_to(tf.shape(end_date.ordinal()))
     else:
-      end_date = end_date.broadcast_to(start_date.shape)
+      end_date = end_date.broadcast_to(tf.shape(start_date.ordinal()))
     start_date = start_date.expand_dims(axis=-1)
     end_date = end_date.expand_dims(axis=-1)
 
