@@ -111,6 +111,38 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
       self.assertAllClose(variance,
                           self.true_var(1.0)[0], rtol=1e-4, atol=1e-4)
 
+  def test_zcb_variance_1_factor(self):
+    """Tests 1-Factor model with constant parameters."""
+    num_samples = 100000
+    for dtype in [tf.float64]:
+      curve_times = np.array([0., 0.5, 1.0, 5.0, 10.0])
+      times = np.array([0.1, 0.5, 1.0, 3])
+      process = tff.experimental.hjm.QuasiGaussianHJM(
+          dim=1,
+          mean_reversion=self.mean_reversion_1_factor,
+          volatility=self.volatility_1_factor,
+          initial_discount_rate_fn=self.instant_forward_rate,
+          dtype=dtype)
+      # generate zero coupon paths
+      paths, _, _ = process.sample_discount_curve_paths(
+          times,
+          curve_times=curve_times,
+          num_samples=num_samples,
+          time_step=0.1,
+          random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+          seed=[1, 2],
+          skip=1000000)
+      self.assertEqual(paths.dtype, dtype)
+      paths = self.evaluate(paths)
+      self.assertAllEqual(paths.shape, [num_samples, 5, 4])
+      sampled_std = tf.math.reduce_std(tf.math.log(paths), axis=0)
+      for tidx in range(4):
+        true_std = self.true_zcb_std(times[tidx], curve_times + times[tidx],
+                                     self.volatility_1_factor[0],
+                                     self.mean_reversion_1_factor[0])
+        self.assertAllClose(
+            sampled_std[:, tidx], true_std, rtol=5e-4, atol=5e-4)
+
   @parameterized.named_parameters(
       {
           'testcase_name': 'float32',
@@ -121,6 +153,7 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
       })
   def test_time_dependent_1d(self, dtype):
     """Tests 1-factor model with time dependent vol."""
+    num_samples = 100000
     def discount_fn(x):
       return 0.01 * tf.ones_like(x, dtype=dtype)  # pylint: disable=cell-var-from-loop
     volatility = tff.math.piecewise.PiecewiseConstantFunc(
@@ -137,20 +170,20 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
     times = np.array([0.1, 1.0, 2.0, 3.0])
     paths, _, _, _ = process.sample_paths(
         times,
-        num_samples=100000,
+        num_samples=num_samples,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 2],
         skip=1000000)
     self.assertEqual(paths.dtype, dtype)
     paths = self.evaluate(paths)
-    self.assertAllEqual(paths.shape, [100000, 4])
+    self.assertAllEqual(paths.shape, [num_samples, 4])
     r_std = np.squeeze(np.std(paths, axis=0))
     expected_std = self.true_std_time_dep(
         times, np.array([0.0, 0.1, 2.0]),
         np.array(self.volatility_time_dep_1_factor),
         self.mean_reversion_1_factor[0])
-    self.assertAllClose(r_std, expected_std, rtol=1.5e-4, atol=1.5e-4)
+    self.assertAllClose(r_std, expected_std, rtol=1.75e-4, atol=1.75e-4)
 
   @parameterized.named_parameters(
       {
@@ -159,6 +192,7 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
       })
   def test_state_dependent_vol_1_factor(self, dtype):
     """Tests 1-factor model with state dependent vol."""
+    num_samples = 100000
     def discount_fn(x):
       return 0.01 * tf.ones_like(x, dtype=dtype)  # pylint: disable=cell-var-from-loop
     volatility = tff.math.piecewise.PiecewiseConstantFunc(
@@ -174,17 +208,17 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
     times = np.array([0.1, 1.0, 2.0, 3.0])
     _, discount_paths, _, _ = process.sample_paths(
         times,
-        num_samples=100000,
+        num_samples=num_samples,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 2],
         skip=1000000)
     self.assertEqual(discount_paths.dtype, dtype)
     discount_paths = self.evaluate(discount_paths)
-    self.assertAllEqual(discount_paths.shape, [100000, 4])
+    self.assertAllEqual(discount_paths.shape, [num_samples, 4])
     discount_mean = np.mean(discount_paths, axis=0)
     expected_mean = np.exp(-0.01 * times)
-    self.assertAllClose(discount_mean, expected_mean, rtol=1e-4, atol=1e-4)
+    self.assertAllClose(discount_mean, expected_mean, rtol=2e-4, atol=2e-4)
 
   @parameterized.named_parameters(
       {
@@ -193,6 +227,7 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
       })
   def test_correctness_4_factor(self, dtype):
     """Tests 4-factor model with constant vol."""
+    num_samples = 100000
     def discount_fn(x):
       return 0.01 * tf.ones_like(x, dtype=dtype)  # pylint: disable=cell-var-from-loop
 
@@ -205,17 +240,82 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
     times = np.array([0.1, 1.0, 2.0, 3.0])
     _, discount_paths, _, _ = process.sample_paths(
         times,
-        num_samples=100000,
+        num_samples=num_samples,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 2],
         skip=1000000)
     self.assertEqual(discount_paths.dtype, dtype)
     discount_paths = self.evaluate(discount_paths)
-    self.assertAllEqual(discount_paths.shape, [100000, 4])
+    self.assertAllEqual(discount_paths.shape, [num_samples, 4])
     discount_mean = np.mean(discount_paths, axis=0)
     expected_mean = np.exp(-0.01 * times)
     self.assertAllClose(discount_mean, expected_mean, rtol=1e-4, atol=1e-4)
+
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'float64',
+          'dtype': np.float64,
+      })
+  def test_correctness_2_factor_with_correlation(self, dtype):
+    """Tests 2-factor correlated model with constant vol."""
+    num_samples = 100000
+    def discount_fn(x):
+      return 0.01 * tf.ones_like(x, dtype=dtype)  # pylint: disable=cell-var-from-loop
+
+    process = tff.experimental.hjm.QuasiGaussianHJM(
+        dim=2,
+        mean_reversion=self.mean_reversion_4_factor[:2],
+        volatility=self.volatility_4_factor[:2],
+        corr_matrix=[[1.0, 0.5], [0.5, 1.0]],
+        initial_discount_rate_fn=discount_fn,
+        dtype=dtype)
+    times = np.array([0.1, 1.0, 2.0, 3.0])
+    _, discount_paths, _, _ = process.sample_paths(
+        times,
+        num_samples=num_samples,
+        time_step=0.1,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        seed=[1, 2],
+        skip=1000000)
+    self.assertEqual(discount_paths.dtype, dtype)
+    discount_paths = self.evaluate(discount_paths)
+    self.assertAllEqual(discount_paths.shape, [num_samples, 4])
+    discount_mean = np.mean(discount_paths, axis=0)
+    expected_mean = np.exp(-0.01 * times)
+    self.assertAllClose(discount_mean, expected_mean, rtol=1e-4, atol=1e-4)
+
+  def test_zcb_variance_2_factor(self):
+    """Tests ZCB for sims 2-Factor correlated model."""
+    num_samples = 100000
+    for dtype in [tf.float64]:
+      curve_times = np.array([0., 0.5, 1.0, 2.0, 5.0])
+      times = np.array([0.1, 0.5, 1.0, 3])
+      process = tff.experimental.hjm.QuasiGaussianHJM(
+          dim=2,
+          mean_reversion=[0.03, 0.03],
+          volatility=[0.005, 0.005],
+          corr_matrix=[[1.0, 0.5], [0.5, 1.0]],
+          initial_discount_rate_fn=self.instant_forward_rate,
+          dtype=dtype)
+      # generate zero coupon paths
+      paths, _, _ = process.sample_discount_curve_paths(
+          times,
+          curve_times=curve_times,
+          num_samples=num_samples,
+          time_step=0.1,
+          random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+          seed=[1, 2],
+          skip=1000000)
+      self.assertEqual(paths.dtype, dtype)
+      paths = self.evaluate(paths)
+      self.assertAllEqual(paths.shape, [num_samples, 5, 4])
+      sampled_std = tf.math.reduce_std(tf.math.log(paths), axis=0)
+      for tidx in range(4):
+        true_std = self.true_zcb_std(times[tidx], curve_times + times[tidx],
+                                     0.005, 0.03)
+        self.assertAllClose(
+            sampled_std[:, tidx], np.sqrt(3) * true_std, rtol=1e-3, atol=1e-3)
 
 
 if __name__ == '__main__':

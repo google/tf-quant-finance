@@ -18,7 +18,7 @@
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.math import gradient
-from tf_quant_finance.math import random_ops as random
+from tf_quant_finance.models import euler_sampling
 from tf_quant_finance.models import generic_ito_process
 from tf_quant_finance.models import utils
 
@@ -34,7 +34,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
     df(t,T) = mu(t,T) dt + sum_i sigma_i(t,  T) * dW_i(t),
     1 <= i <= n,
   ```
-  where `mu(t,T)` and `sigma_i(t,T)` are denote the drift and volatility
+  where `mu(t,T)` and `sigma_i(t,T)` denote the drift and volatility
   for the forward rate and `W_i` are Brownian motions with instantaneous
   correlation `Rho`. The model above represents an `n-factor` HJM model. Under
   the risk-neutral measure, the drift `mu(t,T)` is computed as
@@ -149,7 +149,8 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
     self._name = name or 'quasi_gaussian_hjm_model'
     with tf.name_scope(self._name):
       self._dtype = dtype or None
-      self._dim = 2 * dim  # both x and y are `dim` dimensional vectors
+      # x has dimensionality of `dim` and y `dim * dim`
+      self._dim = dim + dim**2
       self._factors = dim
 
       def _instant_forward_rate_fn(t):
@@ -187,36 +188,56 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       if corr_matrix is None:
         corr_matrix = tf.eye(dim, dim, dtype=self._dtype)
       self._rho = tf.convert_to_tensor(corr_matrix, dtype=dtype, name='rho')
-      self._sqrt_rho = tf.linalg.cholesky(corr_matrix)
+      self._sqrt_rho = tf.linalg.cholesky(self._rho)
 
     # Volatility function
     def _vol_fn(t, state):
       """Volatility function of qG-HJM."""
       # Get parameter values at time `t`
       x = state[..., :self._factors]
-      r_t = self._instant_forward_rate_fn(t) + tf.reduce_sum(x, axis=-1)
+      num_samples = x.shape.as_list()[0]
+      r_t = self._instant_forward_rate_fn(t) + tf.reduce_sum(x, axis=-1,
+                                                             keepdims=True)
       volatility = self._volatility(t, r_t)
+      volatility = tf.expand_dims(volatility, axis=-1)
 
-      diffusion_x = tf.linalg.matvec(self._sqrt_rho, volatility)
-      diffusion_y = tf.zeros_like(diffusion_x)
+      diffusion_x = tf.broadcast_to(
+          self._sqrt_rho * volatility,
+          (num_samples, self._factors, self._factors))
+      paddings = tf.constant(
+          [[0, 0], [0, self._factors**2], [0, self._factors**2]],
+          dtype=tf.int32)
+      diffusion = tf.pad(diffusion_x, paddings)
 
-      return tf.concat([diffusion_x, diffusion_y], axis=-1)
+      return diffusion
 
     # Drift function
     def _drift_fn(t, state):
       """Drift function of qG-HJM."""
-      del t
       x = state[..., :self._factors]
       y = state[..., self._factors:]
-      r_t = self._instant_forward_rate_fn(t) + tf.reduce_sum(x, axis=-1)
+      num_samples = x.shape.as_list()[0]
+      y = tf.reshape(y, [num_samples, self._factors, self._factors])
+      r_t = (self._instant_forward_rate_fn(t) +
+             tf.reduce_sum(x, axis=-1, keepdims=True))
       volatility = self._volatility(t, r_t)
+      volatility = tf.expand_dims(volatility, axis=-1)
+      # create matrix v(i,j) = vol(i)*vol(j)
+      volatility_squared = tf.linalg.matmul(
+          volatility, volatility, transpose_b=True)
+      # create a matrix k2(i,j) = k(i) + k(j)
+      mr2 = tf.expand_dims(self._mean_reversion, axis=-1)
+      mr2 = mr2 + tf.transpose(mr2)
 
-      drift_x = y - self._mean_reversion * x
-      drift_y = volatility**2 - 2.0 * self._mean_reversion * y
+      drift_x = tf.math.reduce_sum(y, axis=-1) - self._mean_reversion * x
+      drift_y = (self._rho * volatility_squared - mr2 * y)
+      drift_y = tf.reshape(
+          drift_y, [num_samples, self._factors * self._factors])
       drift = tf.concat([drift_x, drift_y], axis=-1)
       return drift
 
-    super(QuasiGaussianHJM, self).__init__(dim, _drift_fn, _vol_fn, dtype, name)
+    super(QuasiGaussianHJM, self).__init__(
+        self._dim, _drift_fn, _vol_fn, dtype, name)
 
   def sample_paths(self,
                    times,
@@ -330,12 +351,13 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
     name = name or self._name + '_sample_discount_curve_paths'
     with tf.name_scope(name):
       times = tf.convert_to_tensor(times, self._dtype)
+      num_times = times.shape.as_list()[0]
       curve_times = tf.convert_to_tensor(curve_times, self._dtype)
       rate_paths, discount_factor_paths, x_t, y_t = self._sample_paths(
           times, time_step, num_samples, random_type, skip, seed)
-      # Reshape x_t to (num_samples, 1, num_times, dim)
+      # Reshape x_t to (num_samples, 1, num_times, nfactors)
       x_t = tf.expand_dims(x_t, axis=1)
-      # Reshape y_t to (num_samples, 1, num_times, dim)
+      # Reshape y_t to (num_samples, 1, num_times, nfactors**2)
       y_t = tf.expand_dims(y_t, axis=1)
 
       # Reshape all `Tensor`s so that they have the dimensions same as (or
@@ -346,97 +368,38 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       times = tf.reshape(times, (1, 1, num_sim_steps, 1))
       curve_times = tf.reshape(curve_times, (1, num_curve_nodes, 1, 1))
 
-      return self._bond_reconstitution(times, times + curve_times,
-                                       self._mean_reversion, x_t,
-                                       y_t), rate_paths, discount_factor_paths
+      return (self._bond_reconstitution(times, times + curve_times,
+                                        self._mean_reversion, x_t, y_t,
+                                        num_samples, num_times), rate_paths,
+              discount_factor_paths)
 
-  def _sample_paths(self,
-                    times,
-                    time_step,
-                    num_samples,
-                    random_type,
-                    skip,
+  def _sample_paths(self, times, time_step, num_samples, random_type, skip,
                     seed):
     """Returns a sample of paths from the process."""
-    # Note: all the notations below are the same as in [2].
-    times, keep_mask = _prepare_grid(times, time_step)
+    initial_state = tf.zeros((self._dim,), dtype=self._dtype)
+    # Note that we need a finer simulation grid (determnied by `dt`) to compute
+    # discount factors accurately. The `times` input might not be granular
+    # enough for accurate calculations.
+    times, keep_mask, _ = utils.prepare_grid(
+        times=times, time_step=time_step, dtype=self._dtype)
     # Add zeros as a starting location
     dt = times[1:] - times[:-1]
-    if dt.shape.is_fully_defined():
-      steps_num = dt.shape.as_list()[-1]
-    else:
-      steps_num = tf.shape(dt)[-1]
 
-    # In order to use low-discrepancy random_type we need to generate the
-    # sequence of independent random normals upfront. We also precompute random
-    # numbers for stateless random type in order to ensure independent samples
-    # for multiple function calls whith different seeds.
-    if random_type in (random.RandomType.SOBOL,
-                       random.RandomType.HALTON,
-                       random.RandomType.HALTON_RANDOMIZED,
-                       random.RandomType.STATELESS,
-                       random.RandomType.STATELESS_ANTITHETIC):
-      normal_draws = utils.generate_mc_normal_draws(
-          num_normal_draws=self._dim, num_time_steps=steps_num,
-          num_sample_paths=num_samples, random_type=random_type,
-          seed=seed,
-          dtype=self._dtype, skip=skip)
-    else:
-      normal_draws = None
+    # xy_paths.shape = (num_samples, num_times, nfactors+nfactors^2)
+    xy_paths = euler_sampling.sample(
+        self._dim,
+        self._drift_fn,
+        self._volatility_fn,
+        times,
+        num_samples=num_samples,
+        initial_state=initial_state,
+        random_type=random_type,
+        seed=seed,
+        time_step=time_step,
+        skip=skip)
 
-    cond_fn = lambda i, *args: i < tf.size(dt)
-    def body_fn(i, written_count,
-                current_x,
-                current_y,
-                x_paths,
-                y_paths):
-      """Simulate qG-HJM process to the next time point."""
-      if normal_draws is None:
-        normals = random.mv_normal_sample(
-            (num_samples,),
-            mean=tf.zeros((self._dim,), dtype=self._dtype),
-            random_type=random_type, seed=seed)
-      else:
-        normals = normal_draws[i]
-
-      if self._sqrt_rho is not None:
-        normals = tf.linalg.matvec(self._sqrt_rho, normals)
-
-      vol = self._volatility(times[i + 1], current_x)
-
-      next_x = (current_x
-                + (current_y - self._mean_reversion * current_x) * dt[i]
-                + vol * normals * tf.math.sqrt(dt[i]))
-      next_y = current_y + (vol**2 -
-                            2.0 * self._mean_reversion * current_y) * dt[i]
-
-      # Update `x_paths` and `y_paths`
-      x_paths = utils.maybe_update_along_axis(
-          tensor=x_paths,
-          do_update=True,
-          ind=written_count + 1,
-          axis=1,
-          new_tensor=tf.expand_dims(next_x, axis=1))
-      y_paths = utils.maybe_update_along_axis(
-          tensor=y_paths,
-          do_update=True,
-          ind=written_count + 1,
-          axis=1,
-          new_tensor=tf.expand_dims(next_y, axis=1))
-
-      written_count += 1
-      return (i + 1, written_count, next_x, next_y, x_paths, y_paths)
-
-    x_paths = tf.zeros((num_samples, times.shape.as_list()[0], self._factors),
-                       dtype=self._dtype)
-    y_paths = tf.zeros((num_samples, times.shape.as_list()[0], self._factors),
-                       dtype=self._dtype)
-
-    initial_x = tf.zeros((num_samples, self._factors), dtype=self._dtype)
-    initial_y = tf.zeros((num_samples, self._factors), dtype=self._dtype)
-
-    _, _, _, _, x_paths, y_paths = tf.while_loop(
-        cond_fn, body_fn, (0, 0, initial_x, initial_y, x_paths, y_paths))
+    x_paths = xy_paths[..., :self._factors]
+    y_paths = xy_paths[..., self._factors:]
 
     f_0_t = self._instant_forward_rate_fn(times)  # shape=(num_times,)
     rate_paths = tf.math.reduce_sum(
@@ -460,7 +423,9 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
                            maturities,
                            mean_reversion,
                            x_t,
-                           y_t):
+                           y_t,
+                           num_samples,
+                           num_times):
     """Computes discount bond prices using Eq. 10.18 in Ref [2]."""
     # p_0_t.shape = (1, 1, num_sim_steps, 1)
     p_0_t = tf.math.exp(-self._initial_discount_rate_fn(times) * times)
@@ -473,41 +438,15 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
         -mean_reversion * (maturities - times))) / mean_reversion
     # term1.shape = (num_samples, num_curve_times, num_sim_steps)
     term1 = tf.math.reduce_sum(x_t * g_t_tau, axis=-1)
+    # y_t: (num_samples, 1, num_times, nfactors**2) ->
+    # (num_samples, 1, num_times, nfactors, nfactors)
+    y_t = tf.reshape(
+        y_t, [num_samples, 1, num_times, self._factors, self._factors])
+    # now compute g_t_tau * y_t * g_t_tau
     # term2.shape = (num_samples, num_curve_times, num_sim_steps)
-    term2 = tf.math.reduce_sum(y_t * g_t_tau**2, axis=-1)
+    term2 = tf.math.reduce_sum(
+        g_t_tau * tf.linalg.matvec(y_t, g_t_tau), axis=-1)
+
     p_t_tau = p_0_t_tau[..., 0] * tf.math.exp(-term1 - 0.5 * term2)
     # p_t_tau.shape=(num_samples, num_curve_times, num_sim_steps)
     return p_t_tau
-
-
-def _prepare_grid(times, time_step):
-  """Prepares grid of times for path generation.
-
-  Args:
-    times:  Rank 1 `Tensor` of increasing positive real values. The times at
-      which the path points are to be evaluated.
-    time_step: Scalar real `Tensor`. Maximal distance between time grid points
-
-  Returns:
-    Tuple `(all_times, mask)`.
-    `all_times` is a 1-D real `Tensor` containing all points from 'times` and
-    the uniform grid of points between `[0, times[-1]]` with grid size equal to
-    `time_step`. The `Tensor` is sorted in ascending order and may contain
-    duplicates.
-    `mask` is a boolean 1-D `Tensor` of the same shape as 'all_times', showing
-    which elements of 'all_times' correspond to THE values from `times`.
-    Guarantees that times[0]=0 and mask[0]=False.
-  """
-  additional_times = tf.range(
-      start=time_step, limit=times[-1], delta=time_step, dtype=times.dtype)
-  zeros = tf.constant([0], dtype=times.dtype)
-  all_times = tf.concat([zeros] + [times] + [additional_times], axis=0)
-  additional_times_mask = tf.zeros_like(additional_times, dtype=tf.bool)
-  mask = tf.concat([
-      tf.cast(zeros, dtype=tf.bool),
-      tf.ones_like(times, dtype=tf.bool)
-  ] + [additional_times_mask], axis=0)
-  perm = tf.argsort(all_times, stable=True)
-  all_times = tf.gather(all_times, perm)
-  mask = tf.gather(mask, perm)
-  return all_times, mask

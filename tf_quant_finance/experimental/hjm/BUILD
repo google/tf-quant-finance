@@ -28,10 +28,10 @@ py_library(
 py_test(
     name = "quasi_gaussian_hjm_test",
     size = "medium",
-    timeout = "moderate",
+    timeout = "long",
     srcs = ["quasi_gaussian_hjm_test.py"],
     python_version = "PY3",
-    shard_count = 6,
+    shard_count = 8,
     deps = [
         ":quasi_gaussian_hjm",
         "//tf_quant_finance",

@@ -137,9 +137,9 @@ def sample(dim,
       initial_state = tf.zeros(dim, dtype=dtype)
     initial_state = tf.convert_to_tensor(initial_state, dtype=dtype,
                                          name='initial_state')
-    num_requested_times = times.shape.as_list()[0]
+    num_requested_times = tf.shape(times)[0]
     # Create a time grid for the Euler scheme.
-    times, keep_mask, time_indices = _prepare_grid(
+    times, keep_mask, time_indices = utils.prepare_grid(
         times=times, time_step=time_step, dtype=dtype)
     if watch_params is not None:
       watch_params = [tf.convert_to_tensor(param, dtype=dtype)
@@ -331,48 +331,6 @@ def _euler_step(*, i, written_count, current_state, result,
       new_tensor=tf.expand_dims(next_state, axis=1))
   written_count += tf.cast(keep_mask[i + 1], dtype=tf.int32)
   return i + 1, written_count, next_state, result
-
-
-def _prepare_grid(*, times, time_step, dtype):
-  """Prepares grid of times for path generation.
-
-  Args:
-    times:  Rank 1 `Tensor` of increasing positive real values. The times at
-      which the path points are to be evaluated.
-    time_step: Rank 0 real `Tensor`. Maximal distance between points in
-      resulting grid.
-    dtype: `tf.Dtype` of the input and output `Tensor`s.
-
-  Returns:
-    Tuple `(all_times, mask, time_points)`.
-    `all_times` is a 1-D real `Tensor` containing all points from 'times` and
-    the uniform grid of points between `[0, times[-1]]` with grid size equal to
-    `time_step`. The `Tensor` is sorted in ascending order and may contain
-    duplicates.
-    `mask` is a boolean 1-D `Tensor` of the same shape as 'all_times', showing
-    which elements of 'all_times' correspond to THE values from `times`.
-    Guarantees that times[0]=0 and mask[0]=False.
-    `time_indices`. An integer `Tensor` of the same shape as `times` indicating
-    `times` indices in `all_times`.
-  """
-  grid = tf.range(0.0, times[-1], time_step, dtype=dtype)
-  all_times = tf.concat([times, grid], axis=0)
-  # Remove duplicate points
-  all_times = tf.unique(all_times).y
-  # Sort sequence. Identify the time indices of interest
-  # TODO(b/169400743): use tf.sort instead of argsort and casting when XLA
-  # float64 support is extended for tf.sort
-  args = tf.argsort(tf.cast(all_times, dtype=tf.float32))
-  all_times = tf.gather(all_times, args)
-  time_indices = tf.searchsorted(all_times, times, out_type=tf.int32)
-  # Create a boolean mask to identify the iterations that have to be recorded.
-  mask_sparse = tf.sparse.SparseTensor(
-      indices=tf.expand_dims(
-          tf.cast(time_indices, dtype=tf.int64), axis=1),
-      values=tf.fill(times.shape, True),
-      dense_shape=all_times.shape)
-  mask = tf.sparse.to_dense(mask_sparse)
-  return all_times, mask, time_indices
 
 
 __all__ = ['sample']
