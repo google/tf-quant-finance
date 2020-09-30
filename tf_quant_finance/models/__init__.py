@@ -16,6 +16,7 @@
 
 from tf_quant_finance.models import euler_sampling
 from tf_quant_finance.models import heston
+from tf_quant_finance.models import hjm
 from tf_quant_finance.models import hull_white
 from tf_quant_finance.models import sabr
 from tf_quant_finance.models.generic_ito_process import GenericItoProcess
@@ -32,6 +33,7 @@ _allowed_symbols = [
     'euler_sampling',
     'heston',
     'HestonModel',
+    'hjm',
     'hull_white',
     'GenericItoProcess',
     'MultivariateGeometricBrownianMotion',

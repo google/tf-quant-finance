@@ -88,7 +88,7 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
     for dtype in [tf.float32, tf.float64]:
       # exact discretization is not supported for time-dependent specification
       # of mean reversion rate.
-      process = tff.experimental.hjm.QuasiGaussianHJM(
+      process = tff.models.hjm.QuasiGaussianHJM(
           dim=1,
           mean_reversion=self.mean_reversion_1_factor,
           volatility=self.volatility_1_factor,
@@ -117,7 +117,7 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
     for dtype in [tf.float64]:
       curve_times = np.array([0., 0.5, 1.0, 5.0, 10.0])
       times = np.array([0.1, 0.5, 1.0, 3])
-      process = tff.experimental.hjm.QuasiGaussianHJM(
+      process = tff.models.hjm.QuasiGaussianHJM(
           dim=1,
           mean_reversion=self.mean_reversion_1_factor,
           volatility=self.volatility_1_factor,
@@ -161,7 +161,7 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
     def _vol_fn(t, r):
       del r
       return volatility([t])
-    process = tff.experimental.hjm.QuasiGaussianHJM(
+    process = tff.models.hjm.QuasiGaussianHJM(
         dim=1,
         mean_reversion=self.mean_reversion_1_factor,
         volatility=_vol_fn,
@@ -199,7 +199,7 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
         [], values=self.volatility_1_factor, dtype=dtype)
     def _vol_fn(t, r):
       return volatility([t]) * tf.math.abs(r)**0.5
-    process = tff.experimental.hjm.QuasiGaussianHJM(
+    process = tff.models.hjm.QuasiGaussianHJM(
         dim=1,
         mean_reversion=self.mean_reversion_1_factor,
         volatility=_vol_fn,
@@ -231,7 +231,7 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
     def discount_fn(x):
       return 0.01 * tf.ones_like(x, dtype=dtype)  # pylint: disable=cell-var-from-loop
 
-    process = tff.experimental.hjm.QuasiGaussianHJM(
+    process = tff.models.hjm.QuasiGaussianHJM(
         dim=4,
         mean_reversion=self.mean_reversion_4_factor,
         volatility=self.volatility_4_factor,
@@ -263,7 +263,7 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
     def discount_fn(x):
       return 0.01 * tf.ones_like(x, dtype=dtype)  # pylint: disable=cell-var-from-loop
 
-    process = tff.experimental.hjm.QuasiGaussianHJM(
+    process = tff.models.hjm.QuasiGaussianHJM(
         dim=2,
         mean_reversion=self.mean_reversion_4_factor[:2],
         volatility=self.volatility_4_factor[:2],
@@ -291,7 +291,7 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
     for dtype in [tf.float64]:
       curve_times = np.array([0., 0.5, 1.0, 2.0, 5.0])
       times = np.array([0.1, 0.5, 1.0, 3])
-      process = tff.experimental.hjm.QuasiGaussianHJM(
+      process = tff.models.hjm.QuasiGaussianHJM(
           dim=2,
           mean_reversion=[0.03, 0.03],
           volatility=[0.005, 0.005],

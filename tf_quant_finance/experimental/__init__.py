@@ -15,7 +15,6 @@
 
 """Experimental modules."""
 
-from tf_quant_finance.experimental import hjm
 from tf_quant_finance.experimental import instruments
 from tf_quant_finance.experimental import lsm_algorithm
 from tf_quant_finance.experimental import pricing_platform
@@ -24,7 +23,6 @@ from tensorflow.python.util.all_util import remove_undocumented  # pylint: disab
 
 
 _allowed_symbols = [
-    "hjm",
     "instruments",
     "io",
     "lsm_algorithm",

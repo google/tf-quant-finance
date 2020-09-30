@@ -11,7 +11,6 @@ py_library(
     deps = [
         ":io",
         "//tf_quant_finance/experimental/finite_difference",
-        "//tf_quant_finance/experimental/hjm",
         "//tf_quant_finance/experimental/instruments",
         "//tf_quant_finance/experimental/lsm_algorithm",
         "//tf_quant_finance/experimental/pricing_platform",

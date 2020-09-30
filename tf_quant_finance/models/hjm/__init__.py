@@ -14,7 +14,7 @@
 # limitations under the License.
 """HJM model."""
 
-from tf_quant_finance.experimental.hjm.quasi_gaussian_hjm import QuasiGaussianHJM
+from tf_quant_finance.models.hjm.quasi_gaussian_hjm import QuasiGaussianHJM
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
