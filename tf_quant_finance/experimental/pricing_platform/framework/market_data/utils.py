@@ -14,7 +14,8 @@
 # limitations under the License.
 """Utility functions to create an instance of processed market data."""
 
-from typing import Callable, Tuple, List
+import functools
+from typing import Callable, Dict, Tuple, List, Union
 
 import tensorflow.compat.v2 as tf
 
@@ -65,14 +66,20 @@ _business_day_convention_map = {
 
 
 def get_daycount_fn(
-    day_count_convention: _DayCountConventionsProtoType
-    ) -> Callable[..., types.FloatTensor]:
+    day_count_convention: Union[_DayCountConventionsProtoType,
+                                Callable[..., types.FloatTensor]],
+    dtype=None) -> Callable[..., types.FloatTensor]:
+  """Converts input to a daycount convention function."""
+  if not isinstance(day_count_convention, _DayCountConventionsProtoType):
+    def _res(start_date, end_date):
+      return day_count_convention(start_date.to_tensor(), end_date.to_tensor())
+    return _res
   try:
     daycount_fn = _daycount_map[day_count_convention]
   except KeyError:
     raise KeyError(
         f"{day_count_convention} is not mapped to a daycount function")
-  return daycount_fn
+  return functools.partial(daycount_fn, dtype=dtype)
 
 
 def get_business_day_convention(
@@ -99,6 +106,24 @@ def period_from_list(period: Tuple[int, List[int]]
   """
   amount = period[1]
   period_type = period_pb2.PeriodType.Name(period[0])
+  return dateslib.PeriodTensor(
+      amount + tf.compat.v1.placeholder_with_default(0, []),
+      dateslib.PeriodType[period_type])
+
+
+def period_from_dict(period: Dict[int, List[int]]
+                     ) -> dateslib.PeriodTensor:
+  """Utility to convert a dictionary of periods to a PeriodTensor.
+
+  Args:
+    period: A dictionary with keys "type" (which corresponds to the proto type
+      of the period (see `period_pb2.Period`)) and "frequency".
+
+  Returns:
+    An instance of the `PeriodTensor`.
+  """
+  amount = period["frequency"]
+  period_type = period_pb2.PeriodType.Name(period["type"])
   return dateslib.PeriodTensor(
       amount + tf.compat.v1.placeholder_with_default(0, []),
       dateslib.PeriodType[period_type])

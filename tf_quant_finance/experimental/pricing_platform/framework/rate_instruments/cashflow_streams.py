@@ -37,26 +37,41 @@ class FixedCashflowStream:
   """Represents a batch of fixed stream of cashflows."""
 
   def __init__(self,
-               start_date: types.DateTensor,
-               end_date: types.DateTensor,
                coupon_spec: coupon_specs.FixedCouponSpecs,
                discount_curve_type: _CurveType,
+               start_date: types.DateTensor = None,
+               end_date: types.DateTensor = None,
+               discount_curve_mask: types.IntTensor = None,
                first_coupon_date: Optional[types.DateTensor] = None,
                penultimate_coupon_date: Optional[types.DateTensor] = None,
+               schedule_fn: Optional[Callable[..., Any]] = None,
+               schedule: Optional[types.DateTensor] = None,
                dtype: Optional[types.Dtype] = None,
                name: Optional[str] = None):
     """Initializes a batch of fixed cashflow streams.
 
     Args:
+      coupon_spec: An instance of `FixedCouponSpecs` specifying the
+        details of the coupon payment for the cashflow stream.
+      discount_curve_type: An instance of `CurveType` or a list of those.
+        If supplied as a list and `discount_curve_mask` is not supplied,
+        the size of the list should be the same as the number of priced
+        instruments.
       start_date: A `DateTensor` of `batch_shape` specifying the starting dates
         of the accrual of the first coupon of the cashflow stream. The shape of
         the input correspond to the number of streams being created.
+        Either this of `schedule` should be supplied
+        Default value: `None`
       end_date: A `DateTensor` of `batch_shape`specifying the end dates for
         accrual of the last coupon in each cashflow stream. The shape of the
         input should be the same as that of `start_date`.
-      coupon_spec: An instance of `FixedCouponSpecs` specifying the
-        details of the coupon payment for the cashflow stream.
-      discount_curve_type: An instance of `CurveType`.
+        Either this of `schedule` should be supplied
+        Default value: `None`
+      discount_curve_mask: An optional integer `Tensor` of values ranging from
+        `0` to `len(discount_curve_type)` and of shape `batch_shape`. Identifies
+        a mapping between `discount_curve_type` list and the underlying
+        instruments.
+        Default value: `None`.
       first_coupon_date: An optional `DateTensor` specifying the payment dates
         of the first coupon of the cashflow stream. Use this input for cashflows
         with irregular first coupon. Should be of the same shape as
@@ -67,6 +82,13 @@ class FixedCashflowStream:
         stream. Use this input for cashflows with irregular last coupon.
         Should be of the same shape as `end_date`.
         Default value: None which implies regular last coupon.
+      schedule_fn: A callable that accepts `start_date`, `end_date`,
+        `coupon_frequency`, `settlement_days`, `first_coupon_date`, and
+        `penultimate_coupon_date` as `Tensor`s and returns coupon payment
+        days.
+        Default value: `None`.
+      schedule: A `DateTensor` of coupon payment dates.
+        Default value: `None`.
       dtype: `tf.Dtype` of the input and output real `Tensor`s.
         Default value: None which maps to the default dtype inferred by
         TensorFlow.
@@ -80,23 +102,54 @@ class FixedCashflowStream:
       [
           self._discount_curve_type,
           self._mask
-      ] = process_curve_types(curve_list)
-      self._start_date = dateslib.convert_to_date_tensor(start_date)
-      self._end_date = dateslib.convert_to_date_tensor(end_date)
-      self._first_coupon_date = first_coupon_date
-      self._penultimate_coupon_date = penultimate_coupon_date
-      if self._first_coupon_date is not None:
-        self._first_coupon_date = dateslib.convert_to_date_tensor(
-            first_coupon_date)
-      if self._penultimate_coupon_date is not None:
-        self._penultimate_coupon_date = dateslib.convert_to_date_tensor(
-            penultimate_coupon_date)
+      ] = process_curve_types(curve_list, discount_curve_mask)
 
-      coupon_frequency = coupon_spec.coupon_frequency
-      if isinstance(coupon_frequency, (
-          period_pb2.Period, list, tuple)):
+      if schedule is None:
+        if (start_date is None) or (end_date is None):
+          raise ValueError("If `schedule` is not supplied both "
+                           "`start_date` and `end_date` should be supplied")
+
+      if schedule is None:
+        if isinstance(start_date, tf.Tensor):
+          self._start_date = dateslib.dates_from_tensor(
+              start_date)
+        else:
+          self._start_date = dateslib.convert_to_date_tensor(
+              start_date)
+        if isinstance(start_date, tf.Tensor):
+          self._end_date = dateslib.dates_from_tensor(
+              end_date)
+        else:
+          self._end_date = dateslib.convert_to_date_tensor(
+              end_date)
+        self._first_coupon_date = first_coupon_date
+        self._penultimate_coupon_date = penultimate_coupon_date
+        if self._first_coupon_date is not None:
+          if isinstance(start_date, tf.Tensor):
+            self._first_coupon_date = dateslib.dates_from_tensor(
+                first_coupon_date)
+          else:
+            self._first_coupon_date = dateslib.convert_to_date_tensor(
+                first_coupon_date)
+        if self._penultimate_coupon_date is not None:
+          if isinstance(start_date, tf.Tensor):
+            self._penultimate_coupon_date = dateslib.dates_from_tensor(
+                penultimate_coupon_date)
+          else:
+            self._penultimate_coupon_date = dateslib.convert_to_date_tensor(
+                penultimate_coupon_date)
+
+      # Update coupon frequency
+      coupon_frequency = _get_attr(coupon_spec, "coupon_frequency")
+      if isinstance(coupon_frequency, period_pb2.Period):
         coupon_frequency = market_data_utils.get_period(
-            coupon_spec.coupon_frequency)
+            _get_attr(coupon_spec, "coupon_frequency"))
+      if isinstance(coupon_frequency, (list, tuple)):
+        coupon_frequency = market_data_utils.period_from_list(
+            *_get_attr(coupon_spec, "coupon_frequency"))
+      if isinstance(coupon_frequency, dict):
+        coupon_frequency = market_data_utils.period_from_dict(
+            _get_attr(coupon_spec, "coupon_frequency"))
 
       businessday_rule = coupon_spec.businessday_rule
       # Business day roll convention and the end of month flag
@@ -104,45 +157,66 @@ class FixedCashflowStream:
           businessday_rule)
 
       notional = tf.convert_to_tensor(
-          coupon_spec.notional_amount,
+          _get_attr(coupon_spec, "notional_amount"),
           dtype=dtype,
           name="notional")
       self._dtype = dtype or notional.dtype
-      fixed_rate = tf.convert_to_tensor(coupon_spec.fixed_rate,
+      fixed_rate = tf.convert_to_tensor(_get_attr(coupon_spec, "fixed_rate"),
                                         dtype=self._dtype,
                                         name="fixed_rate")
       # TODO(b/160446193): Calendar is ignored and weekends only is used
       calendar = dateslib.create_holiday_calendar(
           weekend_mask=dateslib.WeekendMask.SATURDAY_SUNDAY)
       daycount_fn = market_data_utils.get_daycount_fn(
-          coupon_spec.daycount_convention)
+          _get_attr(coupon_spec, "daycount_convention"), self._dtype)
 
       self._settlement_days = tf.convert_to_tensor(
-          coupon_spec.settlement_days,
+          _get_attr(coupon_spec, "settlement_days"),
           dtype=tf.int32,
           name="settlement_days")
 
-      coupon_dates = _generate_schedule(
-          start_date=self._start_date,
-          end_date=self._end_date,
-          coupon_frequency=coupon_frequency,
-          roll_convention=roll_convention,
-          calendar=calendar,
-          settlement_days=self._settlement_days,
-          end_of_month=eom,
-          first_coupon_date=self._first_coupon_date,
-          penultimate_coupon_date=self._penultimate_coupon_date)
+      if schedule is not None:
+        if isinstance(start_date, tf.Tensor):
+          coupon_dates = dateslib.dates_from_tensor(schedule)
+        else:
+          coupon_dates = dateslib.convert_to_date_tensor(schedule)
+      elif schedule_fn is None:
+        coupon_dates = _generate_schedule(
+            start_date=self._start_date,
+            end_date=self._end_date,
+            coupon_frequency=coupon_frequency,
+            roll_convention=roll_convention,
+            calendar=calendar,
+            settlement_days=self._settlement_days,
+            end_of_month=eom,
+            first_coupon_date=self._first_coupon_date,
+            penultimate_coupon_date=self._penultimate_coupon_date)
+      else:
+        if first_coupon_date is not None:
+          first_coupon_date = self._first_coupon_date.to_tensor()
+        if penultimate_coupon_date is not None:
+          penultimate_coupon_date = self._penultimate_coupon_date.to_tensor()
+          coupon_dates = schedule_fn(
+              start_date=self._start_date.to_tensor(),
+              end_date=self._end_date.to_tensor(),
+              coupon_frequency=coupon_frequency.quantity(),
+              settlement_days=self._settlement_days,
+              first_coupon_date=first_coupon_date,
+              penultimate_coupon_date=penultimate_coupon_date)
 
-      self._batch_shape = coupon_dates.shape.as_list()[:-1]
+      # Convert to DateTensor if the result comes from a tf.function
+      coupon_dates = dateslib.convert_to_date_tensor(coupon_dates)
+
+      self._batch_shape = tf.shape(coupon_dates.ordinal())[:-1]
       payment_dates = coupon_dates[..., 1:]
 
-      daycount_fractions = daycount_fn(start_date=coupon_dates[..., :-1],
-                                       end_date=coupon_dates[..., 1:],
-                                       dtype=self._dtype)
+      daycount_fractions = daycount_fn(
+          start_date=coupon_dates[..., :-1],
+          end_date=coupon_dates[..., 1:])
 
       coupon_rate = tf.expand_dims(fixed_rate, axis=-1)
 
-      self._num_cashflows = payment_dates.shape.as_list()[-1]
+      self._num_cashflows = tf.shape(payment_dates.ordinal())[-1]
       self._payment_dates = payment_dates
       self._notional = notional
       self._daycount_fractions = daycount_fractions
@@ -236,26 +310,55 @@ class FloatingCashflowStream:
   """Represents a batch of cashflows indexed to a floating rate."""
 
   def __init__(self,
-               start_date: types.DateTensor,
-               end_date: types.DateTensor,
                coupon_spec: coupon_specs.FloatCouponSpecs,
                discount_curve_type: _CurveType,
+               start_date: types.DateTensor = None,
+               end_date: types.DateTensor = None,
+               discount_curve_mask: types.IntTensor = None,
+               rate_index_curves: curve_types_lib.RateIndexCurve = None,
+               reference_mask: types.IntTensor = None,
                first_coupon_date: Optional[types.DateTensor] = None,
                penultimate_coupon_date: Optional[types.DateTensor] = None,
+               schedule_fn: Optional[Callable[..., Any]] = None,
+               schedule: Optional[types.DateTensor] = None,
                dtype: Optional[types.Dtype] = None,
                name: Optional[str] = None):
     """Initializes a batch of floating cashflow streams.
 
     Args:
+      coupon_spec: An instance of `FloatCouponSpecs` specifying the
+        details of the coupon payment for the cashflow stream.
+      discount_curve_type: An instance of `CurveType` or a list of those.
+        If supplied as a list and `discount_curve_mask` is not supplid,
+        the size of the list should be the same as the number of priced
+        instruments.
       start_date: A `DateTensor` of `batch_shape` specifying the starting dates
         of the accrual of the first coupon of the cashflow stream. The shape of
         the input correspond to the number of streams being created.
+        Either this of `schedule` should be supplied
+        Default value: `None`
       end_date: A `DateTensor` of `batch_shape`specifying the end dates for
         accrual of the last coupon in each cashflow stream. The shape of the
         input should be the same as that of `start_date`.
-      coupon_spec: An instance of `FloatCouponSpecs` specifying the
-        details of the coupon payment for the cashflow stream.
-      discount_curve_type: An instance of `CurveType`.
+        Either this of `schedule` should be supplied
+        Default value: `None`
+      discount_curve_mask: An optional integer `Tensor` of values ranging from
+        `0` to `len(discount_curve_type)` and of shape `batch_shape`. Identifies
+        a mapping between `discount_curve_type` list and the underlying
+        instruments.
+        Default value: `None`.
+      rate_index_curves: An instance of `RateIndexCurve` or a list of those.
+        If supplied as a list and `reference_mask` is not supplid,
+        the size of the list should be the same as the number of priced
+        instruments. Defines the index curves for each instrument. If not
+        supplied, `coupon_spec.floating_rate_type` is used to identify the
+        curves.
+        Default value: `None`.
+      reference_mask: An optional integer `Tensor` of values ranging from
+        `0` to `len(rate_index_curves)` and of shape `batch_shape`. Identifies
+        a mapping between `rate_index_curves` list and the underlying
+        instruments.
+        Default value: `None`.
       first_coupon_date: An optional `DateTensor` specifying the payment dates
         of the first coupon of the cashflow stream. Use this input for cashflows
         with irregular first coupon. Should be of the same shape as
@@ -266,6 +369,13 @@ class FloatingCashflowStream:
         stream. Use this input for cashflows with irregular last coupon.
         Should be of the same shape as `end_date`.
         Default value: None which implies regular last coupon.
+      schedule_fn: A callable that accepts `start_date`, `end_date`,
+        `coupon_frequency`, `settlement_days`, `first_coupon_date`, and
+        `penultimate_coupon_date` as `Tensor`s and returns coupon payment
+        days.
+        Default value: `None`.
+      schedule: A `DateTensor` of coupon payment dates.
+        Default value: `None`.
       dtype: `tf.Dtype` of the input and output real `Tensor`s.
         Default value: None which maps to the default dtype inferred by
         TensorFlow.
@@ -279,64 +389,121 @@ class FloatingCashflowStream:
       [
           self._discount_curve_type,
           self._mask
-      ] = process_curve_types(curve_list)
+      ] = process_curve_types(curve_list, discount_curve_mask)
       self._first_coupon_date = None
       self._penultimate_coupon_date = None
-      self._start_date = dateslib.convert_to_date_tensor(start_date)
-      self._end_date = dateslib.convert_to_date_tensor(end_date)
-      if self._first_coupon_date is not None:
-        self._first_coupon_date = dateslib.convert_to_date_tensor(
-            first_coupon_date)
-      if self._penultimate_coupon_date is not None:
-        self._penultimate_coupon_date = dateslib.convert_to_date_tensor(
-            penultimate_coupon_date)
+      if schedule is None:
+        if (start_date is None) or (end_date is None):
+          raise ValueError("If `schedule` is not supplied both "
+                           "`start_date` and `end_date` should be supplied")
+
+      if schedule is None:
+        if isinstance(start_date, tf.Tensor):
+          self._start_date = dateslib.dates_from_tensor(
+              start_date)
+        else:
+          self._start_date = dateslib.convert_to_date_tensor(
+              start_date)
+        if isinstance(start_date, tf.Tensor):
+          self._end_date = dateslib.dates_from_tensor(
+              end_date)
+        else:
+          self._end_date = dateslib.convert_to_date_tensor(
+              end_date)
+        self._first_coupon_date = first_coupon_date
+        self._penultimate_coupon_date = penultimate_coupon_date
+        if self._first_coupon_date is not None:
+          if isinstance(start_date, tf.Tensor):
+            self._first_coupon_date = dateslib.dates_from_tensor(
+                first_coupon_date)
+          else:
+            self._first_coupon_date = dateslib.convert_to_date_tensor(
+                first_coupon_date)
+        if self._penultimate_coupon_date is not None:
+          if isinstance(start_date, tf.Tensor):
+            self._penultimate_coupon_date = dateslib.dates_from_tensor(
+                penultimate_coupon_date)
+          else:
+            self._penultimate_coupon_date = dateslib.convert_to_date_tensor(
+                penultimate_coupon_date)
       # Ignored and weekends only is used
       calendar = dateslib.create_holiday_calendar(
           weekend_mask=dateslib.WeekendMask.SATURDAY_SUNDAY)
       # Convert coupon and reset frequencies to PeriodTensor
-      coupon_frequency = coupon_spec.coupon_frequency
-      if isinstance(coupon_frequency, (period_pb2.Period, list, tuple)):
+      coupon_frequency = _get_attr(coupon_spec, "coupon_frequency")
+      # Update coupon frequency
+      if isinstance(coupon_frequency, period_pb2.Period):
         coupon_frequency = market_data_utils.get_period(
-            coupon_spec.coupon_frequency)
-      reset_frequency = coupon_spec.reset_frequency
-      if isinstance(reset_frequency, (period_pb2.Period, list, tuple)):
+            _get_attr(coupon_spec, "coupon_frequency"))
+      if isinstance(coupon_frequency, (list, tuple)):
+        coupon_frequency = market_data_utils.period_from_list(
+            *_get_attr(coupon_spec, "coupon_frequency"))
+      if isinstance(coupon_frequency, dict):
+        coupon_frequency = market_data_utils.period_from_dict(
+            _get_attr(coupon_spec, "coupon_frequency"))
+      # Update reset frequency
+      reset_frequency = _get_attr(coupon_spec, "reset_frequency")
+      if isinstance(reset_frequency, period_pb2.Period):
         reset_frequency = market_data_utils.get_period(
-            coupon_spec.reset_frequency)
+            _get_attr(coupon_spec, "reset_frequency"))
+      if isinstance(reset_frequency, (list, tuple)):
+        reset_frequency = market_data_utils.period_from_list(
+            *_get_attr(coupon_spec, "reset_frequency"))
+      if isinstance(reset_frequency, dict):
+        reset_frequency = market_data_utils.period_from_dict(
+            _get_attr(coupon_spec, "reset_frequency"))
       self._reset_frequency = reset_frequency
-      businessday_rule = coupon_spec.businessday_rule
+      businessday_rule = _get_attr(coupon_spec, "businessday_rule")
       roll_convention, eom = market_data_utils.get_business_day_convention(
           businessday_rule)
       notional = tf.convert_to_tensor(
-          coupon_spec.notional_amount,
+          _get_attr(coupon_spec, "notional_amount"),
           dtype=dtype,
           name="notional")
       self._dtype = dtype or notional.dtype
 
-      daycount_convention = coupon_spec.daycount_convention
+      daycount_convention = _get_attr(coupon_spec, "daycount_convention")
+
       daycount_fn = market_data_utils.get_daycount_fn(
-          coupon_spec.daycount_convention)
+          _get_attr(coupon_spec, "daycount_convention"), self._dtype)
       self._daycount_convention = daycount_convention
 
       self._settlement_days = tf.convert_to_tensor(
-          coupon_spec.settlement_days,
+          _get_attr(coupon_spec, "settlement_days"),
           dtype=tf.int32,
           name="settlement_days")
-      spread = tf.convert_to_tensor(coupon_spec.spread,
+      spread = tf.convert_to_tensor(_get_attr(coupon_spec, "spread"),
                                     dtype=self._dtype,
                                     name="spread")
-
-      coupon_dates = _generate_schedule(
-          start_date=self._start_date,
-          end_date=self._end_date,
-          coupon_frequency=coupon_frequency,
-          roll_convention=roll_convention,
-          calendar=calendar,
-          settlement_days=self._settlement_days,
-          end_of_month=eom,
-          first_coupon_date=self._first_coupon_date,
-          penultimate_coupon_date=self._penultimate_coupon_date)
+      if schedule is not None:
+        coupon_dates = dateslib.convert_to_date_tensor(schedule)
+      elif schedule_fn is None:
+        coupon_dates = _generate_schedule(
+            start_date=self._start_date,
+            end_date=self._end_date,
+            coupon_frequency=coupon_frequency,
+            roll_convention=roll_convention,
+            calendar=calendar,
+            settlement_days=self._settlement_days,
+            end_of_month=eom,
+            first_coupon_date=self._first_coupon_date,
+            penultimate_coupon_date=self._penultimate_coupon_date)
+      else:
+        if first_coupon_date is not None:
+          first_coupon_date = self._first_coupon_date.to_tensor()
+        if penultimate_coupon_date is not None:
+          penultimate_coupon_date = self._penultimate_coupon_date.to_tensor()
+          coupon_dates = schedule_fn(
+              start_date=self._start_date.to_tensor(),
+              end_date=self._end_date.to_tensor(),
+              coupon_frequency=coupon_frequency.quantity(),
+              settlement_days=self._settlement_days,
+              first_coupon_date=first_coupon_date,
+              penultimate_coupon_date=penultimate_coupon_date)
+      # Convert to DateTensor if the result comes from a tf.function
+      coupon_dates = dateslib.convert_to_date_tensor(coupon_dates)
       # Extract batch shape
-      self._batch_shape = coupon_dates.shape.as_list()[:-1]
+      self._batch_shape = tf.shape(coupon_dates.ordinal())[:-1]
 
       accrual_start_dates = coupon_dates[..., :-1]
 
@@ -353,10 +520,9 @@ class FloatingCashflowStream:
            coupon_end_dates[..., -1:]], axis=-1)
       daycount_fractions = daycount_fn(
           start_date=coupon_start_dates,
-          end_date=coupon_end_dates,
-          dtype=self._dtype)
+          end_date=coupon_end_dates)
 
-      self._num_cashflows = daycount_fractions.shape.as_list()[-1]
+      self._num_cashflows = tf.shape(daycount_fractions)[-1]
       self._coupon_start_dates = coupon_start_dates
       self._coupon_end_dates = coupon_end_dates
       self._accrual_start_date = accrual_start_dates
@@ -364,21 +530,23 @@ class FloatingCashflowStream:
       self._notional = notional
       self._daycount_fractions = daycount_fractions
       self._spread = spread
-      self._currency = coupon_spec.currency
+      self._currency = _get_attr(coupon_spec, "currency")
       self._daycount_fn = daycount_fn
       # Construct the reference curve object
       # Extract all rate_curves
-      self._floating_rate_type = to_list(coupon_spec.floating_rate_type)
+      self._floating_rate_type = to_list(
+          _get_attr(coupon_spec, "floating_rate_type"))
       self._currency = to_list(self._currency)
-      rate_index_curves = []
-      for currency, floating_rate_type in zip(self._currency,
-                                              self._floating_rate_type):
-        rate_index_curves.append(curve_types_lib.RateIndexCurve(
-            currency=currency, index=floating_rate_type))
+      if rate_index_curves is None:
+        rate_index_curves = []
+        for currency, floating_rate_type in zip(self._currency,
+                                                self._floating_rate_type):
+          rate_index_curves.append(curve_types_lib.RateIndexCurve(
+              currency=currency, index=floating_rate_type))
       [
           self._reference_curve_type,
           self._reference_mask
-      ] = process_curve_types(rate_index_curves)
+      ] = process_curve_types(rate_index_curves, reference_mask)
 
   def daycount_fn(self) -> Callable[..., Any]:
     return self._daycount_fn
@@ -667,7 +835,8 @@ def _get_fixings(start_dates,
 
 def process_curve_types(
     curve_types: List[Union[curve_types_lib.RiskFreeCurve,
-                            curve_types_lib.RateIndexCurve]]
+                            curve_types_lib.RateIndexCurve]],
+    mask=None
     ) -> Tuple[
         List[Union[curve_types_lib.RiskFreeCurve,
                    curve_types_lib.RateIndexCurve]],
@@ -679,19 +848,36 @@ def process_curve_types(
   curve_types = [RiskFreeCurve("USD"), RiskFreeCurve("AUD"),
                  RiskFreeCurve("USD")]
   process_curve_types(curve_types)
-  # Returns [RiskFreeCurve("USD"), RiskFreeCurve("AUD")], [0, 1, 0]
+  # Returns [RiskFreeCurve("AUD"), RiskFreeCurve("USD")], [1, 0, 1]
   ```
   Args:
     curve_types: A list of either `RiskFreeCurve` or `RateIndexCurve`.
+    mask: An optional integer mask for the sorted curve type sequence. If
+      supplied, `curve_types` as sorted and deduplicated but the mask is not
+      computed.
 
   Returns:
     A list of unique curves in `curve_types` and a list of integers which is the
     mask of `curve_types`.
   """
+  def _get_signature(curve):
+    """Converts curve infromation to a string."""
+    if isinstance(curve, curve_types_lib.RiskFreeCurve):
+      return curve.currency.value
+    elif isinstance(curve, curve_types_lib.RateIndexCurve):
+      return (curve.currency.value + "_" + curve.index.type.value
+              + "_" + "_".join(curve.index.source)
+              + "_" + "_".join(curve.index.name))
+    else:
+      raise ValueError(f"{type(curve)} is not supported.")
   curve_list = to_list(curve_types)
-  curve_hash = [hash(curve_type) for curve_type in curve_list]
+  sorted_curves = sorted([(_get_signature(c), c) for c in curve_list])
+  sorted_curves = [curve[1] for curve in sorted_curves]
+  if mask is not None:
+    return sorted_curves, mask
+  curve_hash = [hash(curve_type) for curve_type in sorted_curves]
   hash_discount_map = {
-      hash(curve_type): curve_type for curve_type in curve_list}
+      hash(curve_type): curve_type for curve_type in sorted_curves}
   mask, mask_map, num_unique_discounts = create_mask(curve_hash)
   discount_curve_types = [
       hash_discount_map[mask_map[i]]
@@ -728,5 +914,13 @@ def to_list(x):
     return x
   else:
     return [x]
+
+
+def _get_attr(obj, key):
+  if isinstance(obj, dict):
+    return obj[key]
+  else:
+    return obj.__getattribute__(key)
+
 
 __all__ = ["FixedCashflowStream", "FloatingCashflowStream"]

@@ -160,5 +160,19 @@ class InterestRateSwapTest(tf.test.TestCase):
     with self.subTest("DeltaBatch"):
       self.assertAllClose(delta1, expected1)
 
+  def test_create_constructor_args_price(self):
+    """Creates and prices swap from a dictionary representation."""
+
+    swaps_dict = interest_rate_swap.InterestRateSwap.create_constructor_args(
+        [self._swap_1, self._swap_2, self._swap_1])
+    market = market_data.MarketDataDict(
+        self._valuation_date,
+        self._market_data_dict,
+        config=self._rate_config)
+    swaps = interest_rate_swap.InterestRateSwap(**list(swaps_dict.values())[0])
+    price1 = swaps.price(market)
+    expected1 = np.array([7655.98694587, 6569.04475892, 7655.98694587])
+    self.assertAllClose(price1, expected1)
+
 if __name__ == "__main__":
   tf.test.main()

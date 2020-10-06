@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Cashflow stream coupons."""
-from typing import List, Union
+from typing import Any, Callable, List, Union
 
 import dataclasses
 import tensorflow.compat.v2 as tf
@@ -45,7 +45,8 @@ class FixedCouponSpecs:
   coupon_frequency: types.Period
   notional_amount: Union[tf.Tensor, List[float]]
   fixed_rate: Union[tf.Tensor, List[float]]
-  daycount_convention: types.DayCountConventionsProtoType
+  daycount_convention: Union[types.DayCountConventionsProtoType,
+                             Callable[..., Any]]
   businessday_rule: types.BusinessDayConventionProtoType
   settlement_days: Union[int, List[int]]
   calendar: types.BankHolidaysProtoType
@@ -79,7 +80,8 @@ class FloatCouponSpecs:
   coupon_frequency: types.Period
   notional_amount: Union[tf.Tensor, List[float]]
   floating_rate_type: rate_indices.RateIndex
-  daycount_convention: types.DayCountConventionsProtoType
+  daycount_convention: Union[types.DayCountConventionsProtoType,
+                             Callable[..., Any]]
   businessday_rule: types.BusinessDayConventionProtoType
   settlement_days: Union[int, List[int]]
   spread: Union[tf.Tensor, List[tf.Tensor]]

@@ -15,18 +15,152 @@
 """Utilities for creating a swap instrument."""
 import hashlib
 import json
-
 from typing import Any, Dict, List, Tuple, Union
+
+import tensorflow as tf
 
 from tf_quant_finance import datetime as dateslib
 from tf_quant_finance.experimental.pricing_platform.framework.core import business_days
 from tf_quant_finance.experimental.pricing_platform.framework.core import currencies
+from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types as curve_types_lib
 from tf_quant_finance.experimental.pricing_platform.framework.core import daycount_conventions
 from tf_quant_finance.experimental.pricing_platform.framework.core import rate_indices
 from tf_quant_finance.experimental.pricing_platform.framework.market_data import utils as market_data_utils
+from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import cashflow_streams
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import coupon_specs
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import utils as instrument_utils
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import interest_rate_swap_pb2 as ir_swap
+
+
+def fixed_leg_tensor_repr(leg, swap_config, dtype):
+  """Creates tensor representation for a fixed leg of a swap."""
+  res = {}
+  coupon_spec = {}
+  currency_list = cashflow_streams.to_list(leg.currency)
+  discount_curve_type = []
+  for currency in currency_list:
+    if swap_config is not None:
+      if currency in swap_config.discounting_curve:
+        discount_curve = swap_config.discounting_curve[currency]
+        discount_curve_type.append(discount_curve)
+      else:
+        risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
+        discount_curve_type.append(risk_free)
+    else:
+      # Default discounting is the risk free curve
+      risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
+      discount_curve_type.append(risk_free)
+  discount_curve_type, mask = cashflow_streams.process_curve_types(
+      discount_curve_type)
+  res["discount_curve_mask"] = tf.convert_to_tensor(mask, dtype=tf.int32)
+  res["discount_curve_type"] = discount_curve_type
+  coupon_frequency = tf.convert_to_tensor(
+      leg.coupon_frequency[1], tf.int32)
+  coupon_spec["coupon_frequency"] = {
+      "type": leg.coupon_frequency[0],
+      "frequency": coupon_frequency}
+  coupon_spec["fixed_rate"] = tf.convert_to_tensor(
+      leg.fixed_rate, dtype=dtype)
+  coupon_spec["notional_amount"] = tf.convert_to_tensor(
+      leg.notional_amount, dtype=dtype)
+  coupon_spec["settlement_days"] = tf.convert_to_tensor(
+      leg.settlement_days, dtype=tf.int32)
+  coupon_spec["calendar"] = leg.calendar
+  coupon_spec["currency"] = [curve.currency for curve in discount_curve_type]
+  coupon_spec["daycount_convention"] = leg.daycount_convention
+  coupon_spec["businessday_rule"] = leg.businessday_rule
+  res["coupon_spec"] = coupon_spec
+  return res
+
+
+def floating_leg_tensor_repr(leg, swap_config, dtype):
+  """Creates tensor representation for a floating leg of a swap."""
+  res = {}
+  coupon_spec = {}
+  currency_list = cashflow_streams.to_list(leg.currency)
+  discount_curve_type = []
+  for currency in currency_list:
+    if swap_config is not None:
+      if currency in swap_config.discounting_curve:
+        discount_curve = swap_config.discounting_curve[currency]
+        discount_curve_type.append(discount_curve)
+      else:
+        risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
+        discount_curve_type.append(risk_free)
+    else:
+      # Default discounting is the risk free curve
+      risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
+      discount_curve_type.append(risk_free)
+  discount_curve_type, mask = cashflow_streams.process_curve_types(
+      discount_curve_type)
+  res["discount_curve_mask"] = tf.convert_to_tensor(mask, dtype=tf.int32)
+  res["discount_curve_type"] = discount_curve_type
+  # Get coupon frequency
+  coupon_frequency = tf.convert_to_tensor(
+      leg.coupon_frequency[1], tf.int32, name="floating_coupon_frequency")
+  coupon_spec["coupon_frequency"] = {
+      "type": leg.coupon_frequency[0],
+      "frequency": coupon_frequency}
+  # Get reset frequency
+  reset_frequency = tf.convert_to_tensor(
+      leg.reset_frequency[1], tf.int32)
+  coupon_spec["reset_frequency"] = {
+      "type": leg.reset_frequency[0],
+      "frequency": reset_frequency}
+  floating_rate_type = cashflow_streams.to_list(leg.floating_rate_type)
+  rate_index_curves = []
+  for currency, floating_rate_type in zip(currency_list, floating_rate_type):
+    rate_index_curves.append(curve_types_lib.RateIndexCurve(
+        currency=currency, index=floating_rate_type))
+  [
+      rate_index_curves,
+      reference_mask
+  ] = cashflow_streams.process_curve_types(rate_index_curves)
+  res["reference_mask"] = tf.convert_to_tensor(reference_mask, tf.int32)
+  res["rate_index_curves"] = rate_index_curves
+  coupon_spec["notional_amount"] = tf.convert_to_tensor(
+      leg.notional_amount, dtype=dtype)
+  coupon_spec["settlement_days"] = tf.convert_to_tensor(
+      leg.settlement_days, dtype=tf.int32, name="settlement_days")
+  coupon_spec["calendar"] = leg.calendar
+  coupon_spec["currency"] = [curve.currency for curve in discount_curve_type]
+  coupon_spec["daycount_convention"] = leg.daycount_convention
+  coupon_spec["businessday_rule"] = leg.businessday_rule
+  coupon_spec["floating_rate_type"] = rate_index_curves
+  coupon_spec["spread"] = tf.convert_to_tensor(
+      leg.spread, dtype=dtype)
+  res["coupon_spec"] = coupon_spec
+  return res
+
+
+def tensor_repr(swap_data, dtype=None):
+  """Creates a tensor representation of the swap."""
+  dtype = dtype or tf.float64
+  res = dict()
+  res["start_date"] = tf.convert_to_tensor(swap_data["start_date"],
+                                           dtype=tf.int32)
+  res["maturity_date"] = tf.convert_to_tensor(swap_data["maturity_date"],
+                                              dtype=tf.int32)
+  res["swap_config"] = swap_data["swap_config"]
+  res["batch_names"] = swap_data["batch_names"]
+  # Update pay_leg
+  pay_leg = swap_data["pay_leg"]
+  receive_leg = swap_data["receive_leg"]
+  if pay_leg.currency != receive_leg.currency:
+    raise ValueError("Pay and receive legs should have the same currency")
+  if isinstance(pay_leg, coupon_specs.FixedCouponSpecs):
+    res["pay_leg"] = fixed_leg_tensor_repr(
+        pay_leg, res["swap_config"], dtype)
+  else:
+    res["pay_leg"] = floating_leg_tensor_repr(
+        pay_leg, res["swap_config"], dtype)
+  if isinstance(receive_leg, coupon_specs.FixedCouponSpecs):
+    res["receive_leg"] = fixed_leg_tensor_repr(
+        receive_leg, res["swap_config"], dtype)
+  else:
+    res["receive_leg"] = floating_leg_tensor_repr(
+        receive_leg, res["swap_config"], dtype)
+  return res
 
 
 def leg_from_proto(
