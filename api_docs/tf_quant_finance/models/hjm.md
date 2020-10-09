@@ -6,27 +6,26 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2020-10-09.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.datetime.year" />
+<meta itemprop="name" content="tf_quant_finance.models.hjm" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.datetime.year
+# Module: tf_quant_finance.models.hjm
 
 <!-- Insert buttons and diff -->
 
 <table class="tfo-notebook-buttons tfo-api" align="left">
 </table>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/datetime/periods.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/hjm/__init__.py">View source</a>
 
 
 
-
-
-```python
-tf_quant_finance.datetime.year()
-```
+HJM model.
 
 
 
-<!-- Placeholder for "Used in" -->
+## Classes
+
+[`class QuasiGaussianHJM`](../../tf_quant_finance/models/hjm/QuasiGaussianHJM.md): Quasi-Gaussian HJM model for term-structure modeling.
+

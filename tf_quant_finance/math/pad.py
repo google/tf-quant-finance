@@ -105,3 +105,9 @@ def pad_date_tensors(date_tensors, name=None):
                 for t in date_tensors]
     padded_tensors = pad_tensors(ordinals)
     return [date_tensor.from_ordinals(p) for p in padded_tensors]
+
+
+__all__ = [
+    "pad_tensors",
+    "pad_date_tensors"
+]
