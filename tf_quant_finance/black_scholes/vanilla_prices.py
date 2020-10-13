@@ -336,7 +336,7 @@ def barrier_price(*,
           discount_rates, dtype=dtype, name='discount_rates')
     else:
       discount_rates = tf.convert_to_tensor(
-          1, dtype=dtype, name='discount_rates')
+          0.0, dtype=dtype, name='discount_rates')
 
     if continuous_dividends is None:
       continuous_dividends = tf.convert_to_tensor(
