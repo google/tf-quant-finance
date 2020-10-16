@@ -99,11 +99,10 @@ def bs_lsm_price(
     max_time = tf.reduce_max(expiry_times)
 
     # Get a grid of 100 exercise times + all expiry times
-    unique_expiry = tf.unique(expiry_times).y
     times = tf.sort(tf.concat([tf.linspace(tf.constant(0.0, dtype),
                                            max_time,
                                            num_exercise_times),
-                               unique_expiry], axis=0))
+                               expiry_times], axis=0))
     # Samples for all options
     samples = gbm.sample_paths(
         times,
@@ -139,11 +138,11 @@ def bs_lsm_price(
 
     # Set up Longstaff-Schwartz algorithm
     def lsm_price(sample_paths):
-      num_times = int(times.shape[0])
+      exercise_times = tf.range(tf.shape(times)[0])
       # This is Longstaff-Schwartz algorithm
       return lsm_algorithm.least_square_mc_v2(
           sample_paths=sample_paths,
-          exercise_times=list(range(num_times)),
+          exercise_times=exercise_times,
           payoff_fn=_payoff_fn,
           basis_fn=basis_fn,
           discount_factors=tf.math.exp(
