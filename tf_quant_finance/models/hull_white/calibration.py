@@ -118,8 +118,8 @@ def calibration_from_swaptions(*,
       reference_rate_fn=zero_rate_fn,
       notional=100.,
       dim=1,
-      mean_reversion=self.mean_reversion,
-      volatility=hw_vol,
+      mean_reversion=mean_reversion,
+      volatility=volatility,
       use_analytic_pricing=True,
       dtype=dtype)
 
@@ -136,7 +136,6 @@ def calibration_from_swaptions(*,
       notional=100.,
       mean_reversion=[0.01],  # Initial guess for mean reversion rate
       volatility=[0.005],  # Initial guess for volatility
-      optimizer_fn=optimizer_fn,
       maximum_iterations=50,
       dtype=dtype)
   # Expected calibrated_model.mean_reversion.values(): [0.03]
@@ -366,7 +365,6 @@ def calibration_from_swaptions(*,
 
       value = tf.math.reduce_sum(
           (_scale(model_prices, price_lb, price_ub)-scaled_prices)**2)
-      print(x_mr, x_vol, value)
       return value
 
     optimization_result = optimizer_fn(

@@ -49,29 +49,30 @@ def implied_vol(*,
 
   #### Examples
   ```python
+  import numpy as np
+  import tf_quant_finance as tff
   forwards = np.array([1.0, 1.0, 1.0, 1.0])
   strikes = np.array([1.0, 2.0, 1.0, 0.5])
-  expiries = np.array([1.0, 1.0, 1.0, 1.0])
-  discount_factors = np.array([1.0, 1.0, 1.0, 1.0])
-  option_signs = np.array([1.0, 1.0, -1.0, -1.0])
-  volatilities = np.array([1.0, 1.0, 1.0, 1.0])
-  prices = black_scholes.option_price(
-      forwards,
-      strikes,
-      volatilities,
-      expiries,
+  expiries = np.array([1.0, 2.0, 1.0, 3.0])
+  discount_factors = np.array([0.95, 0.9, 0.95, 0.8])
+  is_call_options = np.array([True, True, False, False])
+  volatilities = np.array([0.5, 0.3, 0.2, 1.0])
+  prices = tff.black_scholes.option_price(
+      volatilities=volatilities,
+      strikes=strikes,
+      expiries=expiries,
+      forwards=forwards,
       discount_factors=discount_factors,
       is_call_options=is_call_options)
-  implied_vols = newton_vol.implied_vol(forwards,
-                                        strikes,
-                                        expiries,
-                                        discount_factors,
-                                        prices,
-                                        option_signs)
-  with tf.Session() as session:
-    print(session.run(implied_vols[0]))
+  implied_vols = tff.black_scholes.implied_vol(
+      prices=prices,
+      strikes=strikes,
+      expiries=expiries,
+      forwards=forwards,
+      discount_factors=discount_factors,
+      is_call_options=is_call_options)
   # Expected output:
-  # [ 1.  1.  1.  1.]
+  # [0.5, 0.3, 0.2, 1.0]
 
   Args:
     prices: A real `Tensor` of any shape. The prices of the options whose
