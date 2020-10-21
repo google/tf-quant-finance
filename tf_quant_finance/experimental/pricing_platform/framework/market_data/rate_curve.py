@@ -152,13 +152,20 @@ class RateCurve(pmd.RateCurve):
     self._discount_factor_nodes = values
 
   def discount_rate(self,
-                    interpolation_dates: types.DateTensor,
+                    interpolation_dates: Optional[types.DateTensor] = None,
+                    interpolation_times: Optional[types.FloatTensor] = None,
                     name: Optional[str] = None):
     """Returns interpolated rates at `interpolation_dates`."""
 
-    interpolation_dates = dateslib.convert_to_date_tensor(
-        interpolation_dates)
-    times = self._get_time(interpolation_dates)
+    if interpolation_dates is None and interpolation_times is None:
+      raise ValueError("Either interpolation_dates or interpolation times "
+                       "must be supplied.")
+    if interpolation_dates is not None:
+      interpolation_dates = dateslib.convert_to_date_tensor(
+          interpolation_dates)
+      times = self._get_time(interpolation_dates)
+    else:
+      times = tf.convert_to_tensor(interpolation_times, self._dtype)
     rates = self._interpolator(times, self._times,
                                self.discount_rate_nodes)
     if self._interpolate_rates:
@@ -172,13 +179,20 @@ class RateCurve(pmd.RateCurve):
     return tf.identity(rates, name=name or "discount_rate")
 
   def discount_factor(self,
-                      interpolation_dates: types.DateTensor,
+                      interpolation_dates: Optional[types.DateTensor] = None,
+                      interpolation_times: Optional[types.FloatTensor] = None,
                       name: Optional[str] = None):
     """Returns discount factors at `interpolation_dates`."""
 
-    interpolation_dates = dateslib.convert_to_date_tensor(
-        interpolation_dates)
-    times = self._get_time(interpolation_dates)
+    if interpolation_dates is None and interpolation_times is None:
+      raise ValueError("Either interpolation_dates or interpolation times "
+                       "must be supplied.")
+    if interpolation_dates is not None:
+      interpolation_dates = dateslib.convert_to_date_tensor(
+          interpolation_dates)
+      times = self._get_time(interpolation_dates)
+    else:
+      times = tf.convert_to_tensor(interpolation_times, self._dtype)
     if self._interpolate_rates:
       rates = self._interpolator(times, self._times,
                                  self.discount_rate_nodes)
@@ -190,17 +204,28 @@ class RateCurve(pmd.RateCurve):
 
   def forward_rate(
       self,
-      start_date: types.DateTensor,
-      maturity_date: types.DateTensor,
+      start_date: Optional[types.DateTensor] = None,
+      maturity_date: Optional[types.DateTensor] = None,
+      start_time: Optional[types.FloatTensor] = None,
+      maturity_time: Optional[types.FloatTensor] = None,
       day_count_fraction: Optional[tf.Tensor] = None):
     """Returns the simply accrued forward rate between [start_dt, maturity_dt].
 
     Args:
       start_date: A `DateTensor` specifying the start of the accrual period
-        for the forward rate.
+        for the forward rate. The function expects either `start_date` or
+        `start_time` to be specified.
       maturity_date: A `DateTensor` specifying the end of the accrual period
-        for the forward rate. The shape of `maturity_date` must be the same
-        as the shape of the `DateTensor` `start_date`.
+        for the forward rate. The shape of `end_date` must be broadcastable
+        with the shape of `start_date`. The function expects either `end_date`
+        or `end_time` to be specified.
+      start_time: A real `Tensor` specifying the start of the accrual period
+        for the forward rate. The function expects either `start_date` or
+        `start_time` to be specified.
+      maturity_time: A real `Tensor` specifying the end of the accrual period
+        for the forward rate. The shape of `end_date` must be broadcastable
+        with the shape of `start_date`. The function expects either `end_date`
+        or `end_time` to be specified.
       day_count_fraction: An optional `Tensor` of real dtype specifying the
         time between `start_date` and `maturity_date` in years computed using
         the forward rate's day count basis. The shape of the input should be
@@ -212,18 +237,33 @@ class RateCurve(pmd.RateCurve):
       A real `Tensor` of same shape as the inputs containing the simply
       compounded forward rate.
     """
-    start_date = dateslib.convert_to_date_tensor(start_date)
-    maturity_date = dateslib.convert_to_date_tensor(maturity_date)
-    if day_count_fraction is None:
-      day_count_fn = self._day_count_fn
-      day_count_fraction = day_count_fn(
-          start_date=start_date, end_date=maturity_date, dtype=self._dtype)
+    if start_date is None and start_time is None:
+      raise ValueError("Either start_date or start_times "
+                       "must be supplied.")
+    if maturity_date is None and maturity_time is None:
+      raise ValueError("Either maturity_date or maturity_time must be "
+                       "supplied.")
+
+    if start_date is not None and maturity_date is not None:
+      start_date = dateslib.convert_to_date_tensor(start_date)
+      maturity_date = dateslib.convert_to_date_tensor(maturity_date)
+      if day_count_fraction is None:
+        day_count_fn = self._day_count_fn
+        day_count_fraction = day_count_fn(
+            start_date=start_date, end_date=maturity_date, dtype=self._dtype)
+      else:
+        day_count_fraction = tf.convert_to_tensor(day_count_fraction,
+                                                  self._dtype,
+                                                  name="day_count_fraction")
+      start_time = self._get_time(start_date)
+      maturity_time = self._get_time(maturity_date)
     else:
-      day_count_fraction = tf.convert_to_tensor(day_count_fraction,
-                                                self._dtype,
-                                                name="day_count_fraction")
-    dfstart = self.discount_factor(start_date)
-    dfmaturity = self.discount_factor(maturity_date)
+      start_time = tf.convert_to_tensor(start_time, dtype=self._dtype)
+      maturity_time = tf.convert_to_tensor(maturity_time, dtype=self._dtype)
+      day_count_fraction = maturity_time - start_time
+
+    dfstart = self.discount_factor(interpolation_times=start_time)
+    dfmaturity = self.discount_factor(interpolation_times=maturity_time)
     return (dfstart / dfmaturity - 1.) / day_count_fraction
 
   @property

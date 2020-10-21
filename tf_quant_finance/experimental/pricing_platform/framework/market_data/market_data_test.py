@@ -101,7 +101,7 @@ class MarketDataTest(tf.test.TestCase):
     vol_surface = market.volatility_surface(["GOOG", "GOOG"])
     expiry = tff.datetime.dates_from_year_month_day(
         year=[[2023], [2030]], month=[[5], [10]], day=[[10], [15]])
-    vols = vol_surface.volatility(expiry, [[1510], [1520]])
+    vols = vol_surface.volatility(expiry_dates=expiry, strike=[[1510], [1520]])
     self.assertAllClose(
         self.evaluate(vols), [[0.108], [0.31]], atol=1e-6)
 

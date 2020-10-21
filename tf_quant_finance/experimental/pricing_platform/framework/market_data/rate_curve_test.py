@@ -45,14 +45,34 @@ class RateCurveTest(tf.test.TestCase, parameterized.TestCase):
   def test_rate_curve(self):
     curve = build_cuve()
     values = self.evaluate(
-        curve.discount_rate([(2020, 6, 16), (2021, 6, 1), (2025, 1, 1)]))
+        curve.discount_rate(interpolation_dates=
+                            [(2020, 6, 16), (2021, 6, 1), (2025, 1, 1)]))
     np.testing.assert_allclose(values,
                                [0.00017471, 0.05022863, 0.05268026], atol=1e-6)
 
   def test_discount_factor(self):
     curve = build_cuve()
     values = self.evaluate(
-        curve.discount_factor([(2020, 6, 16), (2021, 6, 1), (2025, 1, 1)]))
+        curve.discount_factor(interpolation_dates=
+                              [(2020, 6, 16), (2021, 6, 1), (2025, 1, 1)]))
+    np.testing.assert_allclose(values,
+                               [0.99999952, 0.95284594, 0.78683929], atol=1e-6)
+
+  def test_rate_curve_time(self):
+    curve = build_cuve()
+    interpolation_times = curve._get_time(
+        [(2020, 6, 16), (2021, 6, 1), (2025, 1, 1)])
+    values = self.evaluate(
+        curve.discount_rate(interpolation_times=interpolation_times))
+    np.testing.assert_allclose(values,
+                               [0.00017471, 0.05022863, 0.05268026], atol=1e-6)
+
+  def test_discount_factor_time(self):
+    curve = build_cuve()
+    interpolation_times = curve._get_time(
+        [(2020, 6, 16), (2021, 6, 1), (2025, 1, 1)])
+    values = self.evaluate(
+        curve.discount_factor(interpolation_times=interpolation_times))
     np.testing.assert_allclose(values,
                                [0.99999952, 0.95284594, 0.78683929], atol=1e-6)
 
@@ -65,9 +85,9 @@ class RateCurveTest(tf.test.TestCase, parameterized.TestCase):
         dtype=tf.float64)
     values = self.evaluate(
         curve.forward_rate(
-            start_dates,
-            maturity_dates,
-            day_count_fraction))
+            start_date=start_dates,
+            maturity_date=maturity_dates,
+            day_count_fraction=day_count_fraction))
     np.testing.assert_allclose(values,
                                [0.0029773, 0.07680459, 0.05290519], atol=1e-6)
 
@@ -79,8 +99,8 @@ class RateCurveTest(tf.test.TestCase, parameterized.TestCase):
                       (2020, 12, 18), (2025, 3, 1)]
     values = self.evaluate(
         curve.forward_rate(
-            start_dates,
-            maturity_dates))
+            start_date=start_dates,
+            maturity_date=maturity_dates))
     np.testing.assert_allclose(
         values,
         [0.0512969, 0.0512969, 0.05173552, 0.05290519], atol=1e-6)

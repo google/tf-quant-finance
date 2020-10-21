@@ -253,8 +253,8 @@ class AmericanOption(instrument.Instrument):
       if self._model == "BS-LSM":
         # TODO(b/168798725): volatility should be time-dependent
         vols = vol_surface.volatility(
-            self._expiry_date.expand_dims(axis=-1),
-            tf.expand_dims(self._strike, axis=-1))
+            expiry_dates=self._expiry_date.expand_dims(axis=-1),
+            strike=tf.expand_dims(self._strike, axis=-1))
         prices = utils.bs_lsm_price(
             spots=spots,
             expiry_times=day_count_fn(

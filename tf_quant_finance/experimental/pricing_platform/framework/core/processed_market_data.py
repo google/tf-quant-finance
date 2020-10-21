@@ -33,12 +33,18 @@ class RateCurve(abc.ABC):
 
   @abc.abstractmethod
   def discount_factor(self,
-                      date: types.DateTensor,
+                      date: Optional[types.DateTensor] = None,
+                      time: Optional[types.FloatTensor] = None,
                       **kwargs) -> tf.Tensor:
     """Returns the discount factor to a specified set of dates.
 
     Args:
-      date: The dates at which to evaluate the discount factors.
+      date: Optional input specifying the dates at which to evaluate the
+        discount factors. The function expects either `date` or `time` to be
+        specified.
+      time: Optional input specifying the times at which to evaluate the
+        discount factors. The function expects either `date` or `time` to be
+        specified.
       **kwargs: The context object, e.g., curve_type.
 
     Returns:
@@ -49,17 +55,28 @@ class RateCurve(abc.ABC):
 
   @abc.abstractmethod
   def forward_rate(self,
-                   start_date: types.DateTensor,
-                   end_date: types.DateTensor,
+                   start_date: Optional[types.DateTensor] = None,
+                   end_date: Optional[types.DateTensor] = None,
+                   start_time: Optional[types.FloatTensor] = None,
+                   end_time: Optional[types.FloatTensor] = None,
                    **kwargs) -> tf.Tensor:
     """Returns the simply accrued forward rate between dates.
 
     Args:
       start_date: A `DateTensor` specifying the start of the accrual period
-        for the forward rate.
+        for the forward rate. The function expects either `start_date` or
+        `start_time` to be specified.
       end_date: A `DateTensor` specifying the end of the accrual period
-        for the forward rate. The shape of `maturity_date` must be broadcastable
-        with the shape of `start_date`.
+        for the forward rate. The shape of `end_date` must be broadcastable
+        with the shape of `start_date`. The function expects either `end_date`
+        or `end_time` to be specified.
+      start_time: A real `Tensor` specifying the start of the accrual period
+        for the forward rate. The function expects either `start_date` or
+        `start_time` to be specified.
+      end_time: A real `Tensor` specifying the end of the accrual period
+        for the forward rate. The shape of `end_date` must be broadcastable
+        with the shape of `start_date`. The function expects either `end_date`
+        or `end_time` to be specified.
       **kwargs: The context object, e.g., curve_type.
 
     Returns:
@@ -69,12 +86,18 @@ class RateCurve(abc.ABC):
 
   @abc.abstractmethod
   def discount_rate(self,
-                    date: types.DateTensor,
+                    date: Optional[types.DateTensor] = None,
+                    time: Optional[types.FloatTensor] = None,
                     context=None) -> tf.Tensor:
     """Returns the discount rates to a specified set of dates.
 
     Args:
-      date: The dates at which to evaluate the discount rates.
+      date: A `DateTensor` specifying the dates at which to evaluate the
+        discount rates. The function expects either `date` or `time` to be
+        specified.
+      time: A real `Tensor` specifying the times at which to evaluate the
+        discount rates. The function expects either `date` or `time` to be
+        specified.
       context: The context object, e.g., curve_type.
 
     Returns:
@@ -138,14 +161,20 @@ class VolatilitySurface(abc.ABC):
 
   @abc.abstractmethod
   def volatility(self,
-                 expiry: types.DateTensor,
                  strike: types.FloatTensor,
+                 expiry_dates: Optional[types.DateTensor] = None,
+                 expiry_times: Optional[types.FloatTensor] = None,
                  term: Optional[types.Period] = None) -> types.FloatTensor:
     """Returns the interpolated volatility on a specified set of expiries.
 
     Args:
-      expiry: The expiry dates for which the interpolation is desired.
       strike: The strikes for which the interpolation is desired.
+      expiry_dates: Optional input specifying the expiry dates for which
+        interpolation is desired. The user should supply either `expiry_dates`
+        or `expiry_times` for interpolation.
+      expiry_times: Optional real `Tensor` containing the time to expiration
+        for which interpolation is desired. The user should supply either
+        `expiry_dates` or `expiry_times` for interpolation.
       term: Optional input specifiying the term of the underlying rate for
         which the interpolation is desired. Relevant for interest rate implied
         volatility data.

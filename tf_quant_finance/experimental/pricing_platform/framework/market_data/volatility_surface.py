@@ -88,14 +88,20 @@ class VolatilitySurface(pmd.VolatilitySurface):
           expiry_times, strikes, volatilities, dtype=self._dtype)
 
   def volatility(self,
-                 expiry: types.DateTensor,
                  strike: types.FloatTensor,
+                 expiry_dates: Optional[types.DateTensor] = None,
+                 expiry_times: Optional[types.FloatTensor] = None,
                  term: Optional[types.Period] = None) -> types.FloatTensor:
     """Returns the interpolated volatility on a specified set of expiries.
 
     Args:
-      expiry: The expiry dates for which the interpolation is desired.
       strike: The strikes for which the interpolation is desired.
+      expiry_dates: Optional input specifying the expiry dates for which
+        interpolation is desired. The user should supply either `expiry_dates`
+        or `expiry_times` for interpolation.
+      expiry_times: Optional real `Tensor` containing the time to expiration
+        for which interpolation is desired. The user should supply either
+        `expiry_dates` or `expiry_times` for interpolation.
       term: Optional input specifiying the term of the underlying rate for
         which the interpolation is desired. Relevant for interest rate implied
         volatility data.
@@ -103,13 +109,23 @@ class VolatilitySurface(pmd.VolatilitySurface):
     Returns:
       A `Tensor` of the same shape as `expiry` with the interpolated volatility
       from the volatility surface.
+
+    Raises:
+      ValueError is both `expiry_dates` and `expiry_times`  are specified.
     """
     del term
-    expiry = dateslib.convert_to_date_tensor(expiry)
-    expiries = self._day_count_fn(
-        start_date=self._valuation_date,
-        end_date=expiry,
-        dtype=self._dtype)
+    if expiry_dates is not None and expiry_times is not None:
+      raise ValueError("Unexpected inputs: Both expiry_dates and expiry times "
+                       "are specified")
+
+    if expiry_times is None:
+      expiry_dates = dateslib.convert_to_date_tensor(expiry_dates)
+      expiries = self._day_count_fn(
+          start_date=self._valuation_date,
+          end_date=expiry_dates,
+          dtype=self._dtype)
+    else:
+      expiries = tf.convert_to_tensor(expiry_times, dtype=self._dtype)
     strike = tf.convert_to_tensor(strike, dtype=self._dtype, name="strike")
     return self._interpolator.interpolate(expiries, strike)
 

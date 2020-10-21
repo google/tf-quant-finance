@@ -49,14 +49,14 @@ def build_surface(dim):
 
 
 @test_util.run_all_in_graph_and_eager_modes
-class RateCurveTest(tf.test.TestCase, parameterized.TestCase):
+class VolatilitySurfaceTest(tf.test.TestCase, parameterized.TestCase):
 
   def test_volatility_1d(self):
     vol_surface = build_surface(1)
     expiry = tff.datetime.dates_from_tuples(
         [(2020, 6, 16), (2021, 6, 1), (2025, 1, 1)])
     vols = vol_surface.volatility(
-        expiry.expand_dims(axis=0), [[1525, 1400, 1570]])
+        strike=[[1525, 1400, 1570]], expiry_dates=expiry.expand_dims(axis=0))
     self.assertAllClose(
         self.evaluate(vols),
         [[0.14046875, 0.11547945, 0.1]], atol=1e-6)
@@ -67,7 +67,23 @@ class RateCurveTest(tf.test.TestCase, parameterized.TestCase):
         [[737592, 737942, 739252],
          [737592, 737942, 739252]])
     vols = vol_surface.volatility(
-        expiry, [[1525, 1400, 1570], [1525, 1505, 1570]])
+        strike=[[1525, 1400, 1570], [1525, 1505, 1570]], expiry_dates=expiry)
+    self.assertAllClose(
+        self.evaluate(vols),
+        [[0.14046875, 0.11547945, 0.1],
+         [0.14046875, 0.12300392, 0.1]], atol=1e-6)
+
+  def test_volatility_2d_floats(self):
+    vol_surface = build_surface(2)
+    expiry = tff.datetime.dates_from_ordinals(
+        [[737592, 737942, 739252],
+         [737592, 737942, 739252]])
+    valuation_date = tff.datetime.convert_to_date_tensor([(2020, 6, 24)])
+    expiries = tf.cast(valuation_date.days_until(expiry),
+                       dtype=vol_surface._dtype) / 365.0
+    vols = vol_surface.volatility(
+        strike=[[1525, 1400, 1570], [1525, 1505, 1570]],
+        expiry_times=expiries)
     self.assertAllClose(
         self.evaluate(vols),
         [[0.14046875, 0.11547945, 0.1],
