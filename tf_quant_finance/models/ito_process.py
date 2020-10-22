@@ -90,12 +90,12 @@ class ItoProcess(object):
 
   @abc.abstractmethod
   def volatility_fn(self):
-    """Python callable calculating the instantaneous volatility.
+    """Python callable calculating the instantaneous volatility matrix.
 
-    The callable should accept two real `Tensor` arguments of the same dtype and
-    shape `times_shape`. The first argument is the scalar time t, the second
-    argument is the value of Ito process X as a tensor of shape `batch_shape +
-    [dim]`. The result is volatility at time t and location X: S(t, X). The
+    The callable should accept two real `Tensor` arguments of the same dtype.
+    The first argument is the scalar time t and the second argument is the value
+    of Ito process X as a tensor of shape `batch_shape + [dim]`. The result is
+    the instantaneous volatility matrix at time t and location X: S(t, X). The
     return value of the callable is a real `Tensor` of the same dtype as the
     input arguments and of shape `batch_shape + [dim, dim]`.
     """
