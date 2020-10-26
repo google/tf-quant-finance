@@ -17,6 +17,7 @@
 
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance.math import piecewise
 from tf_quant_finance.math.pde import fd_solvers
 from tf_quant_finance.models import ito_process
 from tf_quant_finance.models import utils
@@ -28,10 +29,11 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
   Represents the 1-dimensional Ito process:
 
   ```None
-    dX(t) = mu * X(t) * dt + sigma * X(t) * dW(t),
+    dX(t) = mu(t) * X(t) * dt + sigma(t) * X(t) * dW(t),
   ```
 
-  where `W(t)` is a 1D Brownian motion, `mu` and `sigma` are constant `Tensor`s.
+  where `W(t)` is a 1D Brownian motion, `mu(t)` and `sigma(t)` are either
+  constant `Tensor`s or piecewise constant functions of time.
 
   ## Example
 
@@ -53,9 +55,11 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
     """Initializes the Geometric Brownian Motion.
 
     Args:
-      mu: Scalar real `Tensor`. Corresponds to the mean of the Ito process.
-      sigma: Scalar real `Tensor` of the same `dtype` as `mu`. Corresponds to
-        the volatility of the process.
+      mu: Scalar real `Tensor` or an instance of batch-free left-continuous
+        `PiecewiseConstantFunc`. Corresponds to the mean of the Ito process.
+      sigma: Scalar real `Tensor` or an instance of batch-free left-continuous
+        `PiecewiseConstantFunc` of the same `dtype` as `mu`. Corresponds to
+        the volatility of the process and should be positive.
       dtype: The default dtype to use when converting values to `Tensor`s.
         Default value: `None` which means that default dtypes inferred by
           TensorFlow are used.
@@ -65,9 +69,16 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
     """
     self._name = name or "geometric_brownian_motion"
     with tf.name_scope(self._name):
-      self._mu = tf.convert_to_tensor(mu, dtype=dtype, name="mu")
-      self._dtype = self._mu.dtype
-      self._sigma = tf.convert_to_tensor(sigma, dtype=self._dtype, name="sigma")
+      self._mu, self._mu_is_constant = self._tensor_or_func(
+          mu, dtype=dtype, name="mu")
+      self._dtype = dtype or self._mu.dtype
+      self._sigma, self._sigma_is_constant = self._tensor_or_func(
+          sigma, dtype=self._dtype, name="sigma")
+      self._sigma_squared = self._sigma_squared_from_sigma(
+          self._sigma,
+          self._sigma_is_constant,
+          dtype=self._dtype,
+          name="sigma_squared")
       self._dim = 1
 
   def dim(self):
@@ -82,22 +93,41 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
     """The name to give to ops created by this class."""
     return self._name
 
+  def drift_is_constant(self):
+    """Returns True if the drift of the process is a constant."""
+    return self._mu_is_constant
+
+  def volatility_is_constant(self):
+    """Returns True is the volatility of the process is a constant."""
+    return self._sigma_is_constant
+
   def drift_fn(self):
     """Python callable calculating instantaneous drift."""
-    def _drift_fn(t, x):
-      """Drift function of the GBM."""
+    def _constant_fn(t, x):
+      """Drift function of the GBM with constant mu."""
       del t
       return self._mu * x
-    return _drift_fn
+
+    def _piecewise_fn(t, x):
+      """Drift function of the GBM with piecewise constant mu."""
+      return self._mu(t) * x
+
+    return _constant_fn if self.drift_is_constant() else _piecewise_fn
 
   def volatility_fn(self):
     """Python callable calculating the instantaneous volatility."""
-    def _vol_fn(t, x):
-      """Volatility function of the GBM."""
+    def _constant_fn(t, x):
+      """Volatility function of the GBM with constant volatility."""
       del t
       vol = self._sigma * tf.expand_dims(x, -1)
       return vol
-    return _vol_fn
+
+    def _piecewise_fn(t, x):
+      """Volatility function of the GBM with piecewise constant volatility."""
+      vol = self._sigma(t) * tf.expand_dims(x, -1)
+      return vol
+
+    return _constant_fn if self.volatility_is_constant() else _piecewise_fn
 
   def sample_paths(self,
                    times,
@@ -157,6 +187,23 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
           num_samples=num_samples, random_type=random_type,
           seed=seed, skip=skip)
 
+  def _integrate_parameter(self, x, x_is_constant, t0, t1, name=None):
+    """Returns the integral of x(t).dt over the interval [t0,t1].
+
+    Args:
+      x: Scalar real `Tensor` or an instance of batch-free left-continuous
+        `PiecewiseConstantFunc`. The function to be integrated.
+      x_is_constant: 'bool' which is True if x is a Scalar real `Tensor`.
+      t0: A rank 1 `Tensor` of the start times of the intervals.
+      t1: A rank 1 `Tensor` with the same length as t0 of the end times for the
+          intervals.
+      name: Str. The name to give this op.
+
+    Returns:
+      A rank 1 `Tensor` with the integrals over the intervals [t0, t1].
+    """
+    return x * (t1 - t0) if x_is_constant else x.integrate(t0, t1, name)
+
   def _sample_paths(self,
                     times,
                     num_requested_times,
@@ -173,10 +220,17 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
         seed=seed,
         dtype=self._dtype, skip=skip)
     times = tf.concat([[0], times], -1)
-    dt = times[1:] - times[:-1]
+    mu_integral = self._integrate_parameter(self._mu,
+                                            self._mu_is_constant,
+                                            times[:-1],
+                                            times[1:])
+    sigma_sq_integral = self._integrate_parameter(self._sigma_squared,
+                                                  self._sigma_is_constant,
+                                                  times[:-1],
+                                                  times[1:])
     # The logarithm of all the increments between the times.
-    log_increments = ((self._mu - self._sigma**2 / 2) * dt
-                      + tf.sqrt(dt) * self._sigma
+    log_increments = ((mu_integral - sigma_sq_integral / 2)
+                      + tf.sqrt(sigma_sq_integral)
                       * tf.transpose(tf.squeeze(normal_draws, -1)))
     # Since the implementation of tf.math.cumsum is single-threaded we
     # use lower-triangular matrix multiplication instead
@@ -187,6 +241,42 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
                               log_increments)
     samples = initial_state * tf.math.exp(cumsum)
     return tf.expand_dims(samples, -1)
+
+  def _tensor_or_func(self, x, dtype=None, name=None):
+    """Returns either a `PiecewiseConstantFunc` or x converted to a `Tensor`.
+
+    Args:
+      x: Either a 'Tensor' or 'PiecewiseConstantFunc'.
+      dtype: The default dtype to use when converting values to `Tensor`s.
+        Default value: `None` which means that default dtypes inferred by
+          TensorFlow are used.
+      name: Python string. The name to give to the ops created by this class.
+        Default value: `None` which maps to the default name '_tensor_or_func'.
+    Returns:
+      A tuple (y, flag) where y is either a Tensor or PiecewiseConstantFunc
+      and flag which is False if x is off type PiecewiseConstantFunc and True
+      otherwise.
+    """
+    name = name or (self._name + "_tensor_or_func")
+    if isinstance(x, piecewise.PiecewiseConstantFunc): return x, False
+    return tf.convert_to_tensor(x, dtype=dtype, name=name), True
+
+  def _sigma_squared_from_sigma(self, sigma, sigma_is_constant, dtype=None,
+                                name=None):
+    """Returns sigma squared as either a `PiecewiseConstantFunc` or a `Tensor`.
+
+    Args:
+      sigma: Either a 'Tensor' or 'PiecewiseConstantFunc'.
+      sigma_is_constant: `bool` which is True if sigma is of type `Tensor`.
+      dtype: The default dtype to use when converting values to `Tensor`s.
+        Default value: `None` which means that default dtypes inferred by
+          TensorFlow are used.
+      name: Python string. The name to give to the ops created by this class.
+        Default value: `None` which maps to the default name '_sigma_squared'.
+    """
+    name = name or (self._name + "_sigma_squared")
+    return sigma ** 2 if sigma_is_constant else piecewise.PiecewiseConstantFunc(
+        sigma.jump_locations(), sigma.values()**2, dtype=dtype, name=name)
 
   # TODO(b/152967694): Remove the duplicate methods.
   def fd_solver_backward(self,
