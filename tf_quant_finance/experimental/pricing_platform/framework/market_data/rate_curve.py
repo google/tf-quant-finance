@@ -264,7 +264,8 @@ class RateCurve(pmd.RateCurve):
 
     dfstart = self.discount_factor(interpolation_times=start_time)
     dfmaturity = self.discount_factor(interpolation_times=maturity_time)
-    return (dfstart / dfmaturity - 1.) / day_count_fraction
+    return tf.math.divide_no_nan(
+        tf.math.divide_no_nan(dfstart, dfmaturity) - 1., day_count_fraction)
 
   @property
   def valuation_date(self) -> types.DateTensor:
