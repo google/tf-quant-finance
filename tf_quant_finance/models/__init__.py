@@ -18,6 +18,7 @@ from tf_quant_finance.models import euler_sampling
 from tf_quant_finance.models import heston
 from tf_quant_finance.models import hjm
 from tf_quant_finance.models import hull_white
+from tf_quant_finance.models import milstein_sampling
 from tf_quant_finance.models import sabr
 from tf_quant_finance.models.generic_ito_process import GenericItoProcess
 from tf_quant_finance.models.geometric_brownian_motion.multivariate_geometric_brownian_motion import MultivariateGeometricBrownianMotion
@@ -35,6 +36,7 @@ _allowed_symbols = [
     'HestonModel',
     'hjm',
     'hull_white',
+    'milstein_sampling',
     'GenericItoProcess',
     'MultivariateGeometricBrownianMotion',
     'GeometricBrownianMotion',

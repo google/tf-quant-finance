@@ -12,6 +12,7 @@ py_library(
         ":generic_ito_process",
         ":ito_process",
         ":joined_ito_process",
+        ":milstein_sampling",
         "//tf_quant_finance/models/geometric_brownian_motion",
         "//tf_quant_finance/models/heston",
         "//tf_quant_finance/models/hjm",
@@ -72,6 +73,34 @@ py_test(
     srcs = ["euler_sampling_test.py"],
     python_version = "PY3",
     shard_count = 14,
+    deps = [
+        "//tf_quant_finance",
+        # test util,
+        # absl/testing:parameterized dep,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "milstein_sampling",
+    srcs = ["milstein_sampling.py"],
+    deps = [
+        ":utils",
+        "//tf_quant_finance/math:custom_loops",
+        "//tf_quant_finance/math:gradient",
+        "//tf_quant_finance/math/random_ops",
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "milstein_sampling_test",
+    size = "medium",
+    timeout = "moderate",
+    srcs = ["milstein_sampling_test.py"],
+    python_version = "PY3",
+    shard_count = 1,
     deps = [
         "//tf_quant_finance",
         # test util,

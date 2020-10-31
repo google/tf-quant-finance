@@ -81,7 +81,7 @@ def fwd_gradient(func_or_y, x, input_gradients=None, use_gradient_tape=False,
       Default value: `None` which maps to a ones-like `Tensor` of `x`.
     use_gradient_tape: Optional Python bool. Whether to use gradient tape even
       when eager mode is not turned on.
-      Defaule value: `False`.
+      Default value: `False`.
     unconnected_gradients: An enum `tf.UnconnectedGradients` which specifies the
       gradient value returned when the given input tensors are unconnected.
       Default value: `None`, which maps to `tf.UnconnectedGradients.NONE`.
