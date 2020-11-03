@@ -205,24 +205,24 @@ def swap_curve_fit(float_leg_start_times,
       time that the purchase price is actually delivered. If not supplied, then
       it is assumed that the settlement times are zero for every bond.
       Default value: `None` which is equivalent to zero settlement times.
-    float_leg_discount_rates: Optional `Tensor` of the same dtype as
-      `initial_discount_rates`. This input contains the continuously compounded
-      discount rates the will be used to discount the floating cashflows. This
-      allows the swap curve to constructed using an independent discount curve
-      (e.g. OIS curve). By default the cashflows are discounted using the curve
-      that is being constructed.
-    float_leg_discount_times: Optional `Tensor` of the same dtype and shape as
-      `float_leg_discount_rates`. This input contains the times corresponding to
-      the rates specified via the `float_leg_discount_rates`.
-    fixed_leg_discount_rates: Optional `Tensor` of the same dtype as
-      `initial_discount_rates`. This input contains the continuously compounded
-      discount rates the will be used to discount the fixed cashflows. This
-      allows the swap curve to constructed using an independent discount curve
-      (e.g. OIS curve). By default the cashflows are discounted using the curve
-      that is being constructed.
-    fixed_leg_discount_times: Optional `Tensor` of the same dtype and shape as
-      `fixed_leg_discount_rates`. This input contains the times corresponding to
-      the rates specified via the `fixed_leg_discount_rates`.
+    float_leg_discount_rates: Optional list of scalar `Tensor`s of the same
+      length and dtype as `present_values`. This input contains the continuously
+      compounded discount rates the will be used to discount the floating
+      cashflows. This allows the swap curve to constructed using an independent
+      discount curve (e.g. OIS curve). By default the cashflows are discounted
+      using the curve that is being constructed.
+    float_leg_discount_times: Optional list of scalar `Tensor`s of the same
+      length and dtype as `present_values`. This input contains the times
+      corresponding to the rates specified via the `float_leg_discount_rates`.
+    fixed_leg_discount_rates:  Optional list of scalar `Tensor`s of the same
+      length and dtype as `present_values`. This input contains the continuously
+      compounded discount rates the will be used to discount the fixed
+      cashflows. This allows the swap curve to constructed using an independent
+      discount curve (e.g. OIS curve). By default the cashflows are discounted
+      using the curve that is being constructed.
+    fixed_leg_discount_times: Optional list of scalar `Tensor`s of the same
+      length and dtype as `present_values`. This input contains the times
+      corresponding to the rates specified via the `fixed_leg_discount_rates`.
     optimize: Optional Python callable which implements the algorithm used to
       minimize the objective function during curve construction. It should have
       the following interface:
@@ -548,7 +548,9 @@ def _initialize_instrument_weights(float_times, fixed_times, dtype):
   one = tf.ones([], dtype=dtype)
   float_times_last = tf.stack([times[-1] for times in float_times])
   fixed_times_last = tf.stack([times[-1] for times in fixed_times])
-  weights = tf.maximum(one / float_times_last, one / fixed_times_last)
+  weights = tf.maximum(
+      tf.math.divide_no_nan(one, float_times_last),
+      tf.math.divide_no_nan(one, fixed_times_last))
   weights = tf.minimum(one, weights)
   return tf.unstack(weights, name='instrument_weights')
 

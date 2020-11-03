@@ -174,7 +174,7 @@ def interpolate(x,
       x_data_diff = x_data_upper - x_data_lower
       floor_x_diff = tf.where(at_min | at_max, x_data_diff + 1, x_data_diff)
       interpolated = y_data_lower + (x - x_data_lower) * (
-          y_data_upper - y_data_lower) / floor_x_diff
+          tf.math.divide_no_nan(y_data_upper - y_data_lower, floor_x_diff))
 
       interpolated = tf.where(at_min, values_min, interpolated)
       interpolated = tf.where(at_max, values_max, interpolated)

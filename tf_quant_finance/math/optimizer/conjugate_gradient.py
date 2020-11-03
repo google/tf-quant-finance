@@ -357,7 +357,8 @@ def minimize(value_and_gradients_function,
       phi_c = init_step.f
       dphi_c = init_step.df
       # Original Wolfe conditions, T1 in [HZ2006].
-      suff_decrease_1 = delta * dphi_0 >= (phi_c - phi_0) / c
+      suff_decrease_1 = delta * dphi_0 >= tf.math.divide_no_nan(
+          phi_c - phi_0, c)
       curvature = dphi_c >= sigma * dphi_0
       wolfe1 = suff_decrease_1 & curvature
       # Approximate Wolfe conditions, T2 in [HZ2006].
@@ -398,9 +399,11 @@ def minimize(value_and_gradients_function,
       # Use formulas (2.7)-(2.11) from [HZ2013] with P_k=I.
       y_k = g_kp1 - g_k
       d_dot_y = _dot(d_k, y_k)
-      b_k = (_dot(y_k, g_kp1) -
-             _norm_sq(y_k) * _dot(g_kp1, d_k) / d_dot_y) / d_dot_y
-      eta_k = eta * _dot(d_k, g_k) / _norm_sq(d_k)
+      b_k = tf.math.divide_no_nan(
+          _dot(y_k, g_kp1)
+          - tf.math.divide_no_nan(_norm_sq(y_k) * _dot(g_kp1, d_k), d_dot_y),
+          d_dot_y)
+      eta_k = tf.math.divide_no_nan(eta * _dot(d_k, g_k), _norm_sq(d_k))
       b_k = tf.maximum(b_k, eta_k)
       d_kp1 = -g_kp1 + tf.expand_dims(b_k, -1) * d_k
 
@@ -497,7 +500,8 @@ def _init_step(pos, prev_step, func, psi_1, psi_2, quad_step):
     def update_result_1():
       new_x = tf.compat.v1.where(
           quad_step_success,
-          -0.5 * (derphi_0 * step.x**2) / q_koef, result.step.x)
+          -0.5 * tf.math.divide_no_nan(derphi_0 * step.x**2, q_koef),
+          result.step.x)
       return _StepGuessResult(
           step=func(new_x),
           func_evals=result.func_evals + 1,
