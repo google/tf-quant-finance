@@ -225,11 +225,7 @@ def _grid_from_time_step(*, times, time_step, dtype):
   """Creates a time grid from an input time step."""
   grid = tf.range(0.0, times[-1], time_step, dtype=dtype)
   all_times = tf.concat([times, grid], axis=0)
-  # Remove duplicate points
-  # Sort sequence. Identify the time indices of interest
-  args = tf.argsort(all_times)
-  # args = tf.argsort(tf.cast(all_times, tf.float32))
-  all_times = tf.gather(all_times, args)
+  all_times = tf.sort(all_times)
   # Remove duplicate points
   duplicate_tol = 1e-10 if dtype == tf.float64 else 1e-6
   dt = all_times[1:] - all_times[:-1]
@@ -237,8 +233,10 @@ def _grid_from_time_step(*, times, time_step, dtype):
   duplicate_mask = tf.math.greater(dt, duplicate_tol)
   all_times = tf.boolean_mask(all_times, duplicate_mask)
   time_indices = tf.searchsorted(all_times, times, out_type=tf.int32)
+  # Move `time_indices` to the left, if the requested `times` are removed from
+  # `all_times` during deduplication
   time_indices = tf.where(
-      tf.math.abs(tf.gather(all_times, time_indices) - times) > duplicate_tol,
+      tf.gather(all_times, time_indices) - times > duplicate_tol,
       time_indices - 1,
       time_indices)
   return all_times, time_indices
