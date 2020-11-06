@@ -172,7 +172,7 @@ def maybe_update_along_axis(*,
       return new_tensor
 
 
-def prepare_grid(*, times, time_step, dtype):
+def prepare_grid(*, times, time_step, dtype, num_time_steps=None):
   """Prepares grid of times for path generation.
 
   Args:
@@ -181,36 +181,35 @@ def prepare_grid(*, times, time_step, dtype):
     time_step: Rank 0 real `Tensor`. Maximal distance between points in
       resulting grid.
     dtype: `tf.Dtype` of the input and output `Tensor`s.
+    num_time_steps: Number of points on the grid. If suppied, a uniform grid
+      is constructed for `[time_step, times[-1] - time_step]` consisting of
+      max(0, num_time_steps - len(times)) points that is then concatenated with
+      times. This parameter guarantees the number of points on the time grid
+      is `max(len(times), num_time_steps)` and that `times` are included to the
+      grid.
+     Default value: `None`, which means that a uniform grid is created
+       containing all points from 'times` and the uniform grid of points between
+       `[0, times[-1]]` with grid size equal to `time_step`.
 
   Returns:
     Tuple `(all_times, mask, time_points)`.
-    `all_times` is a 1-D real `Tensor` containing all points from 'times` and
-    the uniform grid of points between `[0, times[-1]]` with grid size equal to
-    `time_step`. The `Tensor` is sorted in ascending order and may contain
-    duplicates.
+    `all_times` is a 1-D real `Tensor`. If `num_time_steps` is supplied the
+      shape of the output is `max(num_time_steps, len(times))`. Otherwise
+      consists of all points from 'times` and the uniform grid of points between
+      `[0, times[-1]]` with grid size equal to `time_step`.
     `mask` is a boolean 1-D `Tensor` of the same shape as 'all_times', showing
-    which elements of 'all_times' correspond to THE values from `times`.
-    Guarantees that times[0]=0 and mask[0]=False.
+      which elements of 'all_times' correspond to THE values from `times`.
+      Guarantees that times[0]=0 and mask[0]=False.
     `time_indices`. An integer `Tensor` of the same shape as `times` indicating
     `times` indices in `all_times`.
   """
-  grid = tf.range(0.0, times[-1], time_step, dtype=dtype)
-  all_times = tf.concat([times, grid], axis=0)
-  # Remove duplicate points
-  # all_times = tf.unique(all_times).y
-  # Sort sequence. Identify the time indices of interest
-  # TODO(b/169400743): use tf.sort instead of argsort and casting when XLA
-  # float64 support is extended for tf.sort
-  args = tf.argsort(tf.cast(all_times, dtype=tf.float32))
-  all_times = tf.gather(all_times, args)
-  # Remove duplicate points
-  duplicate_tol = 1e-10 if dtype == tf.float64 else 1e-6
-  dt = all_times[1:] - all_times[:-1]
-  dt = tf.concat([[1.0], dt], axis=-1)
-  duplicate_mask = tf.math.greater(dt, duplicate_tol)
-  all_times = tf.boolean_mask(all_times, duplicate_mask)
+  if num_time_steps is None:
+    all_times, time_indices = _grid_from_time_step(
+        times=times, time_step=time_step, dtype=dtype)
+  else:
+    all_times, time_indices = _grid_from_num_times(
+        times=times, time_step=time_step, num_time_steps=num_time_steps)
 
-  time_indices = tf.searchsorted(all_times, times, out_type=tf.int32)
   # Create a boolean mask to identify the iterations that have to be recorded.
   mask_sparse = tf.sparse.SparseTensor(
       indices=tf.expand_dims(
@@ -218,10 +217,45 @@ def prepare_grid(*, times, time_step, dtype):
       values=tf.fill(tf.shape(times), True),
       dense_shape=tf.shape(all_times, out_type=tf.int64))
   mask = tf.sparse.to_dense(mask_sparse)
-  # all_times = tf.concat([[0.0], all_times], axis=0)
-  # mask = tf.concat([[False], mask], axis=0)
-  # time_indices = time_indices + 1
+
   return all_times, mask, time_indices
+
+
+def _grid_from_time_step(*, times, time_step, dtype):
+  """Creates a time grid from an input time step."""
+  grid = tf.range(0.0, times[-1], time_step, dtype=dtype)
+  all_times = tf.concat([times, grid], axis=0)
+  # Remove duplicate points
+  # Sort sequence. Identify the time indices of interest
+  args = tf.argsort(all_times)
+  # args = tf.argsort(tf.cast(all_times, tf.float32))
+  all_times = tf.gather(all_times, args)
+  # Remove duplicate points
+  duplicate_tol = 1e-10 if dtype == tf.float64 else 1e-6
+  dt = all_times[1:] - all_times[:-1]
+  dt = tf.concat([[1.0], dt], axis=-1)
+  duplicate_mask = tf.math.greater(dt, duplicate_tol)
+  all_times = tf.boolean_mask(all_times, duplicate_mask)
+  time_indices = tf.searchsorted(all_times, times, out_type=tf.int32)
+  time_indices = tf.where(
+      tf.math.abs(tf.gather(all_times, time_indices) - times) > duplicate_tol,
+      time_indices - 1,
+      time_indices)
+  return all_times, time_indices
+
+
+def _grid_from_num_times(*, times, time_step, num_time_steps):
+  """Creates a time grid for the requeste number of time steps."""
+  # Build a uniform grid for the timestep of size
+  # max(0, num_time_steps - tf.shape(times)[0])
+  uniform_grid = tf.linspace(
+      time_step, times[-1] - time_step,
+      tf.nn.relu(num_time_steps - tf.shape(times)[0]))
+  grid = tf.sort(tf.concat([uniform_grid, times], 0))
+  # Add zero to the time grid
+  all_times = tf.concat([[0], grid], 0)
+  time_indices = tf.searchsorted(all_times, times, out_type=tf.int32)
+  return all_times, time_indices
 
 
 def block_diagonal_to_dense(*matrices):

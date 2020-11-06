@@ -173,6 +173,7 @@ class GenericItoProcess(ito_process.ItoProcess):
                    swap_memory=True,
                    name=None,
                    time_step=None,
+                   num_time_steps=None,
                    skip=0,
                    precompute_normal_draws=True,
                    watch_params=None):
@@ -207,8 +208,16 @@ class GenericItoProcess(ito_process.ItoProcess):
         Default value: True.
       name: Python string. The name to give this op.
         Default value: `None` which maps to `sample_paths` is used.
-      time_step: Real scalar `Tensor`. The maximal distance between time points
-        in grid in Euler scheme.
+      time_step: An optional scalar real `Tensor` - maximal distance between
+        points in the time grid.
+        Either this or `num_time_steps` should be supplied.
+        Default value: `None`.
+      num_time_steps: An optional Scalar integer `Tensor` - a total number of
+        time steps performed by the algorithm. The maximal distance betwen
+        points in grid is bounded by
+        `times[-1] / (num_time_steps - times.shape[0])`.
+        Either this or `time_step` should be supplied.
+        Default value: `None`.
       skip: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
         Halton sequence to skip. Used only when `random_type` is 'SOBOL',
         'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
@@ -232,11 +241,9 @@ class GenericItoProcess(ito_process.ItoProcess):
      `times`, and `n` is the dimension of the process.
 
     Raises:
-      ValueError: If `time_step` is not supplied.
+      ValueError: If neither `num_time_steps` nor `time_step` are supplied or
+        if both are supplied.
     """
-    if time_step is None:
-      raise ValueError('`time_step` can not be `None` when calling '
-                       'sample_paths of GenericItoProcess.')
     name = name or (self._name + '_sample_path')
     with tf.name_scope(name):
       return euler_sampling.sample(
@@ -248,6 +255,7 @@ class GenericItoProcess(ito_process.ItoProcess):
           initial_state=initial_state,
           random_type=random_type,
           time_step=time_step,
+          num_time_steps=num_time_steps,
           seed=seed,
           swap_memory=swap_memory,
           skip=skip,

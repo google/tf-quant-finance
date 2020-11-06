@@ -28,7 +28,8 @@ def sample(dim,
            drift_fn,
            volatility_fn,
            times,
-           time_step,
+           time_step=None,
+           num_time_steps=None,
            num_samples=1,
            initial_state=None,
            random_type=None,
@@ -100,8 +101,15 @@ def sample(dim,
       input arguments and of shape `batch_shape + [dim, dim]`.
     times: Rank 1 `Tensor` of increasing positive real values. The times at
       which the path points are to be evaluated.
-    time_step: Scalar real `Tensor` - maximal distance between points in the
-      grid in the Milstein scheme.
+    time_step: An optional scalar real `Tensor` - maximal distance between
+      points in grid in Milstein schema.
+      Either this or `num_time_steps` should be supplied.
+      Default value: `None`.
+    num_time_steps: An optional Scalar integer `Tensor` - a total number of time
+      steps performed by the algorithm. The maximal distance betwen points in
+      grid is bounded by `times[-1] / (num_time_steps - times.shape[0])`.
+      Either this or `time_step` should be supplied.
+      Default value: `None`.
     num_samples: Positive scalar `int`. The number of paths to draw.
       Default value: 1.
     initial_state: `Tensor` of shape `[dim]`. The initial state of the
@@ -156,8 +164,22 @@ def sample(dim,
         initial_state, dtype=dtype, name='initial_state')
     num_requested_times = tf.shape(times)[0]
     # Create a time grid for the Milstein scheme.
+    if num_time_steps is not None and time_step is not None:
+      raise ValueError('Only one of either `num_time_steps` or `time_step` '
+                       'should be defined but not both')
+    if time_step is None:
+      num_time_steps = tf.convert_to_tensor(
+          num_time_steps, dtype=tf.int32, name='num_time_steps')
+      time_step = times[-1] / tf.cast(num_time_steps, dtype=dtype)
+    else:
+      if time_step is None:
+        raise ValueError('Either `num_time_steps` or `time_step` should be '
+                         'defined.')
+      time_step = tf.convert_to_tensor(time_step, dtype=dtype,
+                                       name='time_step')
     times, keep_mask, time_indices = utils.prepare_grid(
-        times=times, time_step=time_step, dtype=dtype)
+        times=times, time_step=time_step, num_time_steps=num_time_steps,
+        dtype=dtype)
     if watch_params is not None:
       watch_params = [
           tf.convert_to_tensor(param, dtype=dtype) for param in watch_params
@@ -196,8 +218,7 @@ def _sample(*, dim, drift_fn, volatility_fn, grad_volatility_fn, times,
             precompute_normal_draws, watch_params, time_indices, dtype):
   """Returns a sample of paths from the process using the Milstein method."""
   dt = times[1:] - times[:-1]
-  # TODO(b/169400743): nn.relu can be removed when the bug is fixed.
-  sqrt_dt = tf.sqrt(tf.nn.relu(dt))
+  sqrt_dt = tf.sqrt(dt)
   current_state = initial_state + tf.zeros([num_samples, dim],
                                            dtype=initial_state.dtype)
   if dt.shape.is_fully_defined():

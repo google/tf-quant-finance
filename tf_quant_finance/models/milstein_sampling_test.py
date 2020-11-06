@@ -33,13 +33,24 @@ class MilsteinSamplingTest(tf.test.TestCase, parameterized.TestCase):
 
   @parameterized.named_parameters(
       {
-          'testcase_name': 'CustomForLoop',
+          'testcase_name': 'CustomForLoopWithTimeStep',
           'watch_params': True,
+          'use_time_step': True,
       }, {
-          'testcase_name': 'WhileLoop',
+          'testcase_name': 'WhileLoopWithTimeStep',
           'watch_params': False,
+          'use_time_step': True,
+      },
+      {
+          'testcase_name': 'CustomForLoopWithNumSteps',
+          'watch_params': True,
+          'use_time_step': False,
+      }, {
+          'testcase_name': 'WhileLoopWithNumSteps',
+          'watch_params': False,
+          'use_time_step': False,
       })
-  def test_sample_paths_wiener(self, watch_params):
+  def test_sample_paths_wiener(self, watch_params, use_time_step):
     """Tests paths properties for Wiener process (dX = dW)."""
 
     def drift_fn(_, x):
@@ -54,6 +65,12 @@ class MilsteinSamplingTest(tf.test.TestCase, parameterized.TestCase):
       watch_params = []
     else:
       watch_params = None
+    if use_time_step:
+      time_step = 0.01
+      num_time_steps = None
+    else:
+      time_step = None
+      num_time_steps = 30
     paths = milstein_sampling.sample(
         dim=1,
         drift_fn=drift_fn,
@@ -61,7 +78,8 @@ class MilsteinSamplingTest(tf.test.TestCase, parameterized.TestCase):
         times=times,
         num_samples=num_samples,
         seed=42,
-        time_step=0.01,
+        time_step=time_step,
+        num_time_steps=num_time_steps,
         watch_params=watch_params)
     self.assertAllEqual(paths.shape.as_list(), [num_samples, 3, 1])
     paths = self.evaluate(paths)

@@ -96,5 +96,40 @@ class UtilsTest(tf.test.TestCase, parameterized.TestCase):
                        [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]
     self.assertAllClose(dense, expected_result, rtol=1e-5, atol=1e-5)
 
+  @parameterized.named_parameters(
+      ('SinglePrecision', np.float32),
+      ('DoublePrecision', np.float64),
+  )
+  def test_prepare_grid_num_time_step(self, dtype):
+    num_points = 100
+    times = tf.linspace(tf.constant(0.02, dtype=dtype), 1.0, 50)
+    time_step = times[-1] / num_points
+    grid, _, time_indices = utils.prepare_grid(
+        times=times, time_step=time_step, dtype=dtype,
+        num_time_steps=num_points)
+    expected_grid = np.linspace(0, 1, 101, dtype=dtype)
+    expected_indices = np.array([2 * i for i in range(1, 51)])
+    with self.subTest('Grid'):
+      self.assertAllClose(grid, expected_grid, rtol=1e-6, atol=1e-6)
+    with self.subTest('TimeIndex'):
+      self.assertAllClose(time_indices, expected_indices, rtol=1e-6, atol=1e-6)
+
+  @parameterized.named_parameters(
+      ('SinglePrecision', np.float32),
+      ('DoublePrecision', np.float64),
+  )
+  def test_prepare_grid_time_step(self, dtype):
+    times = tf.constant([0.1, 0.5, 1, 2], dtype=dtype)
+    time_step = tf.constant(0.1, dtype=tf.float64)
+    grid, _, time_indices = utils.prepare_grid(
+        times=times, time_step=time_step, dtype=dtype)
+    expected_grid = np.linspace(0, 2, 21, dtype=dtype)
+    recovered_times = tf.gather(grid, time_indices)
+    with self.subTest('Grid'):
+      self.assertAllClose(grid, expected_grid, rtol=1e-6, atol=1e-6)
+    with self.subTest('Times'):
+      self.assertAllClose(times, recovered_times, rtol=1e-6, atol=1e-6)
+
+
 if __name__ == '__main__':
   tf.test.main()

@@ -293,8 +293,6 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       if len(times.shape) != 1:
         raise ValueError('`times` should be a rank 1 Tensor. '
                          'Rank is {} instead.'.format(len(times.shape)))
-      # TODO(b/168346155): Use euler_sampler for simulation inside
-      # `_sample_paths`
       return self._sample_paths(
           times, time_step, num_samples, random_type, skip, seed)
 
