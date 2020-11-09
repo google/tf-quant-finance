@@ -16,25 +16,13 @@
 import numpy as np
 import tensorflow.compat.v2 as tf
 from tf_quant_finance.models import utils
+from tf_quant_finance.models.hjm import zero_coupon_bond_option_util
 from tf_quant_finance.models.hull_white import vector_hull_white
 
 
 def _ncdf(x):
   """Implements the cumulative normal distribution function."""
   return (tf.math.erf(x / _SQRT_2) + 1) / 2
-
-
-def _prepare_indices(idx0, idx1, idx2, idx3):
-  """Prepare indices to get relevant slice from discount curve simulations."""
-  len0 = idx0.shape.as_list()[0]
-  len1 = idx1.shape.as_list()[0]
-  len3 = idx3.shape.as_list()[0]
-  idx0 = tf.repeat(idx0, len1*len3)
-  idx1 = tf.tile(tf.repeat(idx1, len3), [len0])
-  idx2 = tf.tile(tf.repeat(idx2, len3), [len0])
-  idx3 = tf.tile(idx3, [len0*len1])
-
-  return tf.stack([idx0, idx1, idx2, idx3], axis=-1)
 
 
 _SQRT_2 = np.sqrt(2.0, dtype=np.float64)
@@ -181,6 +169,7 @@ def bond_option_price(*,
                                       name='maturities')
     is_call_options = tf.convert_to_tensor(is_call_options, dtype=tf.bool,
                                            name='is_call_options')
+
     model = vector_hull_white.VectorHullWhiteModel(
         dim,
         mean_reversion=mean_reversion,
@@ -197,76 +186,19 @@ def bond_option_price(*,
       raise ValueError('`time_step` must be provided for simulation '
                        'based bond option valuation.')
 
-    sim_times, _ = tf.unique(tf.reshape(expiries, shape=[-1]))
-    longest_expiry = tf.reduce_max(sim_times)
-    sim_times, _ = tf.unique(tf.concat([sim_times, tf.range(
-        time_step, longest_expiry, time_step)], axis=0))
-    sim_times = tf.sort(sim_times, name='sort_sim_times')
-    tau = maturities - expiries
-    curve_times_builder, _ = tf.unique(tf.reshape(tau, shape=[-1]))
-    curve_times = tf.sort(curve_times_builder, name='sort_curve_times')
+    def sample_discount_curve_paths_fn(times, curve_times, num_samples):
+      return model.sample_discount_curve_paths(
+          times=times,
+          curve_times=curve_times,
+          num_samples=num_samples,
+          random_type=random_type,
+          seed=seed,
+          skip=skip)
 
-    p_t_tau, r_t = model.sample_discount_curve_paths(
-        times=sim_times,
-        curve_times=curve_times,
-        num_samples=num_samples,
-        random_type=random_type,
-        seed=seed,
-        skip=skip)
-
-    dt_builder = tf.concat(
-        [tf.convert_to_tensor([0.0], dtype=dtype),
-         sim_times[1:] - sim_times[:-1]], axis=0)
-    dt = tf.expand_dims(tf.expand_dims(dt_builder, axis=-1), axis=0)
-    discount_factors_builder = tf.math.exp(-r_t * dt)
-    # Transpose before (and after) because we want the cumprod along axis=1
-    # and `matvec` operates on the last axis. The shape before and after would
-    # be `(num_samples, len(times), dim)`
-    discount_factors_builder = tf.transpose(
-        utils.cumprod_using_matvec(
-            tf.transpose(discount_factors_builder, [0, 2, 1])), [0, 2, 1])
-
-    # make discount factors the same shape as `p_t_tau`. This involves adding
-    # an extra dimenstion (corresponding to `curve_times`).
-    discount_factors_builder = tf.expand_dims(
-        discount_factors_builder,
-        axis=1)
-    discount_factors_simulated = tf.repeat(
-        discount_factors_builder, p_t_tau.shape.as_list()[1], axis=1)
-
-    # `sim_times` and `curve_times` are sorted for simulation. We need to
-    # select the indices corresponding to our input.
-    sim_time_index = tf.searchsorted(sim_times, tf.reshape(expiries, [-1]))
-    curve_time_index = tf.searchsorted(curve_times, tf.reshape(tau, [-1]))
-
-    gather_index = _prepare_indices(
-        tf.range(0, num_samples), curve_time_index, sim_time_index,
-        tf.range(0, dim))
-
-    # The shape after `gather_nd` would be (num_samples*num_strikes*dim,)
-    payoff_discount_factors_builder = tf.gather_nd(
-        discount_factors_simulated, gather_index)
-    # Reshape to `[num_samples] + strikes.shape + [dim]`
-    payoff_discount_factors = tf.reshape(
-        payoff_discount_factors_builder,
-        [num_samples] + strikes.shape + [dim])
-    payoff_bond_price_builder = tf.gather_nd(p_t_tau, gather_index)
-    payoff_bond_price = tf.reshape(
-        payoff_bond_price_builder, [num_samples] + strikes.shape + [dim])
-
-    is_call_options = tf.reshape(
-        tf.broadcast_to(is_call_options, strikes.shape),
-        [1] + strikes.shape + [1])
-
-    strikes = tf.reshape(strikes, [1] + strikes.shape + [1])
-    payoff = tf.where(
-        is_call_options,
-        tf.math.maximum(payoff_bond_price - strikes, 0.0),
-        tf.math.maximum(strikes - payoff_bond_price, 0.0))
-    option_value = tf.math.reduce_mean(
-        payoff_discount_factors * payoff, axis=0)
-
-    return option_value
+    return zero_coupon_bond_option_util.options_price_from_samples(
+        strikes, expiries, maturities, is_call_options,
+        sample_discount_curve_paths_fn, num_samples,
+        time_step, dtype=dtype)
 
 
 def _analytic_valuation(discount_rate_fn, model, strikes, expiries, maturities,

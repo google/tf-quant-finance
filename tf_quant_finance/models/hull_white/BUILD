@@ -57,6 +57,10 @@ py_library(
     srcs = ["zero_coupon_bond_option.py"],
     deps = [
         ":vector_hull_white",
+        "//tf_quant_finance/models:utils",
+        "//tf_quant_finance/models/hjm:zero_coupon_bond_option_util",
+        # numpy dep,
+        # tensorflow dep,
     ],
 )
 
