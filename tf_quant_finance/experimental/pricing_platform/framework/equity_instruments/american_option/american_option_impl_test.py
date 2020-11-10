@@ -166,6 +166,22 @@ class AmericanEquityOptionTest(tf.test.TestCase):
     with self.subTest("PriceSingle"):
       self.assertAllClose(price2, expected2)
 
+  def test_create_constructor_args_price(self):
+    """Creates and prices swap from a dictionary representation."""
+    config = american_option.AmericanOptionConfig(
+        num_samples=100, num_calibration_samples=50,
+        num_exercise_times=10, seed=[1, 2])
+    am_option_dict = american_option.AmericanOption.create_constructor_args(
+        [self._american_option_1, self._american_option_3], config)
+    market = market_data.MarketDataDict(
+        self._valuation_date,
+        self._market_data_dict)
+    am_options = american_option.AmericanOption(
+        **list(am_option_dict.values())[0])
+    price = am_options.price(market)
+    expected = np.array([5061325.05691643, 315494.52743082])
+    self.assertAllClose(price, expected)
+
 
 if __name__ == "__main__":
   tf.test.main()

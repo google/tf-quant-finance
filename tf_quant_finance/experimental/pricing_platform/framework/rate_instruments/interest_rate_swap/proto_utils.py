@@ -13,13 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Utilities for creating a swap instrument."""
-import hashlib
-import json
+
 from typing import Any, Dict, List, Tuple, Union
 
-import tensorflow as tf
+import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import datetime as dateslib
+from tf_quant_finance.experimental.pricing_platform.framework import utils
 from tf_quant_finance.experimental.pricing_platform.framework.core import business_days
 from tf_quant_finance.experimental.pricing_platform.framework.core import currencies
 from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types as curve_types_lib
@@ -331,7 +331,7 @@ def get_hash(swap_proto: ir_swap.InterestRateSwap) -> Tuple[int, bool]:
   flip_legs, key = _get_legs_hash_key(pay_leg, receive_leg)
   currency = swap_proto.currency
   bank_holidays = swap_proto.bank_holidays
-  h = _hasher(tuple(key + [currency] + [bank_holidays]))
+  h = utils.hasher(key + [currency, bank_holidays])
   return h, flip_legs
 
 
@@ -341,7 +341,7 @@ def get_hash_v2(swap_proto: ir_swap.InterestRateSwap) -> Tuple[int, bool]:
   receive_leg = swap_proto.receive_leg
   flip_legs, key = _get_legs_hash_key_v2(pay_leg, receive_leg)
   bank_holidays = swap_proto.bank_holidays
-  h = _hasher(tuple(key + [bank_holidays]))
+  h = utils.hasher(key + [bank_holidays])
   return h, flip_legs
 
 
@@ -598,11 +598,3 @@ def _frequency_and_multiplier(freq_type):
   if freq_type == 5:
     freq_type = 3
   return freq_type, multiplier
-
-
-# TODO(b/168411151): extract the non-cryptographic hasher to the common
-# utilities
-def _hasher(obj):
-  """Computes non-cryptographic hash of an object."""
-  h = hashlib.md5(json.dumps(obj).encode())
-  return h.hexdigest()

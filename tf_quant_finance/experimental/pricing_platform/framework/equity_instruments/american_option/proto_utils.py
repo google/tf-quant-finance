@@ -13,23 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Utilities for proto processing."""
-import hashlib
-import json
-
 from typing import Any, List, Dict, Tuple
 
+import tensorflow.compat.v2 as tf
+
+from tf_quant_finance.experimental.pricing_platform.framework import utils
 from tf_quant_finance.experimental.pricing_platform.framework.core import business_days
 from tf_quant_finance.experimental.pricing_platform.framework.core import currencies
+from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types as curve_types_lib
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
+from tf_quant_finance.experimental.pricing_platform.framework.equity_instruments import utils as equity_utils
+from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import cashflow_streams
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import utils as instrument_utils
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import american_equity_option_pb2 as american_option_pb2
-
-
-# TODO(b/168411151): extract the non-cryptographic hasher to the common
-# utilities
-def _hasher(obj):
-  h = hashlib.md5(json.dumps(obj).encode())
-  return h.hexdigest()
 
 
 def _get_hash(
@@ -39,7 +35,7 @@ def _get_hash(
   currency = currencies.from_proto_value(american_option_proto.currency)
   bank_holidays = american_option_proto.bank_holidays
   business_day_convention = american_option_proto.business_day_convention
-  h = _hasher(tuple([bank_holidays] + [business_day_convention]))
+  h = utils.hasher([bank_holidays, business_day_convention])
   return h, currency
 
 
@@ -108,3 +104,62 @@ def from_protos(
       prepare_fras[h]["batch_names"].append([name, instrument_type])
   return prepare_fras
 
+
+def tensor_repr(am_option_data, dtype=None):
+  """Creates a tensor representation of an American option."""
+  dtype = dtype or tf.float64
+  res = dict()
+  res["expiry_date"] = tf.convert_to_tensor(
+      am_option_data["expiry_date"], dtype=tf.int32, name="expiry_date")
+  am_option_config = am_option_data["american_option_config"]
+  res["american_option_config"] = None
+  if am_option_config is not None:
+    config = {}
+    config["model"] = am_option_config.model
+    config["discounting_curve"] = am_option_config.discounting_curve
+    config["num_samples"] = am_option_config.num_samples
+    config["num_calibration_samples"] = am_option_config.num_calibration_samples
+    config["num_exercise_times"] = am_option_config.num_exercise_times
+    config["seed"] = tf.convert_to_tensor(am_option_config.seed,
+                                          dtype=tf.int32,
+                                          name="seed")
+    res["american_option_config"] = config
+  res["batch_names"] = am_option_data["batch_names"]
+  res["is_call_option"] = tf.convert_to_tensor(
+      am_option_data["is_call_option"], dtype=tf.bool,
+      name="is_call_options")
+  currency = am_option_data["currency"]
+  discount_curve_type = []
+  if am_option_config is not None:
+    if currency in am_option_config.discounting_curve:
+      discount_curve = am_option_config.discounting_curve[currency]
+      discount_curve_type.append(discount_curve)
+    else:
+      risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
+      discount_curve_type.append(risk_free)
+  else:
+    # Default discounting is the risk free curve
+    risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
+    discount_curve_type.append(risk_free)
+  discount_curve_type, mask = cashflow_streams.process_curve_types(
+      discount_curve_type)
+  res["discount_curve_mask"] = tf.convert_to_tensor(mask, dtype=tf.int32)
+  res["discount_curve_type"] = discount_curve_type
+  # Get equity mask
+  equity_list = cashflow_streams.to_list(am_option_data["equity"])
+  [
+      equity,
+      equity_mask,
+  ] = equity_utils.process_equities(equity_list)
+  res["equity_mask"] = tf.convert_to_tensor(equity_mask, tf.int32)
+  res["equity"] = equity
+  res["contract_amount"] = tf.convert_to_tensor(
+      am_option_data["contract_amount"], dtype=dtype)
+  res["strike"] = tf.convert_to_tensor(
+      am_option_data["strike"], dtype=dtype)
+  res["calendar"] = am_option_data["calendar"]
+  res["currency"] = [curve.currency for curve in discount_curve_type]
+  res["business_day_convention"] = am_option_data["business_day_convention"]
+  res["short_position"] = tf.convert_to_tensor(am_option_data["short_position"],
+                                               dtype=tf.bool)
+  return res

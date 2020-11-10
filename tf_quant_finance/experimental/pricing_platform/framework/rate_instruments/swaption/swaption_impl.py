@@ -14,13 +14,12 @@
 # limitations under the License.
 """European swaptions."""
 
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import dataclasses
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import datetime as dateslib
-from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
 from tf_quant_finance.experimental.pricing_platform.framework.core import instrument
 from tf_quant_finance.experimental.pricing_platform.framework.core import models
 from tf_quant_finance.experimental.pricing_platform.framework.core import processed_market_data as pmd
@@ -231,6 +230,14 @@ class Swaption(instrument.Instrument):
       return option_value
 
   @classmethod
+  def create_constructor_args(
+      cls, proto_list: List[swaption_proto.Swaption],
+      swaption_config: SwaptionConfig = None) -> Dict[str, Any]:
+    """Creates a dictionary to initialize Swaption."""
+    raise NotImplementedError("`create_constructor_args` not yet implemented "
+                              "for Swaption instrument.")
+
+  @classmethod
   def from_protos(
       cls,
       proto_list: List[swaption_proto.Swaption],
@@ -260,29 +267,6 @@ class Swaption(instrument.Instrument):
 
     The shape of the output is  [batch_shape, 2].
     """
-    pass
-
-  def ir_delta(self,
-               tenor: types.DateTensor,
-               processed_market_data: pmd.ProcessedMarketData,
-               curve_type: Optional[curve_types.CurveType] = None,
-               shock_size: Optional[float] = None) -> tf.Tensor:
-    """Computes delta wrt to the tenor perturbation."""
-    pass
-
-  def ir_delta_parallel(
-      self,
-      processed_market_data: pmd.ProcessedMarketData,
-      curve_type: Optional[curve_types.CurveType] = None,
-      shock_size: Optional[float] = None) -> tf.Tensor:
-    """Computes delta wrt to the curve parallel perturbation."""
-    pass
-
-  def ir_vega(self,
-              tenor: types.DateTensor,
-              processed_market_data: pmd.ProcessedMarketData,
-              shock_size: Optional[float] = None) -> tf.Tensor:
-    """Computes vega wrt to the implied volatility perturbation."""
     pass
 
   def _price_hull_white_1_factor(self, valuation_date, market,

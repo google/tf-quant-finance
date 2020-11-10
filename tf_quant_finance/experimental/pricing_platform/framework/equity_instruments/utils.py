@@ -25,7 +25,8 @@ from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments i
 
 
 def process_equities(
-    equities: List[str]
+    equities: List[str],
+    mask=None
     ) -> Tuple[
         List[str], List[int]]:
   """Extracts unique volatility surfaces and computes an integer mask.
@@ -34,25 +35,25 @@ def process_equities(
   ```python
   process_equities(["GOOG", "MSFT", "GOOG"])
   # Returns
-  (['MSFT', 'GOOG'], [1, 0, 1])
+  (['GOOG', 'MSFT'], [0, 1, 0])
   ```
 
   Args:
     equities: A list of equity names.
+    mask: An optional integer mask for the sorted equity sequence. If supplied,
+      does not perform any computations and returns `equities` and `mask`.
 
   Returns:
-    A list of unique equities in `equities` and a list of integers which is
-    the mask of `equities`.
+    A Tuple of `(equities, mask)` where  `equities` is a list of unique sorted
+    equities and `mask` is a list of integers which is the mask for `equities`.
   """
   equity_list = cashflow_streams.to_list(equities)
-  equity_hash = [hash(equity_type) for equity_type in equity_list]
-  hash_equities = {
-      hash(equity_type): equity_type for equity_type in equity_list}
+  if mask is not None:
+    return equity_list, mask
+  # Note that `create_mask` sorts `equity_list`.
   mask, mask_map, num_unique_equities = cashflow_streams.create_mask(
-      equity_hash)
-  equity_types = [
-      hash_equities[mask_map[i]]
-      for i in range(num_unique_equities)]
+      equity_list)
+  equity_types = [mask_map[i] for i in range(num_unique_equities)]
   return equity_types, mask
 
 

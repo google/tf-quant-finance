@@ -46,8 +46,8 @@ Currency = currencies.Currency
 @test_util.run_all_in_graph_and_eager_modes
 class ForwardRateAgreementTest(tf.test.TestCase):
 
-  def test_from_proto_price(self):
-    fra_1 = fra_pb2.ForwardRateAgreement(
+  def setUp(self):
+    self._fra_1 = fra_pb2.ForwardRateAgreement(
         short_position=True,
         fixing_date=date_pb2.Date(year=2021, month=5, day=21),
         currency=Currency.USD(),
@@ -60,7 +60,7 @@ class ForwardRateAgreementTest(tf.test.TestCase):
             term=period_pb2.Period(type="MONTH", amount=3)),
         settlement_days=2)
 
-    fra_2 = fra_pb2.ForwardRateAgreement(
+    self._fra_2 = fra_pb2.ForwardRateAgreement(
         short_position=False,
         fixing_date=date_pb2.Date(year=2021, month=5, day=21),
         currency=Currency.USD(),
@@ -72,19 +72,40 @@ class ForwardRateAgreementTest(tf.test.TestCase):
             floating_rate_type=RateIndex(type="LIBOR_3M"),
             term=period_pb2.Period(type="MONTH", amount=3)),
         settlement_days=2)
-    date = [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
-            [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]]
-    discount = [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
-                0.72494879, 0.37602059]
-    market_data_dict = {"USD": {
-        "risk_free_curve":
-        {"dates": date, "discounts": discount},
-        "LIBOR_3M":
-        {"dates": date, "discounts": discount},}}
-    valuation_date = [(2020, 2, 8)]
-    market = market_data.MarketDataDict(valuation_date, market_data_dict)
+
+    self._fra_3 = fra_pb2.ForwardRateAgreement(
+        short_position=True,
+        fixing_date=date_pb2.Date(year=2021, month=5, day=21),
+        currency=Currency.USD(),
+        fixed_rate=decimal_pb2.Decimal(nanos=31340000),
+        notional_amount=decimal_pb2.Decimal(units=10000),
+        daycount_convention=DayCountConventions.ACTUAL_360(),
+        business_day_convention=BusinessDayConvention.MODIFIED_FOLLOWING(),
+        floating_rate_term=fra_pb2.FloatingRateTerm(
+            floating_rate_type=RateIndex(type="LIBOR_3M"),
+            term=period_pb2.Period(type="MONTH", amount=3)),
+        settlement_days=2)
+
+    self._dates = [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
+                   [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]]
+    self._discounts = [0.97197441, 0.94022746, 0.91074031, 0.85495089,
+                       0.8013675,
+                       0.72494879, 0.37602059]
+    self._market_data_dict = {
+        "USD": {
+            "risk_free_curve":
+                {"dates": self._dates, "discounts": self._discounts},
+            "LIBOR_3M":
+                {"dates": self._dates, "discounts": self._discounts},}}
+    self._valuation_date = [(2020, 2, 8)]
+
+    super(ForwardRateAgreementTest, self).setUp()
+
+  def test_from_proto_price(self):
+    market = market_data.MarketDataDict(self._valuation_date,
+                                        self._market_data_dict)
     fra_portfolio = forward_rate_agreement.ForwardRateAgreement.from_protos(
-        [fra_1, fra_2, fra_1])
+        [self._fra_1, self._fra_2, self._fra_3])
     with self.subTest("Batching"):
       self.assertLen(fra_portfolio, 2)
     price1 = fra_portfolio[0].price(market)
@@ -95,6 +116,20 @@ class ForwardRateAgreementTest(tf.test.TestCase):
     expected2 = np.array([-5.10228969])
     with self.subTest("PriceSingle"):
       self.assertAllClose(price2, expected2)
+
+  def test_create_constructor_args_price(self):
+    """Creates and prices FRAs from a dictionary representation."""
+    fra_dict = (
+        forward_rate_agreement.ForwardRateAgreement.create_constructor_args(
+            [self._fra_1, self._fra_1]))
+    market = market_data.MarketDataDict(
+        self._valuation_date,
+        self._market_data_dict)
+    fras = forward_rate_agreement.ForwardRateAgreement(
+        **list(fra_dict.values())[0])
+    price = fras.price(market)
+    expected = np.array([4.05463257, 4.05463257])
+    self.assertAllClose(price, expected)
 
 if __name__ == "__main__":
   tf.test.main()

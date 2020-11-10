@@ -54,12 +54,17 @@ py_library(
     srcs = ["proto_utils.py"],
     srcs_version = "PY3",
     deps = [
+        "//tf_quant_finance/experimental/pricing_platform/framework:utils",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:business_days",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:currencies",
+        "//tf_quant_finance/experimental/pricing_platform/framework/core:curve_types",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:daycount_conventions",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:types",
+        "//tf_quant_finance/experimental/pricing_platform/framework/equity_instruments:utils",
+        "//tf_quant_finance/experimental/pricing_platform/framework/rate_instruments:cashflow_streams",
         "//tf_quant_finance/experimental/pricing_platform/framework/rate_instruments:utils",
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos",
+        # tensorflow dep,
     ],
 )
 

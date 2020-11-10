@@ -329,7 +329,7 @@ class FloatingCashflowStream:
       coupon_spec: An instance of `FloatCouponSpecs` specifying the
         details of the coupon payment for the cashflow stream.
       discount_curve_type: An instance of `CurveType` or a list of those.
-        If supplied as a list and `discount_curve_mask` is not supplid,
+        If supplied as a list and `discount_curve_mask` is not supplied,
         the size of the list should be the same as the number of priced
         instruments.
       start_date: A `DateTensor` of `batch_shape` specifying the starting dates
@@ -853,12 +853,13 @@ def process_curve_types(
   Args:
     curve_types: A list of either `RiskFreeCurve` or `RateIndexCurve`.
     mask: An optional integer mask for the sorted curve type sequence. If
-      supplied, `curve_types` as sorted and deduplicated but the mask is not
-      computed.
+      supplied, the function returns does not do anything and returns
+      `(curve_types, mask)`.
 
   Returns:
-    A list of unique curves in `curve_types` and a list of integers which is the
-    mask of `curve_types`.
+    A Tuple of `(curve_list, mask)` where  `curve_list` is  a list of unique
+    curves in `curve_types` and `mask` is a list of integers which is the
+    mask for `curve_types`.
   """
   def _get_signature(curve):
     """Converts curve infromation to a string."""
@@ -871,13 +872,11 @@ def process_curve_types(
     else:
       raise ValueError(f"{type(curve)} is not supported.")
   curve_list = to_list(curve_types)
-  sorted_curves = sorted([(_get_signature(c), c) for c in curve_list])
-  sorted_curves = [curve[1] for curve in sorted_curves]
   if mask is not None:
-    return sorted_curves, mask
-  curve_hash = [hash(curve_type) for curve_type in sorted_curves]
+    return curve_list, mask
+  curve_hash = [_get_signature(curve_type) for curve_type in curve_list]
   hash_discount_map = {
-      hash(curve_type): curve_type for curve_type in sorted_curves}
+      _get_signature(curve_type): curve_type for curve_type in curve_list}
   mask, mask_map, num_unique_discounts = create_mask(curve_hash)
   discount_curve_types = [
       hash_discount_map[mask_map[i]]
@@ -897,9 +896,10 @@ def create_mask(x):
       * A dictionary map between  entries of `x` and the list
       * The number of unique elements.
   """
-  # For example, create_mask("USD", "AUD", "USD") returns
-  # a list [0, 1, 0], a map {0: "USD", 1: "AUD"} and the number of unique
+  # For example, create_mask(["USD", "AUD", "USD"]) returns
+  # a list [1, 0, 1], a map {0: "AUD", 1: "USD"} and the number of unique
   # elements which is 2.
+  # Note that elements of `x` are being sorted
   unique = np.unique(x)
   num_unique_elems = len(unique)
   keys = range(num_unique_elems)

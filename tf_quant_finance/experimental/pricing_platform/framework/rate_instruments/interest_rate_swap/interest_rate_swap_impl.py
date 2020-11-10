@@ -244,9 +244,26 @@ class InterestRateSwap(instrument.Instrument):
 
   @classmethod
   def create_constructor_args(
-      cls, proto_list: List[ir_swap.InterestRateSwap]) -> Dict[str, Any]:
-    """Creates a dictionary to initialize InterestRateSwap."""
-    swap_data = proto_utils.from_protos_v2(proto_list)
+      cls, proto_list: List[ir_swap.InterestRateSwap],
+      swap_config: InterestRateSwapConfig = None) -> Dict[str, Any]:
+    """Creates a dictionary to initialize InterestRateSwap.
+
+    The output dictionary is such that the instruments can be initialized
+    as follows:
+    ```
+    initializer = create_constructor_args(proto_list, american_option_config)
+    swaps = [InterestRateSwap(**data) for data in initializer.values()]
+    ```
+
+    Args:
+      proto_list: A list of protos.
+      swap_config: An instance of `InterestRateSwapConfig`.
+
+    Returns:
+      A nested dictionary such that each value provides initialization arguments
+      for the InterestRateSwap.
+    """
+    swap_data = proto_utils.from_protos_v2(proto_list, swap_config)
     res = {}
     for key in swap_data:
       tensor_repr = proto_utils.tensor_repr(swap_data[key])
@@ -271,9 +288,9 @@ class InterestRateSwap(instrument.Instrument):
   def group_protos(
       cls,
       proto_list: List[ir_swap.InterestRateSwap],
-      fra_config: InterestRateSwapConfig = None
+      swap_config: InterestRateSwapConfig = None
       ) -> Dict[str, List["InterestRateSwap"]]:
-    return proto_utils.group_protos_v2(proto_list, fra_config)
+    return proto_utils.group_protos_v2(proto_list, swap_config)
 
   def price(self,
             market: pmd.ProcessedMarketData,

@@ -14,13 +14,13 @@
 # limitations under the License.
 """Forward Rate Agreement."""
 
-from typing import Optional, List, Dict
+from typing import Any, Optional, List, Dict
 
 import dataclasses
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import datetime as dateslib
-from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
+from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types as curve_types_lib
 from tf_quant_finance.experimental.pricing_platform.framework.core import instrument
 from tf_quant_finance.experimental.pricing_platform.framework.core import processed_market_data as pmd
 from tf_quant_finance.experimental.pricing_platform.framework.core import rate_indices
@@ -34,7 +34,7 @@ from tf_quant_finance.experimental.pricing_platform.instrument_protos import per
 
 @dataclasses.dataclass(frozen=True)
 class ForwardRateAgreementConfig:
-  discounting_curve: Dict[types.CurrencyProtoType, curve_types.CurveType]
+  discounting_curve: Dict[types.CurrencyProtoType, curve_types_lib.CurveType]
   model: str = ""
 
 
@@ -103,6 +103,10 @@ class ForwardRateAgreement(instrument.Instrument):
                rate_term: period_pb2.Period,
                rate_index: rate_indices.RateIndex,
                settlement_days: Optional[types.IntTensor] = 0,
+               discount_curve_type: curve_types_lib.CurveType = None,
+               discount_curve_mask: types.IntTensor = None,
+               rate_index_curves: curve_types_lib.RateIndexCurve = None,
+               reference_mask: types.IntTensor = None,
                fra_config: ForwardRateAgreementConfig = None,
                batch_names: Optional[types.StringTensor] = None,
                dtype: Optional[types.Dtype] = None,
@@ -134,6 +138,29 @@ class ForwardRateAgreement(instrument.Instrument):
         `core.rate_indices.RateIndex`.
       settlement_days: An integer `Tensor` of the shape broadcastable with the
         shape of `fixing_date`.
+      discount_curve_type: An optional instance of `CurveType` or a list of
+        those. If supplied as a list and `discount_curve_mask` is not supplied,
+        the size of the list should be the same as the number of priced
+        instruments. Defines discount curves for the instruments.
+        Default value: `None`, meaning that discount curves are inferred
+        from `currency` and `fra_config`.
+      discount_curve_mask: An optional integer `Tensor` of values ranging from
+        `0` to `len(discount_curve_type)` and of shape `batch_shape`. Identifies
+        a mapping between `discount_curve_type` list and the underlying
+        instruments.
+        Default value: `None`.
+      rate_index_curves: An instance of `RateIndexCurve` or a list of those.
+        If supplied as a list and `reference_mask` is not supplid,
+        the size of the list should be the same as the number of priced
+        instruments. Defines the index curves for each instrument. If not
+        supplied, `coupon_spec.floating_rate_type` is used to identify the
+        curves.
+        Default value: `None`.
+      reference_mask: An optional integer `Tensor` of values ranging from
+        `0` to `len(rate_index_curves)` and of shape `batch_shape`. Identifies
+        a mapping between `rate_index_curves` list and the underlying
+        instruments.
+        Default value: `None`.
       fra_config: Optional `ForwardRateAgreementConfig`.
       batch_names: A string `Tensor` of instrument names. Should be of shape
         `batch_shape + [2]` specying name and instrument type. This is useful
@@ -166,7 +193,10 @@ class ForwardRateAgreement(instrument.Instrument):
       # TODO(b/160446193): Calendar is ignored at the moment
       calendar = dateslib.create_holiday_calendar(
           weekend_mask=dateslib.WeekendMask.SATURDAY_SUNDAY)
-      self._fixing_date = dateslib.convert_to_date_tensor(fixing_date)
+      if isinstance(fixing_date, types.IntTensor):
+        self._fixing_date = dateslib.dates_from_tensor(fixing_date)
+      else:
+        self._fixing_date = dateslib.convert_to_date_tensor(fixing_date)
       self._accrual_start_date = calendar.add_business_days(
           self._fixing_date, settlement_days, roll_convention=roll_convention)
 
@@ -175,6 +205,8 @@ class ForwardRateAgreement(instrument.Instrument):
       period = rate_term
       if isinstance(rate_term, period_pb2.Period):
         period = market_data_utils.get_period(rate_term)
+      if isinstance(rate_term, dict):
+        period = market_data_utils.period_from_dict(rate_term)
       self._accrual_end_date = calendar.add_period_and_roll(
           self._accrual_start_date, period,
           roll_convention=roll_convention)
@@ -189,41 +221,79 @@ class ForwardRateAgreement(instrument.Instrument):
       # Get discount and reference curves
       self._currency = cashflow_streams.to_list(currency)
       self._rate_index = cashflow_streams.to_list(rate_index)
-      if len(self._currency) != len(self._rate_index):
-        raise ValueError(
-            "Number of currency and rate indices should be the same "
-            "but it is {0} and {1}".format(len(self._currency),
-                                           len(self._rate_index)))
-      self._reference_curve_type = []
-      self._discount_curve_type = []
-      for currency, rate_index in zip(self._currency, self._rate_index):
-        rate_index_curve = curve_types.RateIndexCurve(
-            currency=currency, index=rate_index)
-        self._reference_curve_type.append(rate_index_curve)
-      for currency in self._currency:
-        if fra_config is not None:
-          try:
-            discount_curve_type = fra_config.discounting_curve[currency]
-          except KeyError:
-            risk_free = curve_types.RiskFreeCurve(currency=currency)
-            discount_curve_type = curve_types.CurveType(
-                type=risk_free)
-          self._discount_curve_type.append(discount_curve_type)
-        else:
-          # Default discounting is the risk free curve
-          risk_free = curve_types.RiskFreeCurve(currency=currency)
-          self._discount_curve_type = risk_free
+      # Get a mask for the reference curves
+      if rate_index_curves is None:
+        rate_index_curves = []
+        if len(self._currency) != len(self._rate_index):
+          raise ValueError(
+              "When rate_index_curves` is not supplied, number of currencies "
+              "and rate indices should be the same `but it is {0} and "
+              "{1}".format(len(self._currency), len(self._rate_index)))
+
+        for currency, rate_index in zip(self._currency,
+                                        self._rate_index):
+          rate_index_curves.append(curve_types_lib.RateIndexCurve(
+              currency=currency, index=rate_index))
+      [
+          self._reference_curve_type,
+          self._reference_mask
+      ] = cashflow_streams.process_curve_types(rate_index_curves,
+                                               reference_mask)
+      # Get a mask for the discount curves
+      if discount_curve_type is None:
+        curve_list = []
+        for currency in self._currency:
+          if fra_config is not None:
+            try:
+              discount_curve_type = fra_config.discounting_curve[currency]
+            except KeyError:
+              risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
+              discount_curve_type = curve_types_lib.CurveType(
+                  type=risk_free)
+            curve_list.append(discount_curve_type)
+          else:
+            # Default discounting is the risk free curve
+            risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
+            curve_list = risk_free
+      else:
+        curve_list = cashflow_streams.to_list(discount_curve_type)
+
       # Get masks for discount and reference curves
       [
           self._discount_curve_type,
           self._mask
-      ] = cashflow_streams.process_curve_types(self._discount_curve_type)
-      [
-          self._reference_curve_type,
-          self._reference_mask
-      ] = cashflow_streams.process_curve_types(self._reference_curve_type)
+      ] = cashflow_streams.process_curve_types(curve_list, discount_curve_mask)
+
       # Get batch shape
       self._batch_shape = self._daycount_fractions.shape.as_list()[:-1]
+
+  @classmethod
+  def create_constructor_args(
+      cls, proto_list: List[fra.ForwardRateAgreement],
+      fra_config: ForwardRateAgreementConfig = None) -> Dict[str, Any]:
+    """Creates a dictionary to initialize ForwardRateAgreement.
+
+    The output dictionary is such that the instruments can be initialized
+    as follows:
+    ```
+    initializer = create_constructor_args(proto_list, american_option_config)
+    fras = [ForwardRateAgreement(**data) for data in initializer.values()]
+    ```
+
+    Args:
+      proto_list: A list of protos.
+      fra_config: An instance of `ForwardRateAgreementConfig`.
+
+    Returns:
+      A nested dictionary such that each value provides initialization arguments
+      for the ForwardRateAgreement.
+    """
+    fra_data = proto_utils.from_protos_v2(proto_list, fra_config)
+    res = {}
+    for key in fra_data:
+      tensor_repr = proto_utils.tensor_repr(fra_data[key])
+      res[key] = tensor_repr
+    return res
 
   @classmethod
   def from_protos(
@@ -303,29 +373,6 @@ class ForwardRateAgreement(instrument.Instrument):
     The shape of the output is  [batch_shape, 2].
     """
     return self._names
-
-  def ir_delta(self,
-               tenor: types.DateTensor,
-               processed_market_data: pmd.ProcessedMarketData,
-               curve_type: Optional[curve_types.CurveType] = None,
-               shock_size: Optional[float] = None) -> tf.Tensor:
-    """Computes delta wrt to the tenor perturbation."""
-    raise NotImplementedError("Coming soon.")
-
-  def ir_delta_parallel(
-      self,
-      processed_market_data: pmd.ProcessedMarketData,
-      curve_type: Optional[curve_types.CurveType] = None,
-      shock_size: Optional[float] = None) -> tf.Tensor:
-    """Computes delta wrt to the curve parallel perturbation."""
-    raise NotImplementedError("Coming soon.")
-
-  def ir_vega(self,
-              tenor: types.DateTensor,
-              processed_market_data: pmd.ProcessedMarketData,
-              shock_size: Optional[float] = None) -> tf.Tensor:
-    """Computes vega wrt to the tenor perturbation."""
-    raise NotImplementedError("Coming soon.")
 
 
 __all__ = ["ForwardRateAgreementConfig", "ForwardRateAgreement"]

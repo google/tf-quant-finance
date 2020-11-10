@@ -15,3 +15,9 @@ py_library(
         "//tf_quant_finance/experimental/pricing_platform/framework/rate_instruments",
     ],
 )
+
+py_library(
+    name = "utils",
+    srcs = ["utils.py"],
+    srcs_version = "PY3",
+)

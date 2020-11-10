@@ -13,16 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Utilities for proto processing."""
-import hashlib
-import json
 
 from typing import Any, List, Dict, Tuple
 
+import tensorflow.compat.v2 as tf
+
+from tf_quant_finance.experimental.pricing_platform.framework import utils
 from tf_quant_finance.experimental.pricing_platform.framework.core import business_days
 from tf_quant_finance.experimental.pricing_platform.framework.core import currencies
+from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types as curve_types_lib
 from tf_quant_finance.experimental.pricing_platform.framework.core import daycount_conventions
 from tf_quant_finance.experimental.pricing_platform.framework.core import rate_indices
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
+from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import cashflow_streams
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import utils as instrument_utils
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.interest_rate_swap import proto_utils as swap_utils
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import forward_rate_agreement_pb2 as fra
@@ -45,9 +48,9 @@ def _get_hash(
   rate_index.source = [rate_index.source]
 
   rate_term = fra_proto.floating_rate_term.term
-  h = _hasher(tuple([currency.value] + [bank_holidays] + [rate_term.type]
-                    + [rate_term.amount] + [rate_index.type.value]
-                    + [daycount_convention] + [business_day_convention]))
+  h = utils.hasher([currency.value, bank_holidays, rate_term.type,
+                    rate_term.amount, rate_index.type.value,
+                    daycount_convention, business_day_convention])
   return h, currency, rate_term, rate_index
 
 
@@ -66,8 +69,8 @@ def _get_hash_v2(
 
   rate_term = fra_proto.floating_rate_term.term
   rate_type, multiplier = _frequency_and_multiplier(rate_term.type)
-  h = _hasher(tuple([bank_holidays] + [daycount_convention]
-                    + [business_day_convention] + [rate_type]))
+  h = utils.hasher([bank_holidays, daycount_convention,
+                    business_day_convention, rate_type])
   return h, currency, (rate_type, [multiplier * rate_term.amount]), rate_index
 
 
@@ -129,7 +132,7 @@ def from_protos(
     name = fra_proto.metadata.id
     instrument_type = fra_proto.metadata.instrument_type
     if h not in prepare_fras:
-      prepare_fras[h] = {"short_position": short_position,
+      prepare_fras[h] = {"short_position": [short_position],
                          "currency": currency,
                          "fixing_date": [fixing_date],
                          "fixed_rate": [fixed_rate],
@@ -146,6 +149,7 @@ def from_protos(
       current_index = prepare_fras[h]["rate_index"]
       swap_utils.update_rate_index(current_index, rate_index)
       prepare_fras[h]["fixing_date"].append(fixing_date)
+      prepare_fras[h]["short_position"].append(short_position)
       prepare_fras[h]["fixed_rate"].append(fixed_rate)
       prepare_fras[h]["notional_amount"].append(notional_amount)
       prepare_fras[h]["settlement_days"].append(settlement_days)
@@ -179,7 +183,7 @@ def from_protos_v2(
     name = fra_proto.metadata.id
     instrument_type = fra_proto.metadata.instrument_type
     if h not in prepare_fras:
-      prepare_fras[h] = {"short_position": short_position,
+      prepare_fras[h] = {"short_position": [short_position],
                          "currency": [currency],
                          "fixing_date": [fixing_date],
                          "fixed_rate": [fixed_rate],
@@ -195,6 +199,7 @@ def from_protos_v2(
     else:
       prepare_fras[h]["currency"].append(currency)
       prepare_fras[h]["fixing_date"].append(fixing_date)
+      prepare_fras[h]["short_position"].append(short_position)
       prepare_fras[h]["fixed_rate"].append(fixed_rate)
       prepare_fras[h]["rate_index"].append(rate_index)
       current_rate_term = prepare_fras[h]["rate_term"]
@@ -208,6 +213,68 @@ def from_protos_v2(
   return prepare_fras
 
 
+def tensor_repr(fra_data, dtype=None):
+  """Creates a tensor representation of the FRA."""
+  dtype = dtype or tf.float64
+  res = dict()
+  res["fixing_date"] = tf.convert_to_tensor(
+      fra_data["fixing_date"], dtype=tf.int32)
+  res["fixed_rate"] = tf.convert_to_tensor(
+      fra_data["fixed_rate"], dtype=dtype)
+  fra_config = fra_data["fra_config"]
+  res["fra_config"] = fra_config
+  res["batch_names"] = fra_data["batch_names"]
+  currency_list = cashflow_streams.to_list(fra_data["currency"])
+  discount_curve_type = []
+  for currency in currency_list:
+    if fra_config is not None:
+      if currency in fra_config.discounting_curve:
+        discount_curve = fra_config.discounting_curve[currency]
+        discount_curve_type.append(discount_curve)
+      else:
+        risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
+        discount_curve_type.append(risk_free)
+    else:
+      # Default discounting is the risk free curve
+      risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
+      discount_curve_type.append(risk_free)
+  discount_curve_type, mask = cashflow_streams.process_curve_types(
+      discount_curve_type)
+  res["discount_curve_mask"] = tf.convert_to_tensor(mask, dtype=tf.int32)
+  res["discount_curve_type"] = discount_curve_type
+  # Get reset frequency
+  reset_frequency = tf.convert_to_tensor(
+      fra_data["rate_term"][1], tf.int32)
+  res["rate_term"] = {
+      "type": fra_data["rate_term"][0],
+      "frequency": reset_frequency}
+  rate_index = cashflow_streams.to_list(fra_data["rate_index"])
+  rate_index_curves = []
+  for currency, r_ind in zip(currency_list, rate_index):
+    rate_index_curves.append(curve_types_lib.RateIndexCurve(
+        currency=currency, index=r_ind))
+  [
+      rate_index_curves,
+      reference_mask
+  ] = cashflow_streams.process_curve_types(rate_index_curves)
+  res["reference_mask"] = tf.convert_to_tensor(reference_mask, tf.int32)
+  res["rate_index_curves"] = rate_index_curves
+  # Extract unique rate indices
+  res["rate_index"] = [curve.index for curve in rate_index_curves]
+  res["notional_amount"] = tf.convert_to_tensor(
+      fra_data["notional_amount"], dtype=dtype)
+  res["settlement_days"] = tf.convert_to_tensor(
+      fra_data["settlement_days"], dtype=tf.int32, name="settlement_days")
+  res["calendar"] = fra_data["calendar"]
+  # Extract unique currencies
+  res["currency"] = [curve.currency for curve in discount_curve_type]
+  res["daycount_convention"] = fra_data["daycount_convention"]
+  res["business_day_convention"] = fra_data["business_day_convention"]
+  res["short_position"] = tf.convert_to_tensor(fra_data["short_position"],
+                                               dtype=tf.bool)
+  return res
+
+
 def _frequency_and_multiplier(freq_type):
   multiplier = 1
   if freq_type == 5:
@@ -215,8 +282,4 @@ def _frequency_and_multiplier(freq_type):
   return freq_type, multiplier
 
 
-# TODO(b/168411151): extract the non-cryptographic hasher to the common
-# utilities
-def _hasher(obj):
-  h = hashlib.md5(json.dumps(obj).encode())
-  return h.hexdigest()
+

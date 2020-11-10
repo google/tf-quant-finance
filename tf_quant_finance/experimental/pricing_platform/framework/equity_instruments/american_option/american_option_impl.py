@@ -14,13 +14,13 @@
 # limitations under the License.
 """Equity american option."""
 
-from typing import Optional, List, Dict
+from typing import Any, Optional, List, Dict
 
 import dataclasses
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import datetime as dateslib
-from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
+from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types as curve_types_lib
 from tf_quant_finance.experimental.pricing_platform.framework.core import instrument
 from tf_quant_finance.experimental.pricing_platform.framework.core import processed_market_data as pmd
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
@@ -34,8 +34,9 @@ from tf_quant_finance.experimental.pricing_platform.instrument_protos import ame
 
 @dataclasses.dataclass(frozen=True)
 class AmericanOptionConfig:
-  discounting_curve: Optional[Dict[types.CurrencyProtoType,
-                                   curve_types.CurveType]] = None
+  discounting_curve: Optional[
+      Dict[types.CurrencyProtoType,
+           curve_types_lib.CurveType]] = dataclasses.field(default_factory=dict)
   model: str = "BS-LSM"  # default pricing model is LSM under Black-Scholes
   num_samples: int = 96000
   num_calibration_samples: int = None
@@ -87,6 +88,9 @@ class AmericanOption(instrument.Instrument):
                business_day_convention: types.BusinessDayConventionProtoType,
                calendar: types.BankHolidaysProtoType,
                settlement_days: Optional[types.IntTensor] = 0,
+               discount_curve_type: curve_types_lib.CurveType = None,
+               discount_curve_mask: types.IntTensor = None,
+               equity_mask: types.IntTensor = None,
                american_option_config: AmericanOptionConfig = None,
                batch_names: Optional[types.StringTensor] = None,
                dtype: Optional[types.Dtype] = None,
@@ -111,6 +115,21 @@ class AmericanOption(instrument.Instrument):
       calendar: A calendar to specify the weekend mask and bank holidays.
       settlement_days: An integer `Tensor` of the shape broadcastable with the
         shape of `fixing_date`.
+      discount_curve_type: An optional instance of `CurveType` or a list of
+        those. If supplied as a list and `discount_curve_mask` is not supplied,
+        the size of the list should be the same as the number of priced
+        instruments. Defines discount curves for the instruments.
+        Default value: `None`, meaning that discount curves are inferred
+        from `currency` and `fra_config`.
+      discount_curve_mask: An optional integer `Tensor` of values ranging from
+        `0` to `len(discount_curve_type)` and of shape `batch_shape`. Identifies
+        a mapping between `discount_curve_type` list and the underlying
+        instruments.
+        Default value: `None`.
+      equity_mask: An optional integer `Tensor` of values ranging from
+        `0` to `len(equity)` and of shape `batch_shape`. Identifies
+        a mapping between `equity` list and the underlying instruments.
+        Default value: `None`.
       american_option_config: Optional `AmericanOptionConfig`.
       batch_names: A string `Tensor` of instrument names. Should be of shape
         `batch_shape + [2]` specying name and instrument type. This is useful
@@ -145,7 +164,10 @@ class AmericanOption(instrument.Instrument):
       # TODO(b/160446193): Calendar is ignored at the moment
       calendar = dateslib.create_holiday_calendar(
           weekend_mask=dateslib.WeekendMask.SATURDAY_SUNDAY)
-      self._expiry_date = dateslib.convert_to_date_tensor(expiry_date)
+      if isinstance(expiry_date, types.IntTensor):
+        self._expiry_date = dateslib.dates_from_tensor(expiry_date)
+      else:
+        self._expiry_date = dateslib.convert_to_date_tensor(expiry_date)
       self._settlement_days = settlement_days
       self._roll_convention = roll_convention
       # Get discount and reference curves
@@ -157,50 +179,91 @@ class AmericanOption(instrument.Instrument):
               "Number of currencies and equities should be the same "
               "but it is {0} and {1}".format(len(self._currency),
                                              len(self._equity)))
-      self._discount_curve_type = []
       self._model = "BS-LSM"  # default pricing model is LSM under Black-Scholes
       self._num_exercise_times = 100
       self._num_samples = 96000
       self._seed = [42, 42]
+      self._num_calibration_samples = None
       if american_option_config is not None:
-        self._model = american_option_config.model
-        self._seed = american_option_config.seed
-        self._num_calibration_samples = None
-      for currency in self._currency:
-        if american_option_config is not None:
+        if isinstance(american_option_config, dict):
+          self._model = american_option_config["model"]
+          self._seed = american_option_config["seed"]
+          self._num_exercise_times = american_option_config[
+              "num_exercise_times"]
+          self._num_samples = american_option_config[
+              "num_samples"]
+          self._num_calibration_samples = american_option_config[
+              "num_calibration_samples"]
+        else:
           [
               self._num_samples,
+              self._seed,
               self._num_exercise_times,
               self._num_calibration_samples
           ] = [
               american_option_config.num_samples,
+              american_option_config.seed,
               american_option_config.num_exercise_times,
               american_option_config.num_calibration_samples
               ]
-          try:
-            discount_curve_type = american_option_config.discounting_curve[
-                currency]
-          except (KeyError, TypeError):
-            discount_curve_type = curve_types.RiskFreeCurve(currency=currency)
-          self._discount_curve_type.append(discount_curve_type)
-        else:
-          # Default discounting is the risk free curve
-          risk_free = curve_types.RiskFreeCurve(currency=currency)
-          self._discount_curve_type.append(risk_free)
+      if discount_curve_type is None:
+        discount_curve_type = []
+        for currency in self._currency:
+          if american_option_config is not None:
+            try:
+              curve_type = american_option_config.discounting_curve[
+                  currency]
+            except (KeyError, TypeError):
+              curve_type = curve_types_lib.RiskFreeCurve(
+                  currency=currency)
+            discount_curve_type.append(curve_type)
+          else:
+            # Default discounting is the risk free curve
+            risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
+            discount_curve_type.append(risk_free)
 
       # Get masks for discount curves and vol surfaces
       [
           self._discount_curve_type,
           self._discount_curve_mask
-      ] = cashflow_streams.process_curve_types(self._discount_curve_type)
-
+      ] = cashflow_streams.process_curve_types(discount_curve_type,
+                                               discount_curve_mask)
       [
           self._equity,
           self._equity_mask,
-      ] = equity_utils.process_equities(self._equity)
-
+      ] = equity_utils.process_equities(self._equity, equity_mask)
       # Get batch shape
       self._batch_shape = tf.shape(strike)
+
+  @classmethod
+  def create_constructor_args(
+      cls, proto_list: List[american_option_pb2.AmericanEquityOption],
+      american_option_config: AmericanOptionConfig = None) -> Dict[str, Any]:
+    """Creates a dictionary to initialize AmericanEquityOption.
+
+    The output dictionary is such that the instruments can be initialized
+    as follows:
+    ```
+    initializer = create_constructor_args(proto_list, american_option_config)
+    american_options = [AmericanEquityOption(**data)
+                        for data in initializer.values()]
+    ```
+
+    Args:
+      proto_list: A list of protos.
+      american_option_config: An instance of `AmericanOptionConfig`.
+
+    Returns:
+      A nested dictionary such that each value provides initialization arguments
+      for the AmericanEquityOption.
+    """
+    am_option_data = proto_utils.from_protos(proto_list,
+                                             american_option_config)
+    res = {}
+    for key in am_option_data:
+      tensor_repr = proto_utils.tensor_repr(am_option_data[key])
+      res[key] = tensor_repr
+    return res
 
   @classmethod
   def from_protos(
@@ -289,7 +352,7 @@ class AmericanOption(instrument.Instrument):
   def ir_delta(self,
                tenor: types.DateTensor,
                processed_market_data: pmd.ProcessedMarketData,
-               curve_type: Optional[curve_types.CurveType] = None,
+               curve_type: Optional[curve_types_lib.CurveType] = None,
                shock_size: Optional[float] = None) -> tf.Tensor:
     """Computes delta wrt to the tenor perturbation."""
     raise NotImplementedError("Coming soon.")
@@ -297,7 +360,7 @@ class AmericanOption(instrument.Instrument):
   def ir_delta_parallel(
       self,
       processed_market_data: pmd.ProcessedMarketData,
-      curve_type: Optional[curve_types.CurveType] = None,
+      curve_type: Optional[curve_types_lib.CurveType] = None,
       shock_size: Optional[float] = None) -> tf.Tensor:
     """Computes delta wrt to the curve parallel perturbation."""
     raise NotImplementedError("Coming soon.")

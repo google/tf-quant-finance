@@ -15,11 +15,10 @@
 """Instrument interface."""
 
 import abc
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
 from tf_quant_finance.experimental.pricing_platform.framework.core import processed_market_data as pmd
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
 
@@ -37,12 +36,28 @@ class Instrument(abc.ABC):
     return []
 
   @classmethod
-  def from_dict(cls,
-                dict_list: List[Dict[str, Any]],
-                **kwargs) -> List["Instrument"]:
-    """Converts a list of dict messages to a list of batched `Instruments`."""
-    del dict_list, kwargs
-    return []
+  def create_constructor_args(
+      cls, proto_list: List[types.ProtobufBaseType],
+      **kwargs) -> Dict[str, Any]:
+    """Creates a dictionary to initialize the Instrument.
+
+    The output dictionary is such that the instruments can be initialized
+    as follows:
+    ```
+    initializer = create_constructor_args(proto_list, **kwargs)
+    instruments = [Instrument(**data) for data in initializer.values()]
+    ```
+
+    Args:
+      proto_list: A list of protos.
+      **kwargs: Any other keyword args needed by an implementation.
+
+    Returns:
+      A nested dictionary such that each value provides initialization arguments
+      for the Instrument.
+    """
+    del proto_list, kwargs
+    return dict()
 
   @classmethod
   def group_protos(
@@ -80,32 +95,6 @@ class Instrument(abc.ABC):
   @abc.abstractmethod
   def price(self, processed_market_data: pmd.ProcessedMarketData) -> tf.Tensor:
     """Computes price of the batch of the instrument against the market data."""
-    pass
-
-  @abc.abstractmethod
-  def ir_delta(self,
-               tenor: types.DateTensor,
-               processed_market_data: pmd.ProcessedMarketData,
-               curve_type: Optional[curve_types.CurveType] = None,
-               shock_size: Optional[float] = None) -> tf.Tensor:
-    """Computes delta wrt to the tenor perturbation."""
-    pass
-
-  @abc.abstractmethod
-  def ir_delta_parallel(
-      self,
-      processed_market_data: pmd.ProcessedMarketData,
-      curve_type: Optional[curve_types.CurveType] = None,
-      shock_size: Optional[float] = None) -> tf.Tensor:
-    """Computes delta wrt to the curve parallel perturbation."""
-    pass
-
-  @abc.abstractmethod
-  def ir_vega(self,
-              tenor: types.DateTensor,
-              processed_market_data: pmd.ProcessedMarketData,
-              shock_size: Optional[float] = None) -> tf.Tensor:
-    """Computes vega wrt to the implied volatility perturbation."""
     pass
 
 

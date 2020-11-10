@@ -53,6 +53,7 @@ py_library(
     srcs = ["proto_utils.py"],
     srcs_version = "PY3",
     deps = [
+        "//tf_quant_finance/experimental/pricing_platform/framework:utils",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:business_days",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:currencies",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:daycount_conventions",
