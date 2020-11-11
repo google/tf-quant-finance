@@ -17,7 +17,7 @@
 
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.math import piecewise
+from tf_quant_finance.math import piecewise as pw
 from tf_quant_finance.math.pde import fd_solvers
 from tf_quant_finance.models import ito_process
 from tf_quant_finance.models import utils
@@ -69,10 +69,10 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
     """
     self._name = name or "geometric_brownian_motion"
     with tf.name_scope(self._name):
-      self._mu, self._mu_is_constant = self._tensor_or_func(
+      self._mu, self._mu_is_constant = pw.convert_to_tensor_or_func(
           mu, dtype=dtype, name="mu")
       self._dtype = dtype or self._mu.dtype
-      self._sigma, self._sigma_is_constant = self._tensor_or_func(
+      self._sigma, self._sigma_is_constant = pw.convert_to_tensor_or_func(
           sigma, dtype=self._dtype, name="sigma")
       self._sigma_squared = self._sigma_squared_from_sigma(
           self._sigma,
@@ -242,25 +242,6 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
     samples = initial_state * tf.math.exp(cumsum)
     return tf.expand_dims(samples, -1)
 
-  def _tensor_or_func(self, x, dtype=None, name=None):
-    """Returns either a `PiecewiseConstantFunc` or x converted to a `Tensor`.
-
-    Args:
-      x: Either a 'Tensor' or 'PiecewiseConstantFunc'.
-      dtype: The default dtype to use when converting values to `Tensor`s.
-        Default value: `None` which means that default dtypes inferred by
-          TensorFlow are used.
-      name: Python string. The name to give to the ops created by this class.
-        Default value: `None` which maps to the default name '_tensor_or_func'.
-    Returns:
-      A tuple (y, flag) where y is either a Tensor or PiecewiseConstantFunc
-      and flag which is False if x is off type PiecewiseConstantFunc and True
-      otherwise.
-    """
-    name = name or (self._name + "_tensor_or_func")
-    if isinstance(x, piecewise.PiecewiseConstantFunc): return x, False
-    return tf.convert_to_tensor(x, dtype=dtype, name=name), True
-
   def _sigma_squared_from_sigma(self, sigma, sigma_is_constant, dtype=None,
                                 name=None):
     """Returns sigma squared as either a `PiecewiseConstantFunc` or a `Tensor`.
@@ -275,7 +256,7 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
         Default value: `None` which maps to the default name '_sigma_squared'.
     """
     name = name or (self._name + "_sigma_squared")
-    return sigma ** 2 if sigma_is_constant else piecewise.PiecewiseConstantFunc(
+    return sigma ** 2 if sigma_is_constant else pw.PiecewiseConstantFunc(
         sigma.jump_locations(), sigma.values()**2, dtype=dtype, name=name)
 
   # TODO(b/152967694): Remove the duplicate methods.

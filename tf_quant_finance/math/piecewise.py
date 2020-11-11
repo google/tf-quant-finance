@@ -455,3 +455,38 @@ def _try_broadcast_to(x, batch_shape, name):
                            batch_shape, batch_shape_x, name))
     return tf.broadcast_to(x, batch_shape + x.shape[-1:])
   return x
+
+
+def convert_to_tensor_or_func(x, dtype=None, name=None):
+  """Returns either a `PiecewiseConstantFunc` or x converted to a `Tensor`.
+
+  Converts the input argument into a `Tensor` unless the input is of type
+  `PiecewiseConstantFunc` when the input is returned unchanged.  This function
+  helps pricing models to preprocess inputs that can be either constant or time
+  dependent as represented by a PiecewiseConstantFunc.
+
+  Example:
+    class GeometricBrownianMotion(object)
+      def __init__(self, mu, sigma):
+        self._mu, self._mu_is_constant = piecewise.convert_to_tensor_or_func(
+          mu)
+        self._sigma, self._sigma_is_constant =
+          piecewise.convert_to_tensor_or_func(sigma)
+
+  Args:
+    x: Either a 'Tensor' or 'PiecewiseConstantFunc'.
+    dtype: The default dtype to use when converting values to `Tensor`s.
+      Default value: `None` which means that default dtypes inferred by
+        TensorFlow are used.
+    name: Python string. The name to give to the ops created by this class.
+      Default value: `None` which maps to the default name
+      'PiecewiseConstantFunc_tensor_or_func'.
+  Returns:
+    A tuple (y, flag) where y is either a Tensor or PiecewiseConstantFunc
+    and flag which is False if x is of type PiecewiseConstantFunc and True
+    otherwise.
+  """
+  name = name or ('PiecewiseConstantFunc_tensor_or_func')
+  if isinstance(x, PiecewiseConstantFunc):
+    return x, False
+  return tf.convert_to_tensor(x, dtype=dtype, name=name), True

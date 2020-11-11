@@ -234,5 +234,29 @@ class Piecewise(tf.test.TestCase):
       with self.assertRaises(ValueError):
         piecewise_func.integrate(x2, x3)
 
+  def test_convert_to_tensor_or_func_tensors(self):
+    """Tests that tensor_or_func converts inputs into Tensors."""
+    dtype = tf.float64
+    inputs = [2.0, [1, 2, 3], np.arange(1, 5, 1)]
+    output = []
+    expected = []
+    for i in inputs:
+      x = (piecewise.convert_to_tensor_or_func(i, dtype))
+      # Check that the returned value is a tensor and is_const flag is set.
+      output.append((tf.is_tensor(x[0]), x[1]))
+      expected.append((True, True))
+
+    self.assertAllEqual(output, expected)
+
+  def test_convert_to_tensor_or_func_PiecewiseConstantFunc(self):
+    """Tests that tensor_or_func recognizes inputs of PiecewiseConstantFunc."""
+    dtype = tf.float64
+    times = np.arange(0, 10, 1)
+    values = np.ones(11)
+    pwc = piecewise.PiecewiseConstantFunc(times, values, dtype=dtype)
+    output = piecewise.convert_to_tensor_or_func(pwc)
+    expected = (pwc, False)
+    self.assertAllEqual(output, expected)
+
 if __name__ == '__main__':
   tf.test.main()
