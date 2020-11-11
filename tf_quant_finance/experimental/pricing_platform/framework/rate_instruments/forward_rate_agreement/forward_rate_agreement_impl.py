@@ -14,7 +14,7 @@
 # limitations under the License.
 """Forward Rate Agreement."""
 
-from typing import Any, Optional, List, Dict
+from typing import Any, Optional, List, Dict, Union
 
 import dataclasses
 import tensorflow.compat.v2 as tf
@@ -34,7 +34,9 @@ from tf_quant_finance.experimental.pricing_platform.instrument_protos import per
 
 @dataclasses.dataclass(frozen=True)
 class ForwardRateAgreementConfig:
-  discounting_curve: Dict[types.CurrencyProtoType, curve_types_lib.CurveType]
+  discounting_curve: Dict[
+      types.CurrencyProtoType,
+      curve_types_lib.CurveType] = dataclasses.field(default_factory=dict)
   model: str = ""
 
 
@@ -107,7 +109,7 @@ class ForwardRateAgreement(instrument.Instrument):
                discount_curve_mask: types.IntTensor = None,
                rate_index_curves: curve_types_lib.RateIndexCurve = None,
                reference_mask: types.IntTensor = None,
-               fra_config: ForwardRateAgreementConfig = None,
+               config: Union[ForwardRateAgreementConfig, Dict[str, Any]] = None,
                batch_names: Optional[types.StringTensor] = None,
                dtype: Optional[types.Dtype] = None,
                name: Optional[str] = None):
@@ -143,11 +145,11 @@ class ForwardRateAgreement(instrument.Instrument):
         the size of the list should be the same as the number of priced
         instruments. Defines discount curves for the instruments.
         Default value: `None`, meaning that discount curves are inferred
-        from `currency` and `fra_config`.
+        from `currency` and `config`.
       discount_curve_mask: An optional integer `Tensor` of values ranging from
-        `0` to `len(discount_curve_type)` and of shape `batch_shape`. Identifies
-        a mapping between `discount_curve_type` list and the underlying
-        instruments.
+        `0` to `len(discount_curve_type) - 1` and of shape `batch_shape`.
+        Identifies a mapping between `discount_curve_type` list and the
+        underlying instruments.
         Default value: `None`.
       rate_index_curves: An instance of `RateIndexCurve` or a list of those.
         If supplied as a list and `reference_mask` is not supplid,
@@ -157,11 +159,13 @@ class ForwardRateAgreement(instrument.Instrument):
         curves.
         Default value: `None`.
       reference_mask: An optional integer `Tensor` of values ranging from
-        `0` to `len(rate_index_curves)` and of shape `batch_shape`. Identifies
-        a mapping between `rate_index_curves` list and the underlying
+        `0` to `len(rate_index_curves) - 1` and of shape `batch_shape`.
+        Identifies a mapping between `rate_index_curves` list and the underlying
         instruments.
         Default value: `None`.
-      fra_config: Optional `ForwardRateAgreementConfig`.
+      config: Optional `ForwardRateAgreementConfig` or a dictionary.
+        If dictionary, then the keys should be the same as the field names of
+        `ForwardRateAgreementConfig`.
       batch_names: A string `Tensor` of instrument names. Should be of shape
         `batch_shape + [2]` specying name and instrument type. This is useful
         when the `from_protos` method is used and the user needs to identify
@@ -240,21 +244,17 @@ class ForwardRateAgreement(instrument.Instrument):
       ] = cashflow_streams.process_curve_types(rate_index_curves,
                                                reference_mask)
       # Get a mask for the discount curves
+      self._config = _process_config(config)
       if discount_curve_type is None:
         curve_list = []
         for currency in self._currency:
-          if fra_config is not None:
-            try:
-              discount_curve_type = fra_config.discounting_curve[currency]
-            except KeyError:
-              risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
-              discount_curve_type = curve_types_lib.CurveType(
-                  type=risk_free)
-            curve_list.append(discount_curve_type)
+          if currency in self._config.discounting_curve:
+            discount_curve_type = self._config.discounting_curve[currency]
           else:
             # Default discounting is the risk free curve
-            risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
-            curve_list = risk_free
+            discount_curve_type = curve_types_lib.RiskFreeCurve(
+                currency=currency)
+          curve_list.append(discount_curve_type)
       else:
         curve_list = cashflow_streams.to_list(discount_curve_type)
 
@@ -270,25 +270,30 @@ class ForwardRateAgreement(instrument.Instrument):
   @classmethod
   def create_constructor_args(
       cls, proto_list: List[fra.ForwardRateAgreement],
-      fra_config: ForwardRateAgreementConfig = None) -> Dict[str, Any]:
+      config: ForwardRateAgreementConfig = None) -> Dict[str, Any]:
     """Creates a dictionary to initialize ForwardRateAgreement.
 
     The output dictionary is such that the instruments can be initialized
     as follows:
     ```
-    initializer = create_constructor_args(proto_list, american_option_config)
+    initializer = create_constructor_args(proto_list, config)
     fras = [ForwardRateAgreement(**data) for data in initializer.values()]
     ```
 
+    The keys of the output dictionary are unique identifiers of the batched
+    instruments. This is useful for identifying an existing graph that could be
+    reused for the instruments without the need of rebuilding the graph.
+
     Args:
-      proto_list: A list of protos.
-      fra_config: An instance of `ForwardRateAgreementConfig`.
+      proto_list: A list of protos for which the initialization arguments are
+        constructed.
+      config: An instance of `ForwardRateAgreementConfig`.
 
     Returns:
-      A nested dictionary such that each value provides initialization arguments
-      for the ForwardRateAgreement.
+      A possibly nested dictionary such that each value provides initialization
+      arguments for the ForwardRateAgreement.
     """
-    fra_data = proto_utils.from_protos_v2(proto_list, fra_config)
+    fra_data = proto_utils.from_protos_v2(proto_list, config)
     res = {}
     for key in fra_data:
       tensor_repr = proto_utils.tensor_repr(fra_data[key])
@@ -299,9 +304,9 @@ class ForwardRateAgreement(instrument.Instrument):
   def from_protos(
       cls,
       proto_list: List[fra.ForwardRateAgreement],
-      fra_config: ForwardRateAgreementConfig = None
+      config: ForwardRateAgreementConfig = None
       ) -> List["ForwardRateAgreement"]:
-    proto_dict = proto_utils.from_protos_v2(proto_list, fra_config)
+    proto_dict = proto_utils.from_protos_v2(proto_list, config)
     intruments = []
     for kwargs in proto_dict.values():
       # Convert rate term to the period tensors
@@ -315,9 +320,9 @@ class ForwardRateAgreement(instrument.Instrument):
   def group_protos(
       cls,
       proto_list: List[fra.ForwardRateAgreement],
-      fra_config: ForwardRateAgreementConfig = None
+      config: ForwardRateAgreementConfig = None
       ) -> Dict[str, List["ForwardRateAgreement"]]:
-    return proto_utils.group_protos_v2(proto_list, fra_config)
+    return proto_utils.group_protos_v2(proto_list, config)
 
   def price(self,
             market: pmd.ProcessedMarketData,
@@ -373,6 +378,20 @@ class ForwardRateAgreement(instrument.Instrument):
     The shape of the output is  [batch_shape, 2].
     """
     return self._names
+
+
+def _process_config(
+    config: Union[ForwardRateAgreementConfig, Dict[str, Any], None]
+    ) -> ForwardRateAgreementConfig:
+  """Converts config to ForwardRateAgreementConfig."""
+  if config is None:
+    return ForwardRateAgreementConfig()
+  if isinstance(config, ForwardRateAgreementConfig):
+    return config
+  model = config.get("model", "")
+  discounting_curve = config.get("discounting_curve", dict())
+  return ForwardRateAgreementConfig(discounting_curve=discounting_curve,
+                                    model=model)
 
 
 __all__ = ["ForwardRateAgreementConfig", "ForwardRateAgreement"]

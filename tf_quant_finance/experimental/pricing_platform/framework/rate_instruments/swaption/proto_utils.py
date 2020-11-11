@@ -27,7 +27,7 @@ def get_hash(swaption_instance: swaption_proto.Swaption) -> Tuple[int, bool]:
 
 def from_protos(
     proto_list: List[swaption_proto.Swaption],
-    swaption_config: "SwaptionConfig" = None
+    config: "SwaptionConfig" = None
     ) -> Dict[str, Any]:
   """Creates a dictionary of preprocessed swap data."""
   prepare_swaptions = {}
@@ -47,7 +47,7 @@ def from_protos(
       prepare_swaptions[h] = {
           "expiry_date": [expiry_date],
           "swap": [swap_instance],
-          "swaption_config": swaption_config,
+          "config": config,
           "batch_names": [[name, instrument_type]]
       }
   return prepare_swaptions
@@ -55,10 +55,10 @@ def from_protos(
 
 def group_protos(
     proto_list: List[swaption_proto.Swaption],
-    swaption_config: "SwaptionConfig" = None
+    config: "SwaptionConfig" = None
     ) -> Dict[str, Any]:
   """Creates a dictionary of grouped protos."""
-  del swaption_config
+  del config
 
   grouped_swaptions = {}
   for swaption_instance in proto_list:

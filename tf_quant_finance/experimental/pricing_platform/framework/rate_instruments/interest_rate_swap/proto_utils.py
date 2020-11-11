@@ -32,16 +32,16 @@ from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments i
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import interest_rate_swap_pb2 as ir_swap
 
 
-def fixed_leg_tensor_repr(leg, swap_config, dtype):
+def fixed_leg_tensor_repr(leg, config, dtype):
   """Creates tensor representation for a fixed leg of a swap."""
   res = {}
   coupon_spec = {}
   currency_list = cashflow_streams.to_list(leg.currency)
   discount_curve_type = []
   for currency in currency_list:
-    if swap_config is not None:
-      if currency in swap_config.discounting_curve:
-        discount_curve = swap_config.discounting_curve[currency]
+    if config is not None:
+      if currency in config.discounting_curve:
+        discount_curve = config.discounting_curve[currency]
         discount_curve_type.append(discount_curve)
       else:
         risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
@@ -73,16 +73,16 @@ def fixed_leg_tensor_repr(leg, swap_config, dtype):
   return res
 
 
-def floating_leg_tensor_repr(leg, swap_config, dtype):
+def floating_leg_tensor_repr(leg, config, dtype):
   """Creates tensor representation for a floating leg of a swap."""
   res = {}
   coupon_spec = {}
   currency_list = cashflow_streams.to_list(leg.currency)
   discount_curve_type = []
   for currency in currency_list:
-    if swap_config is not None:
-      if currency in swap_config.discounting_curve:
-        discount_curve = swap_config.discounting_curve[currency]
+    if config is not None:
+      if currency in config.discounting_curve:
+        discount_curve = config.discounting_curve[currency]
         discount_curve_type.append(discount_curve)
       else:
         risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
@@ -141,7 +141,7 @@ def tensor_repr(swap_data, dtype=None):
                                            dtype=tf.int32)
   res["maturity_date"] = tf.convert_to_tensor(swap_data["maturity_date"],
                                               dtype=tf.int32)
-  res["swap_config"] = swap_data["swap_config"]
+  res["config"] = swap_data["config"]
   res["batch_names"] = swap_data["batch_names"]
   # Update pay_leg
   pay_leg = swap_data["pay_leg"]
@@ -150,16 +150,16 @@ def tensor_repr(swap_data, dtype=None):
     raise ValueError("Pay and receive legs should have the same currency")
   if isinstance(pay_leg, coupon_specs.FixedCouponSpecs):
     res["pay_leg"] = fixed_leg_tensor_repr(
-        pay_leg, res["swap_config"], dtype)
+        pay_leg, res["config"], dtype)
   else:
     res["pay_leg"] = floating_leg_tensor_repr(
-        pay_leg, res["swap_config"], dtype)
+        pay_leg, res["config"], dtype)
   if isinstance(receive_leg, coupon_specs.FixedCouponSpecs):
     res["receive_leg"] = fixed_leg_tensor_repr(
-        receive_leg, res["swap_config"], dtype)
+        receive_leg, res["config"], dtype)
   else:
     res["receive_leg"] = floating_leg_tensor_repr(
-        receive_leg, res["swap_config"], dtype)
+        receive_leg, res["config"], dtype)
   return res
 
 
@@ -347,10 +347,10 @@ def get_hash_v2(swap_proto: ir_swap.InterestRateSwap) -> Tuple[int, bool]:
 
 def group_protos(
     proto_list: List[ir_swap.InterestRateSwap],
-    swap_config: "InterestRateSwapConfig" = None
+    config: "InterestRateSwapConfig" = None
     ) -> Dict[str, Any]:
   """Creates a dictionary of grouped protos."""
-  del swap_config  # swap_config does not impact the batching
+  del config  # config does not impact the batching
   grouped_swaps = {}
   for swap_proto in proto_list:
     h, _ = get_hash(swap_proto)
@@ -363,10 +363,10 @@ def group_protos(
 
 def group_protos_v2(
     proto_list: List[ir_swap.InterestRateSwap],
-    swap_config: "InterestRateSwapConfig" = None
+    config: "InterestRateSwapConfig" = None
     ) -> Dict[str, Any]:
   """Creates a dictionary of grouped protos."""
-  del swap_config  # swap_config does not impact the batching
+  del config  # config does not impact the batching
   grouped_swaps = {}
   for swap_proto in proto_list:
     h, _ = get_hash_v2(swap_proto)
@@ -379,7 +379,7 @@ def group_protos_v2(
 
 def from_protos(
     proto_list: List[ir_swap.InterestRateSwap],
-    swap_config: "InterestRateSwapConfig" = None
+    config: "InterestRateSwapConfig" = None
     ) -> Dict[str, Any]:
   """Creates a dictionary of preprocessed swap data."""
   prepare_swaps = {}
@@ -422,14 +422,14 @@ def from_protos(
                           "maturity_date": [maturity_date],
                           "pay_leg": pay_leg,
                           "receive_leg": receive_leg,
-                          "swap_config": swap_config,
+                          "config": config,
                           "batch_names": [[name, instrument_type]]}
   return prepare_swaps
 
 
 def from_protos_v2(
     proto_list: List[ir_swap.InterestRateSwap],
-    swap_config: "InterestRateSwapConfig" = None
+    config: "InterestRateSwapConfig" = None
     ) -> Dict[str, Any]:
   """Creates a dictionary of preprocessed swap data."""
   prepare_swaps = {}
@@ -472,7 +472,7 @@ def from_protos_v2(
                           "maturity_date": [maturity_date],
                           "pay_leg": pay_leg,
                           "receive_leg": receive_leg,
-                          "swap_config": swap_config,
+                          "config": config,
                           "batch_names": [[name, instrument_type]]}
   return prepare_swaps
 

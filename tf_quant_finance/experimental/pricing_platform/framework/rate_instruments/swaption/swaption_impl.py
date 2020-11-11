@@ -105,7 +105,7 @@ class Swaption(instrument.Instrument):
 
   hull_white_config = core.models.HullWhite1FactorConfig(
         mean_reversion=[0.03], volatility=[0.01])
-  swaption_config = rates_instruments.swaption.SwaptionConfig(
+  config = rates_instruments.swaption.SwaptionConfig(
       model_params=hull_white_config)
 
   curve_dates = self._valuation_date + dates.years(
@@ -134,7 +134,7 @@ class Swaption(instrument.Instrument):
       valuation_date, market_data_dict, config=rate_config)
 
   swaption = rates_instruments.swaption.Swaption.from_protos(
-      [swaption_proto], swaption_config=swaption_config)
+      [swaption_proto], config=config)
   price = swaption[0].price(market)
 
   # Expected result: 1.38594754
@@ -149,7 +149,7 @@ class Swaption(instrument.Instrument):
                swap: interest_rate_swap.InterestRateSwap,
                expiry_date: Optional[Union[dateslib.DateTensor,
                                            List[List[int]]]],
-               swaption_config: SwaptionConfig,
+               config: SwaptionConfig,
                batch_names: Optional[tf.Tensor] = None,
                dtype: Optional[types.Dtype] = None,
                name: Optional[str] = None):
@@ -164,7 +164,7 @@ class Swaption(instrument.Instrument):
         batch size of the `swap` input.
         Default value: None in which case the option expity date is the same as
         the start date of each underlying swap.
-      swaption_config: An input of type `SwaptionConfig` specifying the
+      config: An input of type `SwaptionConfig` specifying the
         necessary information for swaption valuation.
       batch_names: A string `Tensor` of instrument names. Should be of shape
         `batch_shape + [2]` specying name and instrument type. This is useful
@@ -189,7 +189,7 @@ class Swaption(instrument.Instrument):
       self._dtype = dtype or tf.float64
       self._expiry_date = dateslib.convert_to_date_tensor(expiry_date)
       self._swap = swap
-      self._config = swaption_config
+      self._config = config
 
   def price(self,
             market: pmd.ProcessedMarketData,
@@ -232,7 +232,7 @@ class Swaption(instrument.Instrument):
   @classmethod
   def create_constructor_args(
       cls, proto_list: List[swaption_proto.Swaption],
-      swaption_config: SwaptionConfig = None) -> Dict[str, Any]:
+      config: SwaptionConfig = None) -> Dict[str, Any]:
     """Creates a dictionary to initialize Swaption."""
     raise NotImplementedError("`create_constructor_args` not yet implemented "
                               "for Swaption instrument.")
@@ -241,8 +241,8 @@ class Swaption(instrument.Instrument):
   def from_protos(
       cls,
       proto_list: List[swaption_proto.Swaption],
-      swaption_config: SwaptionConfig = None) -> List["Swaption"]:
-    prepare_swaptions = proto_utils.from_protos(proto_list, swaption_config)
+      config: SwaptionConfig = None) -> List["Swaption"]:
+    prepare_swaptions = proto_utils.from_protos(proto_list, config)
     intruments = []
     for kwargs in prepare_swaptions.values():
       kwargs["swap"] = interest_rate_swap.InterestRateSwap.from_protos(
@@ -254,9 +254,9 @@ class Swaption(instrument.Instrument):
   def group_protos(
       cls,
       proto_list: List[swaption_proto.Swaption],
-      swaption_config: SwaptionConfig = None
+      config: SwaptionConfig = None
       ) -> Dict[str, List["Swaption"]]:
-    return proto_utils.group_protos(proto_list, swaption_config)
+    return proto_utils.group_protos(proto_list, config)
 
   def batch_shape(self) -> types.StringTensor:
     """Returns batch shape of the instrument."""

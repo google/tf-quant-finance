@@ -149,7 +149,7 @@ class SwaptionTest(tf.test.TestCase, parameterized.TestCase):
         self._flt_spec,
         dtype=dtype)
     swaption = rates_instruments.swaption.Swaption(
-        swap, self._expiry_date, swaption_config=self._swaption_config,
+        swap, self._expiry_date, config=self._swaption_config,
         dtype=dtype)
     price = self.evaluate(swaption.price(self._market))
     np.testing.assert_allclose(price, 1.38594754, atol=1e-6)
@@ -165,7 +165,7 @@ class SwaptionTest(tf.test.TestCase, parameterized.TestCase):
         self._flt_spec,
         dtype=dtype)
     swaption = rates_instruments.swaption.Swaption(
-        swap, self._expiry_date_batch, swaption_config=self._swaption_config,
+        swap, self._expiry_date_batch, config=self._swaption_config,
         dtype=dtype)
     price = self.evaluate(swaption.price(self._market))
     np.testing.assert_allclose(price, [[1.38594754], [1.38594754]], atol=1e-6)
@@ -175,7 +175,7 @@ class SwaptionTest(tf.test.TestCase, parameterized.TestCase):
   )
   def test_swaption_correctness_pb(self, dtype):
     swaption = rates_instruments.swaption.Swaption.from_protos(
-        [self._swaption_proto], swaption_config=self._swaption_config)
+        [self._swaption_proto], config=self._swaption_config)
     price = self.evaluate(swaption[0].price(self._market))
     np.testing.assert_allclose(price, 1.38594754, atol=1e-6)
 
@@ -185,7 +185,7 @@ class SwaptionTest(tf.test.TestCase, parameterized.TestCase):
   def test_swaption_correctness_batch_pb(self, dtype):
     swaption = rates_instruments.swaption.Swaption.from_protos(
         [self._swaption_proto, self._swaption_proto],
-        swaption_config=self._swaption_config)
+        config=self._swaption_config)
     price = self.evaluate(swaption[0].price(self._market))
     np.testing.assert_allclose(price, [[1.38594754], [1.38594754]], atol=1e-6)
 

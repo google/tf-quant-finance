@@ -142,6 +142,30 @@ class AmericanEquityOptionTest(tf.test.TestCase):
     with self.subTest("PriceSingle"):
       self.assertAllClose(price2, expected2)
 
+  def test_default_config(self):
+    """Creates ir swap from proto and tests pricing method."""
+    am_option = american_option.AmericanOption.from_protos(
+        [self._american_option_1,
+         self._american_option_2,
+         self._american_option_3])
+
+    default_config = american_option.AmericanOptionConfig()
+    with self.subTest("Batching"):
+      self.assertLen(am_option, 2)
+    with self.subTest("Seed"):
+      self.assertAllEqual(am_option[0]._seed, default_config.seed)
+    with self.subTest("Model"):
+      self.assertAllEqual(am_option[0]._model, default_config.model)
+    with self.subTest("NumSamples"):
+      self.assertAllEqual(am_option[0]._num_samples,
+                          default_config.num_samples)
+    with self.subTest("NumExerciseTimes"):
+      self.assertAllEqual(am_option[0]._num_exercise_times,
+                          default_config.num_exercise_times)
+    with self.subTest("NumCalibrationSamples"):
+      self.assertAllEqual(am_option[0]._num_calibration_samples,
+                          default_config.num_calibration_samples)
+
   def test_from_proto_price_num_calibration(self):
     """Creates ir swap from proto and tests pricing method."""
     market = market_data.MarketDataDict(

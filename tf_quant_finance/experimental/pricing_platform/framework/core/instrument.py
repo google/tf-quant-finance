@@ -48,13 +48,18 @@ class Instrument(abc.ABC):
     instruments = [Instrument(**data) for data in initializer.values()]
     ```
 
+    The keys of the output dictionary are unique identifiers of the batched
+    instruments. This is useful for identifying an existing graph that could be
+    reused for the instruments without the need of rebuilding the graph.
+
     Args:
-      proto_list: A list of protos.
+      proto_list: A list of protos for which the initialization arguments are
+        constructed.
       **kwargs: Any other keyword args needed by an implementation.
 
     Returns:
-      A nested dictionary such that each value provides initialization arguments
-      for the Instrument.
+      A possibly nested dictionary such that each value provides initialization
+      arguments for the Instrument.
     """
     del proto_list, kwargs
     return dict()

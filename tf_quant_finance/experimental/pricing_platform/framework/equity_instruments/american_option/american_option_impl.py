@@ -14,7 +14,7 @@
 # limitations under the License.
 """Equity american option."""
 
-from typing import Any, Optional, List, Dict
+from typing import Any, Optional, List, Dict, Union, Tuple
 
 import dataclasses
 import tensorflow.compat.v2 as tf
@@ -91,7 +91,7 @@ class AmericanOption(instrument.Instrument):
                discount_curve_type: curve_types_lib.CurveType = None,
                discount_curve_mask: types.IntTensor = None,
                equity_mask: types.IntTensor = None,
-               american_option_config: AmericanOptionConfig = None,
+               config: Union[AmericanOptionConfig, Dict[str, Any]] = None,
                batch_names: Optional[types.StringTensor] = None,
                dtype: Optional[types.Dtype] = None,
                name: Optional[str] = None):
@@ -120,17 +120,19 @@ class AmericanOption(instrument.Instrument):
         the size of the list should be the same as the number of priced
         instruments. Defines discount curves for the instruments.
         Default value: `None`, meaning that discount curves are inferred
-        from `currency` and `fra_config`.
+        from `currency` and `config`.
       discount_curve_mask: An optional integer `Tensor` of values ranging from
-        `0` to `len(discount_curve_type)` and of shape `batch_shape`. Identifies
-        a mapping between `discount_curve_type` list and the underlying
-        instruments.
+        `0` to `len(discount_curve_type) - 1` and of shape `batch_shape`.
+        Identifies a mapping between `discount_curve_type` list and the
+        underlying instruments.
         Default value: `None`.
       equity_mask: An optional integer `Tensor` of values ranging from
-        `0` to `len(equity)` and of shape `batch_shape`. Identifies
+        `0` to `len(equity) - 1` and of shape `batch_shape`. Identifies
         a mapping between `equity` list and the underlying instruments.
         Default value: `None`.
-      american_option_config: Optional `AmericanOptionConfig`.
+      config: Optional `AmericanOptionConfig` or a dictionary. If dictionary,
+        then the keys should be the same as the field names of
+        `AmericanOptionConfig`.
       batch_names: A string `Tensor` of instrument names. Should be of shape
         `batch_shape + [2]` specying name and instrument type. This is useful
         when the `from_protos` method is used and the user needs to identify
@@ -179,48 +181,26 @@ class AmericanOption(instrument.Instrument):
               "Number of currencies and equities should be the same "
               "but it is {0} and {1}".format(len(self._currency),
                                              len(self._equity)))
-      self._model = "BS-LSM"  # default pricing model is LSM under Black-Scholes
-      self._num_exercise_times = 100
-      self._num_samples = 96000
-      self._seed = [42, 42]
-      self._num_calibration_samples = None
-      if american_option_config is not None:
-        if isinstance(american_option_config, dict):
-          self._model = american_option_config["model"]
-          self._seed = american_option_config["seed"]
-          self._num_exercise_times = american_option_config[
-              "num_exercise_times"]
-          self._num_samples = american_option_config[
-              "num_samples"]
-          self._num_calibration_samples = american_option_config[
-              "num_calibration_samples"]
-        else:
-          [
-              self._num_samples,
-              self._seed,
-              self._num_exercise_times,
-              self._num_calibration_samples
-          ] = [
-              american_option_config.num_samples,
-              american_option_config.seed,
-              american_option_config.num_exercise_times,
-              american_option_config.num_calibration_samples
-              ]
+
+      config = _process_config(config)
+      [
+          self._model,
+          self._num_samples,
+          self._seed,
+          self._num_exercise_times,
+          self._num_calibration_samples
+      ] = _get_config_values(config)
+
       if discount_curve_type is None:
         discount_curve_type = []
         for currency in self._currency:
-          if american_option_config is not None:
-            try:
-              curve_type = american_option_config.discounting_curve[
-                  currency]
-            except (KeyError, TypeError):
-              curve_type = curve_types_lib.RiskFreeCurve(
-                  currency=currency)
-            discount_curve_type.append(curve_type)
+          if currency in config.discounting_curve:
+            curve_type = config.discounting_curve[currency]
           else:
-            # Default discounting is the risk free curve
-            risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
-            discount_curve_type.append(risk_free)
+            # Default discounting curve
+            curve_type = curve_types_lib.RiskFreeCurve(
+                currency=currency)
+          discount_curve_type.append(curve_type)
 
       # Get masks for discount curves and vol surfaces
       [
@@ -238,27 +218,31 @@ class AmericanOption(instrument.Instrument):
   @classmethod
   def create_constructor_args(
       cls, proto_list: List[american_option_pb2.AmericanEquityOption],
-      american_option_config: AmericanOptionConfig = None) -> Dict[str, Any]:
+      config: AmericanOptionConfig = None) -> Dict[str, Any]:
     """Creates a dictionary to initialize AmericanEquityOption.
 
     The output dictionary is such that the instruments can be initialized
     as follows:
     ```
-    initializer = create_constructor_args(proto_list, american_option_config)
+    initializer = create_constructor_args(proto_list, config)
     american_options = [AmericanEquityOption(**data)
                         for data in initializer.values()]
     ```
 
+    The keys of the output dictionary are unique identifiers of the batched
+    instruments. This is useful for identifying an existing graph that could be
+    reused for the instruments without the need of rebuilding the graph.
+
     Args:
-      proto_list: A list of protos.
-      american_option_config: An instance of `AmericanOptionConfig`.
+      proto_list: A list of protos for which the initialization arguments are
+        constructed.
+      config: An instance of `AmericanOptionConfig`.
 
     Returns:
-      A nested dictionary such that each value provides initialization arguments
-      for the AmericanEquityOption.
+      A possibly nested dictionary such that each value provides initialization
+      arguments for the AmericanEquityOption.
     """
-    am_option_data = proto_utils.from_protos(proto_list,
-                                             american_option_config)
+    am_option_data = proto_utils.from_protos(proto_list, config)
     res = {}
     for key in am_option_data:
       tensor_repr = proto_utils.tensor_repr(am_option_data[key])
@@ -269,9 +253,9 @@ class AmericanOption(instrument.Instrument):
   def from_protos(
       cls,
       proto_list: List[american_option_pb2.AmericanEquityOption],
-      american_option_config: AmericanOptionConfig = None
+      config: AmericanOptionConfig = None
       ) -> List["AmericanOption"]:
-    proto_dict = proto_utils.from_protos(proto_list, american_option_config)
+    proto_dict = proto_utils.from_protos(proto_list, config)
     intruments = []
     for kwargs in proto_dict.values():
       # Create an instrument
@@ -282,9 +266,9 @@ class AmericanOption(instrument.Instrument):
   def group_protos(
       cls,
       proto_list: List[american_option_pb2.AmericanEquityOption],
-      american_option_config: AmericanOptionConfig = None
+      config: AmericanOptionConfig = None
       ) -> Dict[str, List["AmericanOption"]]:
-    return proto_utils.group_protos(proto_list, american_option_config)
+    return proto_utils.group_protos(proto_list, config)
 
   def price(self,
             market: pmd.ProcessedMarketData,
@@ -371,6 +355,46 @@ class AmericanOption(instrument.Instrument):
               shock_size: Optional[float] = None) -> tf.Tensor:
     """Computes vega wrt to the tenor perturbation."""
     raise NotImplementedError("Coming soon.")
+
+
+def _process_config(
+    config: Union[AmericanOptionConfig, Dict[str, Any], None]
+    ) -> AmericanOptionConfig:
+  """Converts config to AmericanOptionConfig."""
+  if config is None:
+    return AmericanOptionConfig()
+  if isinstance(config, AmericanOptionConfig):
+    return config
+  model = config.get("model", "BS-LSM")
+  seed = config.get("seed", [42, 42])
+  num_exercise_times = config.get("num_exercise_times", 100)
+  num_samples = config.get("num_samples", 96000)
+  num_calibration_samples = config.get("num_calibration_samples", None)
+  discounting_curve = config.get("discounting_curve", dict())
+  return AmericanOptionConfig(discounting_curve=discounting_curve,
+                              model=model,
+                              seed=seed,
+                              num_exercise_times=num_exercise_times,
+                              num_samples=num_samples,
+                              num_calibration_samples=num_calibration_samples)
+
+
+def _get_config_values(
+    config: AmericanOptionConfig
+    ) -> Tuple[str, int, types.IntTensor, int, int]:
+  """Extracts config values."""
+  [
+      model,
+      num_samples,
+      seed,
+      num_exercise_times,
+      num_calibration_samples
+  ] = [config.model,
+       config.num_samples,
+       tf.convert_to_tensor(config.seed, name="seed"),
+       config.num_exercise_times,
+       config.num_calibration_samples]
+  return model, num_samples, seed, num_exercise_times, num_calibration_samples
 
 
 __all__ = ["AmericanOptionConfig", "AmericanOption"]

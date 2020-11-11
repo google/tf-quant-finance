@@ -56,7 +56,7 @@ class FixedCashflowStream:
       discount_curve_type: An instance of `CurveType` or a list of those.
         If supplied as a list and `discount_curve_mask` is not supplied,
         the size of the list should be the same as the number of priced
-        instruments.
+        instruments. Defines discount curves for the instruments.
       start_date: A `DateTensor` of `batch_shape` specifying the starting dates
         of the accrual of the first coupon of the cashflow stream. The shape of
         the input correspond to the number of streams being created.
@@ -68,9 +68,9 @@ class FixedCashflowStream:
         Either this of `schedule` should be supplied
         Default value: `None`
       discount_curve_mask: An optional integer `Tensor` of values ranging from
-        `0` to `len(discount_curve_type)` and of shape `batch_shape`. Identifies
-        a mapping between `discount_curve_type` list and the underlying
-        instruments.
+        `0` to `len(discount_curve_type) - 1` and of shape `batch_shape`.
+        Identifies a mapping between `discount_curve_type` list and the
+        underlying instruments.
         Default value: `None`.
       first_coupon_date: An optional `DateTensor` specifying the payment dates
         of the first coupon of the cashflow stream. Use this input for cashflows
@@ -331,7 +331,7 @@ class FloatingCashflowStream:
       discount_curve_type: An instance of `CurveType` or a list of those.
         If supplied as a list and `discount_curve_mask` is not supplied,
         the size of the list should be the same as the number of priced
-        instruments.
+        instruments. Defines discount curves for the instruments.
       start_date: A `DateTensor` of `batch_shape` specifying the starting dates
         of the accrual of the first coupon of the cashflow stream. The shape of
         the input correspond to the number of streams being created.
@@ -343,9 +343,9 @@ class FloatingCashflowStream:
         Either this of `schedule` should be supplied
         Default value: `None`
       discount_curve_mask: An optional integer `Tensor` of values ranging from
-        `0` to `len(discount_curve_type)` and of shape `batch_shape`. Identifies
-        a mapping between `discount_curve_type` list and the underlying
-        instruments.
+        `0` to `len(discount_curve_type) - 1` and of shape `batch_shape`.
+        Identifies a mapping between `discount_curve_type` list and the
+        underlying instruments.
         Default value: `None`.
       rate_index_curves: An instance of `RateIndexCurve` or a list of those.
         If supplied as a list and `reference_mask` is not supplid,
@@ -355,8 +355,8 @@ class FloatingCashflowStream:
         curves.
         Default value: `None`.
       reference_mask: An optional integer `Tensor` of values ranging from
-        `0` to `len(rate_index_curves)` and of shape `batch_shape`. Identifies
-        a mapping between `rate_index_curves` list and the underlying
+        `0` to `len(rate_index_curves) - 1` and of shape `batch_shape`.
+        Identifies a mapping between `rate_index_curves` list and the underlying
         instruments.
         Default value: `None`.
       first_coupon_date: An optional `DateTensor` specifying the payment dates

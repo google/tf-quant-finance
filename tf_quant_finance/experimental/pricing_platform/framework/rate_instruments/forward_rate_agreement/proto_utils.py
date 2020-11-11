@@ -76,10 +76,10 @@ def _get_hash_v2(
 
 def group_protos(
     proto_list: List[fra.ForwardRateAgreement],
-    fra_config: "ForwardRateAgreementConfig" = None
+    config: "ForwardRateAgreementConfig" = None
     ) -> Dict[str, List["ForwardRateAgreement"]]:
   """Creates a dictionary of grouped protos."""
-  del fra_config  # fra_config does not impact the batching
+  del config  # config does not impact the batching
   grouped_fras = {}
   for fra_proto in proto_list:
     h, _, _, _ = _get_hash(fra_proto)
@@ -92,10 +92,10 @@ def group_protos(
 
 def group_protos_v2(
     proto_list: List[fra.ForwardRateAgreement],
-    fra_config: "ForwardRateAgreementConfig" = None
+    config: "ForwardRateAgreementConfig" = None
     ) -> Dict[str, List["ForwardRateAgreement"]]:
   """Creates a dictionary of grouped protos."""
-  del fra_config  # fra_config does not impact the batching
+  del config  # config does not impact the batching
   grouped_fras = {}
   for fra_proto in proto_list:
     h, _, _, _ = _get_hash_v2(fra_proto)
@@ -108,7 +108,7 @@ def group_protos_v2(
 
 def from_protos(
     proto_list: List[fra.ForwardRateAgreement],
-    fra_config: "ForwardRateAgreementConfig" = None
+    config: "ForwardRateAgreementConfig" = None
     ) -> Dict[str, Any]:
   """Creates a dictionary of preprocessed swap data."""
   prepare_fras = {}
@@ -143,7 +143,7 @@ def from_protos(
                          "rate_term": rate_term,
                          "rate_index": rate_index,
                          "settlement_days": [settlement_days],
-                         "fra_config": fra_config,
+                         "config": config,
                          "batch_names": [[name, instrument_type]]}
     else:
       current_index = prepare_fras[h]["rate_index"]
@@ -159,7 +159,7 @@ def from_protos(
 
 def from_protos_v2(
     proto_list: List[fra.ForwardRateAgreement],
-    fra_config: "ForwardRateAgreementConfig" = None
+    config: "ForwardRateAgreementConfig" = None
     ) -> Dict[str, Any]:
   """Creates a dictionary of preprocessed swap data."""
   prepare_fras = {}
@@ -194,7 +194,7 @@ def from_protos_v2(
                          "rate_term": rate_term,
                          "rate_index": [rate_index],
                          "settlement_days": [settlement_days],
-                         "fra_config": fra_config,
+                         "config": config,
                          "batch_names": [[name, instrument_type]]}
     else:
       prepare_fras[h]["currency"].append(currency)
@@ -221,15 +221,15 @@ def tensor_repr(fra_data, dtype=None):
       fra_data["fixing_date"], dtype=tf.int32)
   res["fixed_rate"] = tf.convert_to_tensor(
       fra_data["fixed_rate"], dtype=dtype)
-  fra_config = fra_data["fra_config"]
-  res["fra_config"] = fra_config
+  config = fra_data["config"]
+  res["config"] = config
   res["batch_names"] = fra_data["batch_names"]
   currency_list = cashflow_streams.to_list(fra_data["currency"])
   discount_curve_type = []
   for currency in currency_list:
-    if fra_config is not None:
-      if currency in fra_config.discounting_curve:
-        discount_curve = fra_config.discounting_curve[currency]
+    if config is not None:
+      if currency in config.discounting_curve:
+        discount_curve = config.discounting_curve[currency]
         discount_curve_type.append(discount_curve)
       else:
         risk_free = curve_types_lib.RiskFreeCurve(currency=currency)

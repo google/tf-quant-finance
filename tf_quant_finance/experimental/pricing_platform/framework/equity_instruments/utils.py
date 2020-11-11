@@ -20,28 +20,30 @@ import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import datetime as dateslib
 from tf_quant_finance.experimental.pricing_platform.framework.core import processed_market_data as pmd
+from tf_quant_finance.experimental.pricing_platform.framework.core import types
 from tf_quant_finance.experimental.pricing_platform.framework.market_data import volatility_surface
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments import cashflow_streams
 
 
 def process_equities(
     equities: List[str],
-    mask=None
+    mask: types.IntTensor = None
     ) -> Tuple[
         List[str], List[int]]:
-  """Extracts unique volatility surfaces and computes an integer mask.
+  """Extracts unique equities and computes an integer mask.
 
   #### Example
+
   ```python
-  process_equities(["GOOG", "MSFT", "GOOG"])
+  process_equities(["GOOG", "MSFT", "GOOG", "GOOG"])
   # Returns
-  (['GOOG', 'MSFT'], [0, 1, 0])
+  (['GOOG', 'MSFT'], [0, 1, 0, 0])
   ```
 
   Args:
     equities: A list of equity names.
     mask: An optional integer mask for the sorted equity sequence. If supplied,
-      does not perform any computations and returns `equities` and `mask`.
+     becomes a no-op.
 
   Returns:
     A Tuple of `(equities, mask)` where  `equities` is a list of unique sorted
@@ -61,7 +63,7 @@ def get_vol_surface(
     equity_types: List[str],
     market: pmd.ProcessedMarketData,
     mask: List[int]) -> volatility_surface.VolatilitySurface:
-  """Builds a batched discount curve.
+  """Builds a batched volatility surface.
 
   Given a list of discount curve an integer mask, creates a discount curve
   object to compute discount factors against the list of discount curves.

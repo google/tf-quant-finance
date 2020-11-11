@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Utilities for proto processing."""
-from typing import Any, List, Dict, Tuple
+from typing import Any, List, Dict, Tuple, Optional
 
 import tensorflow.compat.v2 as tf
 
@@ -41,10 +41,10 @@ def _get_hash(
 
 def group_protos(
     proto_list: List[american_option_pb2.AmericanEquityOption],
-    american_option_config: "AmericanOptionConfig" = None
+    config: "AmericanOptionConfig" = None
     ) -> Dict[str, List["AmericanOption"]]:
   """Creates a dictionary of grouped protos."""
-  del american_option_config  # not used for now
+  del config  # not used for now
   grouped_options = {}
   for american_option in proto_list:
     h, _ = _get_hash(american_option)
@@ -57,7 +57,7 @@ def group_protos(
 
 def from_protos(
     proto_list: List[american_option_pb2.AmericanEquityOption],
-    american_option_config: "AmericanOptionConfig" = None
+    config: "AmericanOptionConfig" = None
     ) -> Dict[str, Any]:
   """Creates a dictionary of preprocessed swap data."""
   prepare_fras = {}
@@ -91,7 +91,7 @@ def from_protos(
                          "strike": [strike],
                          "is_call_option": [is_call_option],
                          "settlement_days": [settlement_days],
-                         "american_option_config": american_option_config,
+                         "config": config,
                          "batch_names": [[name, instrument_type]]}
     else:
       prepare_fras[h]["short_position"].append(short_position)
@@ -105,34 +105,26 @@ def from_protos(
   return prepare_fras
 
 
-def tensor_repr(am_option_data, dtype=None):
+def tensor_repr(am_option_data: Dict[str, Any],
+                dtype: Optional[types.Dtype] = None):
   """Creates a tensor representation of an American option."""
   dtype = dtype or tf.float64
   res = dict()
   res["expiry_date"] = tf.convert_to_tensor(
       am_option_data["expiry_date"], dtype=tf.int32, name="expiry_date")
-  am_option_config = am_option_data["american_option_config"]
-  res["american_option_config"] = None
+  am_option_config = am_option_data["config"]
+  res["config"] = None
   if am_option_config is not None:
-    config = {}
-    config["model"] = am_option_config.model
-    config["discounting_curve"] = am_option_config.discounting_curve
-    config["num_samples"] = am_option_config.num_samples
-    config["num_calibration_samples"] = am_option_config.num_calibration_samples
-    config["num_exercise_times"] = am_option_config.num_exercise_times
-    config["seed"] = tf.convert_to_tensor(am_option_config.seed,
-                                          dtype=tf.int32,
-                                          name="seed")
-    res["american_option_config"] = config
+    res["config"] = config_to_dict(am_option_config)
   res["batch_names"] = am_option_data["batch_names"]
   res["is_call_option"] = tf.convert_to_tensor(
       am_option_data["is_call_option"], dtype=tf.bool,
       name="is_call_options")
   currency = am_option_data["currency"]
   discount_curve_type = []
-  if am_option_config is not None:
-    if currency in am_option_config.discounting_curve:
-      discount_curve = am_option_config.discounting_curve[currency]
+  if res["config"] is not None:
+    if currency in res["config"]["discounting_curve"]:
+      discount_curve = res["config"]["discounting_curve"][currency]
       discount_curve_type.append(discount_curve)
     else:
       risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
@@ -163,3 +155,16 @@ def tensor_repr(am_option_data, dtype=None):
   res["short_position"] = tf.convert_to_tensor(am_option_data["short_position"],
                                                dtype=tf.bool)
   return res
+
+
+def config_to_dict(am_option_config: "AmericanOptionConfig") -> Dict[str, Any]:
+  """Converts AmericanOptionConfig to a dictionary."""
+  config = {
+      "model": am_option_config.model,
+      "discounting_curve": am_option_config.discounting_curve,
+      "num_samples": am_option_config.num_samples,
+      "num_calibration_samples": am_option_config.num_calibration_samples,
+      "num_exercise_times": am_option_config.num_exercise_times,
+      "seed": tf.convert_to_tensor(am_option_config.seed, name="seed")
+  }
+  return config
