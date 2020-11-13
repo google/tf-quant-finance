@@ -28,7 +28,8 @@ InterpolationMethod = core.interpolation_method.InterpolationMethod
 
 # This function can't be moved to SetUp since that would break graph mode
 # execution
-def build_surface(dim):
+def build_surface(dim, default_interp=True):
+  dtype = tf.float64
   year = dim * [[2021, 2022, 2023, 2025, 2050]]
   month = dim * [[2, 2, 2, 2, 2]]
   day = dim * [[8, 8, 8, 8, 8]]
@@ -44,8 +45,19 @@ def build_surface(dim):
                          [0.1, 0.2, 0.1],
                          [0.1, 0.2, 0.1],
                          [0.1, 0.1, 0.3]]]
+  interpolator = None
+  if not default_interp:
+    expiry_times = tf.cast(
+        tff.datetime.convert_to_date_tensor(
+            valuation_date).days_until(expiries), dtype=dtype) / 365.0
+    interpolator_obj = tff.math.interpolation.interpolation_2d.Interpolation2D(
+        expiry_times, tf.convert_to_tensor(strikes, dtype=dtype),
+        volatilities)
+    interpolator = interpolator_obj.interpolate
+
   return volatility_surface.VolatilitySurface(
-      valuation_date, expiries, strikes, volatilities)
+      valuation_date, expiries, strikes, volatilities,
+      interpolator=interpolator, dtype=dtype)
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -63,6 +75,19 @@ class VolatilitySurfaceTest(tf.test.TestCase, parameterized.TestCase):
 
   def test_volatility_2d(self):
     vol_surface = build_surface(2)
+    expiry = tff.datetime.dates_from_ordinals(
+        [[737592, 737942, 739252],
+         [737592, 737942, 739252]])
+    vols = vol_surface.volatility(
+        strike=[[1525, 1400, 1570], [1525, 1505, 1570]], expiry_dates=expiry)
+    self.assertAllClose(
+        self.evaluate(vols),
+        [[0.14046875, 0.11547945, 0.1],
+         [0.14046875, 0.12300392, 0.1]], atol=1e-6)
+
+  def test_volatility_2d_interpolation(self):
+    """Test using externally specified interpolator."""
+    vol_surface = build_surface(2, False)
     expiry = tff.datetime.dates_from_ordinals(
         [[737592, 737942, 739252],
          [737592, 737942, 739252]])

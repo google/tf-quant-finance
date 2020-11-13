@@ -14,7 +14,7 @@
 # limitations under the License.
 """Implementation of VolatilitySurface object."""
 
-from typing import Optional
+from typing import Optional, Callable
 
 import tensorflow.compat.v2 as tf
 
@@ -42,6 +42,8 @@ class VolatilitySurface(pmd.VolatilitySurface):
       strikes: types.FloatTensor,
       volatilities: types.FloatTensor,
       daycount_convention: Optional[_DayCountConventionsProtoType] = None,
+      interpolator: Optional[Callable[[types.FloatTensor, types.FloatTensor],
+                                      types.FloatTensor]] = None,
       dtype: Optional[tf.DType] = None,
       name: Optional[str] = None):
     """Initializes the volatility surface.
@@ -61,6 +63,12 @@ class VolatilitySurface(pmd.VolatilitySurface):
       daycount_convention: `DayCountConventions` to use for the interpolation
         purpose.
         Default value: `None` which maps to actual/365 day count convention.
+      interpolator: An optional Python callable implementing the interpolation
+        to be used. The callable should accept two real `Tensor`s specifying
+        the strikes and expiry times and should return a real `Tensor` of
+        same dtype as the inputs containing the interpolated implied
+        volatilities.
+        Default value: `None` in which case `Interpolation2D` is used.
       dtype: `tf.Dtype`. Optional input specifying the dtype of the `rates`
         input.
       name: Python str. The name to give to the ops created by this function.
@@ -84,8 +92,14 @@ class VolatilitySurface(pmd.VolatilitySurface):
           start_date=self._valuation_date,
           end_date=self._expiries,
           dtype=self._dtype)
-      self._interpolator = interpolation_2d.Interpolation2D(
-          expiry_times, strikes, volatilities, dtype=self._dtype)
+      if interpolator is None:
+        interpolator_obj = interpolation_2d.Interpolation2D(
+            expiry_times, strikes, volatilities, dtype=self._dtype)
+        def interpolator_fn(t, x):
+          return interpolator_obj.interpolate(t, x)
+        self._interpolator = interpolator_fn
+      else:
+        self._interpolator = interpolator
 
   def volatility(self,
                  strike: types.FloatTensor,
@@ -127,7 +141,7 @@ class VolatilitySurface(pmd.VolatilitySurface):
     else:
       expiries = tf.convert_to_tensor(expiry_times, dtype=self._dtype)
     strike = tf.convert_to_tensor(strike, dtype=self._dtype, name="strike")
-    return self._interpolator.interpolate(expiries, strike)
+    return self._interpolator(expiries, strike)
 
   def volatility_type(self) -> implied_volatility_type.ImpliedVolatilityType:
     """Returns the type of implied volatility."""
