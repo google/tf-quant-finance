@@ -70,7 +70,6 @@ def bond_option_price(*,
       mean_reversion=[0.03],
       volatility=[0.02],
       discount_rate_fn=discount_rate_fn,
-      use_analytic_pricing=True,
       dtype=dtype)
   # Expected value: [[0.02817777]]
   ````
@@ -88,47 +87,41 @@ def bond_option_price(*,
       zero coupon bond yield at the present time for the input expiry time.
     dim: A Python scalar which corresponds to the number of factors within a
       single HJM model.
-    mean_reversion: A real positive `Tensor` of shape `[dim]` or a Python
-      callable. The callable can be one of the following: (a) A left-continuous
-        piecewise constant object (e.g.,
-        `tff.math.piecewise.PiecewiseConstantFunc`) that has a property
-        `is_piecewise_constant` set to `True`. In this case the object should
-        have a method `jump_locations(self)` that returns a `Tensor` of shape
-        `[dim, num_jumps]` or `[num_jumps]`. In the first case,
-        `mean_reversion(t)` should return a `Tensor` of shape `[dim] + t.shape`,
-        and in the second, `t.shape + [dim]`, where `t` is a rank 1 `Tensor` of
-        the same `dtype` as the output. See example in the class docstring. (b)
-        A callable that accepts scalars (stands for time `t`) and returns a
-        `Tensor` of shape `[dim]`. Corresponds to the mean reversion rate.
-    volatility: A real positive `Tensor` of the same `dtype` as `mean_reversion`
-      or a callable with the same specs as above. Corresponds to the lond run
-      price variance.
+    mean_reversion: A real positive `Tensor` of shape `[dim]`. Corresponds
+      to the mean reversion rate of each factor.
+    volatility: A real positive `Tensor` of the same `dtype` and shape as
+      `mean_reversion` or a callable with the following properties:
+      (a)  The callable should accept a scalar `Tensor` `t` and a 1-D `Tensor`
+      `r(t)` of shape `[num_samples]` and returns a 2-D `Tensor` of shape
+      `[num_samples, dim]`. The variable `t`  stands for time and `r(t)` is
+      the short rate at time `t`.  The function returns instantaneous
+      volatility `sigma(t) = sigma(t, r(r))`.
+      When `volatility` is specified is a real `Tensor`, each factor is
+      assumed to have a constant instantaneous volatility  and the  model is
+      effectively a Gaussian HJM model.
+      Corresponds to the instantaneous volatility of each factor.
     is_call_options: A boolean `Tensor` of a shape compatible with `strikes`.
       Indicates whether the option is a call (if True) or a put (if False). If
       not supplied, call options are assumed.
     num_samples: Positive scalar `int32` `Tensor`. The number of simulation
-      paths during Monte-Carlo valuation. This input is ignored during analytic
-      valuation.
+      paths during Monte-Carlo valuation.
       Default value: The default value is 1.
     random_type: Enum value of `RandomType`. The type of (quasi)-random number
-      generator to use to generate the simulation paths. This input is relevant
-      only for Monte-Carlo valuation and ignored during analytic valuation.
+      generator to use to generate the simulation paths.
       Default value: `None` which maps to the standard pseudo-random numbers.
     seed: Seed for the random number generator. The seed is only relevant if
       `random_type` is one of `[STATELESS, PSEUDO, HALTON_RANDOMIZED,
       PSEUDO_ANTITHETIC, STATELESS_ANTITHETIC]`. For `PSEUDO`,
       `PSEUDO_ANTITHETIC` and `HALTON_RANDOMIZED` the seed should be an Python
       integer. For `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as
-      an integer `Tensor` of shape `[2]`. This input is relevant only for
-      Monte-Carlo valuation and ignored during analytic valuation.
+      an integer `Tensor` of shape `[2]`.
       Default value: `None` which means no seed is set.
     skip: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
       Halton sequence to skip. Used only when `random_type` is 'SOBOL',
       'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
       Default value: `0`.
     time_step: Scalar real `Tensor`. Maximal distance between time grid points
-      in Euler scheme. Relevant when Euler scheme is used for simulation. This
-      input is ignored during analytic valuation.
+      in Euler scheme. Relevant when Euler scheme is used for simulation.
       Default value: `None`.
     dtype: The default dtype to use when converting values to `Tensor`s.
       Default value: `None` which means that default dtypes inferred by
