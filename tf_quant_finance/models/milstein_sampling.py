@@ -168,13 +168,13 @@ def sample(dim,
       raise ValueError('Only one of either `num_time_steps` or `time_step` '
                        'should be defined but not both')
     if time_step is None:
+      if num_time_steps is None:
+        raise ValueError('Either `num_time_steps` or `time_step` should be '
+                         'defined.')
       num_time_steps = tf.convert_to_tensor(
           num_time_steps, dtype=tf.int32, name='num_time_steps')
       time_step = times[-1] / tf.cast(num_time_steps, dtype=dtype)
     else:
-      if time_step is None:
-        raise ValueError('Either `num_time_steps` or `time_step` should be '
-                         'defined.')
       time_step = tf.convert_to_tensor(time_step, dtype=dtype,
                                        name='time_step')
     times, keep_mask, time_indices = utils.prepare_grid(
