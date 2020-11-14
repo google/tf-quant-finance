@@ -9,6 +9,7 @@ py_library(
     srcs = ["__init__.py"],
     srcs_version = "PY3",
     deps = [
+        ":cap_floor",
         ":quasi_gaussian_hjm",
         ":zero_coupon_bond_option",
     ],
@@ -73,9 +74,32 @@ py_test(
     deps = [
         "//tf_quant_finance",
         # test util,
-        # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
         # xla_cpu_jit xla dep,
+    ],
+)
+
+py_library(
+    name = "cap_floor",
+    srcs = ["cap_floor.py"],
+    deps = [
+        ":zero_coupon_bond_option",
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "cap_floor_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["cap_floor_test.py"],
+    python_version = "PY3",
+    shard_count = 8,
+    deps = [
+        "//tf_quant_finance",
+        # test util,
+        # numpy dep,
+        # tensorflow dep,
     ],
 )

@@ -26,7 +26,7 @@ def bond_option_price(*,
                       dim,
                       mean_reversion,
                       volatility,
-                      # TODO(b/159040541) Add correlation as an input.
+                      # TODO(b/173206942) Add correlation as an input.
                       is_call_options=True,
                       num_samples=1,
                       random_type=None,

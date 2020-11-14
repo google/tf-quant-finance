@@ -14,14 +14,12 @@
 # limitations under the License.
 """HJM model."""
 
+from tf_quant_finance.models.hjm.cap_floor import cap_floor_price
 from tf_quant_finance.models.hjm.quasi_gaussian_hjm import QuasiGaussianHJM
 from tf_quant_finance.models.hjm.zero_coupon_bond_option import bond_option_price
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
-_allowed_symbols = [
-    'QuasiGaussianHJM',
-    'bond_option_price',
-]
+_allowed_symbols = ['QuasiGaussianHJM', 'bond_option_price', 'cap_floor_price']
 
 remove_undocumented(__name__, _allowed_symbols)
