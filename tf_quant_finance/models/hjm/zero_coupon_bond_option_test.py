@@ -53,8 +53,9 @@ class HJMBondOptionTest(tf.test.TestCase):
         discount_rate_fn=discount_rate_fn,
         num_samples=500000,
         time_step=0.1,
-        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
-        dtype=dtype)
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        dtype=dtype,
+        seed=[1, 2])
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [1, 1])
     price = self.evaluate(price)
@@ -87,8 +88,9 @@ class HJMBondOptionTest(tf.test.TestCase):
         discount_rate_fn=discount_rate_fn,
         num_samples=500000,
         time_step=0.05,
-        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
-        dtype=dtype)
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        dtype=dtype,
+        seed=[1, 2])
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [1, 1])
     price = self.evaluate(price)
@@ -113,8 +115,9 @@ class HJMBondOptionTest(tf.test.TestCase):
         discount_rate_fn=discount_rate_fn,
         num_samples=500000,
         time_step=0.1,
-        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
-        dtype=dtype)
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        dtype=dtype,
+        seed=[1, 2])
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [3, 1])
     price = self.evaluate(price)
@@ -142,18 +145,19 @@ class HJMBondOptionTest(tf.test.TestCase):
         discount_rate_fn=discount_rate_fn,
         num_samples=500000,
         time_step=0.1,
-        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
-        dtype=dtype)
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        dtype=dtype,
+        seed=[1, 2])
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [2, 2, 1])
     price = self.evaluate(price)
     expected = [[[0.02817777], [0.02817777]], [[0.02042677], [0.02042677]]]
     self.assertAllClose(price, expected, rtol=error_tol, atol=error_tol)
 
-  def test_correctness_2d(self):
+  def test_correctness_2_factor(self):
     """Tests model with constant parameters with 2 factors."""
     dtype = tf.float64
-    error_tol = 1e-2
+    error_tol = 1e-3
 
     discount_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
     expiries = np.array([1.0])
@@ -169,14 +173,97 @@ class HJMBondOptionTest(tf.test.TestCase):
         discount_rate_fn=discount_rate_fn,
         num_samples=500000,
         time_step=0.1,
-        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
-        dtype=dtype)
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        dtype=dtype,
+        seed=[1, 2])
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [1, 1])
     price = self.evaluate(price)
     self.assertAllClose(price, [[0.03111126]], rtol=error_tol, atol=error_tol)
 
-  def test_mixed_1d_batch_2d(self):
+  def test_correctness_2_factor_with_correlation(self):
+    """Tests model with constant parameters with 2 correlated factors."""
+    dtype = tf.float64
+    error_tol = 1e-3
+
+    discount_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+    expiries = np.array([1.0])
+    maturities = np.array([5.0])
+    strikes = np.exp(-0.01 * maturities) / np.exp(-0.01 * expiries)
+    price = tff.models.hjm.bond_option_price(
+        strikes=strikes,
+        expiries=expiries,
+        maturities=maturities,
+        dim=2,
+        mean_reversion=self.mean_reversion_2d,
+        volatility=self.volatility_2d,
+        discount_rate_fn=discount_rate_fn,
+        corr_matrix=[[1.0, 0.5], [0.5, 1.0]],
+        num_samples=500000,
+        time_step=0.1,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        dtype=dtype,
+        seed=[1, 2])
+    self.assertEqual(price.dtype, dtype)
+    self.assertAllEqual(price.shape, [1, 1])
+    price = self.evaluate(price)
+    self.assertAllClose(price, [[0.036809]], rtol=error_tol, atol=error_tol)
+
+  def test_correctness_2_factor_hull_white_consistency(self):
+    """Test that under certain conditions HJM matches analytic HW results.
+
+    For the two factor model, when both mean reversions are equivalent, then
+    the HJM model matches that of a HW one-factor model with the same mean
+    reversion, and effective volatility:
+
+      eff_vol = sqrt(vol1^2 + vol2^2 + 2 rho vol1 * vol2)
+
+    where rho is the cross correlation between the two factors.
+    """
+    dtype = tf.float64
+    error_tol = 1e-3
+
+    mu = 0.03
+    rho = 0.5
+    vol1 = 0.02
+    vol2 = 0.01
+    discount_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+
+    expiries = np.array([1.0])
+    maturities = np.array([5.0])
+    strikes = np.exp(-0.01 * maturities) / np.exp(-0.01 * expiries)
+
+    hjm_price = tff.models.hjm.bond_option_price(
+        strikes=strikes,
+        expiries=expiries,
+        maturities=maturities,
+        dim=2,
+        mean_reversion=[mu, mu],
+        volatility=[vol1, vol2],
+        discount_rate_fn=discount_rate_fn,
+        corr_matrix=[[1.0, rho], [rho, 1.0]],
+        num_samples=100000,
+        time_step=0.05,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        dtype=dtype,
+        seed=[1, 2])
+    hjm_price = self.evaluate(hjm_price)
+
+    hw_price = tff.models.hull_white.bond_option_price(
+        strikes=strikes,
+        expiries=expiries,
+        maturities=maturities,
+        dim=1,
+        mean_reversion=[mu],
+        volatility=[np.sqrt(vol1**2 + vol2**2 + 2.0 * rho * vol1 * vol2)],
+        discount_rate_fn=discount_rate_fn,
+        use_analytic_pricing=True,
+        dtype=dtype)
+    hw_price = self.evaluate(hw_price)
+
+    self.assertAllClose(hjm_price, hw_price, rtol=error_tol, atol=error_tol)
+
+  def test_mixed_1d_batch_2_factor(self):
     """Tests mixed 1d batch with constant parameters with 2 factors."""
     dtype = tf.float64
     error_tol = 1e-2
@@ -195,8 +282,9 @@ class HJMBondOptionTest(tf.test.TestCase):
         discount_rate_fn=discount_rate_fn,
         num_samples=500000,
         time_step=0.1,
-        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
-        dtype=dtype)
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        dtype=dtype,
+        seed=[1, 2])
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [3, 1])
     price = self.evaluate(price)
@@ -223,8 +311,9 @@ class HJMBondOptionTest(tf.test.TestCase):
         discount_rate_fn=discount_rate_fn,
         num_samples=500000,
         time_step=0.1,
-        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
-        dtype=dtype)
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        dtype=dtype,
+        seed=[1, 2])
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [3, 1])
     price = self.evaluate(price)

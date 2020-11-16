@@ -26,7 +26,7 @@ def bond_option_price(*,
                       dim,
                       mean_reversion,
                       volatility,
-                      # TODO(b/173206942) Add correlation as an input.
+                      corr_matrix=None,
                       is_call_options=True,
                       num_samples=1,
                       random_type=None,
@@ -87,19 +87,21 @@ def bond_option_price(*,
       zero coupon bond yield at the present time for the input expiry time.
     dim: A Python scalar which corresponds to the number of factors within a
       single HJM model.
-    mean_reversion: A real positive `Tensor` of shape `[dim]`. Corresponds
-      to the mean reversion rate of each factor.
+    mean_reversion: A real positive `Tensor` of shape `[dim]`. Corresponds to
+      the mean reversion rate of each factor.
     volatility: A real positive `Tensor` of the same `dtype` and shape as
-      `mean_reversion` or a callable with the following properties:
-      (a)  The callable should accept a scalar `Tensor` `t` and a 1-D `Tensor`
-      `r(t)` of shape `[num_samples]` and returns a 2-D `Tensor` of shape
-      `[num_samples, dim]`. The variable `t`  stands for time and `r(t)` is
-      the short rate at time `t`.  The function returns instantaneous
-      volatility `sigma(t) = sigma(t, r(r))`.
-      When `volatility` is specified is a real `Tensor`, each factor is
-      assumed to have a constant instantaneous volatility  and the  model is
-      effectively a Gaussian HJM model.
-      Corresponds to the instantaneous volatility of each factor.
+      `mean_reversion` or a callable with the following properties: (a)  The
+        callable should accept a scalar `Tensor` `t` and a 1-D `Tensor` `r(t)`
+        of shape `[num_samples]` and returns a 2-D `Tensor` of shape
+        `[num_samples, dim]`. The variable `t`  stands for time and `r(t)` is
+        the short rate at time `t`.  The function returns instantaneous
+        volatility `sigma(t) = sigma(t, r(r))`. When `volatility` is specified
+        is a real `Tensor`, each factor is assumed to have a constant
+        instantaneous volatility  and the  model is effectively a Gaussian HJM
+        model. Corresponds to the instantaneous volatility of each factor.
+    corr_matrix: A `Tensor` of shape `[dim, dim]` and the same `dtype` as
+      `mean_reversion`. Corresponds to the correlation matrix `Rho`.
+      Default value: None, meaning the factors are uncorrelated.
     is_call_options: A boolean `Tensor` of a shape compatible with `strikes`.
       Indicates whether the option is a call (if True) or a put (if False). If
       not supplied, call options are assumed.
@@ -135,9 +137,8 @@ def bond_option_price(*,
     computed option prices.
   """
   if time_step is None:
-    raise ValueError(
-        '`time_step` must be provided for simulation based '
-        'bond option valuation.')
+    raise ValueError('`time_step` must be provided for simulation based '
+                     'bond option valuation.')
 
   name = name or 'hjm_bond_option_price'
   if dtype is None:
@@ -145,15 +146,16 @@ def bond_option_price(*,
   with tf.name_scope(name):
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
     expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')
-    maturities = tf.convert_to_tensor(maturities, dtype=dtype,
-                                      name='maturities')
-    is_call_options = tf.convert_to_tensor(is_call_options, dtype=tf.bool,
-                                           name='is_call_options')
+    maturities = tf.convert_to_tensor(
+        maturities, dtype=dtype, name='maturities')
+    is_call_options = tf.convert_to_tensor(
+        is_call_options, dtype=tf.bool, name='is_call_options')
     model = quasi_gaussian_hjm.QuasiGaussianHJM(
         dim,
         mean_reversion=mean_reversion,
         volatility=volatility,
         initial_discount_rate_fn=discount_rate_fn,
+        corr_matrix=corr_matrix,
         dtype=dtype)
 
     def sample_discount_curve_paths_fn(times, curve_times, num_samples):
@@ -170,6 +172,11 @@ def bond_option_price(*,
       return p_t_tau, r_t
 
     return zero_coupon_bond_option_util.options_price_from_samples(
-        strikes, expiries, maturities, is_call_options,
-        sample_discount_curve_paths_fn, num_samples,
-        time_step, dtype=dtype)
+        strikes,
+        expiries,
+        maturities,
+        is_call_options,
+        sample_discount_curve_paths_fn,
+        num_samples,
+        time_step,
+        dtype=dtype)

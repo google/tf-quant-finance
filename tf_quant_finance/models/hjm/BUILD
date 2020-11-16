@@ -70,7 +70,7 @@ py_test(
     timeout = "long",
     srcs = ["zero_coupon_bond_option_test.py"],
     python_version = "PY3",
-    shard_count = 7,
+    shard_count = 8,
     deps = [
         "//tf_quant_finance",
         # test util,

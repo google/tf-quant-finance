@@ -26,7 +26,7 @@ def cap_floor_price(*,
                     dim,
                     mean_reversion,
                     volatility,
-                    # TODO(b/173206942) Allow for correlation as input.
+                    corr_matrix=None,
                     notional=1.0,
                     is_cap=True,
                     num_samples=1,
@@ -138,6 +138,9 @@ def cap_floor_price(*,
         is a real `Tensor`, each factor is assumed to have a constant
         instantaneous volatility  and the  model is effectively a Gaussian HJM
         model. Corresponds to the instantaneous volatility of each factor.
+    corr_matrix: A `Tensor` of shape `[dim, dim]` and the same `dtype` as
+      `mean_reversion`. Corresponds to the correlation matrix `Rho`.
+      Default value: None, meaning the factors are uncorrelated.
     notional: An optional `Tensor` of same dtype and compatible shape as
       `strikes`specifying the notional amount for the cap (or floor).
        Default value: None in which case the notional is set to 1.
@@ -199,6 +202,7 @@ def cap_floor_price(*,
         dim=dim,
         mean_reversion=mean_reversion,
         volatility=volatility,
+        corr_matrix=corr_matrix,
         is_call_options=is_call_options,
         num_samples=num_samples,
         random_type=random_type,
