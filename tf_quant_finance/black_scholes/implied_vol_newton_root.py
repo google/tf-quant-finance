@@ -369,6 +369,8 @@ def _make_black_objective_and_vega_func(prices, forwards, strikes, expiries,
   normalized_prices = prices / normalization
   if discount_factors is not None:
     normalized_prices /= discount_factors
+  else:
+    discount_factors = tf.ones_like(normalized_prices)
 
   units = tf.ones_like(forwards)
   # y is 1 when strikes >= forwards and strikes/forwards otherwise
@@ -403,7 +405,7 @@ def _make_black_objective_and_vega_func(prices, forwards, strikes, expiries,
       implied_prices = tf.where(
           tf.broadcast_to(is_call_options, tf.shape(put_prices)),
           implied_prices, put_prices)
-    vega = x * phi.prob(d1) * sqrt_t
+    vega = x * phi.prob(d1) * sqrt_t / discount_factors
     return implied_prices - normalized_prices, vega
 
   return _black_objective_and_vega

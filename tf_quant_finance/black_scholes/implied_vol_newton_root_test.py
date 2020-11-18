@@ -145,6 +145,41 @@ class ImpliedVolNewtonTest(parameterized.TestCase, tf.test.TestCase):
 
     self.assertArrayNear(volatilities, implied_vols, 1e-7)
 
+  def test_discount_factor_correctness(self):
+
+    dtype = np.float64
+    expiries = np.array([1.0], dtype=dtype)
+    rates = np.array([0.05], dtype=dtype)
+    discount_factors = np.exp(-rates * expiries)
+    spots = np.array([1.0], dtype=dtype)
+    strikes = np.array([0.9], dtype=dtype)
+    volatilities = np.array([0.13], dtype=dtype)
+    is_call_options = True
+
+    prices = self.evaluate(
+        tff.black_scholes.option_price(
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
+            spots=spots,
+            is_call_options=is_call_options,
+            discount_factors=discount_factors,
+            dtype=tf.float64))
+
+    implied_vols = self.evaluate(
+        tff.black_scholes.implied_vol_newton(
+            prices=prices,
+            strikes=strikes,
+            expiries=expiries,
+            spots=spots,
+            discount_factors=discount_factors,
+            is_call_options=is_call_options,
+            dtype=tf.float64,
+            max_iterations=1000,
+            tolerance=1e-8))[0]
+
+    self.assertArrayNear(volatilities, implied_vols, 1e-7)
+
 
 if __name__ == '__main__':
   tf.test.main()

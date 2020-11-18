@@ -1,5 +1,5 @@
 # Lint as: python3
-# Copyright 2019 Google LLC
+# Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,22 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Experimental modules."""
+"""Local volatility model."""
 
-from tf_quant_finance.experimental import instruments
-from tf_quant_finance.experimental import local_volatility
-from tf_quant_finance.experimental import lsm_algorithm
-from tf_quant_finance.experimental import pricing_platform
-import tf_quant_finance.experimental.io
+from tf_quant_finance.experimental.local_volatility.local_volatility_model import LocalVolatilityModel
+
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
-
 _allowed_symbols = [
-    "instruments",
-    "io",
-    "lsm_algorithm",
-    "pricing_platform",
-    "local_volatility",
+    "LocalVolatilityModel",
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
