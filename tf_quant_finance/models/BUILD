@@ -127,7 +127,7 @@ py_library(
 py_test(
     name = "joined_ito_process_test",
     size = "medium",
-    timeout = "moderate",
+    timeout = "long",
     srcs = ["joined_ito_process_test.py"],
     python_version = "PY3",
     shard_count = 3,
