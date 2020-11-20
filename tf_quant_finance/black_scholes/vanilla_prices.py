@@ -101,7 +101,8 @@ def option_price(*,
       option price is returned). If `spots` is supplied and `discount_factors`
       is not `None` then this is also used to compute the forwards to expiry.
       At most one of discount_rates and discount_factors can be supplied.
-      Default value: `None`, which maps to -log(discount_factors) / expiries
+      Default value: `None`, which maps to e^(-rT) calculated from
+      discount_rates.
     is_call_options: A boolean `Tensor` of a shape compatible with
       `volatilities`. Indicates whether the option is a call (if True) or a put
       (if False). If not supplied, call options are assumed.
@@ -147,6 +148,8 @@ def option_price(*,
       discount_rates = tf.convert_to_tensor(
           discount_rates, dtype=dtype, name='discount_rates')
     elif discount_factors is not None:
+      discount_factors = tf.convert_to_tensor(
+          discount_factors, dtype=dtype, name='discount_factors')
       discount_rates = -tf.math.log(discount_factors) / expiries
     else:
       discount_rates = tf.convert_to_tensor(
