@@ -43,18 +43,18 @@ def adesi_whaley(*,
   #### Example
 
   ```python
-  spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0])
-  strikes = np.array([100.0, 100.0, 100.0, 100.0, 100.0])
-  volatilities = np.array([0.2, 0.2, 0.2, 0.2, 0.2])
+  spots = [80.0, 90.0, 100.0, 110.0, 120.0]
+  strikes = [100.0, 100.0, 100.0, 100.0, 100.0]
+  volatilities = [0.2, 0.2, 0.2, 0.2, 0.2]
   expiries = 0.25
   cost_of_carries = -0.04
   discount_rates = 0.08
   computed_prices = adesi_whaley(
-      volatilities,
-      strikes,
-      expiries,
-      discount_rates,
-      cost_of_carries,
+      volatilities=volatilities,
+      strikes=strikes,
+      expiries=expiries,
+      discount_rates=discount_rates,
+      cost_of_carries=cost_of_carries,
       spots=spots,
       dtype=tf.float64)
   # Expected print output of computed prices:
@@ -193,8 +193,10 @@ def adesi_whaley(*,
     else:
       spots = tf.convert_to_tensor(spots, dtype=dtype, name="spots")
     if is_call_options is not None:
-      is_call_options = tf.convert_to_tensor(is_call_options, dtype=tf.bool)
-
+      is_call_options = tf.convert_to_tensor(is_call_options, dtype=tf.bool,
+                                             name="is_call_options")
+    else:
+      is_call_options = tf.constant(True, name="is_call_options")
     # American option prices
     am_prices, converged, failed = _adesi_whaley(
         sigma=volatilities, x=strikes, t=expiries, s=spots, r=discount_rates,
@@ -294,7 +296,7 @@ def _adesi_whaley_critical_values(*,
                                         dtype=dtype)
             + sign * (1 - tf.math.exp((b - r) * t)
                       * _ncdf(sign * _calc_d1(s_crit, x, sigma, b, t)))
-            * s_crit / q - sign * (s_crit - x))
+            * tf.math.divide_no_nan(s_crit, q) - sign * (s_crit - x))
 
   def value_and_gradient_func(price):
     return  gradient.value_and_gradient(value_fn, price)
@@ -303,8 +305,10 @@ def _adesi_whaley_critical_values(*,
   # defined in reference [1] part II, section B.
   # [1] https://deriscope.com/docs/Barone_Adesi_Whaley_1987.pdf
   q_inf = _calc_q(n, m, sign)
-  s_inf = x / (1 - 1 / q_inf)
-  h = -(sign * b * t + 2 * sigma * tf.math.sqrt(t)) * sign * (x / (s_inf - x))
+  s_inf = tf.math.divide_no_nan(
+      x, 1 - tf.math.divide_no_nan(tf.constant(1, dtype=dtype), q_inf))
+  h = (-(sign * b * t + 2 * sigma * tf.math.sqrt(t))
+       * sign * tf.math.divide_no_nan(x, s_inf - x))
   if is_call_options is None:
     s_seed = x + (s_inf - x) * (1 - tf.math.exp(h))
   else:
@@ -316,19 +320,21 @@ def _adesi_whaley_critical_values(*,
       value_and_grad_func=value_and_gradient_func, initial_values=s_seed,
       max_iterations=max_iterations, tolerance=tolerance, dtype=dtype)
 
-  a = (sign * s_crit / q) * (1 - tf.math.exp((b - r) * t) * _ncdf(
-      sign * _calc_d1(s_crit, x, sigma, b, t)))
+  a = (sign * tf.math.divide_no_nan(s_crit, q)
+       * (1 - tf.math.exp((b - r) * t)
+          * _ncdf(sign * _calc_d1(s_crit, x, sigma, b, t))))
 
   return q, a, s_crit, converged, failed
 
 
 def _calc_d1(s, x, sigma, b, t):
-  return (tf.math.log(s / x) + (b + sigma ** 2 / 2) * t) / (
-      sigma * tf.math.sqrt(t))
+  return tf.math.divide_no_nan(tf.math.log(s / x) + (b + sigma ** 2 / 2) * t,
+                               sigma * tf.math.sqrt(t))
 
 
 def _calc_q(n, m, sign, k=1):
-  return ((1 - n) + sign * tf.math.sqrt((n - 1) ** 2 + 4 * m / k)) / 2
+  return ((1 - n) + sign * tf.math.sqrt(
+      (n - 1) ** 2 + tf.math.divide_no_nan(4 * m, k))) / 2
 
 
 def _ncdf(x):

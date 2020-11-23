@@ -176,6 +176,44 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
     with self.subTest(name='NonFailed'):
       self.assertAllEqual(failed, tf.zeros_like(computed_prices))
 
+  def test_option_prices_zero_discount_rates(self):
+    """Tests prices with zero discount."""
+    dtype = tf.float64
+    computed_prices, converged, failed = adesi_whaley(
+        volatilities=[0.2], strikes=[104, 90],
+        expiries=[0.1, 1.0], spots=[100],
+        tolerance=1e-08,
+        is_call_options=[True, False],
+        discount_rates=[0.0, 0.0],
+        dtype=dtype)
+    # Computed using tff.black_scholes.option_price_binomial
+    expected_prices = [1.05226366, 3.58957787]
+    with self.subTest(name='ExpectedPrices'):
+      self.assertAllClose(expected_prices, computed_prices,
+                          rtol=1e-4, atol=5e-4)
+    with self.subTest(name='AllConverged'):
+      self.assertAllEqual(converged, tf.ones_like(computed_prices))
+    with self.subTest(name='NonFailed'):
+      self.assertAllEqual(failed, tf.zeros_like(computed_prices))
+
+  def test_option_prices_all_call_options(self):
+    """Tests call prices with zero discount."""
+    dtype = tf.float64
+    computed_prices, converged, failed = adesi_whaley(
+        volatilities=[0.2], strikes=[104, 90],
+        expiries=[0.1, 1.0], spots=[100],
+        tolerance=1e-08,
+        discount_rates=[0.0, 0.0],
+        dtype=dtype)
+    # Computed using tff.black_scholes.option_price_binomial
+    expected_prices = [1.05226366, 13.58957787]
+    with self.subTest(name='ExpectedPrices'):
+      self.assertAllClose(expected_prices, computed_prices,
+                          rtol=1e-4, atol=5e-4)
+    with self.subTest(name='AllConverged'):
+      self.assertAllEqual(converged, tf.ones_like(computed_prices))
+    with self.subTest(name='NonFailed'):
+      self.assertAllEqual(failed, tf.zeros_like(computed_prices))
 
 if __name__ == '__main__':
   tf.test.main()
