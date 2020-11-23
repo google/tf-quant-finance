@@ -29,6 +29,7 @@ differences with the previous version are:
 import collections
 import tensorflow.compat.v2 as tf
 
+
 LsmLoopVars = collections.namedtuple(
     "LsmLoopVars",
     [
@@ -70,8 +71,8 @@ def make_polynomial_basis(degree):
       basis.
 
   Returns:
-    A callable from `Tensor`s of shape `[num_samples, dim]` to `Tensor`s of
-    shape `[(degree + 1)**dim, num_samples]`.
+    A callable from `Tensor`s of shape `[batch_size, num_samples, dim]` to
+    `Tensor`s of shape `[batch_size, (degree + 1)**dim, num_samples]`.
 
   Raises:
     ValueError: If `degree` is less than `1`.
@@ -84,25 +85,28 @@ def make_polynomial_basis(degree):
 
     Args:
       sample_paths: A `Tensor` of either `flaot32` or `float64` dtype and of
-        shape `[num_samples, num_times, dim]`.
+        either shape `[num_samples, num_times, dim]` or
+        `[batch_size, num_samples, num_times, dim]`.
       time_index: An integer scalar `Tensor` that corresponds to the time
         coordinate at which the basis function is computed.
 
     Returns:
-      A `Tensor`s of shape `[(degree + 1)**dim, num_samples]`.
+      A `Tensor`s of shape `[batch_size, (degree + 1)**dim, num_samples]`.
     """
     sample_paths = tf.convert_to_tensor(sample_paths,
                                         name="sample_paths")
-    shape = sample_paths.shape.as_list()
-    num_samples = shape[0]
-    dim = shape[-1]
-    slice_samples = tf.slice(sample_paths, [0, time_index, 0],
-                             [num_samples, 1, dim])
-    slice_samples = tf.squeeze(slice_samples, 1)
-    dim = sample_paths.shape.as_list()[-1]
-    samples_centered = slice_samples - tf.math.reduce_mean(slice_samples,
-                                                           axis=0)
-    samples_centered = tf.expand_dims(samples_centered, axis=-2)
+    if sample_paths.shape.rank == 3:
+      sample_paths = tf.expand_dims(sample_paths, axis=0)
+    shape = tf.shape(sample_paths)
+    num_samples = shape[1]
+    batch_size = shape[0]
+    dim = sample_paths.shape[-1]  # Dimension should statically known
+    # Shape [batch_size, num_samples, 1, dim]
+    slice_samples = tf.slice(sample_paths, [0, 0, time_index, 0],
+                             [batch_size, num_samples, 1, dim])
+    # Shape [batch_size, num_samples, 1, dim]
+    samples_centered = slice_samples - tf.math.reduce_mean(
+        slice_samples, axis=1, keepdims=True)
     grid = tf.range(degree + 1, dtype=samples_centered.dtype)
     # Creates a grid of 'power' expansions, i.e., a `Tensor` of shape
     # [(degree + 1)**dim, dim] with entries [k_1, .., k_dim] where
@@ -110,11 +114,12 @@ def make_polynomial_basis(degree):
     grid = tf.meshgrid(*(dim * [grid]))
     # Shape [(degree + 1)**3, dim]
     grid = tf.reshape(tf.stack(grid, -1), [-1, dim])
-    # `samples_centered` has shape [num_samples, 1, dim],
-    # `samples_centered**grid` has shape `[num_samples, (degree + 1)**dim, dim]`
-    # so that the output shape is [num_samples, (degree + 1)**dim]
-    basis_expansion = tf.reduce_prod(samples_centered**grid, -1)
-    return  tf.transpose(basis_expansion)
+    # `samples_centered` has shape [batch_size, num_samples, 1, dim],
+    # `samples_centered**grid` has shape
+    # `[batch_size, num_samples, (degree + 1)**dim, dim]`
+    # so that the output shape is `[batch_size, num_samples, (degree + 1)**dim]`
+    basis_expansion = tf.reduce_prod(samples_centered**grid, axis=-1)
+    return tf.transpose(basis_expansion, [0, 2, 1])
   return basis
 
 
@@ -181,25 +186,25 @@ def least_square_mc(sample_paths,
   14(1), pp.113-147.
 
   Args:
-    sample_paths: A `Tensor` of shape `[num_samples, num_times, dim]`, the
-      sample paths of the underlying ito process of dimension `dim` at
-      `num_times` different points.
+    sample_paths: A `Tensor` of either shape `[num_samples, num_times, dim]` or
+      `[batch_size, num_samples, num_times, dim]`, the sample paths of the
+      underlying ito process of dimension `dim` at `num_times` different points.
+      The `batch_size` allows multiple options to be valued in parallel.
     exercise_times: An `int32` `Tensor` of shape `[num_exercise_times]`.
       Contents must be a subset of the integers `[0,...,num_times - 1]`,
       representing the time indices at which the option may be exercised.
     payoff_fn: Callable from a `Tensor` of shape `[num_samples, S, dim]`
-      (where S <= num_times) to a `Tensor` of shape `[num_samples, payoff_dim]`
+      (where S <= num_times) to a `Tensor` of shape `[num_samples, batch_size]`
       of the same dtype as `samples`. The output represents the payout resulting
-      from exercising the option at time `S`. The `payoff_dim` allows multiple
-      options on the same underlying asset (i.e., `samples`) to be valued in
-      parallel.
+      from exercising the option at time `S`. The `batch_size` allows multiple
+      options to be valued in parallel.
     basis_fn: Callable from a `Tensor` of the same shape and `dtype` as
       `sample_paths` and a positive integer `Tenor` (representing a current
-      time index) to a `Tensor` of shape `[basis_size, num_samples]` of the same
-      dtype as `sample_paths`. The result being the design matrix used in
-      regression of the continuation value of options.
+      time index) to a `Tensor` of shape `[batch_size, basis_size, num_samples]`
+      of the same dtype as `sample_paths`. The result being the design matrix
+      used in regression of the continuation value of options.
     discount_factors: A `Tensor` of shape `[num_exercise_times]` or of rank 3
-      and compatible with `[num_samples, payoff_dim, num_exercise_times]`.
+      and compatible with `[num_samples, batch_size, num_exercise_times]`.
       The `dtype` should be the same as of `samples`.
       Default value: `None` which maps to a one-`Tensor` of the same `dtype`
         as `samples` and shape `[num_exercise_times]`.
@@ -218,7 +223,7 @@ def least_square_mc(sample_paths,
       'least_square_mc'.
 
   Returns:
-    A `Tensor` of shape `[num_samples, payoff_dim]` of the same dtype as
+    A `Tensor` of shape `[num_samples, batch_size]` of the same dtype as
     `samples`.
   """
   name = name or "least_square_mc"
@@ -236,9 +241,8 @@ def least_square_mc(sample_paths,
     else:
       discount_factors = tf.convert_to_tensor(
           discount_factors, dtype=dtype, name="discount_factors")
-      if discount_factors.shape.rank == 1:
-        discount_factors = tf.expand_dims(
-            tf.expand_dims(discount_factors, axis=0), axis=0)
+    if discount_factors.shape.rank == 1:
+      discount_factors = tf.reshape(discount_factors, [1, 1, -1])
 
     rank_discount_factors = discount_factors.shape.rank
     discount_factors = tf.pad(
@@ -247,13 +251,13 @@ def least_square_mc(sample_paths,
     # Initialise cashflow as the payoff at final sample.
     time_index = exercise_times[num_times - 1]
     # Calculate the payoff of each path if exercised now. Shape
-    # [num_samples, payoff_dim]
+    # [num_samples, batch_size]
     exercise_value = payoff_fn(sample_paths, time_index)
     zeros = tf.zeros(exercise_value.shape + [num_times - 1],
                      dtype=dtype)
     exercise_value = tf.expand_dims(exercise_value, axis=-1)
 
-    # Shape [num_samples, payoff_dim, num_exercise]
+    # Shape [num_samples, batch_size, num_exercise]
     cashflow = tf.concat([zeros, exercise_value], axis=-1)
     calibration_indices = None
     if num_calibration_samples is not None:
@@ -293,16 +297,16 @@ def _continuation_value_fn(cashflow, discount_factors, exercise_index):
 
   Args:
     cashflow: A real `Tensor` of shape
-      `[num_samples, payoff_dim, num_exercise]`. Tracks the optimal cashflow of
+      `[num_samples, batch_size, num_exercise]`. Tracks the optimal cashflow of
        each sample path for each payoff dimension at each exercise time.
     discount_factors: A `Tensor` of shape `[num_exercise_times]` or of rank 3
-      and compatible with `[num_samples, payoff_dim, num_exercise_times]`.
+      and compatible with `[num_samples, batch_size, num_exercise_times]`.
       The `dtype` should be the same as of `samples`
     exercise_index: An integer scalar `Tensor` representing the index of the
       exercise time of interest. Should be less than `num_exercise_times`.
 
   Returns:
-    A `[num_samples, payoff_dim]` `Tensor` whose entries represent the sum of
+    A `[num_samples, batch_size]` `Tensor` whose entries represent the sum of
     those elements to the right of `exercise_index` in `cashflow`, discounted to
     the time indexed by `exercise_index`. When `exercise_index` is zero, the
     return represents the sum of the cashflow discounted to present value for
@@ -328,10 +332,10 @@ def _expected_exercise_fn(
   """Returns the expected continuation value for each path.
 
   Args:
-    design: A real `Tensor` of shape `[basis_size, num_samples]`.
+    design: A real `Tensor` of shape `[batch_size, basis_size, num_samples]`.
     calibration_indices: A rank 1 integer `Tensor` denoting indices of samples
       used for regression.
-    continuation_value: A `Tensor` of shape `[num_samples, payoff_dim]` and of
+    continuation_value: A `Tensor` of shape `[num_samples, batch_size]` and of
       the same dtype as `design`. The optimal value of the option conditional on
       not exercising now or earlier, taking future information into account.
     exercise_value: A `Tensor` of the same shape and dtype as
@@ -343,56 +347,63 @@ def _expected_exercise_fn(
     `(n, v)`-th entry represents the expected continuation value of sample path
     `n` under the `v`-th payoff scheme.
   """
-  batch_design = tf.broadcast_to(
-      design[..., None], design.shape + [continuation_value.shape[-1]])
-  mask = tf.cast(exercise_value > 0, design.dtype)
   # Zero out contributions from samples we'd never exercise at this point (i.e.,
   # these extra observations do not change the regression coefficients).
-  masked = tf.transpose(batch_design * mask, perm=(2, 1, 0))
-  # For design matrix X and response y, the coefficients beta of the best linear
-  # unbiased estimate are contained in the equation X'X beta = X'y. Here `lhs`
-  # is X'X and `rhs` is X'y, or rather a tensor of such left hand and right hand
-  # sides, one for each payoff dimension.
+  mask = exercise_value > 0
+  # Shape [batch_size, num_samples, basis_size]
+  design_t = tf.transpose(design, [0, 2, 1])
+  masked = tf.where(
+      tf.expand_dims(tf.transpose(mask), axis=-1),
+      design_t, tf.zeros_like(design_t))
   if calibration_indices is None:
     submask = masked
     mask_cont_value = continuation_value
   else:
+    # Shape [batch_size, num_calibration_samples, basis_size]
     submask = tf.gather(masked, calibration_indices, axis=1)
+    # Shape [num_calibration_samples, batch_size]
     mask_cont_value = tf.gather(continuation_value, calibration_indices)
+  # For design matrix X and response y, the coefficients beta of the best linear
+  # unbiased estimate are contained in the equation X'X beta = X'y. Here `lhs`
+  # is X'X and `rhs` is X'y, or rather a tensor of such left hand and right hand
+  # sides, one for each payoff dimension.
+  # Shape [batch_size, basis_size, basis_size]
   lhs = tf.matmul(submask, submask, transpose_a=True)
   # Use pseudo inverse for the regression matrix to ensure stability of the
   # algorithm.
   lhs_pinv = tf.linalg.pinv(lhs)
+  # Shape [batch_size, basis_size, 1]
   rhs = tf.matmul(
       submask,
       tf.expand_dims(tf.transpose(mask_cont_value), axis=-1),
       transpose_a=True)
+  # Shape [batch_size, basis_size, 1]
   beta = tf.matmul(lhs_pinv, rhs)
-  continuation = tf.matmul(tf.transpose(batch_design, perm=(2, 1, 0)), beta)
-  return tf.maximum(tf.transpose(tf.squeeze(continuation, -1)), 0.0)
+  # Shape [batch_size, num_samples, 1]
+  continuation = tf.matmul(design_t, beta)
+  # Shape [num_samples, batch_size]
+  return tf.nn.relu(tf.transpose(tf.squeeze(continuation, axis=-1)))
 
 
 def _updated_cashflow(num_times, exercise_index, exercise_value,
                       expected_continuation, cashflow):
   """Revises the cashflow tensor where options will be exercised earlier."""
+  # Shape [num_samples, batch_size]
   do_exercise_bool = exercise_value > expected_continuation
-  do_exercise = tf.cast(do_exercise_bool, exercise_value.dtype)
-  # Shape [num_samples, payoff_dim]
+  # Shape [num_samples, batch_size]
   scaled_do_exercise = tf.where(do_exercise_bool, exercise_value,
-                                tf.zeros_like(exercise_value))
+                                0)
   # This picks out the samples where we now wish to exercise.
-  # Shape [num_samples, payoff_dim, 1]
+  # Shape [num_samples, batch_size, 1]
   new_samp_masked = tf.expand_dims(scaled_do_exercise, axis=2)
-  # This should be one on the current time step and zero otherwise.
   # This is an array with nonzero entries showing newly exercised payoffs.
-  zeros = tf.zeros_like(cashflow)
-  mask = tf.equal(tf.range(0, num_times), exercise_index - 1)
-  new_cash = tf.where(mask, new_samp_masked, zeros)
-  # Has shape [num_samples, payoff_dim, 1]
-  old_mask = tf.expand_dims(1 - do_exercise, axis=2)
-  mask = tf.range(0, num_times) >= exercise_index
-  # Shape [num_samples, payoff_dim, num_times]
-  return tf.where(mask, old_mask * cashflow, new_cash)
+  # Has shape [num_samples, batch_size, 1]
+  cashflow_update = tf.where(tf.expand_dims(do_exercise_bool, axis=-1),
+                             tf.constant(0, dtype=cashflow.dtype),
+                             cashflow)
+  new_mask = tf.range(0, num_times) >= exercise_index
+  # Shape [num_samples, batch_size, num_times]
+  return tf.where(new_mask, cashflow_update, new_samp_masked)
 
 
 def _lsm_loop_body(
@@ -403,21 +414,21 @@ def _lsm_loop_body(
   # Index of the sample path that the exercise index maps to.
   time_index = exercise_times[exercise_index - 1]
   # Calculate the payoff of each path if exercised now.
-  # Shape [num_samples, payoff_dim]
+  # Shape [num_samples, batch_size]
   exercise_value = payoff_fn(sample_paths, time_index)
   # Present value of hanging on to the options (using future information).
-  # Shape `[num_samples, payoff_dim]`
+  # Shape `[num_samples, batch_size]`
   continuation_value = _continuation_value_fn(cashflow, discount_factors,
                                               exercise_index)
   # Create a design matrix for regression based on the sample paths.
-  # Shape `[num_samples, basis_size]`
+  # Shape `[batch_size, num_samples, basis_size]`
   design = basis_fn(sample_paths, time_index)
 
   # Expected present value of hanging on the options.
   expected_continuation = _expected_exercise_fn(
       design, calibration_indices, continuation_value, exercise_value)
   # Update the cashflow matrix to reflect where earlier exercise is optimal.
-  # Shape `[num_samples, payoff_dim, num_exercise]`.
+  # Shape `[num_samples, batch_size, num_exercise]`.
   rev_cash = _updated_cashflow(num_times, exercise_index, exercise_value,
                                expected_continuation,
                                cashflow)

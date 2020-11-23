@@ -80,7 +80,7 @@ class AmericanEquityOptionTest(tf.test.TestCase):
         currency=Currency.GBP(),
         business_day_convention=BusinessDayConvention.MODIFIED_FOLLOWING(),
         settlement_days=2,
-        is_call_option=False)
+        is_call_option=True)
     risk_free_dates = [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
                        [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]]
     risk_free_discounts = [0.97197441, 0.94022746, 0.91074031, 0.85495089,
@@ -134,11 +134,11 @@ class AmericanEquityOptionTest(tf.test.TestCase):
     with self.subTest("Batching"):
       self.assertLen(am_option, 2)
     price1 = am_option[0].price(market)
-    expected1 = np.array([4667452.73602093, 348299.54227436])
+    expected1 = np.array([4665049.44065695, 379220.05705307])
     with self.subTest("PriceBatch"):
       self.assertAllClose(price1, expected1)
     price2 = am_option[1].price(market)
-    expected2 = np.array([754765.19601902])
+    expected2 = np.array([755892.10147832])
     with self.subTest("PriceSingle"):
       self.assertAllClose(price2, expected2)
 
@@ -182,11 +182,11 @@ class AmericanEquityOptionTest(tf.test.TestCase):
     with self.subTest("Batching"):
       self.assertLen(am_option, 2)
     price1 = am_option[0].price(market)
-    expected1 = np.array([5061325.05691643, 315494.52743082])
+    expected1 = np.array([4728204.87745335, 298514.25020983])
     with self.subTest("PriceBatch"):
       self.assertAllClose(price1, expected1)
     price2 = am_option[1].price(market)
-    expected2 = np.array([761516.78095148])
+    expected2 = np.array([754373.67048095])
     with self.subTest("PriceSingle"):
       self.assertAllClose(price2, expected2)
 
@@ -203,7 +203,7 @@ class AmericanEquityOptionTest(tf.test.TestCase):
     am_options = american_option.AmericanOption(
         **list(am_option_dict.values())[0])
     price = am_options.price(market)
-    expected = np.array([5061325.05691643, 315494.52743082])
+    expected = np.array([4728204.87745335, 298514.25020983])
     self.assertAllClose(price, expected)
 
 

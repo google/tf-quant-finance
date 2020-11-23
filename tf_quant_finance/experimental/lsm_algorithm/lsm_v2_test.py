@@ -188,7 +188,7 @@ class LsmTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'DoublePrecision',
           'dtype': np.float64
       })
-  def test_american_option_put_batch_discount(self, dtype):
+  def test_american_option_put_batch_payoff(self, dtype):
     """Tests that LSM price of American put option is computed as expected."""
     # This is the same example as in Section 1 of
     # Longstaff, F.A. and Schwartz, E.S., 2001. Valuing American options by
@@ -205,6 +205,40 @@ class LsmTest(parameterized.TestCase, tf.test.TestCase):
         self.samples, [1, 2, 3], payoff_fn, basis_fn,
         discount_factors=discount_factors, dtype=dtype)
     self.assertAllClose(american_put_price, [0.1144, 0.199],
+                        rtol=1e-4, atol=1e-4)
+
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'SinglePrecision',
+          'dtype': np.float32
+      }, {
+          'testcase_name': 'DoublePrecision',
+          'dtype': np.float64
+      })
+  def test_american_option_put_batch_samples(self, dtype):
+    """Tests LSM price of a batch of American put options."""
+    # This is the same example as in Section 1 of
+    # Longstaff, F.A. and Schwartz, E.S., 2001. Valuing American options by
+    # simulation: a simple least-squares approach. The review of financial
+    # studies, 14(1), pp.113-147.
+    basis_fn = lsm_algorithm.make_polynomial_basis_v2(2)
+    payoff_fn = lsm_algorithm.make_basket_put_payoff([1.1, 1.2], dtype=dtype)
+    interest_rates = [[0.06, 0.06, 0.06],
+                      [0.05, 0.05, 0.05]]
+    discount_factors = np.exp(-np.cumsum(interest_rates, -1))
+    discount_factors = np.expand_dims(discount_factors, 0)
+    # A batch of sample paths
+    # Shape [num_samples, dum_times, dim]
+    sample_paths1 = tf.convert_to_tensor(self.samples, dtype=dtype)
+    # Shape [num_samples, dum_times, dim]
+    sample_paths2 = sample_paths1 + 0.1
+    # Shape [2, num_samples, dum_times, dim]
+    sample_paths = tf.stack([sample_paths1, sample_paths2], axis=0)
+    # Option price
+    american_put_price = lsm_algorithm.least_square_mc_v2(
+        sample_paths, [1, 2, 3], payoff_fn, basis_fn,
+        discount_factors=discount_factors, dtype=dtype)
+    self.assertAllClose(american_put_price, [0.1144, 0.1157],
                         rtol=1e-4, atol=1e-4)
 
 

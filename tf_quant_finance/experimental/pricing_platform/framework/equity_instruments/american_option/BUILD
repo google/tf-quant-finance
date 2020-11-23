@@ -75,8 +75,21 @@ py_library(
     deps = [
         "//tf_quant_finance/datetime",
         "//tf_quant_finance/experimental/lsm_algorithm",
+        "//tf_quant_finance/experimental/pricing_platform/framework/core:types",
         "//tf_quant_finance/math",
         "//tf_quant_finance/models",
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "utils_test",
+    size = "medium",
+    srcs = ["utils_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":utils",
+        # test util,
         # tensorflow dep,
     ],
 )

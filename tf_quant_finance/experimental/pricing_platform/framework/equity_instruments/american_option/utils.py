@@ -61,7 +61,9 @@ def bs_lsm_price(
       This is the same argument as in `lsm_algorithm.least_square_mc`.
     seed: A tuple of 2 integers setting global and local seed of the Monte Carlo
       sampler
-    is_call_option: A bool `Tensor`.
+    is_call_option: A bool `Tensor` of the same shape as `spots` specifying
+      which options are put/call.
+      Default value: `True` which means all options are call.
     num_calibration_samples: An optional integer less or equal to `num_samples`.
       The number of sampled trajectories used for the LSM regression step.
       Default value: `None`, which means that all samples are used for
@@ -88,49 +90,58 @@ def bs_lsm_price(
                                         name="expiry_times")
     discount_factors = tf.convert_to_tensor(discount_factors, dtype=dtype,
                                             name="discount_factors")
+    call_put = tf.convert_to_tensor(is_call_option, dtype=tf.bool,
+                                    name="discount_factors")
+    call_put = tf.expand_dims(call_put, axis=-1)
     risk_free_rate = -tf.math.log(discount_factors) / expiry_times
     # Normalize expiry times
-    var = volatility**2
-    expiry_times = expiry_times * var
-
+    scaled_expiries = volatility * tf.math.sqrt(expiry_times)
+    expiry_times_reshape = tf.reshape(expiry_times, [-1, 1, 1, 1])
     gbm = models.GeometricBrownianMotion(
         mu=0.0, sigma=1.0,
         dtype=dtype)
-    max_time = tf.reduce_max(expiry_times)
-
-    # Get a grid of 100 exercise times + all expiry times
-    times = tf.sort(tf.concat([tf.linspace(tf.constant(0.0, dtype),
-                                           max_time,
-                                           num_exercise_times),
-                               expiry_times], axis=0))
-    # Samples for all options
+    times = tf.linspace(tf.constant(0.0, dtype), 1.0, num_exercise_times)
+    # Samples from Geometric Brownian motion to be used for all options
+    # Distributed as exp(-1/2 * times + W(times))
     samples = gbm.sample_paths(
         times,
         initial_state=1.0,
         num_samples=num_samples,
         seed=seed,
         random_type=math.random.RandomType.STATELESS_ANTITHETIC)
-    indices = tf.searchsorted(times, expiry_times)
-    indices_ext = tf.expand_dims(indices, axis=-1)
+    # Rescale samples
+    # Shape [batch_size, 1, 1, 1]
+    volatility_expand = tf.reshape(volatility, [-1, 1, 1, 1])
+    # Shape [1, 1, num_exercise_times, 1]
+    times_expand = tf.reshape(times, [1, 1, -1, 1])
+    # Shape [1, num_samples, num_exercise_times, dim]
+    # Distributed as exp(W(times))
+    samples = tf.math.exp(0.5 * times_expand) * samples
+    # Shape [batch_size, num_samples, num_exercise_times, dim]
+    # Distributed as exp(volatility * W(t))
+    samples = samples**tf.reshape(scaled_expiries, [-1, 1, 1, 1])
+    # Distributed as exp(-volatility**2 / 2 * t + volatility * W(t))
+    samples *= tf.math.exp(-times_expand * expiry_times_reshape
+                           * volatility_expand**2 / 2)
+    # Shape [batch_size, 1, 1, 1]
+    spots = tf.reshape(spots, [-1, 1, 1, 1])
+    # Shape [batch_size, 1, num_exercise_times, 1]
+    rates_exp = tf.math.exp(tf.reshape(risk_free_rate, [-1, 1, 1, 1])
+                            * times_expand * expiry_times_reshape)
+    # Shape [batch_size, num_samples, num_exercise_times, dim]
+    # Distributed as spot * exp((r -volatility**2 / 2) * t + volatility * W(t))
+    samples = spots * rates_exp * samples
     # Payoff function takes all the samples of shape
-    # [num_paths, num_times, dim] and returns a `Tensor` of
-    # shape [num_paths, num_strikes]. This corresponds to a
+    # [batch_size, num_paths, num_times, dim] and returns a `Tensor` of
+    # shape [num_paths, batch_size]. This corresponds to a
     # payoff at the present time.
     def _payoff_fn(sample_paths, time_index):
-      current_samples = tf.transpose(sample_paths, [1, 2, 0])[time_index]
-      r = tf.math.exp(tf.expand_dims(risk_free_rate / var, axis=-1)
-                      * times[time_index])
-      s = tf.expand_dims(spots, axis=-1)
-      call_put = tf.expand_dims(is_call_option, axis=-1)
-      payoff = tf.expand_dims(strikes, -1) - r * s * current_samples
+      current_samples = tf.squeeze(sample_paths, axis=-1)
+      current_samples = tf.transpose(current_samples, [2, 0, 1])[time_index]
+      # Shape [batch_size, num_samples]
+      payoff = tf.expand_dims(strikes, -1) - current_samples
       payoff = tf.where(call_put, tf.nn.relu(-payoff), tf.nn.relu(payoff))
-      # Since the pricing is happening on the grid,
-      # For options, which have already expired, the payoff is set to `0`
-      # to indicate that one should not exercise the option after it has expired
-      res = tf.where(time_index > indices_ext,
-                     tf.constant(0, dtype=dtype),
-                     payoff)
-      return tf.transpose(res)
+      return tf.transpose(payoff)
 
     if basis_fn is None:
       # Polynomial basis with 2 functions
@@ -146,6 +157,7 @@ def bs_lsm_price(
           payoff_fn=_payoff_fn,
           basis_fn=basis_fn,
           discount_factors=tf.math.exp(
-              -tf.reshape(risk_free_rate / var, [1, -1, 1]) * times),
+              -tf.reshape(risk_free_rate, [1, -1, 1]) * times
+              * tf.reshape(expiry_times, [1, -1, 1])),
           num_calibration_samples=num_calibration_samples)
     return lsm_price(samples)
