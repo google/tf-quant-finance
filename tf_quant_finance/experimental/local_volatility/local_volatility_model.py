@@ -170,11 +170,11 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
         interest rate.
         Default value: `None` in which case the input is set to Zero.
       local_volatility_fn: A Python callable which returns instantaneous
-        volatility as a function of state and time. The function must accept two
-        real `Tensor` inputs of shape `[num_samples, dim]` corresponding to the
-        underlying price (S) and scalar `Tensor` corresponding to time 't' and
-        returns a real `Tensor` containing the local volatility computed at
-        (S,t).
+        volatility as a function of state and time. The function must accept a
+        scalar `Tensor` corresponding to time 't' and a real `Tensor` of shape
+        `[num_samples, dim]` corresponding to the underlying price (S) as
+        inputs  and return a real `Tensor` containing the local volatility
+        computed at (S,t).
       corr_matrix: A `Tensor` of shape `[dim, dim]` and the same `dtype` as
         `risk_free_rate`. Corresponds to the instantaneous correlation between
         the underlying assets.
