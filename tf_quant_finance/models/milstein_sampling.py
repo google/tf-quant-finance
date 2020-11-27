@@ -15,7 +15,9 @@
 """The Milstein sampling method for ito processes."""
 
 import functools
+import math
 
+import numpy as np
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.math import custom_loops
@@ -24,7 +26,12 @@ from tf_quant_finance.math import random_ops as random
 from tf_quant_finance.models import utils
 
 
-def sample(dim,
+_PI = math.pi
+_SQRT_2 = np.sqrt(2.)
+
+
+def sample(*,
+           dim,
            drift_fn,
            volatility_fn,
            times,
@@ -32,12 +39,14 @@ def sample(dim,
            num_time_steps=None,
            num_samples=1,
            initial_state=None,
+           grad_volatility_fn=None,
            random_type=None,
            seed=None,
            swap_memory=True,
            skip=0,
            precompute_normal_draws=True,
            watch_params=None,
+           stratonovich_order=5,
            dtype=None,
            name=None):
   r"""Returns a sample paths from the process using the Milstein method.
@@ -74,8 +83,6 @@ def sample(dim,
 
   See [1] and [2] for details.
 
-  Currently, only the one dimensional scheme has been implemented.
-
   #### References
   [1]: Wikipedia. Milstein method:
   https://en.wikipedia.org/wiki/Milstein_method
@@ -94,11 +101,11 @@ def sample(dim,
       `batch_shape + [dim]`.
     volatility_fn: A Python callable to compute the volatility of the process.
       The callable should accept two real `Tensor` arguments of the same dtype
-      and shape `times_shape`. The first argument is the scalar time t, the
-      second argument is the value of Ito process X - tensor of shape
-      `batch_shape + [dim]`. The result is value of drift b(t, X). The
-      return value of the callable is a real `Tensor` of the same dtype as the
-      input arguments and of shape `batch_shape + [dim, dim]`.
+      as `times`. The first argument is the scalar time t, the second argument
+      is the value of Ito process X - tensor of shape `batch_shape + [dim]`. The
+      result is value of volatility b(t, X). The return value of the callable is
+      a real `Tensor` of the same dtype as the input arguments and of shape
+      `batch_shape + [dim, dim]`.
     times: Rank 1 `Tensor` of increasing positive real values. The times at
       which the path points are to be evaluated.
     time_step: An optional scalar real `Tensor` - maximal distance between
@@ -115,6 +122,18 @@ def sample(dim,
     initial_state: `Tensor` of shape `[dim]`. The initial state of the
       process.
       Default value: None which maps to a zero initial state.
+    grad_volatility_fn: An optional python callable to compute the gradient of
+      `volatility_fn`. The callable should accept three real `Tensor` arguments
+      of the same dtype as `times`. The first argument is the scalar time t. The
+      second argument is the value of Ito process X - tensor of shape
+      `batch_shape + [dim]`. The third argument is a tensor of input gradients
+      of shape `batch_shape + [dim]` to pass to `gradient.fwd_gradient`. The
+      result is a list of values corresponding to the forward gradient of
+      volatility b(t, X) with respect to X. The return value of the callable is
+      a list of size `dim` containing real `Tensor`s of the same dtype as the
+      input arguments and of shape `batch_shape + [dim, dim]`. Each index of the
+      list corresponds to a dimension of the state. If `None`, the gradient is
+      computed from `volatility_fn` using forward differentiation.
     random_type: Enum value of `RandomType`. The type of (quasi)-random number
       generator to use to generate the paths.
       Default value: None which maps to the standard pseudo-random numbers.
@@ -143,18 +162,25 @@ def sample(dim,
       `dtype` as `initial_state`. If provided, specifies `Tensor`s with respect
       to which the differentiation of the sampling function will happen. A more
       efficient algorithm is used when `watch_params` are specified. Note the
-      the function becomes differentiable onlhy wrt to these `Tensor`s and the
+      the function becomes differentiable only wrt to these `Tensor`s and the
       `initial_state`. The gradient wrt any other `Tensor` is set to be zero.
+    stratonovich_order: A positive integer. The number of terms to use when
+      calculating the approximate Stratonovich integrals in the multidimensional
+      scheme. Stratonovich integrals are an alternative to Ito integrals, and
+      can be used interchangeably when defining the higher order terms in the
+      update equation. We use Stratonovich integrals here because they have a
+      convenient approximation scheme for calculating cross terms involving
+      different components of the Wiener process. See Eq. 8.10 in Section 5.8 of
+      [2]. Default value: `5`.
     dtype: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
       Default value: None which means that the dtype implied by `times` is used.
     name: Python string. The name to give this op.
       Default value: `None` which maps to `milstein_sample`.
   """
   name = name or 'milstein_sample'
-  if dim != 1:
-    raise NotImplementedError(
-        'Multi-dimensional Milstein is not supported yet.')
   with tf.name_scope(name):
+    if stratonovich_order <= 0:
+      raise ValueError('`stratonovich_order` must be a positive integer.')
     times = tf.convert_to_tensor(times, dtype=dtype)
     if dtype is None:
       dtype = times.dtype
@@ -184,18 +210,30 @@ def sample(dim,
       watch_params = [
           tf.convert_to_tensor(param, dtype=dtype) for param in watch_params
       ]
+    if grad_volatility_fn is None:
 
-    def _grad_volatility_fn(current_time, current_state):
-      return gradient.fwd_gradient(
-          functools.partial(volatility_fn, current_time),
-          current_state,
-          unconnected_gradients=tf.UnconnectedGradients.ZERO)
+      def _grad_volatility_fn(current_time, current_state, input_gradients):
+        return gradient.fwd_gradient(
+            functools.partial(volatility_fn, current_time),
+            current_state,
+            input_gradients=input_gradients,
+            unconnected_gradients=tf.UnconnectedGradients.ZERO)
+
+      grad_volatility_fn = _grad_volatility_fn
+
+    input_gradients = None
+    if dim > 1:
+      input_gradients = tf.unstack(tf.eye(dim, dtype=dtype))
+      input_gradients = [
+          tf.broadcast_to(start, [num_samples, dim])
+          for start in input_gradients
+      ]
 
     return _sample(
         dim=dim,
         drift_fn=drift_fn,
         volatility_fn=volatility_fn,
-        grad_volatility_fn=_grad_volatility_fn,
+        grad_volatility_fn=grad_volatility_fn,
         times=times,
         time_step=time_step,
         keep_mask=keep_mask,
@@ -209,13 +247,16 @@ def sample(dim,
         precompute_normal_draws=precompute_normal_draws,
         watch_params=watch_params,
         time_indices=time_indices,
+        input_gradients=input_gradients,
+        stratonovich_order=stratonovich_order,
         dtype=dtype)
 
 
 def _sample(*, dim, drift_fn, volatility_fn, grad_volatility_fn, times,
             time_step, keep_mask, num_requested_times, num_samples,
             initial_state, random_type, seed, swap_memory, skip,
-            precompute_normal_draws, watch_params, time_indices, dtype):
+            precompute_normal_draws, watch_params, time_indices,
+            input_gradients, stratonovich_order, dtype):
   """Returns a sample of paths from the process using the Milstein method."""
   dt = times[1:] - times[:-1]
   sqrt_dt = tf.sqrt(dt)
@@ -228,7 +269,7 @@ def _sample(*, dim, drift_fn, volatility_fn, grad_volatility_fn, times,
   # In order to use low-discrepancy random_type we need to generate the sequence
   # of independent random normals upfront. We also precompute random numbers
   # for stateless random type in order to ensure independent samples for
-  # multiple function calls whith different seeds.
+  # multiple function calls with different seeds.
   if precompute_normal_draws or random_type in (
       random.RandomType.SOBOL, random.RandomType.HALTON,
       random.RandomType.HALTON_RANDOMIZED, random.RandomType.STATELESS,
@@ -242,11 +283,25 @@ def _sample(*, dim, drift_fn, volatility_fn, grad_volatility_fn, times,
         seed=seed,
         skip=skip)
     wiener_mean = None
+    # Auxiliary normal draws for use with the stratonovich integral
+    # approximation.
+    aux_normal_draws = []
+    for _ in range(3):
+      aux_normal_draws.append(
+          utils.generate_mc_normal_draws(
+              num_normal_draws=dim * stratonovich_order,
+              num_time_steps=steps_num,
+              num_sample_paths=num_samples,
+              random_type=random_type,
+              dtype=dtype,
+              seed=seed,
+              skip=skip))
   else:
     # If pseudo or anthithetic sampling is used, proceed with random sampling
     # at each step.
     wiener_mean = tf.zeros((dim,), dtype=dtype, name='wiener_mean')
     normal_draws = None
+    aux_normal_draws = None
   if watch_params is None:
     # Use while_loop if `watch_params` is not passed
     return _while_loop(
@@ -267,10 +322,14 @@ def _sample(*, dim, drift_fn, volatility_fn, grad_volatility_fn, times,
         swap_memory=swap_memory,
         random_type=random_type,
         seed=seed,
-        normal_draws=normal_draws)
+        normal_draws=normal_draws,
+        input_gradients=input_gradients,
+        stratonovich_order=stratonovich_order,
+        aux_normal_draws=aux_normal_draws)
   else:
     # Use custom for_loop if `watch_params` is specified
     return _for_loop(
+        dim=dim,
         steps_num=steps_num,
         current_state=current_state,
         drift_fn=drift_fn,
@@ -286,18 +345,23 @@ def _sample(*, dim, drift_fn, volatility_fn, grad_volatility_fn, times,
         watch_params=watch_params,
         random_type=random_type,
         seed=seed,
-        normal_draws=normal_draws)
+        normal_draws=normal_draws,
+        input_gradients=input_gradients,
+        stratonovich_order=stratonovich_order,
+        aux_normal_draws=aux_normal_draws)
 
 
 def _while_loop(*, dim, steps_num, current_state, drift_fn, volatility_fn,
                 grad_volatility_fn, wiener_mean, num_samples, times, dt,
                 sqrt_dt, time_step, num_requested_times, keep_mask, swap_memory,
-                random_type, seed, normal_draws):
+                random_type, seed, normal_draws, input_gradients,
+                stratonovich_order, aux_normal_draws):
   """Smaple paths using tf.while_loop."""
   cond_fn = lambda i, *args: i < steps_num
 
   def step_fn(i, written_count, current_state, result):
     return _milstein_step(
+        dim=dim,
         i=i,
         written_count=written_count,
         current_state=current_state,
@@ -313,7 +377,10 @@ def _while_loop(*, dim, steps_num, current_state, drift_fn, volatility_fn,
         keep_mask=keep_mask,
         random_type=random_type,
         seed=seed,
-        normal_draws=normal_draws)
+        normal_draws=normal_draws,
+        input_gradients=input_gradients,
+        stratonovich_order=stratonovich_order,
+        aux_normal_draws=aux_normal_draws)
 
   maximum_iterations = (
       tf.cast(1. / time_step, dtype=tf.int32) + tf.size(times))
@@ -336,10 +403,11 @@ def _while_loop(*, dim, steps_num, current_state, drift_fn, volatility_fn,
   return result
 
 
-def _for_loop(*, steps_num, current_state, drift_fn, volatility_fn,
+def _for_loop(*, dim, steps_num, current_state, drift_fn, volatility_fn,
               grad_volatility_fn, wiener_mean, watch_params, num_samples, times,
               dt, sqrt_dt, time_indices, keep_mask, random_type, seed,
-              normal_draws):
+              normal_draws, input_gradients, stratonovich_order,
+              aux_normal_draws):
   """Smaple paths using custom for_loop."""
   num_time_points = time_indices.shape.as_list()[-1]
   if num_time_points == 1:
@@ -351,6 +419,7 @@ def _for_loop(*, steps_num, current_state, drift_fn, volatility_fn,
     # Unpack current_state
     current_state = current_state[0]
     _, _, next_state, _ = _milstein_step(
+        dim=dim,
         i=i,
         written_count=0,
         current_state=current_state,
@@ -366,7 +435,10 @@ def _for_loop(*, steps_num, current_state, drift_fn, volatility_fn,
         keep_mask=keep_mask,
         random_type=random_type,
         seed=seed,
-        normal_draws=normal_draws)
+        normal_draws=normal_draws,
+        input_gradients=input_gradients,
+        stratonovich_order=stratonovich_order,
+        aux_normal_draws=aux_normal_draws)
     return [next_state]
 
   result = custom_loops.for_loop(
@@ -379,10 +451,131 @@ def _for_loop(*, steps_num, current_state, drift_fn, volatility_fn,
   return tf.transpose(result, (1, 0, 2))
 
 
-def _milstein_step(*, i, written_count, current_state, result, drift_fn,
+def _outer_prod(v1, v2):
+  """Computes the outer product of v1 and v2."""
+  return tf.linalg.einsum('...i,...j->...ij', v1, v2)
+
+
+def _stratonovich_integral(dim, dt, sqrt_dt, dw, stratonovich_draws, order):
+  """Approximate Stratonovich integrals J(i, j).
+
+
+
+  Args:
+    dim: An integer. The dimension of the state.
+    dt: A double. The time step.
+    sqrt_dt: A double. The square root of dt.
+    dw: A double. The Wiener increment.
+    stratonovich_draws: A list of tensors corresponding to the independent
+      N(0,1) random variables used in the approximation.
+    order: An integer. The stratonovich_order.
+
+  Returns:
+    A Tensor of shape [dw.shape[0], dim, dim] corresponding to the Stratonovich
+    integral for each pairwise component of the Wiener process. In other words,
+    J(i,j) corresponds to an integral over W_i and W_j.
+  """
+  p = order - 1
+  sqrt_rho_p = tf.sqrt(
+      tf.constant(
+          1 / 12 - sum([1 / r**2 for r in range(1, order + 1)]) / 2 / _PI**2,
+          dtype=dw.dtype))
+  mu = stratonovich_draws[0]
+  # Move dimensions around to make computation easier later.
+  zeta = tf.transpose(stratonovich_draws[1], [2, 0, 1])
+  eta = tf.transpose(stratonovich_draws[2], [2, 0, 1])
+  xi = dw / sqrt_dt
+  r_i = tf.stack([
+      tf.ones(zeta[0, ...].shape + [dim], dtype=zeta.dtype) / r
+      for r in range(1, order + 1)
+  ], 0)
+
+  # See Eq 3.7 of section 10.3 in [2]
+  # First term scaled by dt.
+  value = dt * (
+      _outer_prod(dw, dw) / 2 + sqrt_rho_p *
+      (_outer_prod(mu[..., p], xi) - _outer_prod(xi, mu[..., p])))
+
+  # Vectorized sum over r scaled by dt / 2 / pi.
+  value += dt * tf.reduce_sum(
+      tf.multiply((_outer_prod(zeta, _SQRT_2 * xi + eta) -
+                   _outer_prod(_SQRT_2 * xi + eta, zeta)), r_i), 0) / (2 * _PI)
+  return value
+
+
+def _milstein_hot(dim, vol, grad_vol, dt, sqrt_dt, dw, stratonovich_draws,
+                  stratonovich_order):
+  """Higher order terms for Milstein update."""
+  # Generate approximate Stratonovich integrals J(i,j) then replace the diagonal
+  # with exact values.
+  offdiag = _stratonovich_integral(
+      dim=dim,
+      dt=dt,
+      sqrt_dt=sqrt_dt,
+      dw=dw,
+      stratonovich_draws=stratonovich_draws,
+      order=stratonovich_order)
+  stratonovich_integrals = tf.linalg.set_diag(offdiag, dw * dw / 2)
+
+  # Compute L_bar^{j1} b^{k, j2} J(j1, j2)
+  # See Eq 3.4 of section 10.3 in [2]
+  stacked_grad_vol = []
+  for state_ix in range(dim):
+    stacked_grad_vol.append(
+        tf.transpose(
+            tf.stack([x[..., state_ix, :] for x in grad_vol], -1), [0, 2, 1]))
+  stacked_grad_vol = tf.stack(stacked_grad_vol, 0)
+  lbar = tf.matmul(stacked_grad_vol, vol)
+  return tf.transpose(
+      tf.reduce_sum(tf.multiply(lbar, stratonovich_integrals), [-2, -1]))
+
+
+def _stratonovich_drift_update(num_samples, vol, grad_vol):
+  """Updates drift function for use with stratonovich integrals."""
+  # Compute 1/2 \sum_j^m L_bar^j b^{k,j}
+  # See Eq 1.3 of section 10.1 in [2]
+  vol = tf.reshape(vol, [num_samples, -1])
+  grad_vol = tf.concat(grad_vol, 2)
+  # A tensor of shape [num_samples, dim].
+  return tf.linalg.matvec(grad_vol, vol)
+
+
+def _milstein_1d(dw, dt, sqrt_dt, current_state, drift, vol, grad_vol):
+  """Performs the milstein update in one dimension."""
+  dw = dw * sqrt_dt
+  dt_inc = dt * drift  # pylint: disable=not-callable
+  dw_inc = tf.linalg.matvec(vol, dw)  # pylint: disable=not-callable
+  # Higher order terms. For dim 1, the product here is elementwise.
+  hot_vol = tf.squeeze(tf.multiply(vol, grad_vol), -1)
+  hot_dw = dw * dw - dt
+  hot_inc = tf.multiply(hot_vol, hot_dw) / 2
+  return current_state + dt_inc + dw_inc + hot_inc
+
+
+def _milstein_nd(dim, num_samples, dw, dt, sqrt_dt, current_state, drift, vol,
+                 grad_vol, stratonovich_draws, stratonovich_order):
+  """Performs the milstein update in multiple dimensions."""
+  dw = dw * sqrt_dt
+  drift_update = _stratonovich_drift_update(num_samples, vol, grad_vol)
+  dt_inc = dt * (drift - drift_update)  # pylint: disable=not-callable
+  dw_inc = tf.linalg.matvec(vol, dw)  # pylint: disable=not-callable
+  hot_inc = _milstein_hot(
+      dim=dim,
+      vol=vol,
+      grad_vol=grad_vol,
+      dt=dt,
+      sqrt_dt=sqrt_dt,
+      dw=dw,
+      stratonovich_draws=stratonovich_draws,
+      stratonovich_order=stratonovich_order)
+  return current_state + dt_inc + dw_inc + hot_inc
+
+
+def _milstein_step(*, dim, i, written_count, current_state, result, drift_fn,
                    volatility_fn, grad_volatility_fn, wiener_mean, num_samples,
                    times, dt, sqrt_dt, keep_mask, random_type, seed,
-                   normal_draws):
+                   normal_draws, input_gradients, stratonovich_order,
+                   aux_normal_draws):
   """Performs one step of Milstein scheme."""
   current_time = times[i + 1]
   written_count = tf.cast(written_count, tf.int32)
@@ -393,20 +586,61 @@ def _milstein_step(*, i, written_count, current_state, result, drift_fn,
                                  mean=wiener_mean,
                                  random_type=random_type,
                                  seed=seed)
+  if aux_normal_draws is not None:
+    stratonovich_draws = []
+    for j in range(3):
+      stratonovich_draws.append(
+          tf.reshape(aux_normal_draws[j][i],
+                     [num_samples, dim, stratonovich_order]))
+  else:
+    stratonovich_draws = []
+    # Three sets of normal draws for stratonovich integrals.
+    for j in range(3):
+      stratonovich_draws.append(
+          random.mv_normal_sample((num_samples,),
+                                  mean=tf.zeros(
+                                      (dim, stratonovich_order),
+                                      dtype=current_state.dtype,
+                                      name='stratonovich_draws_{}'.format(j)),
+                                  random_type=random_type,
+                                  seed=seed))
 
-  dw = dw * sqrt_dt[i]
-  dt_inc = dt[i] * drift_fn(current_time, current_state)  # pylint: disable=not-callable
-  dw_inc = tf.linalg.matvec(volatility_fn(current_time, current_state), dw)  # pylint: disable=not-callable
-
-  # Higher order terms. For dim 1, the product here is elementwise.
-  # Will need to adjust for higher dims.
-  hot_vol = tf.squeeze(
-      tf.multiply(
-          volatility_fn(current_time, current_state),
-          grad_volatility_fn(current_time, current_state)), -1)
-  hot_dw = dw * dw - dt[i]
-  hot_inc = tf.multiply(hot_vol, hot_dw) / 2
-  next_state = current_state + dt_inc + dw_inc + hot_inc
+  if dim == 1:
+    drift = drift_fn(current_time, current_state)
+    vol = volatility_fn(current_time, current_state)
+    grad_vol = grad_volatility_fn(current_time, current_state,
+                                  tf.ones_like(current_state))
+    next_state = _milstein_1d(
+        dw=dw,
+        dt=dt[i],
+        sqrt_dt=sqrt_dt[i],
+        current_state=current_state,
+        drift=drift,
+        vol=vol,
+        grad_vol=grad_vol)
+  else:
+    drift = drift_fn(current_time, current_state)
+    vol = volatility_fn(current_time, current_state)
+    # This is a list of size equal to the dimension of the state space `dim`.
+    # It contains tensors of shape [num_samples, dim, wiener_dim] representing
+    # the gradient of the volatility function. In our case, the dimension of the
+    # wiener process `wiener_dim` is equal to the state dimension `dim`.
+    grad_vol = [
+        grad_volatility_fn(current_time, current_state, start)
+        for start in input_gradients
+    ]
+    next_state = _milstein_nd(
+        dim=dim,
+        num_samples=num_samples,
+        dw=dw,
+        dt=dt[i],
+        sqrt_dt=sqrt_dt[i],
+        current_state=current_state,
+        drift=drift,
+        vol=vol,
+        grad_vol=grad_vol,
+        stratonovich_draws=stratonovich_draws,
+        stratonovich_order=stratonovich_order)
 
   result = utils.maybe_update_along_axis(
       tensor=result,

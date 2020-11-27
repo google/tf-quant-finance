@@ -100,7 +100,7 @@ py_test(
     timeout = "moderate",
     srcs = ["milstein_sampling_test.py"],
     python_version = "PY3",
-    shard_count = 1,
+    shard_count = 4,
     deps = [
         "//tf_quant_finance",
         # test util,

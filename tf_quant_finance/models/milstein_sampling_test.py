@@ -14,6 +14,8 @@
 # limitations under the License.
 """Tests for methods in `milstein_sampling`."""
 
+import functools
+
 from absl.testing import parameterized
 
 import numpy as np
@@ -22,6 +24,7 @@ import tensorflow.compat.v2 as tf
 import tf_quant_finance as tff
 
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance.math import gradient
 
 milstein_sampling = tff.models.milstein_sampling
 euler_sampling = tff.models.euler_sampling
@@ -203,6 +206,106 @@ class MilsteinSamplingTest(tf.test.TestCase, parameterized.TestCase):
     self.assertAllClose((mean, stddev), (euler_mean, euler_stddev),
                         rtol=1e-3,
                         atol=1e-3)
+
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'WithDefaultGradVolFn',
+          'supply_grad_vol_fn': False,
+      }, {
+          'testcase_name': 'WithGradVolFn',
+          'supply_grad_vol_fn': True,
+      })
+  def test_sample_sabr(self, supply_grad_vol_fn):
+    r"""Tests path properties for SABR.
+
+    We construct the following Ito process.
+
+    ```
+      dF_t = v_t * F_t ^ beta * dW_{F,t}
+      dv_t = volvol * v_t * dW_{v,t}
+      dW_{F,t} * dW_{v,t} = rho * dt
+    ```
+
+    `F_t` is the forward. `v_t` is volatility. `beta` is the CEV parameter.
+    `volvol` is volatility of volatility. `W_{F,t}` and `W_{v,t}` are two
+    correlated Wiener processes with instantaneous correlation `rho`.
+
+    Args:
+      supply_grad_vol_fn: A bool. Whether or not to supply a grad_volatility_fn.
+    """
+
+    dtype = np.float64
+    drift_fn = lambda _, x: tf.zeros_like(x)
+    beta = tf.constant(0.5, dtype=dtype)
+    volvol = tf.constant(1., dtype=dtype)
+    rho = tf.constant(0.2, dtype=dtype)
+
+    def vol_fn(t, x):
+      """The volatility function for the SABR model."""
+      del t
+      f = x[..., 0]
+      v = x[..., 1]
+      fb = f**beta
+      m11 = v * fb * tf.math.sqrt(1 - tf.square(rho))
+      m12 = v * fb * rho
+      m21 = tf.zeros_like(m11)
+      m22 = volvol * v
+      mc1 = tf.concat([tf.expand_dims(m11, -1), tf.expand_dims(m21, -1)], -1)
+      mc2 = tf.concat([tf.expand_dims(m12, -1), tf.expand_dims(m22, -1)], -1)
+      # Set up absorbing boundary.
+      should_be_zero = tf.expand_dims(
+          tf.expand_dims((beta != 0) & (f <= 0.), -1), -1)
+      vol_matrix = tf.concat([tf.expand_dims(mc1, -1),
+                              tf.expand_dims(mc2, -1)], -1)
+      return tf.where(should_be_zero, tf.zeros_like(vol_matrix), vol_matrix)
+
+    if supply_grad_vol_fn:
+
+      def _grad_volatility_fn(current_time, current_state, input_gradients):
+        return gradient.fwd_gradient(
+            functools.partial(vol_fn, current_time),
+            current_state,
+            input_gradients=input_gradients,
+            unconnected_gradients=tf.UnconnectedGradients.ZERO)
+
+      grad_volatility_fn = _grad_volatility_fn
+    else:
+      grad_volatility_fn = None
+
+    times = np.array([0.0, 0.1, 0.21, 0.32, 0.43, 0.55])
+    x0 = np.array([0.1, 0.2])
+    paths = self.evaluate(
+        milstein_sampling.sample(
+            dim=2,
+            drift_fn=drift_fn,
+            volatility_fn=vol_fn,
+            times=times,
+            num_samples=1000,
+            initial_state=x0,
+            grad_volatility_fn=grad_volatility_fn,
+            random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+            time_step=0.01,
+            seed=[1, 42]))
+    mean = np.average(paths)
+    stddev = np.std(paths)
+
+    euler_paths = self.evaluate(
+        euler_sampling.sample(
+            dim=2,
+            drift_fn=drift_fn,
+            volatility_fn=vol_fn,
+            times=times,
+            time_step=0.01,
+            num_samples=10000,
+            initial_state=x0,
+            random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+            seed=[1, 42]))
+    euler_mean = np.average(euler_paths)
+    euler_stddev = np.std(euler_paths)
+
+    self.assertAllClose((mean, stddev), (euler_mean, euler_stddev),
+                        rtol=0.05,
+                        atol=0.05)
 
   def test_sample_paths_dtypes(self):
     """Tests that sampled paths have the expected dtypes."""
