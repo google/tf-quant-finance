@@ -276,9 +276,9 @@ class HestonModel(generic_ito_process.GenericItoProcess):
                          'unsupported when `time_step` or `times` have a '
                          'non-constant value')
     if random_type != random.RandomType.PSEUDO:
-      # Note that at each iteration we need 3 random draws.
+      # Note that at each iteration we need 2 random draws.
       normal_draws = utils.generate_mc_normal_draws(
-          num_normal_draws=3, num_time_steps=steps_num,
+          num_normal_draws=2, num_time_steps=steps_num,
           num_sample_paths=num_samples, random_type=random_type,
           seed=seed,
           dtype=self.dtype(), skip=skip)
@@ -292,13 +292,13 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       if normal_draws is None:
         normals = random.mv_normal_sample(
             (num_samples,),
-            mean=tf.zeros([3], dtype=kappa.dtype), seed=seed)
+            mean=tf.zeros([2], dtype=kappa.dtype), seed=seed)
       else:
         normals = normal_draws[i]
       def _next_vol_fn():
         return _update_variance(
             kappa[i], theta[i], epsilon[i], rho[i],
-            current_vol, time_step, normals[..., :2])
+            current_vol, time_step, normals[..., 0])
       # Do not update variance if `time_step > tolerance`
       next_vol = tf.cond(time_step > tolerance,
                          _next_vol_fn,
@@ -307,7 +307,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
         return _update_log_spot(
             kappa[i], theta[i], epsilon[i], rho[i],
             current_vol, next_vol, current_log_spot, time_step,
-            normals[..., -1])
+            normals[..., 1])
       # Do not update state if `time_step > tolerance`
       next_log_spot = tf.cond(time_step > tolerance,
                               _next_log_spot_fn,
@@ -365,14 +365,14 @@ def _update_variance(
       * (1 - scaled_time) + theta * epsilon_squared / 2 / kappa
       * (1 - scaled_time)**2)
   psi = s_squared / m**2
-  uniforms = 0.5 * (1 + tf.math.erf(normals[..., 0] / _SQRT_2))
+  uniforms = 0.5 * (1 + tf.math.erf(normals / _SQRT_2))
   cond = psi < psi_c
   # Result where `cond` is true
   psi_inv = 2 / psi
   b_squared = psi_inv - 1 + tf.sqrt(psi_inv * (psi_inv - 1))
 
   a = m / (1 + b_squared)
-  next_var_true = a * (tf.sqrt(b_squared) + tf.squeeze(normals[..., 1]))**2
+  next_var_true = a * (tf.sqrt(b_squared) + tf.squeeze(normals))**2
   # Result where `cond` is false
   p = (psi - 1) / (psi + 1)
   beta = (1 - p) / m
