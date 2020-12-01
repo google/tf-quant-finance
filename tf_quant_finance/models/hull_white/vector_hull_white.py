@@ -542,8 +542,10 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       if corr_matrix_root is not None:
         normals = tf.linalg.matvec(corr_matrix_root[i], normals)
 
-      next_x = (tf.math.exp(-mean_reversion[:, i + 1] * dt[i]) * current_x
-                + exp_x_t[:, i] + tf.math.sqrt(var_x_t[:, i]) * normals)
+      next_x = (tf.math.exp(-tf.transpose(mean_reversion)[i + 1] * dt[i])
+                * current_x
+                + tf.transpose(exp_x_t)[i]
+                + tf.math.sqrt(tf.transpose(var_x_t)[i]) * normals)
       f_0_t = self._instant_forward_rate_fn(times[i + 1])
 
       # Update `rate_paths`

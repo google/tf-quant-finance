@@ -203,41 +203,59 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
           np.array(self.volatility_time_dep_1d), 0.1)
       self.assertAllClose(r_std, expected_std, rtol=1e-4, atol=1e-4)
 
-  def test_mean_variance_correlation_piecewise_2d(self):
+  @parameterized.named_parameters({
+      'testcase_name': 'no_xla',
+      'use_xla': False,
+  }, {
+      'testcase_name': 'xla',
+      'use_xla': True,
+  })
+  def test_mean_variance_correlation_piecewise_2d(self, use_xla):
     """Tests model with piecewise constant parameters in 2 dimensions."""
-    for dtype in [tf.float32, tf.float64]:
-      # Mean reversion without batch dimesnion
-      mean_reversion = self.mean_reversion
-      # Volatility with batch dimesnion
-      volatility = tff.math.piecewise.PiecewiseConstantFunc(
-          [[0.1, 0.2, 0.5], [0.1, 2.0, 3.0]],
-          values=[4 * [self.volatility[0]],
-                  4 * [self.volatility[1]]], dtype=dtype)
-      expected_corr_matrix = [[1., 0.5], [0.5, 1.]]
-      process = tff.models.hull_white.VectorHullWhiteModel(
-          dim=2,
-          mean_reversion=mean_reversion,
-          volatility=volatility,
-          corr_matrix=expected_corr_matrix,
-          initial_discount_rate_fn=self.instant_forward_rate_2d_fn,
-          dtype=dtype)
-      paths = process.sample_paths(
+    dtype = np.float64
+    # Mean reversion without batch dimesnion
+    mean_reversion = self.mean_reversion
+    # Volatility with batch dimesnion
+    volatility = tff.math.piecewise.PiecewiseConstantFunc(
+        [[0.1, 0.2, 0.5], [0.1, 2.0, 3.0]],
+        values=[4 * [self.volatility[0]],
+                4 * [self.volatility[1]]], dtype=dtype)
+    expected_corr_matrix = [[1., 0.5], [0.5, 1.]]
+    num_samples = 50000
+    process = tff.models.hull_white.VectorHullWhiteModel(
+        dim=2,
+        mean_reversion=mean_reversion,
+        volatility=volatility,
+        corr_matrix=expected_corr_matrix,
+        initial_discount_rate_fn=self.instant_forward_rate_2d_fn,
+        dtype=dtype)
+    @tf.function
+    def fn():
+      return process.sample_paths(
           [0.1, 0.5, 1.0],
-          num_samples=50000,
-          random_type=tff.math.random.RandomType.SOBOL,
-          skip=1000000)
+          num_samples=num_samples,
+          random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+          seed=[1, 2])
+    if use_xla:
+      paths = self.evaluate(tf.xla.experimental.compile(fn))[0]
+    else:
+      paths = self.evaluate(fn())
+    with self.subTest('Dtype'):
       self.assertEqual(paths.dtype, dtype)
-      self.assertAllEqual(paths.shape, [50000, 3, 2])
-      paths = self.evaluate(paths)
-      paths = paths[:, -1, :]  # Extract paths values for the terminal time
-      mean = np.mean(paths, axis=0)
-      estimated_corr_matrix = np.corrcoef(paths[:, 0], paths[:, 1])
-      variance = np.var(paths, axis=0)
+    with self.subTest('Shape'):
+      self.assertAllEqual(paths.shape, [num_samples, 3, 2])
+    paths = paths[:, -1, :]  # Extract paths values for the terminal time
+    mean = np.mean(paths, axis=0)
+    estimated_corr_matrix = np.corrcoef(paths[:, 0], paths[:, 1])
+    variance = np.var(paths, axis=0)
+    with self.subTest('Mean'):
       self.assertAllClose(mean, self.true_mean(1.0), rtol=1e-4, atol=1e-4)
+    with self.subTest('Variance'):
       self.assertAllClose(variance,
                           self.true_var(1.0), rtol=1e-4, atol=1e-4)
+    with self.subTest('CorrMatrix'):
       self.assertAllClose(estimated_corr_matrix, expected_corr_matrix,
-                          rtol=1e-4, atol=1e-4)
+                          rtol=1e-2, atol=1e-2)
 
   def test_mean_variance_correlation_piecewise_constant_2d(self):
     """Tests model with piecewise constant or constant parameters in 2 dim."""
