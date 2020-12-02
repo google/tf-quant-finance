@@ -176,6 +176,8 @@ class GenericItoProcess(ito_process.ItoProcess):
                    num_time_steps=None,
                    skip=0,
                    precompute_normal_draws=True,
+                   times_grid=None,
+                   normal_draws=None,
                    watch_params=None):
     """Returns a sample of paths from the process using Euler sampling.
 
@@ -228,6 +230,16 @@ class GenericItoProcess(ito_process.ItoProcess):
         the increments are always precomputed. While the resulting graph
         consumes more memory, the performance gains might be significant.
         Default value: `True`.
+      times_grid: An optional rank 1 `Tensor` representing time discretization
+        grid. If `times` are not on the grid, then the nearest points from the
+        grid are used.
+        Default value: `None`, which means that times grid is computed using
+        `time_step` and `num_time_steps`.
+      normal_draws: A `Tensor` of shape `[num_samples, num_time_points, dim]`
+        and the same `dtype` as `times`. Represents random normal draws to
+        compute increments `N(0, t_{n+1}) - N(0, t_n)`. When supplied,
+        `num_sample`, `time_step` and `num_time_steps` arguments are ignored the
+        dimensions of `normal_draws` are used instead.
       watch_params: An optional list of zero-dimensional `Tensor`s of the same
         `dtype` as `initial_state`. If provided, specifies `Tensor`s with
         respect to which the differentiation of the sampling function will
@@ -260,6 +272,8 @@ class GenericItoProcess(ito_process.ItoProcess):
           swap_memory=swap_memory,
           skip=skip,
           precompute_normal_draws=precompute_normal_draws,
+          times_grid=times_grid,
+          normal_draws=normal_draws,
           watch_params=watch_params,
           dtype=self._dtype,
           name=name)

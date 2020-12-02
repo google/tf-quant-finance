@@ -33,6 +33,8 @@ def sample(dim,
            swap_memory=True,
            skip=0,
            precompute_normal_draws=True,
+           times_grid=None,
+           normal_draws=None,
            watch_params=None,
            dtype=None,
            name=None):
@@ -114,6 +116,16 @@ def sample(dim,
       random types the increments are always precomputed. While the resulting
       graph consumes more memory, the performance gains might be significant.
       Default value: `True`.
+    times_grid: An optional rank 1 `Tensor` representing time discretization
+      grid. If `times` are not on the grid, then the nearest points from the
+      grid are used.
+      Default value: `None`, which means that times grid is computed using
+      `time_step` and `num_time_steps`.
+    normal_draws: A `Tensor` of shape `[num_samples, num_time_points, dim]`
+      and the same `dtype` as `times`. Represents random normal draws to compute
+      increments `N(0, t_{n+1}) - N(0, t_n)`. When supplied, `num_sample`,
+      `time_step` and `num_time_steps` arguments are ignored the dimensions of
+      `normal_draws` are used instead.
     watch_params: An optional list of zero-dimensional `Tensor`s of the same
       `dtype` as `initial_state`. If provided, specifies `Tensor`s with respect
       to which the differentiation of the sampling function will happen.
@@ -132,8 +144,11 @@ def sample(dim,
       `times`, `n` is the dimension of the process.
 
   Raises:
-    ValueError: If neither `num_time_steps` nor `time_step` are supplied or
+    ValueError:
+      (a) If neither `num_time_steps` nor `time_step` are supplied or
       if both are supplied.
+      (b) If `normal_draws` is supplied and either `dim` or `num_time_steps` are
+      mismatched.
   """
   name = name or 'euler_sample'
   with tf.name_scope(name):
@@ -149,19 +164,42 @@ def sample(dim,
     if num_time_steps is not None and time_step is not None:
       raise ValueError('Only one of either `num_time_steps` or `time_step` '
                        'should be defined but not both')
-    if time_step is None:
-      if num_time_steps is None:
-        raise ValueError('Either `num_time_steps` or `time_step` should be '
-                         'defined.')
-      num_time_steps = tf.convert_to_tensor(
-          num_time_steps, dtype=tf.int32, name='num_time_steps')
-      time_step = times[-1] / tf.cast(num_time_steps, dtype=dtype)
+    if times_grid is None:
+      if time_step is None:
+        if num_time_steps is None:
+          raise ValueError('Either `num_time_steps` or `time_step` should be '
+                           'defined.')
+        num_time_steps = tf.convert_to_tensor(
+            num_time_steps, dtype=tf.int32, name='num_time_steps')
+        time_step = times[-1] / tf.cast(num_time_steps, dtype=dtype)
+      else:
+        time_step = tf.convert_to_tensor(time_step, dtype=dtype,
+                                         name='time_step')
     else:
-      time_step = tf.convert_to_tensor(time_step, dtype=dtype,
-                                       name='time_step')
+      times_grid = tf.convert_to_tensor(times_grid, dtype=dtype,
+                                        name='times_grid')
     times, keep_mask, time_indices = utils.prepare_grid(
-        times=times, time_step=time_step, num_time_steps=num_time_steps,
+        times=times,
+        time_step=time_step,
+        num_time_steps=num_time_steps,
+        times_grid=times_grid,
         dtype=dtype)
+    if normal_draws is not None:
+      normal_draws = tf.convert_to_tensor(normal_draws, dtype=dtype,
+                                          name='normal_draws')
+      # Shape [num_time_points, num_samples, dim]
+      normal_draws = tf.transpose(normal_draws, [1, 0, 2])
+      num_samples = tf.shape(normal_draws)[1]
+      draws_step_num, _, draws_dim = normal_draws.shape
+      if dim != draws_dim:
+        raise ValueError(
+            '`dim` should be equal to `normal_draws.shape[2]` but are '
+            '{0} and {1} respectively'.format(dim, draws_dim))
+      if keep_mask.shape[0] - 1 != draws_step_num:
+        raise ValueError(
+            '`num_time_steps` should be equal to `normal_draws.shape[1]` but '
+            'are {0} and {1} respectively'.format(keep_mask.shape[0] - 1,
+                                                  draws_step_num))
     if watch_params is not None:
       watch_params = [tf.convert_to_tensor(param, dtype=dtype)
                       for param in watch_params]
@@ -170,7 +208,6 @@ def sample(dim,
         drift_fn=drift_fn,
         volatility_fn=volatility_fn,
         times=times,
-        time_step=time_step,
         keep_mask=keep_mask,
         num_requested_times=num_requested_times,
         num_samples=num_samples,
@@ -180,17 +217,28 @@ def sample(dim,
         swap_memory=swap_memory,
         skip=skip,
         precompute_normal_draws=precompute_normal_draws,
+        normal_draws=normal_draws,
         watch_params=watch_params,
         time_indices=time_indices,
         dtype=dtype)
 
 
-def _sample(*, dim, drift_fn, volatility_fn, times, time_step, keep_mask,
+def _sample(*,
+            dim,
+            drift_fn,
+            volatility_fn,
+            times,
+            keep_mask,
             num_requested_times,
-            num_samples, initial_state, random_type,
-            seed, swap_memory, skip, precompute_normal_draws,
+            num_samples,
+            initial_state,
+            random_type,
+            seed, swap_memory,
+            skip,
+            precompute_normal_draws,
             watch_params,
             time_indices,
+            normal_draws,
             dtype):
   """Returns a sample of paths from the process using Euler method."""
   dt = times[1:] - times[:-1]
@@ -201,26 +249,28 @@ def _sample(*, dim, drift_fn, volatility_fn, times, time_step, keep_mask,
     steps_num = dt.shape.as_list()[-1]
   else:
     steps_num = tf.shape(dt)[-1]
-  # In order to use low-discrepancy random_type we need to generate the sequence
-  # of independent random normals upfront. We also precompute random numbers
-  # for stateless random type in order to ensure independent samples for
-  # multiple function calls whith different seeds.
-  if precompute_normal_draws or random_type in (
-      random.RandomType.SOBOL,
-      random.RandomType.HALTON,
-      random.RandomType.HALTON_RANDOMIZED,
-      random.RandomType.STATELESS,
-      random.RandomType.STATELESS_ANTITHETIC):
-    normal_draws = utils.generate_mc_normal_draws(
-        num_normal_draws=dim, num_time_steps=steps_num,
-        num_sample_paths=num_samples, random_type=random_type,
-        dtype=dtype, seed=seed, skip=skip)
-    wiener_mean = None
-  else:
-    # If pseudo or anthithetic sampling is used, proceed with random sampling
-    # at each step.
-    wiener_mean = tf.zeros((dim,), dtype=dtype, name='wiener_mean')
-    normal_draws = None
+  wiener_mean = None
+  if normal_draws is None:
+    # In order to use low-discrepancy random_type we need to generate the
+    # sequence of independent random normals upfront. We also precompute random
+    # numbers for stateless random type in order to ensure independent samples
+    # for multiple function calls whith different seeds.
+    if precompute_normal_draws or random_type in (
+        random.RandomType.SOBOL,
+        random.RandomType.HALTON,
+        random.RandomType.HALTON_RANDOMIZED,
+        random.RandomType.STATELESS,
+        random.RandomType.STATELESS_ANTITHETIC):
+      normal_draws = utils.generate_mc_normal_draws(
+          num_normal_draws=dim, num_time_steps=steps_num,
+          num_sample_paths=num_samples, random_type=random_type,
+          dtype=dtype, seed=seed, skip=skip)
+      wiener_mean = None
+    else:
+      # If pseudo or anthithetic sampling is used, proceed with random sampling
+      # at each step.
+      wiener_mean = tf.zeros((dim,), dtype=dtype, name='wiener_mean')
+      normal_draws = None
   if watch_params is None:
     # Use while_loop if `watch_params` is not passed
     return  _while_loop(
@@ -228,7 +278,7 @@ def _sample(*, dim, drift_fn, volatility_fn, times, time_step, keep_mask,
         current_state=current_state,
         drift_fn=drift_fn, volatility_fn=volatility_fn, wiener_mean=wiener_mean,
         num_samples=num_samples, times=times,
-        dt=dt, sqrt_dt=sqrt_dt, time_step=time_step, keep_mask=keep_mask,
+        dt=dt, sqrt_dt=sqrt_dt, keep_mask=keep_mask,
         num_requested_times=num_requested_times,
         swap_memory=swap_memory,
         random_type=random_type, seed=seed, normal_draws=normal_draws)
@@ -245,7 +295,7 @@ def _sample(*, dim, drift_fn, volatility_fn, times, time_step, keep_mask,
 
 def _while_loop(*, dim, steps_num, current_state,
                 drift_fn, volatility_fn, wiener_mean,
-                num_samples, times, dt, sqrt_dt, time_step, num_requested_times,
+                num_samples, times, dt, sqrt_dt, num_requested_times,
                 keep_mask, swap_memory, random_type, seed, normal_draws):
   """Smaple paths using tf.while_loop."""
   cond_fn = lambda i, *args: i < steps_num
@@ -266,8 +316,6 @@ def _while_loop(*, dim, steps_num, current_state,
         random_type=random_type,
         seed=seed,
         normal_draws=normal_draws)
-  maximum_iterations = (tf.cast(1. / time_step, dtype=tf.int32)
-                        + tf.size(times))
   # Include initial state, if necessary
   result = tf.zeros((num_samples, num_requested_times, dim),
                     dtype=current_state.dtype)
@@ -281,7 +329,7 @@ def _while_loop(*, dim, steps_num, current_state,
   # Sample paths
   _, _, _, result = tf.while_loop(
       cond_fn, step_fn, (0, written_count, current_state, result),
-      maximum_iterations=maximum_iterations,
+      maximum_iterations=steps_num,
       swap_memory=swap_memory)
   return result
 

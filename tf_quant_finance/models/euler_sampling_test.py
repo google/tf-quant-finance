@@ -35,22 +35,44 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
           'testcase_name': 'CustomForLoopWithTimeStep',
           'watch_params': True,
           'use_time_step': True,
+          'use_time_grid': False,
+          'supply_normal_draws': False,
       }, {
           'testcase_name': 'WhileLoopWithTimeStep',
           'watch_params': False,
           'use_time_step': True,
+          'use_time_grid': False,
+          'supply_normal_draws': False,
       },
       {
           'testcase_name': 'CustomForLoopWithNumSteps',
           'watch_params': True,
           'use_time_step': False,
+          'use_time_grid': False,
+          'supply_normal_draws': False,
       }, {
           'testcase_name': 'WhileLoopWithNumSteps',
           'watch_params': False,
           'use_time_step': False,
+          'use_time_grid': False,
+          'supply_normal_draws': False,
+      }, {
+          'testcase_name': 'WhileLoopWithGrid',
+          'watch_params': False,
+          'use_time_step': False,
+          'use_time_grid': True,
+          'supply_normal_draws': False,
+      }, {
+          'testcase_name': 'WhileLoopWithGridAndDraws',
+          'watch_params': False,
+          'use_time_step': False,
+          'use_time_grid': True,
+          'supply_normal_draws': True,
       })
-  def test_sample_paths_wiener(self, watch_params, use_time_step):
+  def test_sample_paths_wiener(self, watch_params, use_time_step,
+                               use_time_grid, supply_normal_draws):
     """Tests paths properties for Wiener process (dX = dW)."""
+    dtype = tf.float64
 
     def drift_fn(_, x):
       return tf.zeros_like(x)
@@ -70,13 +92,35 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
     else:
       time_step = None
       num_time_steps = 30
+    if use_time_grid:
+      time_step = None
+      times_grid = tf.linspace(tf.constant(0.0, dtype=dtype), 0.3, 31)
+    else:
+      times_grid = None
+    if supply_normal_draws:
+      num_samples = 1
+      # Use antithetic sampling
+      normal_draws = tf.random.stateless_normal(
+          shape=[5000, 30, 1],
+          seed=[1, 42],
+          dtype=dtype)
+      normal_draws = tf.concat([normal_draws, -normal_draws], axis=0)
+    else:
+      normal_draws = None
     paths = euler_sampling.sample(
         dim=1, drift_fn=drift_fn, volatility_fn=vol_fn,
-        times=times, num_samples=num_samples,
+        times=times,
+        num_samples=num_samples,
         time_step=time_step,
         num_time_steps=num_time_steps,
         watch_params=watch_params,
-        seed=42)
+        normal_draws=normal_draws,
+        times_grid=times_grid,
+        random_type=random.RandomType.STATELESS_ANTITHETIC,
+        seed=[1, 42])
+
+    # The correct number of samples
+    num_samples = 10000
     with self.subTest('Shape'):
       self.assertAllEqual(paths.shape.as_list(), [num_samples, 3, 1])
     paths = self.evaluate(paths)
@@ -347,6 +391,40 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
 
       self.assertEqual(paths.dtype, dtype)
 
+  def test_sample_shape_mismatch(self):
+    """Error is raised if `dim` is mismatched with the one from normal_draws."""
+    dtype = tf.float64
+    def drift_fn(_, x):
+      return tf.zeros_like(x)
+
+    def vol_fn(_, x):
+      return tf.expand_dims(tf.ones_like(x), -1)
+
+    with self.subTest('WrongNumTimeSteps'):
+      with self.assertRaises(ValueError):
+        times_grid = [0.1, 0.5, 1.0]
+        normal_draws = tf.random.stateless_normal(
+            shape=[100, 5, 1], seed=[1, 1], dtype=dtype)
+        euler_sampling.sample(
+            dim=1, drift_fn=drift_fn, volatility_fn=vol_fn,
+            times=[0.1, 0.5, 1.0],
+            normal_draws=normal_draws,
+            times_grid=times_grid,
+            seed=42,
+            dtype=dtype)
+
+    with self.subTest('WrongDim'):
+      with self.assertRaises(ValueError):
+        times_grid = [0.1, 0.5, 1.0]
+        normal_draws = tf.random.normal(
+            shape=[100, 3, 2], dtype=dtype)
+        euler_sampling.sample(
+            dim=1, drift_fn=drift_fn, volatility_fn=vol_fn,
+            times=[0.1, 0.5, 1.0],
+            normal_draws=normal_draws,
+            times_grid=times_grid,
+            seed=42,
+            dtype=dtype)
 
 if __name__ == '__main__':
   tf.test.main()

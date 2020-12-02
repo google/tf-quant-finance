@@ -69,7 +69,16 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
     with self.subTest(name="Covar"):
       self.assertAllClose(covars, expected_covars, rtol=1e-2, atol=1e-2)
 
-  def test_sample_paths_2d(self):
+  @parameterized.named_parameters({
+      "testcase_name": "NoGridNoDraws",
+      "use_time_grid": False,
+      "supply_normal_draws": False,
+  }, {
+      "testcase_name": "WithGridWithDraws",
+      "use_time_grid": True,
+      "supply_normal_draws": True,
+  })
+  def test_sample_paths_2d(self, use_time_grid, supply_normal_draws):
     """Tests path properties for 2-dimentional Ito process.
 
     We construct the following Ito processes.
@@ -81,7 +90,14 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
     s_ij = a_ij t + b_ij
 
     For this process expected value at time t is (x_0)_i + 2/3 * mu_i * t^1.5.
+
+    Args:
+      use_time_grid: A boolean to indicate whther `times_grid` is supplied.
+      supply_normal_draws: A boolean to indicate whther `normal_draws` is
+        supplied.
     """
+    dtype = tf.float64
+
     mu = np.array([0.2, 0.7])
     a = np.array([[0.4, 0.1], [0.3, 0.2]])
     b = np.array([[0.33, -0.03], [0.21, 0.5]])
@@ -93,18 +109,37 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
       del x
       return (a * t + b) * tf.ones([2, 2], dtype=t.dtype)
 
-    num_samples = 10000
     process = GenericItoProcess(dim=2, drift_fn=drift_fn, volatility_fn=vol_fn)
     times = np.array([0.1, 0.21, 0.32, 0.43, 0.55])
     x0 = np.array([0.1, -1.1])
+    if use_time_grid:
+      times_grid = tf.linspace(tf.constant(0.0, dtype=dtype), 0.55, 56)
+      time_step = None
+    else:
+      times_grid = None
+      time_step = 0.01
+    if supply_normal_draws:
+      num_samples = 1
+      # Use antithetic sampling
+      normal_draws = tf.random.normal(
+          shape=[5000, times_grid.shape[0] - 1, 2],
+          dtype=dtype)
+      normal_draws = tf.concat([normal_draws, -normal_draws], axis=0)
+    else:
+      num_samples = 10000
+      normal_draws = None
     paths = self.evaluate(
         process.sample_paths(
             times,
             num_samples=num_samples,
             initial_state=x0,
-            time_step=0.01,
+            time_step=time_step,
+            times_grid=times_grid,
+            normal_draws=normal_draws,
             seed=12134))
 
+    # The correct number of samples
+    num_samples = 10000
     self.assertAllClose(paths.shape, (num_samples, 5, 2), atol=0)
     means = np.mean(paths, axis=0)
     times = np.reshape(times, [-1, 1])

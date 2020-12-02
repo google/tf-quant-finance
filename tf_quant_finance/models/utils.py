@@ -172,7 +172,8 @@ def maybe_update_along_axis(*,
       return new_tensor
 
 
-def prepare_grid(*, times, time_step, dtype, num_time_steps=None):
+def prepare_grid(*, times, time_step, dtype, num_time_steps=None,
+                 times_grid=None):
   """Prepares grid of times for path generation.
 
   Args:
@@ -187,9 +188,14 @@ def prepare_grid(*, times, time_step, dtype, num_time_steps=None):
       times. This parameter guarantees the number of points on the time grid
       is `max(len(times), num_time_steps)` and that `times` are included to the
       grid.
-     Default value: `None`, which means that a uniform grid is created
+      Default value: `None`, which means that a uniform grid is created.
        containing all points from 'times` and the uniform grid of points between
        `[0, times[-1]]` with grid size equal to `time_step`.
+    times_grid: An optional rank 1 `Tensor` representing time discretization
+      grid. If `times` are not on the grid, then the nearest points from the
+      grid are used.
+      Default value: `None`, which means that times grid is computed using
+      `time_step` and `num_time_steps`.
 
   Returns:
     Tuple `(all_times, mask, time_points)`.
@@ -203,13 +209,23 @@ def prepare_grid(*, times, time_step, dtype, num_time_steps=None):
     `time_indices`. An integer `Tensor` of the same shape as `times` indicating
     `times` indices in `all_times`.
   """
-  if num_time_steps is None:
-    all_times, time_indices = _grid_from_time_step(
-        times=times, time_step=time_step, dtype=dtype)
+  if times_grid is None:
+    if num_time_steps is None:
+      all_times, time_indices = _grid_from_time_step(
+          times=times, time_step=time_step, dtype=dtype)
+    else:
+      all_times, time_indices = _grid_from_num_times(
+          times=times, time_step=time_step, num_time_steps=num_time_steps)
   else:
-    all_times, time_indices = _grid_from_num_times(
-        times=times, time_step=time_step, num_time_steps=num_time_steps)
-
+    all_times = times_grid
+    time_indices = tf.searchsorted(times_grid, times)
+    # Adjust indices to bring `times` closer to `times_grid`.
+    times_diff_1 = tf.gather(times_grid, time_indices) - times
+    times_diff_2 = tf.gather(times_grid, tf.nn.relu(time_indices-1)) - times
+    time_indices = tf.where(
+        tf.math.abs(times_diff_2) > tf.math.abs(times_diff_1),
+        time_indices,
+        tf.nn.relu(time_indices - 1))
   # Create a boolean mask to identify the iterations that have to be recorded.
   mask_sparse = tf.sparse.SparseTensor(
       indices=tf.expand_dims(
