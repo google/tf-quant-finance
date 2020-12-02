@@ -6,29 +6,29 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2020-12-02.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.models.hull_white.cap_floor_price" />
+<meta itemprop="name" content="tf_quant_finance.models.hjm.cap_floor_price" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.models.hull_white.cap_floor_price
+# tf_quant_finance.models.hjm.cap_floor_price
 
 <!-- Insert buttons and diff -->
 
 <table class="tfo-notebook-buttons tfo-api" align="left">
 </table>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/hull_white/cap_floor.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/hjm/cap_floor.py">View source</a>
 
 
 
-Calculates the prices of interest rate Caps/Floors using Hull-White model.
+Calculates the prices of interest rate Caps/Floors using the HJM model.
 
 ```python
-tf_quant_finance.models.hull_white.cap_floor_price(
+tf_quant_finance.models.hjm.cap_floor_price(
     *, strikes, expiries, maturities, daycount_fractions, reference_rate_fn, dim,
-    mean_reversion, volatility, notional=1.0, is_cap=True,
-    use_analytic_pricing=True, num_samples=1, random_type=None, seed=None, skip=0,
-    time_step=None, dtype=None, name=None
+    mean_reversion, volatility, corr_matrix=None, notional=1.0, is_cap=True,
+    num_samples=1, random_type=None, seed=None, skip=0, time_step=None, dtype=None,
+    name=None
 )
 ```
 
@@ -85,7 +85,7 @@ maturities = np.array([[0.25, 0.5, 0.75, 1.0, 1.0, 1.0, 1.0, 1.0],
 strikes = 0.01 * np.ones_like(expiries)
 daycount_fractions = np.array([[0.25, 0.25, 0.25, 0.25, 0.0, 0.0, 0.0, 0.0],
                      [0.0, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25]])
-price = tff.models.hull_white.cap_floor_price(
+price = tff.models.hjm.cap_floor_price(
     strikes=strikes,
     expiries=expiries,
     maturities=maturities,
@@ -95,21 +95,23 @@ price = tff.models.hull_white.cap_floor_price(
     mean_reversion=[0.03],
     volatility=[0.02],
     reference_rate_fn=reference_rate_fn,
-    use_analytic_pricing=True,
+    num_samples=500000,
+    time_step=0.025,
+    random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+    seed=[1, 2],
     dtype=dtype)
-# Expected value: [[0.4072088281493774], [1.3031872853339002]]
+# Expected value: [[4071.821182], [15518.53244292]]
 ````
 
 #### Args:
 
 
 * <b>`strikes`</b>: A real `Tensor` of any shape and dtype. The strike rate of the
-  caplets or floorlets. The shape of this input determines the number
-  (and shape) of the options to be priced and the shape of the output. For
-  an N-dimensional input `Tensor`, the first N-1 dimensions correspond to
-  the batch dimension, i.e., the distinct caps and floors and the last
-  dimension correspond to the caplets or floorlets contained with an
-  intrument.
+  caplets or floorlets. The shape of this input determines the number (and
+  shape) of the options to be priced and the shape of the output. For an
+  N-dimensional input `Tensor`, the first N-1 dimensions correspond to the
+  batch dimension, i.e., the distinct caps and floors and the last dimension
+  correspond to the caplets or floorlets contained with an intrument.
 * <b>`expiries`</b>: A real `Tensor` of the same dtype and compatible shape as
   `strikes`.  The reset time of each caplet (or floorlet).
 * <b>`maturities`</b>: A real `Tensor` of the same dtype and compatible shape as
@@ -119,69 +121,58 @@ price = tff.models.hull_white.cap_floor_price(
   as `strikes`. The daycount fractions associated with the underlying
   forward rates.
 * <b>`reference_rate_fn`</b>: A Python callable that accepts expiry time as a real
-  `Tensor` and returns a `Tensor` of shape `input_shape + dim`. Returns
-  the continuously compounded zero rate at the present time for the input
-  expiry time.
-* <b>`dim`</b>: A Python scalar which corresponds to the number of Hull-White Models
-  to be used for pricing.
-* <b>`mean_reversion`</b>: A real positive `Tensor` of shape `[dim]` or a Python
-  callable. The callable can be one of the following:
-  (a) A left-continuous piecewise constant object (e.g.,
-  `tff.math.piecewise.PiecewiseConstantFunc`) that has a property
-  `is_piecewise_constant` set to `True`. In this case the object should
-  have a method `jump_locations(self)` that returns a `Tensor` of shape
-  `[dim, num_jumps]` or `[num_jumps]`. In the first case,
-  `mean_reversion(t)` should return a `Tensor` of shape `[dim] + t.shape`,
-  and in the second, `t.shape + [dim]`, where `t` is a rank 1 `Tensor` of
-  the same `dtype` as the output. See example in the class docstring.
-  (b) A callable that accepts scalars (stands for time `t`) and returns a
-  `Tensor` of shape `[dim]`.
-  Corresponds to the mean reversion rate.
-* <b>`volatility`</b>: A real positive `Tensor` of the same `dtype` as
-  `mean_reversion` or a callable with the same specs as above.
-  Corresponds to the lond run price variance.
+  `Tensor` and returns a `Tensor` of shape `input_shape + dim`. Returns the
+  continuously compounded zero rate at the present time for the input expiry
+  time.
+* <b>`dim`</b>: A Python scalar which corresponds to the number of factors within a
+  single HJM model.
+* <b>`mean_reversion`</b>: A real positive `Tensor` of shape `[dim]`. Corresponds to
+  the mean reversion rate of each factor.
+* <b>`volatility`</b>: A real positive `Tensor` of the same `dtype` and shape as
+  `mean_reversion` or a callable with the following properties: (a)  The
+    callable should accept a scalar `Tensor` `t` and a 1-D `Tensor` `r(t)`
+    of shape `[num_samples]` and returns a 2-D `Tensor` of shape
+    `[num_samples, dim]`. The variable `t`  stands for time and `r(t)` is
+    the short rate at time `t`.  The function returns instantaneous
+    volatility `sigma(t) = sigma(t, r(r))`. When `volatility` is specified
+    is a real `Tensor`, each factor is assumed to have a constant
+    instantaneous volatility  and the  model is effectively a Gaussian HJM
+    model. Corresponds to the instantaneous volatility of each factor.
+* <b>`corr_matrix`</b>: A `Tensor` of shape `[dim, dim]` and the same `dtype` as
+  `mean_reversion`. Corresponds to the correlation matrix `Rho`.
+  Default value: None, meaning the factors are uncorrelated.
 * <b>`notional`</b>: An optional `Tensor` of same dtype and compatible shape as
   `strikes`specifying the notional amount for the cap (or floor).
    Default value: None in which case the notional is set to 1.
 * <b>`is_cap`</b>: A boolean `Tensor` of a shape compatible with `strikes`. Indicates
   whether the option is a Cap (if True) or a Floor (if False). If not
   supplied, Caps are assumed.
-* <b>`use_analytic_pricing`</b>: A Python boolean specifying if analytic valuation
-  should be performed. Analytic valuation is only supported for constant
-  `mean_reversion` and piecewise constant `volatility`. If the input is
-  `False`, then valuation using Monte-Carlo simulations is performed.
 * <b>`num_samples`</b>: Positive scalar `int32` `Tensor`. The number of simulation
-  paths during Monte-Carlo valuation. This input is ignored during analytic
-  valuation.
+  paths during Monte-Carlo valuation.
   Default value: The default value is 1.
-* <b>`random_type`</b>: Enum value of `RandomType`. The type of (quasi)-random
-  number generator to use to generate the simulation paths. This input is
-  relevant only for Monte-Carlo valuation and ignored during analytic
-  valuation.
+* <b>`random_type`</b>: Enum value of `RandomType`. The type of (quasi)-random number
+  generator to use to generate the simulation paths.
   Default value: `None` which maps to the standard pseudo-random numbers.
 * <b>`seed`</b>: Seed for the random number generator. The seed is only relevant if
-  `random_type` is one of
-  `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
-    STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
-  `HALTON_RANDOMIZED` the seed should be an Python integer. For
-  `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as an integer
-  `Tensor` of shape `[2]`. This input is relevant only for Monte-Carlo
-  valuation and ignored during analytic valuation.
+  `random_type` is one of `[STATELESS, PSEUDO, HALTON_RANDOMIZED,
+  PSEUDO_ANTITHETIC, STATELESS_ANTITHETIC]`. For `PSEUDO`,
+  `PSEUDO_ANTITHETIC` and `HALTON_RANDOMIZED` the seed should be an Python
+  integer. For `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as
+  an integer `Tensor` of shape `[2]`.
   Default value: `None` which means no seed is set.
 * <b>`skip`</b>: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
   Halton sequence to skip. Used only when `random_type` is 'SOBOL',
   'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
   Default value: `0`.
 * <b>`time_step`</b>: Scalar real `Tensor`. Maximal distance between time grid points
-  in Euler scheme. Relevant when Euler scheme is used for simulation. This
-  input is ignored during analytic valuation.
+  in Euler scheme. Relevant when Euler scheme is used for simulation.
   Default value: `None`.
 * <b>`dtype`</b>: The default dtype to use when converting values to `Tensor`s.
   Default value: `None` which means that default dtypes inferred by
-  TensorFlow are used.
+    TensorFlow are used.
 * <b>`name`</b>: Python string. The name to give to the ops created by this class.
   Default value: `None` which maps to the default name
-  `hw_cap_floor_price`.
+    `hjm_cap_floor_price`.
 
 
 #### Returns:

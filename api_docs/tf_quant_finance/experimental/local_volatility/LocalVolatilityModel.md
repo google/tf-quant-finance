@@ -6,41 +6,40 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2020-12-02.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.models.hull_white.VectorHullWhiteModel" />
+<meta itemprop="name" content="tf_quant_finance.experimental.local_volatility.LocalVolatilityModel" />
 <meta itemprop="path" content="Stable" />
 <meta itemprop="property" content="__init__"/>
 <meta itemprop="property" content="dim"/>
-<meta itemprop="property" content="discount_bond_price"/>
 <meta itemprop="property" content="drift_fn"/>
 <meta itemprop="property" content="dtype"/>
 <meta itemprop="property" content="fd_solver_backward"/>
 <meta itemprop="property" content="fd_solver_forward"/>
-<meta itemprop="property" content="instant_forward_rate"/>
+<meta itemprop="property" content="from_market_data"/>
+<meta itemprop="property" content="from_volatility_surface"/>
 <meta itemprop="property" content="name"/>
-<meta itemprop="property" content="sample_discount_curve_paths"/>
 <meta itemprop="property" content="sample_paths"/>
 <meta itemprop="property" content="volatility_fn"/>
 </div>
 
-# tf_quant_finance.models.hull_white.VectorHullWhiteModel
+# tf_quant_finance.experimental.local_volatility.LocalVolatilityModel
 
 <!-- Insert buttons and diff -->
 
 <table class="tfo-notebook-buttons tfo-api" align="left">
 </table>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/hull_white/vector_hull_white.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/local_volatility/local_volatility_model.py">View source</a>
 
 
 
-Ensemble of correlated Hull-White Models.
+Local volatility model for smile modelling.
 
 Inherits From: [`GenericItoProcess`](../../../tf_quant_finance/models/GenericItoProcess.md)
 
 ```python
-tf_quant_finance.models.hull_white.VectorHullWhiteModel(
-    dim, mean_reversion, volatility, initial_discount_rate_fn, corr_matrix=None,
-    dtype=None, name=None
+tf_quant_finance.experimental.local_volatility.LocalVolatilityModel(
+    dim, risk_free_rate=None, dividend_yield=None, local_volatility_fn=None,
+    corr_matrix=None, dtype=None, name=None
 )
 ```
 
@@ -48,48 +47,25 @@ tf_quant_finance.models.hull_white.VectorHullWhiteModel(
 
 <!-- Placeholder for "Used in" -->
 
-Represents the Ito process:
+Local volatility (LV) model specifies that the dynamics of an asset is
+governed by the following stochastic differential equation:
 
 ```None
-  dr_i(t) = (theta_i(t) - a_i(t) * r_i(t)) dt + sigma_i(t) * dW_{r_i}(t),
-  1 <= i <= n,
+  dS(t) / S(t) =  mu(t, S(t)) dt + sigma(t, S(t)) * dW(t)
 ```
-where `W_{r_i}` are 1D Brownian motions with a correlation matrix `Rho(t)`.
-For each `i`, `r_i` is the Hull-White process.
-`theta_i`, `a_i`, `sigma_i`, `Rho` are positive functions of time.
-`a_i` correspond to the mean-reversion rate, `sigma_i` is the volatility of
-the process, `theta_i(t)` is the function that determines long run behaviour
-of the process `r(t) = (r_1(t), ..., r_n(t))`
-and is computed to match the initial (at t=0) discount curve:
+where `mu(t, S(t))` is the drift and `sigma(t, S(t))` is the instantaneous
+volatility. The local volatility function `sigma(t, S(t))` is state dependent
+and is computed by caibrating against a given implied volatility surface
+`sigma_iv(T, K)` using the Dupire's formula [1]:
 
-```None
-\theta_i = df_i(t) / dt + a_i * f_i(t) + 0.5 * sigma_i**2 / a_i
-           * (1 - exp(-2 * a_i *t)), 1 <= i <= n
 ```
-where `f_i(t)` is the instantaneous forward rate at time `0` for a maturity
-`t` and `df_i(t)/dt` is the gradient of `f_i` with respect to the maturity.
-See Section 3.3.1 of [1] for details.
-
-The price at time `t` of a zero-coupon bond maturing at `T` is given by
-(Ref. [2]):
-
-```None
-P(t,T) = P(0,T) / P(0,t) *
-         exp(-(r(t) - f(0,t)) * G(t,T) - 0.5 * y(t) * G(t,T)^2)
-
-y(t) = int_0^t [exp(-2 int_u^t (a(s) ds)) sigma(u)^2 du]
-
-G(t,T) = int_t^T [exp(-int_t^u a(s) ds) du]
+sigma(T,K)^2 = 2 * (dC(T,K)/dT + (r - q)K dC(T,K)/dK + qC(T,K)) /
+                   (K^2 d2C(T,K)/dK2)
 ```
+where the derivatives above are the partial derivatives. The LV model provides
+a flexible framework to model any (arbitrage free) volatility surface.
 
-If mean-reversion, `a_i`, is constant and the volatility (`sigma_i`), and
-correlation (`Rho`) are piecewise constant functions, the process is sampled
-exactly. Otherwise, Euler sampling is used.
-
-For `n=1` this class represents Hull-White Model (see
-tff.models.hull_white.HullWhiteModel1F).
-
-#### Example. Two correlated Hull-White processes.
+#### Example: Simulation of local volatility process.
 
 ```python
 import numpy as np
@@ -97,103 +73,65 @@ import tensorflow.compat.v2 as tf
 import tf_quant_finance as tff
 
 dtype = tf.float64
-# Mean-reversion is constant for the two processes. `mean_reversion(t)`
-# has shape `[dim] + t.shape`.
-mean_reversion = [0.03, 0.02]
-# Volatility is a piecewise constant function with jumps at the same locations
-# for both Hull-White processes. `volatility(t)` has shape `[dim] + t.shape`.
-volatility = tff.math.piecewise.PiecewiseConstantFunc(
-    jump_locations=[[0.1, 2.], [0.1, 2.]],
-    values=[[0.01, 0.02, 0.01], [0.01, 0.015, 0.01]],
-    dtype=dtype)
-# Correlation matrix is constant
-corr_matrix = [[1., 0.1], [0.1, 1.]]
-initial_discount_rate_fn = lambda *args: [0.01, 0.015]
-process = tff.models.hull_white.VectorHullWhiteModel(
-    dim=2, mean_reversion=mean_reversion,
-    volatility=volatility,
-    initial_discount_rate_fn=initial_discount_rate_fn,
-    corr_matrix=corr_matrix,
-    dtype=dtype)
-# Sample 10000 paths using Sobol numbers as a random type.
-times = np.linspace(0., 1.0, 10)
-num_samples = 10000  # number of trajectories
-paths = process.sample_paths(
-    times,
+dim = 2
+year = dim * [[2021, 2022]]
+month = dim * [[1, 1]]
+day = dim * [[1, 1]]
+expiries = tff.datetime.dates_from_year_month_day(year, month, day)
+valuation_date = [(2020, 1, 1)]
+expiry_times = tff.datetime.daycount_actual_365_fixed(
+    start_date=valuation_date, end_date=expiries, dtype=dtype)
+strikes = dim * [[[0.1, 0.9, 1.0, 1.1, 3], [0.1, 0.9, 1.0, 1.1, 3]]]
+iv = dim * [[[0.135, 0.13, 0.1, 0.11, 0.13],
+             [0.135, 0.13, 0.1, 0.11, 0.13]]]
+spot = dim * [1.0]
+
+lv = tff.models.LocalVolatilityModel.from_market_data(
+    dim, val_date, expiries, strikes, iv, spot, [0.0], [0.0], dtype=dtype)
+num_samples = 10000
+paths = lv.sample_paths(
+    [1.0, 1.5, 2.0],
     num_samples=num_samples,
+    initial_state=spot,
+    time_step=0.1,
     random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
-    seed=[4, 2])
-# Compute mean for each Hull-White process at the terminal value
-tf.math.reduce_mean(paths[:, -1, :], axis=0)
-# Expected value: [0.01013373 0.01494516]
-```
+    seed=[1, 2])
+# paths.shape = (10000, 3, 2)
 
 #### References:
-  [1]: D. Brigo, F. Mercurio. Interest Rate Models. 2007.
-  [2]: Leif B. G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling.
-  Volume II: Term Structure Models.
+  [1]: Iain J. Clark. Foreign exchange option pricing - A Practitioner's
+  guide. Chapter 5. 2011.
 
 #### Args:
 
 
-* <b>`dim`</b>: A Python scalar which corresponds to the number of correlated
-  Hull-White Models.
-* <b>`mean_reversion`</b>: A real positive `Tensor` of shape `[dim]` or a Python
-  callable. The callable can be one of the following:
-    (a) A left-continuous piecewise constant object (e.g.,
-    `tff.math.piecewise.PiecewiseConstantFunc`) that has a property
-    `is_piecewise_constant` set to `True`. In this case the object
-    should have a method `jump_locations(self)` that returns a
-    `Tensor` of shape `[dim, num_jumps]` or `[num_jumps]`
-    In the first case, `mean_reversion(t)` should return a `Tensor`
-    of shape `[dim] + t.shape`, and in the second, `t.shape + [dim]`,
-    where `t` is a rank 1 `Tensor` of the same `dtype` as the output.
-    See example in the class docstring.
-   (b) A callable that accepts scalars (stands for time `t`) and returns a
-   `Tensor` of shape `[dim]`.
-  Corresponds to the mean reversion rate.
-* <b>`volatility`</b>: A real positive `Tensor` of the same `dtype` as
-  `mean_reversion` or a callable with the same specs as above.
-  Corresponds to the lond run price variance.
-* <b>`initial_discount_rate_fn`</b>: A Python callable that accepts expiry time as
-  a real `Tensor` of the same `dtype` as `mean_reversion` and returns a
-  `Tensor` of shape `input_shape + dim`.
-  Corresponds to the zero coupon bond yield at the present time for the
-  input expiry time.
+* <b>`dim`</b>: A Python scalar which corresponds to the number of underlying assets
+  comprising the model.
+* <b>`risk_free_rate`</b>: An optional real `Tensor` of shape compatible with
+  `[dim]` specifying the (continuosly compounded) risk free interest rate.
+  If the underlying is an FX rate, then use this input to specify the
+  domestic interest rate.
+  Default value: `None` in which case the input is set to Zero.
+* <b>`dividend_yield`</b>: An optional real `Tensor` of shape compatible with
+  `[dim]` specifying the (continuosly compounded) divident yield. If the
+  underlying is an FX rate, then use this input to specify the foreign
+  interest rate.
+  Default value: `None` in which case the input is set to Zero.
+* <b>`local_volatility_fn`</b>: A Python callable which returns instantaneous
+  volatility as a function of state and time. The function must accept a
+  scalar `Tensor` corresponding to time 't' and a real `Tensor` of shape
+  `[num_samples, dim]` corresponding to the underlying price (S) as
+  inputs  and return a real `Tensor` containing the local volatility
+  computed at (S,t).
 * <b>`corr_matrix`</b>: A `Tensor` of shape `[dim, dim]` and the same `dtype` as
-  `mean_reversion` or a Python callable. The callable can be one of
-  the following:
-    (a) A left-continuous piecewise constant object (e.g.,
-    `tff.math.piecewise.PiecewiseConstantFunc`) that has a property
-    `is_piecewise_constant` set to `True`. In this case the object
-    should have a method `jump_locations(self)` that returns a
-    `Tensor` of shape `[num_jumps]`. `corr_matrix(t)` should return a
-    `Tensor` of shape `t.shape + [dim]`, where `t` is a rank 1 `Tensor`
-    of the same `dtype` as the output.
-   (b) A callable that accepts scalars (stands for time `t`) and returns a
-   `Tensor` of shape `[dim, dim]`.
-  Corresponds to the correlation matrix `Rho`.
+  `risk_free_rate`. Corresponds to the instantaneous correlation between
+  the underlying assets.
 * <b>`dtype`</b>: The default dtype to use when converting values to `Tensor`s.
   Default value: `None` which means that default dtypes inferred by
     TensorFlow are used.
 * <b>`name`</b>: Python string. The name to give to the ops created by this class.
-  Default value: `None` which maps to the default name `hull_white_model`.
-
-
-#### Attributes:
-
-* <b>`mean_reversion`</b>
-* <b>`volatility`</b>
-
-
-#### Raises:
-
-
-* <b>`ValueError`</b>:   (a) If either `mean_reversion`, `volatility`, or `corr_matrix` is
-    a piecewise constant function where `jump_locations` have batch shape
-    of rank > 1.
-  (b): If batch rank of the `jump_locations` is `[n]` with `n` different
-    from `dim`.
+  Default value: `None` which maps to the default name
+  `local_volatility_model`.
 
 ## Methods
 
@@ -206,38 +144,6 @@ dim()
 ```
 
 The dimension of the process.
-
-
-<h3 id="discount_bond_price"><code>discount_bond_price</code></h3>
-
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/hull_white/vector_hull_white.py">View source</a>
-
-```python
-discount_bond_price(
-    short_rate, times, maturities, name=None
-)
-```
-
-Returns zero-coupon bond prices `P(t,T)` conditional on `r(t)`.
-
-
-#### Args:
-
-
-* <b>`short_rate`</b>: A `Tensor` of real dtype and shape `batch_shape + [dim]`
-  specifying the short rate `r(t)`.
-* <b>`times`</b>: A `Tensor` of real dtype and shape `batch_shape`. The time `t`
-  at which discount bond prices are computed.
-* <b>`maturities`</b>: A `Tensor` of real dtype and shape `batch_shape`. The time
-  to maturity of the discount bonds.
-* <b>`name`</b>: Str. The name to give this op.
-  Default value: `discount_bond_prices`.
-
-
-#### Returns:
-
-A `Tensor` of real dtype and the same shape as `batch_shape + [dim]`
-containing the price of zero-coupon bonds.
 
 
 <h3 id="drift_fn"><code>drift_fn</code></h3>
@@ -591,17 +497,104 @@ A tuple object containing at least the following attributes:
     is given by `max(min(end_time, start_time), 0)`.
 
 
-<h3 id="instant_forward_rate"><code>instant_forward_rate</code></h3>
+<h3 id="from_market_data"><code>from_market_data</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/hull_white/vector_hull_white.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/local_volatility/local_volatility_model.py">View source</a>
 
 ```python
-instant_forward_rate(
-    t
+@classmethod
+from_market_data(
+    cls, dim, valuation_date, expiry_dates, strikes, implied_volatilities, spot,
+    risk_free_rate=None, dividend_yield=None, dtype=None
 )
 ```
 
-Returns the instantaneous forward rate.
+Creates a `LocalVolatilityModel` from market data.
+
+
+#### Args:
+
+
+* <b>`dim`</b>: A Python scalar which corresponds to the number of underlying assets
+  comprising the model.
+* <b>`valuation_date`</b>: A `DateTensor` specifying the valuation (or
+  settlement) date for the market data.
+* <b>`expiry_dates`</b>: A `DateTensor` of shape `(dim, num_expiries)` containing
+  the expiry dates on which the implied volatilities are specified.
+* <b>`strikes`</b>: A `Tensor` of real dtype and shape
+  `(dim, num_expiries, num_strikes)`specifying the strike prices at which
+  implied volatilities are specified.
+* <b>`implied_volatilities`</b>: A `Tensor` of real dtype and shape
+  `(dim, num_expiries, num_strikes)` specifying the implied volatilities.
+* <b>`spot`</b>: A real `Tensor` of shape `(dim,)` specifying the underlying spot
+  price on the valuation date.
+* <b>`risk_free_rate`</b>: A real `Tensor` of shape compatible with
+  `[dim]` specifying the (continuosly compounded) risk free interest rate.
+  If the underlying is an FX rate, then use this input to specify the
+  domestic interest rate.
+  Default value: `None` in which case the input is set to zero.
+* <b>`dividend_yield`</b>: A real `Tensor` of shape compatible with
+  `[dim]` specifying the (continuosly compounded) divident yield. If the
+  underlying is an FX rate, then use this input to specify the foreign
+  interest rate.
+  Default value: `None` in which case the input is set to zero.
+* <b>`dtype`</b>: The default dtype to use when converting values to `Tensor`s.
+  Default value: `None` which means that default dtypes inferred by
+    TensorFlow are used.
+
+
+#### Returns:
+
+An instance of `LocalVolatilityModel` constructed using the input data.
+
+
+<h3 id="from_volatility_surface"><code>from_volatility_surface</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/local_volatility/local_volatility_model.py">View source</a>
+
+```python
+@classmethod
+from_volatility_surface(
+    cls, dim, spot, implied_volatility_surface, risk_free_rate=None,
+    dividend_yield=None, dtype=None
+)
+```
+
+Creates a `LocalVolatilityModel` from implied volatility data.
+
+
+#### Args:
+
+
+* <b>`dim`</b>: A Python scalar which corresponds to the number of underlying assets
+  comprising the model.
+* <b>`spot`</b>: A real `Tensor` of shape `(dim,)` specifying the underlying spot
+  price on the valuation date.
+* <b>`implied_volatility_surface`</b>: Either an instance of
+  `processed_market_data.VolatilitySurface` or a Python object containing
+  the implied volatility market data. If the input is a Python object,
+  then the object must implement a function
+  `volatility(strike, expiry_times)` which takes real `Tensor`s
+  corresponding to option strikes and time to expiry and returns a real
+  `Tensor` containing the correspoding market implied volatility.
+* <b>`risk_free_rate`</b>: A real `Tensor` of shape compatible with
+  `[dim]` specifying the (continuosly compounded) risk free interest rate.
+  If the underlying is an FX rate, then use this input to specify the
+  domestic interest rate.
+  Default value: `None` in which case the input is set to zero.
+* <b>`dividend_yield`</b>: A real `Tensor` of shape compatible with
+  `[dim]` specifying the (continuosly compounded) divident yield. If the
+  underlying is an FX rate, then use this input to specify the foreign
+  interest rate.
+  Default value: `None` in which case the input is set to zero.
+* <b>`dtype`</b>: The default dtype to use when converting values to `Tensor`s.
+  Default value: `None` which means that default dtypes inferred by
+    TensorFlow are used.
+
+
+#### Returns:
+
+An instance of `LocalVolatilityModel` constructed using the input data.
 
 
 <h3 id="name"><code>name</code></h3>
@@ -615,91 +608,36 @@ name()
 The name to give to ops created by this class.
 
 
-<h3 id="sample_discount_curve_paths"><code>sample_discount_curve_paths</code></h3>
-
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/hull_white/vector_hull_white.py">View source</a>
-
-```python
-sample_discount_curve_paths(
-    times, curve_times, num_samples=1, random_type=None, seed=None, skip=0,
-    name=None
-)
-```
-
-Returns a sample of simulated discount curves for the Hull-white model.
-
-
-#### Args:
-
-
-* <b>`times`</b>: Rank 1 `Tensor` of positive real values. The times at which the
-  discount curves are to be evaluated.
-* <b>`curve_times`</b>: Rank 1 `Tensor` of positive real values. The maturities
-  at which discount curve is computed at each simulation time.
-* <b>`num_samples`</b>: Positive scalar `int`. The number of paths to draw.
-* <b>`random_type`</b>: Enum value of `RandomType`. The type of (quasi)-random
-  number generator to use to generate the paths.
-  Default value: None which maps to the standard pseudo-random numbers.
-* <b>`seed`</b>: Seed for the random number generator. The seed is
-  only relevant if `random_type` is one of
-  `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
-    STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
-  `HALTON_RANDOMIZED` the seed should be an Python integer. For
-  `STATELESS` and  `STATELESS_ANTITHETIC` must be supplied as an integer
-  `Tensor` of shape `[2]`.
-  Default value: `None` which means no seed is set.
-* <b>`skip`</b>: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
-  Halton sequence to skip. Used only when `random_type` is 'SOBOL',
-  'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
-  Default value: `0`.
-* <b>`name`</b>: Str. The name to give this op.
-  Default value: `sample_discount_curve_paths`.
-
-
-#### Returns:
-
-A tuple containing two `Tensor`s. The first element is a `Tensor` of
-shape [num_samples, m, k, dim] and contains the simulated bond curves
-where `m` is the size of `curve_times`, `k` is the size of `times` and
-`dim` is the dimension of the process. The second element is a `Tensor`
-of shape [num_samples, k, dim] and contains the simulated short rate
-paths.
-
-
-### References:
-  [1]: Leif B.G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling,
-  Volume II: Term Structure Models. 2010.
-
 <h3 id="sample_paths"><code>sample_paths</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/hull_white/vector_hull_white.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/generic_ito_process.py">View source</a>
 
 ```python
 sample_paths(
-    times, num_samples=1, random_type=None, seed=None, skip=0, time_step=None,
-    name=None
+    times, num_samples=1, initial_state=None, random_type=None, seed=None,
+    swap_memory=True, name=None, time_step=None, num_time_steps=None, skip=0,
+    precompute_normal_draws=True, watch_params=None
 )
 ```
 
-Returns a sample of paths from the correlated Hull-White process.
+Returns a sample of paths from the process using Euler sampling.
 
-Uses exact sampling if `self.mean_reversion` is constant and
-`self.volatility` and `self.corr_matrix` are all `Tensor`s or piecewise
-constant functions, and Euler scheme sampling otherwise.
-
-The exact sampling implements the algorithm and notations in [1], section
-10.1.6.1.
+The default implementation uses the Euler scheme. However, for particular
+types of Ito processes more efficient schemes can be used.
 
 #### Args:
 
 
-* <b>`times`</b>: Rank 1 `Tensor` of positive real values. The times at which the
-  path points are to be evaluated.
-* <b>`num_samples`</b>: Positive scalar `int32` `Tensor`. The number of paths to
-  draw.
-* <b>`random_type`</b>: Enum value of `RandomType`. The type of (quasi)-random
-  number generator to use to generate the paths.
-  Default value: `None` which maps to the standard pseudo-random numbers.
+* <b>`times`</b>: Rank 1 `Tensor` of increasing positive real values. The times at
+  which the path points are to be evaluated.
+* <b>`num_samples`</b>: Positive scalar `int`. The number of paths to draw.
+  Default value: 1.
+* <b>`initial_state`</b>: `Tensor` of shape `[dim]`. The initial state of the
+  process.
+  Default value: None which maps to a zero initial state.
+* <b>`random_type`</b>: Enum value of `RandomType`. The type of (quasi)-random number
+  generator to use to generate the paths.
+  Default value: None which maps to the standard pseudo-random numbers.
 * <b>`seed`</b>: Seed for the random number generator. The seed is
   only relevant if `random_type` is one of
   `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
@@ -708,29 +646,54 @@ The exact sampling implements the algorithm and notations in [1], section
   `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as an integer
   `Tensor` of shape `[2]`.
   Default value: `None` which means no seed is set.
+* <b>`swap_memory`</b>: A Python bool. Whether GPU-CPU memory swap is enabled for
+  this op. See an equivalent flag in `tf.while_loop` documentation for
+  more details. Useful when computing a gradient of the op since
+  `tf.while_loop` is used to propagate stochastic process in time.
+  Default value: True.
+* <b>`name`</b>: Python string. The name to give this op.
+  Default value: `None` which maps to `sample_paths` is used.
+* <b>`time_step`</b>: An optional scalar real `Tensor` - maximal distance between
+  points in the time grid.
+  Either this or `num_time_steps` should be supplied.
+  Default value: `None`.
+* <b>`num_time_steps`</b>: An optional Scalar integer `Tensor` - a total number of
+  time steps performed by the algorithm. The maximal distance betwen
+  points in grid is bounded by
+  `times[-1] / (num_time_steps - times.shape[0])`.
+  Either this or `time_step` should be supplied.
+  Default value: `None`.
 * <b>`skip`</b>: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
   Halton sequence to skip. Used only when `random_type` is 'SOBOL',
   'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
   Default value: `0`.
-* <b>`time_step`</b>: Scalar real `Tensor`. Maximal distance between time grid points
-  in Euler scheme. Used only when Euler scheme is applied.
-Default value: `None`.
-* <b>`name`</b>: Python string. The name to give this op.
-  Default value: `sample_paths`.
+* <b>`precompute_normal_draws`</b>: Python bool. Indicates whether the noise
+  increments in Euler scheme are precomputed upfront (see
+  <a href="../../../tf_quant_finance/models/euler_sampling/sample.md"><code>models.euler_sampling.sample</code></a>). For `HALTON` and `SOBOL` random types
+  the increments are always precomputed. While the resulting graph
+  consumes more memory, the performance gains might be significant.
+  Default value: `True`.
+* <b>`watch_params`</b>: An optional list of zero-dimensional `Tensor`s of the same
+  `dtype` as `initial_state`. If provided, specifies `Tensor`s with
+  respect to which the differentiation of the sampling function will
+  happen. A more efficient algorithm is used when `watch_params` are
+  specified. Note the the function becomes differentiable onlhy wrt to
+  these `Tensor`s and the `initial_state`. The gradient wrt any other
+  `Tensor` is set to be zero.
 
 
 #### Returns:
 
-A `Tensor` of shape [num_samples, k, dim] where `k` is the size
-of the `times` and `dim` is the dimension of the process.
+A real `Tensor` of shape `[num_samples, k, n]` where `k` is the size of the
+`times`, and `n` is the dimension of the process.
 
 
 
 #### Raises:
 
 
-* <b>`ValueError`</b>:   (a) If `times` has rank different from `1`.
-  (b) If Euler scheme is used by times is not supplied.
+* <b>`ValueError`</b>: If neither `num_time_steps` nor `time_step` are supplied or
+  if both are supplied.
 
 <h3 id="volatility_fn"><code>volatility_fn</code></h3>
 
