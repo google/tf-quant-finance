@@ -24,7 +24,7 @@ import sys
 # pylint: disable=g-import-not-at-top
 
 # Update this whenever we need to depend on a newer TensorFlow release.
-_REQUIRED_TENSORFLOW_VERSION = "2.1"  # pylint: disable=g-statement-before-imports
+_REQUIRED_TENSORFLOW_VERSION = "2.3"  # pylint: disable=g-statement-before-imports
 
 
 # Ensure Python 3 is used.
