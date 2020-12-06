@@ -97,12 +97,14 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
   @parameterized.named_parameters(
       {
           'testcase_name': 'SinglePrecision',
-          'dtype': np.float32
+          'dtype': np.float32,
+          'curve_tolerance': 1e-4,
       }, {
           'testcase_name': 'DoublePrecision',
-          'dtype': np.float64
+          'dtype': np.float64,
+          'curve_tolerance': 1e-6,
       })
-  def test_OIS_discounting(self, dtype):
+  def test_OIS_discounting(self, dtype, curve_tolerance):
     """Test the discouting of cashflows using a separate discounting curve."""
     mats = [1., 2., 3., 5., 7., 10., 30.]
     par_swap_rates = [2.855, 3.097, 3.134, 3.152, 3.181, 3.23, 3.27]
@@ -110,8 +112,7 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
     expected_discount_rates = np.array([
         0.02844861, 0.03084989, 0.03121727, 0.0313961, 0.0316839, 0.03217002,
         0.03256696
-    ],
-                                       dtype=np.float64)
+    ], dtype=np.float64)
 
     float_leg_start_times = [np.arange(0., x, 0.25, dtype) for x in mats]
 
@@ -157,7 +158,7 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
             pvs,
             float_leg_discount_rates=discount_rates,
             float_leg_discount_times=discount_times,
-            curve_tolerance=1e-5,
+            curve_tolerance=curve_tolerance,
             dtype=dtype,
             initial_curve_rates=initial_curve_rates))
 
@@ -165,7 +166,7 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
                                                30.0])
     self.assertFalse(results.failed)
     np.testing.assert_allclose(
-        results.rates, expected_discount_rates, atol=1e-5)
+        results.rates, expected_discount_rates, atol=curve_tolerance)
 
   @parameterized.named_parameters(
       {
