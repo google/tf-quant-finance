@@ -43,8 +43,7 @@ class MilsteinSamplingTest(tf.test.TestCase, parameterized.TestCase):
           'testcase_name': 'WhileLoopWithTimeStep',
           'watch_params': False,
           'use_time_step': True,
-      },
-      {
+      }, {
           'testcase_name': 'CustomForLoopWithNumSteps',
           'watch_params': True,
           'use_time_step': False,
@@ -52,8 +51,16 @@ class MilsteinSamplingTest(tf.test.TestCase, parameterized.TestCase):
           'testcase_name': 'WhileLoopWithNumSteps',
           'watch_params': False,
           'use_time_step': False,
+      }, {
+          'testcase_name': 'UseXla',
+          'watch_params': False,
+          'use_time_step': False,
+          'use_xla': True,
       })
-  def test_sample_paths_wiener(self, watch_params, use_time_step):
+  def test_sample_paths_wiener(self,
+                               watch_params,
+                               use_time_step,
+                               use_xla=False):
     """Tests paths properties for Wiener process (dX = dW)."""
 
     def drift_fn(_, x):
@@ -74,18 +81,26 @@ class MilsteinSamplingTest(tf.test.TestCase, parameterized.TestCase):
     else:
       time_step = None
       num_time_steps = 30
-    paths = milstein_sampling.sample(
-        dim=1,
-        drift_fn=drift_fn,
-        volatility_fn=vol_fn,
-        times=times,
-        num_samples=num_samples,
-        seed=42,
-        time_step=time_step,
-        num_time_steps=num_time_steps,
-        watch_params=watch_params)
-    self.assertAllEqual(paths.shape.as_list(), [num_samples, 3, 1])
-    paths = self.evaluate(paths)
+
+    @tf.function
+    def fn():
+      return milstein_sampling.sample(
+          dim=1,
+          drift_fn=drift_fn,
+          volatility_fn=vol_fn,
+          times=times,
+          num_samples=num_samples,
+          seed=42,
+          time_step=time_step,
+          num_time_steps=num_time_steps,
+          watch_params=watch_params)
+
+    if use_xla:
+      paths = self.evaluate(tf.xla.experimental.compile(fn))[0]
+    else:
+      paths = self.evaluate(fn())
+
+    self.assertAllEqual(paths.shape, [num_samples, 3, 1])
     means = np.mean(paths, axis=0).reshape([-1])
     covars = np.cov(paths.reshape([num_samples, -1]), rowvar=False)
     expected_means = np.zeros((3,))
