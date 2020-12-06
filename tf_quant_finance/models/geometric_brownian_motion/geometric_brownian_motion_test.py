@@ -201,12 +201,25 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
       self.assertAllClose(vol, expected_vol, atol=1e-8, rtol=1e-8)
 
   def process_sample_paths_mean_and_variance(self, mu, sigma, times,
-                                             initial_state, dtype):
+                                             initial_state, supply_draws,
+                                             dtype):
     """Returns the mean and variance of the sample paths for a process."""
     process = tff.models.GeometricBrownianMotion(mu, sigma, dtype=dtype)
+    normal_draws = None
+    num_samples = 100000
+    if supply_draws:
+      total_dimension = tf.zeros(times.shape, dtype=dtype)
+      # Shape [num_samples, times.shape[0]]
+      normal_draws = tff.math.random.mv_normal_sample(
+          [num_samples], mean=total_dimension,
+          random_type=tff.math.random.RandomType.SOBOL,
+          seed=[4, 2])
+      # Shape [num_samples, times.shape[0], 1]
+      normal_draws = tf.expand_dims(normal_draws, axis=-1)
     samples = process.sample_paths(times=times, initial_state=initial_state,
                                    random_type=tff.math.random.RandomType.SOBOL,
-                                   num_samples=100000)
+                                   num_samples=num_samples,
+                                   normal_draws=normal_draws)
     log_s = tf.math.log(samples)
     mean = tf.reduce_mean(log_s, axis=0, keepdims=True)
     var = tf.reduce_mean((log_s - mean)**2, axis=0)
@@ -214,13 +227,20 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecision",
+          "testcase_name": "SinglePrecisionNoDraws",
+          "supply_draws": False,
           "dtype": np.float32,
       }, {
-          "testcase_name": "DoublePrecision",
+          "testcase_name": "DoublePrecisionNoDraws",
+          "supply_draws": False,
+          "dtype": np.float64,
+      }, {
+          "testcase_name": "DoublePrecisionWithDraws",
+          "supply_draws": True,
           "dtype": np.float64,
       })
-  def test_univariate_sample_mean_and_variance_constant_parameters(self, dtype):
+  def test_univariate_sample_mean_and_variance_constant_parameters(
+      self, supply_draws, dtype):
     """Tests the mean and vol of the univariate GBM sampled paths."""
     mu = 0.05
     sigma = 0.05
@@ -228,6 +248,7 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     initial_state = 2.0
     mean, var = self.process_sample_paths_mean_and_variance(mu, sigma, times,
                                                             initial_state,
+                                                            supply_draws,
                                                             dtype)
     expected_mean = ((mu - sigma**2 / 2)
                      * np.array(times) + np.log(initial_state))
@@ -240,14 +261,20 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecision",
+          "testcase_name": "SinglePrecisionNoDraws",
+          "supply_draws": False,
           "dtype": np.float32,
       }, {
-          "testcase_name": "DoublePrecision",
+          "testcase_name": "DoublePrecisionNoDraws",
+          "supply_draws": False,
+          "dtype": np.float64,
+      }, {
+          "testcase_name": "DoublePrecisionWithDraws",
+          "supply_draws": True,
           "dtype": np.float64,
       })
-  def test_univariate_sample_mean_and_variance_time_varying_parameters(self,
-                                                                       dtype):
+  def test_univariate_sample_mean_and_variance_time_varying_parameters(
+      self, supply_draws, dtype):
     """Tests the mean and vol of the univariate GBM sampled paths."""
     initial_state = 2.0
 
@@ -260,7 +287,7 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
       sigma = 0.0
       times = np.array([0.0, 1.0, 5.0, 7.0, 10.0], dtype=dtype)
       mean, var = self.process_sample_paths_mean_and_variance(
-          mu, sigma, times, initial_state, dtype)
+          mu, sigma, times, initial_state, supply_draws, dtype)
       expected_mean = np.array(
           [
               0.0,  # mu = 0 at t = 0
@@ -284,7 +311,7 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
           dtype=dtype)
       times = np.array([0.0, 1.0, 5.0, 7.0, 10.0], dtype=dtype)
       mean, var = self.process_sample_paths_mean_and_variance(
-          mu, sigma, times, initial_state, dtype)
+          mu, sigma, times, initial_state, supply_draws, dtype)
       expected_mean = np.array(
           [
               0.0,  # mu = 0 at t = 0
@@ -310,13 +337,19 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecision",
+          "testcase_name": "SinglePrecisionNoDraws",
+          "supply_draws": False,
           "dtype": np.float32,
       }, {
-          "testcase_name": "DoublePrecision",
+          "testcase_name": "DoublePrecisionNoDraws",
+          "supply_draws": False,
+          "dtype": np.float64,
+      }, {
+          "testcase_name": "DoublePrecisionWithDraws",
+          "supply_draws": True,
           "dtype": np.float64,
       })
-  def test_multivariate_sample_mean_and_variance(self, dtype):
+  def test_multivariate_sample_mean_and_variance(self, supply_draws, dtype):
     """Tests the mean and vol of the univariate GBM sampled paths."""
     means = 0.05
     volatilities = [0.1, 0.2]
@@ -326,9 +359,17 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
         dtype=dtype)
     times = [0.1, 0.5, 1.0]
     initial_state = [1.0, 2.0]
+    num_samples = 10000
+    normal_draws = None
+    if supply_draws:
+      num_samples = 50000
+      normal_draws = tf.random.stateless_normal(
+          [num_samples // 2, 3, 2], seed=[4, 2], dtype=dtype)
+      normal_draws = tf.concat([normal_draws, -normal_draws], axis=0)
     samples = process.sample_paths(
         times=times, initial_state=initial_state,
-        random_type=tff.math.random.RandomType.SOBOL, num_samples=10000)
+        random_type=tff.math.random.RandomType.SOBOL, num_samples=num_samples,
+        normal_draws=normal_draws)
     log_s = tf.math.log(samples)
     mean = tf.reduce_mean(log_s, axis=0, keepdims=True)
     var = tf.reduce_mean((log_s - mean)**2, axis=0)
@@ -379,6 +420,36 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
                      * np.array(np.expand_dims(times, -1))
                      + np.log(initial_state))
     self.assertAllClose(mean, expected_mean, atol=1e-2, rtol=1e-2)
+
+  def test_normal_draws_shape_mismatch_2d(self):
+    """Error is raised if `dim` is mismatched with the one from normal_draws."""
+    dtype = tf.float64
+    process = tff.models.MultivariateGeometricBrownianMotion(
+        dim=2, means=0.05, volatilities=[0.1, 0.2],
+        dtype=dtype)
+
+    with self.subTest("WrongDim"):
+      with self.assertRaises(ValueError):
+        normal_draws = tf.random.normal(
+            shape=[100, 3, 3], dtype=dtype)
+        process.sample_paths(
+            times=[0.1, 0.5, 1.0],
+            normal_draws=normal_draws)
+
+  def test_normal_draws_shape_mismatch_1d(self):
+    """Error is raised if `dim` is mismatched with the one from normal_draws."""
+    dtype = tf.float64
+    process = tff.models.GeometricBrownianMotion(
+        mu=0.05, sigma=0.1,
+        dtype=dtype)
+
+    with self.subTest("WrongDim"):
+      with self.assertRaises(ValueError):
+        normal_draws = tf.random.normal(
+            shape=[100, 3, 2], dtype=dtype)
+        process.sample_paths(
+            times=[0.1, 0.5, 1.0],
+            normal_draws=normal_draws)
 
 if __name__ == "__main__":
   tf.test.main()

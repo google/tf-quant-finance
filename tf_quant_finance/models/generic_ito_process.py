@@ -178,7 +178,8 @@ class GenericItoProcess(ito_process.ItoProcess):
                    precompute_normal_draws=True,
                    times_grid=None,
                    normal_draws=None,
-                   watch_params=None):
+                   watch_params=None,
+                   validate_args=False):
     """Returns a sample of paths from the process using Euler sampling.
 
     The default implementation uses the Euler scheme. However, for particular
@@ -238,8 +239,8 @@ class GenericItoProcess(ito_process.ItoProcess):
       normal_draws: A `Tensor` of shape `[num_samples, num_time_points, dim]`
         and the same `dtype` as `times`. Represents random normal draws to
         compute increments `N(0, t_{n+1}) - N(0, t_n)`. When supplied,
-        `num_sample`, `time_step` and `num_time_steps` arguments are ignored the
-        dimensions of `normal_draws` are used instead.
+        `num_sample`, `time_step` and `num_time_steps` arguments are ignored and
+        the first dimensions of `normal_draws` are used instead.
       watch_params: An optional list of zero-dimensional `Tensor`s of the same
         `dtype` as `initial_state`. If provided, specifies `Tensor`s with
         respect to which the differentiation of the sampling function will
@@ -247,14 +248,23 @@ class GenericItoProcess(ito_process.ItoProcess):
         specified. Note the the function becomes differentiable onlhy wrt to
         these `Tensor`s and the `initial_state`. The gradient wrt any other
         `Tensor` is set to be zero.
+      validate_args: Python `bool`. When `True` and `normal_draws` are supplied,
+        checks that `tf.shape(normal_draws)[1]` is equal to `num_time_steps`
+        that is either supplied as an argument or computed from `time_step`.
+        When `False` invalid dimension may silently render incorrect outputs.
+        Default value: `False`.
 
     Returns:
      A real `Tensor` of shape `[num_samples, k, n]` where `k` is the size of the
      `times`, and `n` is the dimension of the process.
 
     Raises:
-      ValueError: If neither `num_time_steps` nor `time_step` are supplied or
-        if both are supplied.
+      ValueError:
+        (a) When `times_grid` is not supplied, and neither `num_time_steps` nor
+          `time_step` are supplied or if both are supplied.
+        (b) If `normal_draws` is supplied and `dim` is mismatched.
+      tf.errors.InvalidArgumentError: If `normal_draws` is supplied and
+        `num_time_steps` is mismatched.
     """
     name = name or (self._name + '_sample_path')
     with tf.name_scope(name):

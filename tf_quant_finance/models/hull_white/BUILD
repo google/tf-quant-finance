@@ -42,7 +42,7 @@ py_test(
     timeout = "moderate",
     srcs = ["hull_white_test.py"],
     python_version = "PY3",
-    shard_count = 10,
+    shard_count = 12,
     deps = [
         "//tf_quant_finance",
         # test util,

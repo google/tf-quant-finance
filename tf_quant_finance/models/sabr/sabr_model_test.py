@@ -31,7 +31,8 @@ SabrModel = tff.models.SabrModel
 class SabrModelTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.named_parameters(
-      ("zero_beta", 0., 2., 0., 0.1), ("non_zero_beta", 0.5, 1., 0., 0.1),
+      ("zero_beta", 0., 2., 0., 0.1),
+      ("non_zero_beta", 0.5, 1., 0., 0.1),
       ("one_beta", 1., 0.5, 0., 0.1, 1., 1.),
       ("correlated_process", 0.5, 1, 0.5, 0.1),
       ("fallback_to_euler", lambda *args: tf.constant(0.5, dtype=tf.float64), 1,

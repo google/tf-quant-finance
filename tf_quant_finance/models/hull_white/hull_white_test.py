@@ -124,9 +124,9 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.named_parameters(
       {
-          'testcase_name': 'STATELESS',
+          'testcase_name': 'STATELESS_ANTITHETIC',
           'random_type': tff.math.random.RandomType.STATELESS_ANTITHETIC,
-          'seed': [1, 2],
+          'seed': [4, 2],
       }, {
           'testcase_name': 'HALTON',
           'random_type': tff.math.random.RandomType.HALTON,
@@ -156,12 +156,15 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
           random_type=random_type,
           seed=seed,
           skip=1000000)
-      self.assertEqual(paths.dtype, dtype)
-      self.assertAllEqual(paths.shape, [500000, 4, 3, 1])
+      with self.subTest('Dtype'):
+        self.assertEqual(paths.dtype, dtype)
+      with self.subTest('Shape'):
+        self.assertAllEqual(paths.shape, [500000, 4, 3, 1])
       paths = self.evaluate(tf.math.log(paths))
       std_zcb = np.std(paths, axis=0)[:, 2, 0]
       expected_std = self.true_zcb_std(2.0, 2.0 + curve_times, vol, mr)
-      self.assertAllClose(std_zcb, expected_std, rtol=1e-4, atol=1e-4)
+      with self.subTest('VarianceAbsTol'):
+        self.assertAllClose(std_zcb, expected_std, rtol=1e-4, atol=1e-4)
 
   @parameterized.named_parameters(
       {
@@ -257,41 +260,77 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
       self.assertAllClose(estimated_corr_matrix, expected_corr_matrix,
                           rtol=1e-2, atol=1e-2)
 
-  def test_mean_variance_correlation_piecewise_constant_2d(self):
+  @parameterized.named_parameters({
+      'testcase_name': 'GenerateDraws',
+      'supply_draws': False,
+      'supply_grid': False,
+  }, {
+      'testcase_name': 'SupplyDraws',
+      'supply_draws': True,
+      'supply_grid': False,
+  }, {
+      'testcase_name': 'SupplyDrawsSupplyGrid',
+      'supply_draws': True,
+      'supply_grid': True,
+  })
+  def test_mean_variance_correlation_piecewise_constant_2d(
+      self, supply_draws, supply_grid):
     """Tests model with piecewise constant or constant parameters in 2 dim."""
-    for dtype in [tf.float32, tf.float64]:
-      tf.random.set_seed(10)  # Fix global random seed
-      mean_reversion = self.mean_reversion
-      volatility = tff.math.piecewise.PiecewiseConstantFunc(
-          2 * [[0.2, 1.0]], values=np.array(3 * [self.volatility]).transpose(),
-          dtype=dtype)
-      expected_corr_matrix = [[1., 0.5], [0.5, 1.]]
-      corr_matrix = tff.math.piecewise.PiecewiseConstantFunc(
-          [0.5, 2.0], values=[expected_corr_matrix,
-                              [[1., 0.6], [0.6, 1.]],
-                              [[1., 0.9], [0.9, 1.]]], dtype=dtype)
-      process = tff.models.hull_white.VectorHullWhiteModel(
-          dim=2,
-          mean_reversion=mean_reversion,
-          volatility=volatility,
-          corr_matrix=corr_matrix,
-          initial_discount_rate_fn=self.instant_forward_rate_2d_fn,
-          dtype=dtype)
-      paths = process.sample_paths(
-          [0.1, 0.5, 1.0],
-          num_samples=500000,
-          random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
-          seed=[4, 2])
+    dtype = tf.float64
+    mean_reversion = self.mean_reversion
+    volatility = tff.math.piecewise.PiecewiseConstantFunc(
+        2 * [[0.2, 1.0]], values=np.array(3 * [self.volatility]).transpose(),
+        dtype=dtype)
+    expected_corr_matrix = [[1., 0.5], [0.5, 1.]]
+    corr_matrix = tff.math.piecewise.PiecewiseConstantFunc(
+        [0.5, 2.0], values=[expected_corr_matrix,
+                            [[1., 0.6], [0.6, 1.]],
+                            [[1., 0.9], [0.9, 1.]]], dtype=dtype)
+    process = tff.models.hull_white.VectorHullWhiteModel(
+        dim=2,
+        mean_reversion=mean_reversion,
+        volatility=volatility,
+        corr_matrix=corr_matrix,
+        initial_discount_rate_fn=self.instant_forward_rate_2d_fn,
+        dtype=dtype)
+    num_samples = 100000
+    test_num_samples = 100000
+    if supply_draws:
+      normal_draws = tf.random.stateless_normal(
+          [num_samples // 2, 9, 2], seed=[4, 2], dtype=dtype)
+      normal_draws = tf.concat([normal_draws, -normal_draws], axis=0)
+      test_num_samples = 1
+    else:
+      normal_draws = None
+    times_grid = None
+    if supply_grid:
+      times_grid = [0.0, 0.1, 0.2, 0.5, 1.0]
+      if supply_draws:
+        normal_draws = tf.random.stateless_normal(
+            [num_samples // 2, 4, 2], seed=[4, 2], dtype=dtype)
+        normal_draws = tf.concat([normal_draws, -normal_draws], axis=0)
+    paths = process.sample_paths(
+        [0.1, 0.5, 1.0],
+        num_samples=test_num_samples,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        seed=[4, 2],
+        normal_draws=normal_draws,
+        times_grid=times_grid)
+    with self.subTest('Dtype'):
       self.assertEqual(paths.dtype, dtype)
-      self.assertAllEqual(paths.shape, [500000, 3, 2])
-      paths = self.evaluate(paths)
-      estimated_corr_matrix = np.corrcoef(paths[:, 1, 0], paths[:, 1, 1])
-      paths = paths[:, -1, :]  # Extract paths values for the terminal time
-      mean = np.mean(paths, axis=0)
-      variance = np.var(paths, axis=0)
+    with self.subTest('Shape'):
+      self.assertAllEqual(paths.shape, [num_samples, 3, 2])
+    paths = self.evaluate(paths)
+    estimated_corr_matrix = np.corrcoef(paths[:, 1, 0], paths[:, 1, 1])
+    paths = paths[:, -1, :]  # Extract paths values for the terminal time
+    mean = np.mean(paths, axis=0)
+    variance = np.var(paths, axis=0)
+    with self.subTest('Mean'):
       self.assertAllClose(mean, self.true_mean(1.0), rtol=1e-3, atol=1e-3)
+    with self.subTest('Variance'):
       self.assertAllClose(variance,
                           self.true_var(1.0), rtol=1e-3, atol=1e-3)
+    with self.subTest('CorrMatrix'):
       self.assertAllClose(estimated_corr_matrix, expected_corr_matrix,
                           rtol=1e-2, atol=1e-2)
 
