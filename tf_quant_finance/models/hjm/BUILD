@@ -67,7 +67,7 @@ py_library(
 py_test(
     name = "zero_coupon_bond_option_test",
     size = "medium",
-    timeout = "long",
+    timeout = "moderate",
     srcs = ["zero_coupon_bond_option_test.py"],
     python_version = "PY3",
     shard_count = 8,
@@ -92,7 +92,7 @@ py_library(
 py_test(
     name = "cap_floor_test",
     size = "medium",
-    timeout = "long",
+    timeout = "moderate",
     srcs = ["cap_floor_test.py"],
     python_version = "PY3",
     shard_count = 8,
