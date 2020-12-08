@@ -1,0 +1,4 @@
+# Utilities
+
+Contains modules providing utility functions (e.g. graph manipulation,
+TF functions etc).
