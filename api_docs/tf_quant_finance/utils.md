@@ -6,27 +6,26 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2020-12-09.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.datetime.week" />
+<meta itemprop="name" content="tf_quant_finance.utils" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.datetime.week
+# Module: tf_quant_finance.utils
 
 <!-- Insert buttons and diff -->
 
 <table class="tfo-notebook-buttons tfo-api" align="left">
 </table>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/datetime/periods.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/utils/__init__.py">View source</a>
 
 
 
-
-
-```python
-tf_quant_finance.datetime.week()
-```
+Utilities module.
 
 
 
-<!-- Placeholder for "Used in" -->
+## Functions
+
+[`iterate_nested(...)`](../tf_quant_finance/utils/iterate_nested.md): Creates an iterator over every leaf value in depth first order.
+
