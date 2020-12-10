@@ -33,7 +33,6 @@ py_library(
     srcs = ["io.py"],
     srcs_version = "PY3",
     deps = [
-        "//tf_quant_finance/experimental/pricing_platform/instrument_protos",
         # numpy dep,
         # tensorflow dep,
     ],

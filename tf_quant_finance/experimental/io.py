@@ -10,15 +10,10 @@ element `BytesList`. This is necessary to improve deserialization performance
 when we have large arrays.
 """
 
-import enum
-
 from typing import Dict, Callable, Optional
 
 import numpy as np
 import tensorflow.compat.v2 as tf
-
-from tensorflow.python import _pywrap_record_io  # pylint: disable=g-direct-tensorflow-import
-from tensorflow.python.util import compat  # pylint: disable=g-direct-tensorflow-import
 
 
 __all__ = [
@@ -26,9 +21,6 @@ __all__ = [
     'decode_array',
     'ArrayDictReader',
     'ArrayDictWriter',
-    'CompressionType',
-    'record_writer',
-    'record_iterator',
 ]
 
 
@@ -37,49 +29,6 @@ _CLS = type(tf.make_tensor_proto([0]))
 
 ArrayEncoderFn = Callable[[np.ndarray], bytes]
 ArrayDecoderFn = Callable[[bytes], np.ndarray]
-
-
-class CompressionType(enum.Enum):
-  NONE = ''
-  ZLIB = 'ZLIB'
-  GZIP = 'GZIP'
-
-
-def record_writer(
-    file_name: str,
-    compression_type: CompressionType = CompressionType.NONE
-    ) -> _pywrap_record_io.RecordWriter:
-  """Creates a `RecordWriter` object to record serialized data.
-
-  Args:
-    file_name: A file to which the records are written.
-    compression_type: Compression of the binary file.
-
-  Returns:
-    An object with the following properties:
-      * write: Writes an item to file.
-      * flush: Flushes the file.
-      * close: Closes the file.
-  """
-  return _pywrap_record_io.RecordWriter(
-      file_name, _pywrap_record_io.RecordWriterOptions(
-          compat.as_bytes(compression_type.value)))
-
-
-def record_iterator(
-    file_name: str,
-    compression_type: CompressionType = CompressionType.NONE
-    ) -> _pywrap_record_io.RecordIterator:
-  """Creates a `RecordIterator` object to read serialized data.
-
-  Args:
-    file_name: A file to which the records are written.
-    compression_type: Compression of the binary file.
-
-  Returns:
-    An iterator of the serialized data in the file.
-  """
-  return _pywrap_record_io.RecordIterator(file_name, compression_type.value)
 
 
 def encode_array(x: np.ndarray) -> bytes:

@@ -8,11 +8,7 @@ import numpy as np
 import tensorflow as tf
 
 from tf_quant_finance.experimental import io
-from tf_quant_finance.experimental.pricing_platform import instrument_protos
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
-
-InterestRateSwap = instrument_protos.interest_rate_swap.InterestRateSwap
-InstrumentMetadata = instrument_protos.metadata.InstrumentMetadata
 
 
 class IoTest(parameterized.TestCase, tf.test.TestCase):
@@ -86,30 +82,6 @@ class IoTest(parameterized.TestCase, tf.test.TestCase):
     self.assertLen(remaining, 1)
     self.assertEqual(barriers_data.keys(), remaining[0].keys())
 
-  def test_reader_and_writer(self):
-    instr_1 = instrument_protos.Instrument(
-        interest_rate_swap=InterestRateSwap(
-            metadata=InstrumentMetadata(id="instr_1")))
-    instr_2 = instrument_protos.Instrument(
-        interest_rate_swap=InterestRateSwap(
-            metadata=InstrumentMetadata(id="instr_2")))
-    temp_dir = self.create_tempdir()
-    temp_file = path.join(temp_dir.full_path, "datafile.bin")
-    with io.record_writer(
-        temp_file, io.CompressionType.GZIP) as writer:
-      writer.write(instr_1.SerializeToString())
-      writer.write(instr_2.SerializeToString())
-
-    reader = io.record_iterator(temp_file, io.CompressionType.GZIP)
-    instr_list = []
-    for el in reader:
-      instr = instrument_protos.Instrument()
-      instr.ParseFromString(el)
-      instr_list.append(instr)
-
-    # Check that the protos are the same
-    self.assertProtoEquals(instr_list[0], instr_1)
-    self.assertProtoEquals(instr_list[1], instr_2)
 
 if __name__ == "__main__":
   tf.test.main()
