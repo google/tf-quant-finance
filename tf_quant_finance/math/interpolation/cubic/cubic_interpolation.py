@@ -67,7 +67,7 @@ def build(x_data, y_data, validate_args=False, dtype=None, name=None):
 
   #### References:
   [1]: R. Sedgewick, Algorithms in C, 1990, p. 545-550.
-    Link: http://index-of.co.uk/Algorithms/Algorithms%20in%20C.pdf
+    Link: https://api.semanticscholar.org/CorpusID:10976311
   [2]: R. Pienaar, M Choudhry. Fitting the term structure of interest rates:
     the practical implementation of cubic spline methodology.
     Link:
