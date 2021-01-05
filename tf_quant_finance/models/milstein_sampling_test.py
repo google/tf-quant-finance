@@ -70,17 +70,17 @@ class MilsteinSamplingTest(tf.test.TestCase, parameterized.TestCase):
       return tf.expand_dims(tf.ones_like(x), -1)
 
     times = np.array([0.1, 0.2, 0.3])
-    num_samples = 10000
+    num_samples = 5000
     if watch_params:
       watch_params = []
     else:
       watch_params = None
     if use_time_step:
-      time_step = 0.01
+      time_step = 0.02
       num_time_steps = None
     else:
       time_step = None
-      num_time_steps = 30
+      num_time_steps = 15
 
     @tf.function
     def fn():
@@ -90,7 +90,8 @@ class MilsteinSamplingTest(tf.test.TestCase, parameterized.TestCase):
           volatility_fn=vol_fn,
           times=times,
           num_samples=num_samples,
-          seed=42,
+          seed=[1, 42],
+          random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
           time_step=time_step,
           num_time_steps=num_time_steps,
           watch_params=watch_params)
