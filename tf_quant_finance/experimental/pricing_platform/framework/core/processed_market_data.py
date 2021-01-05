@@ -269,4 +269,3 @@ class ProcessedMarketData(abc.ABC):
 
 
 __all__ = ["RateCurve", "ProcessedMarketData"]
-

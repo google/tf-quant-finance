@@ -143,6 +143,10 @@ class VolatilitySurface(pmd.VolatilitySurface):
     strike = tf.convert_to_tensor(strike, dtype=self._dtype, name="strike")
     return self._interpolator(expiries, strike)
 
+  def settlement_date(self) -> types.DateTensor:
+    """Returns the valuation/settlement date."""
+    return self._valuation_date
+
   def volatility_type(self) -> implied_volatility_type.ImpliedVolatilityType:
     """Returns the type of implied volatility."""
     pass

@@ -98,7 +98,7 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
   ```
   where `mu(t, S(t))` is the drift and `sigma(t, S(t))` is the instantaneous
   volatility. The local volatility function `sigma(t, S(t))` is state dependent
-  and is computed by caibrating against a given implied volatility surface
+  and is computed by calibrating against a given implied volatility surface
   `sigma_iv(T, K)` using the Dupire's formula [1]:
 
   ```
@@ -143,11 +143,12 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
 
   #### References:
     [1]: Iain J. Clark. Foreign exchange option pricing - A Practitioner's
-    guide. Chapter 5. 2011.
+    guide. Chapter 5, Section 5.3.2. 2011.
   """
 
   def __init__(self,
                dim,
+               # TODO(b/175393542): Make `risk_free_rate` time dependent.
                risk_free_rate=None,
                dividend_yield=None,
                local_volatility_fn=None,
@@ -173,8 +174,8 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
         volatility as a function of state and time. The function must accept a
         scalar `Tensor` corresponding to time 't' and a real `Tensor` of shape
         `[num_samples, dim]` corresponding to the underlying price (S) as
-        inputs  and return a real `Tensor` containing the local volatility
-        computed at (S,t).
+        inputs  and return a real `Tensor` of shape `[num_samples, dim]`
+        containing the local volatility computed at (S,t).
       corr_matrix: A `Tensor` of shape `[dim, dim]` and the same `dtype` as
         `risk_free_rate`. Corresponds to the instantaneous correlation between
         the underlying assets.
@@ -218,6 +219,10 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
 
       super(LocalVolatilityModel, self).__init__(
           dim, _drift_fn, _vol_fn, dtype, name)
+
+  def local_volatility_fn(self):
+    """Local volatility function."""
+    return self._local_volatility_fn
 
   @classmethod
   def from_market_data(

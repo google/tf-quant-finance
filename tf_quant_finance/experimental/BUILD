@@ -12,6 +12,7 @@ py_library(
         ":io",
         "//tf_quant_finance/experimental/finite_difference",
         "//tf_quant_finance/experimental/instruments",
+        "//tf_quant_finance/experimental/local_stochastic_volatility",
         "//tf_quant_finance/experimental/local_volatility",
         "//tf_quant_finance/experimental/lsm_algorithm",
         "//tf_quant_finance/experimental/pricing_platform",
