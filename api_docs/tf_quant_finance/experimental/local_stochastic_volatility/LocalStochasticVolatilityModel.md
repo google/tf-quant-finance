@@ -6,7 +6,7 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2021-01-06.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.models.HestonModel" />
+<meta itemprop="name" content="tf_quant_finance.experimental.local_stochastic_volatility.LocalStochasticVolatilityModel" />
 <meta itemprop="path" content="Stable" />
 <meta itemprop="property" content="__init__"/>
 <meta itemprop="property" content="dim"/>
@@ -14,29 +14,32 @@ For open-source contributions the docs will be updated automatically.
 <meta itemprop="property" content="dtype"/>
 <meta itemprop="property" content="fd_solver_backward"/>
 <meta itemprop="property" content="fd_solver_forward"/>
+<meta itemprop="property" content="from_market_data"/>
+<meta itemprop="property" content="from_volatility_surface"/>
 <meta itemprop="property" content="name"/>
 <meta itemprop="property" content="sample_paths"/>
 <meta itemprop="property" content="volatility_fn"/>
 </div>
 
-# tf_quant_finance.models.HestonModel
+# tf_quant_finance.experimental.local_stochastic_volatility.LocalStochasticVolatilityModel
 
 <!-- Insert buttons and diff -->
 
 <table class="tfo-notebook-buttons tfo-api" align="left">
 </table>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/heston/heston_model.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/local_stochastic_volatility/local_stochastic_volatility_model.py">View source</a>
 
 
 
-Heston Model with piecewise constant parameters.
+Local stochastic volatility model.
 
-Inherits From: [`GenericItoProcess`](../../tf_quant_finance/models/GenericItoProcess.md)
+Inherits From: [`GenericItoProcess`](../../../tf_quant_finance/models/GenericItoProcess.md)
 
 ```python
-tf_quant_finance.models.HestonModel(
-    kappa, theta, epsilon, rho, dtype=None, name=None
+tf_quant_finance.experimental.local_stochastic_volatility.LocalStochasticVolatilityModel(
+    leverage_fn, variance_process, risk_free_rate=None, dividend_yield=None,
+    rho=None, dtype=None, name=None
 )
 ```
 
@@ -44,51 +47,86 @@ tf_quant_finance.models.HestonModel(
 
 <!-- Placeholder for "Used in" -->
 
-Represents the Ito process:
+Local stochastic volatility (LSV) models assume that the spot price of an
+asset follows the following stochastic differential equation under the risk
+neutral measure [1]:
 
 ```None
-  dX(t) = -V(t) / 2 * dt + sqrt(V(t)) * dW_{X}(t),
-  dV(t) = kappa(t) * (theta(t) - V(t)) * dt
-          + epsilon(t) * sqrt(V(t)) * dW_{V}(t)
+  dS(t) / S(t) =  (r - d) dt + sqrt(v(t)) * L(t, S(t)) * dW_s(t)
+  dv(t) = a(v(t)) dt + b(v(t)) dW_v(t)
+  E[dW_s(t)dW_v(t)] = rho dt
 ```
+where `r` and `d` denote the risk free interest rate and dividend yield
+respectively. `S(t)` is the spot price, `v(t)` denotes the stochastic variance
+and the function `L(t, S(t))`  is the leverage function which is calibrated
+using the volatility smile data. The functions `a(v(t))` and `b(v(t))` denote
+the drift and volitility of the stochastic process for the variance and `rho`
+denotes the instantabeous correlation between the spot and the variance
+process. LSV models thus combine the local volatility dynamics with
+stochastic volatility.
 
-where `W_{X}` and `W_{V}` are 1D Brownian motions with a correlation
-`rho(t)`. `kappa`, `theta`, `epsilon`, and `rho` are positive piecewise
-constant functions of time. Here `V(t)` represents the process variance at
-time `t` and `X` represents logarithm of the spot price at time `t`.
+Using the relationship between the local volatility and the expectation of
+future instantaneous variance, leverage function can be computed as follows
+[2]:
 
-`kappa` corresponds to the mean reversion rate, `theta` is the long run
-price variance, and `epsilon` is the volatility of the volatility.
+```
+sigma(T,K)^2 = L(T,K)^2 * E[v(T)|S(T)=K]
+```
+where the local volatility function `sigma(T,K)` can be computed using the
+Dupire's formula.
 
-See [1] and [2] for details.
+The `LocalStochasticVolatilityModel` class contains a generic implementation
+of the LSV model with the flexibility to specify an arbitrary variance
+process. The default variance process is a Heston type process with
+mean-reverting variance (as in Ref. [1]):
 
-#### Example
-
-```python
-import tf_quant_finance as tff
-import numpy as np
-epsilon = PiecewiseConstantFunc(
-    jump_locations=[0.5], values=[1, 1.1], dtype=np.float64)
-process = HestonModel(kappa=0.5, theta=0.04, epsilon=epsilon, rho=0.1,
-                      dtype=np.float64)
-times = np.linspace(0.0, 1.0, 1000)
-num_samples = 10000  # number of trajectories
-sample_paths = process.sample_paths(
-    times,
-    time_step=0.01,
-    num_samples=num_samples,
-    initial_state=np.array([1.0, 0.04]),
-    random_type=random.RandomType.SOBOL)
+```
+dv(t) = k(m - v(t)) dt + alpha*sqrt(v(t)) dW_v(t)
 ```
 
 #### References:
-  [1]: Cristian Homescu. Implied volatility surface: construction
-    methodologies and characteristics.
-    arXiv: https://arxiv.org/pdf/1107.1834.pdf
-  [2]: Leif Andersen. Efficient Simulation of the Heston Stochastic
-    Volatility Models. 2006.
-    Link:
-    http://www.ressources-actuarielles.net/ext/isfa/1226.nsf/d512ad5b22d73cc1c1257052003f1aed/1826b88b152e65a7c12574b000347c74/$FILE/LeifAndersenHeston.pdf
+  [1]: Iain J. Clark. Foreign exchange option pricing - A Practitioner's
+  guide. Chapter 5. 2011.
+  [2]: I. Gyongy. Mimicking the one-dimensional marginal distributions of
+  processes having an ito differential. Probability Theory and Related
+  Fields, 71, 1986.
+
+#### Args:
+
+
+* <b>`leverage_fn`</b>: A Python callable which returns the Leverage function
+  `L(t, S(t))` as a function of state and time. The function must accept
+  a scalar `Tensor` corresponding to time 't' and a real `Tensor` of shape
+  `[num_samples, 1]` corresponding to the underlying price (S) as
+  inputs  and return a real `Tensor` containing the leverage function
+  computed at (S,t).
+* <b>`variance_process`</b>: An instance of `ItoProcess` specifying the
+  dynamics of the variance process of the LSV model. The
+  `variance_process` should implement a one-factor stochastic process.
+  For the common version of Heston like variance model use
+  `LSVVarianceModel`.
+* <b>`risk_free_rate`</b>: An optional scalar real `Tensor` specifying the
+  (continuously compounded) risk free interest rate. If the underlying is
+  an FX rate, then use this input to specify the domestic interest rate.
+  Note that the current implementation supports constant interest rates
+  and dividend yield.
+  Default value: `None` in which case the input is set to zero.
+* <b>`dividend_yield`</b>: An optional real scalar `Tensor` specifying the
+  (continuosly compounded) dividend yield. If the underlying is an FX
+  rate, then use this input to specify the foreign interest rate.
+  Note that the currect implementation supports constant interest rates
+  and dividend yield.
+  Default value: `None` in which case the input is set to zero.
+* <b>`rho`</b>: A real scalar `Tensor` specifying the correlation between the
+  underlying spot price and the variance process.
+  Default value: `None` in which case cross correlations are assumed
+  to be zero.
+* <b>`dtype`</b>: The default dtype to use when converting values to `Tensor`s.
+  Default value: `None` which means that default dtypes inferred by
+  TensorFlow are used.
+* <b>`name`</b>: Python string. The name to give to the ops created by this class.
+  Default value: `None` which maps to the default name
+  `local_stochastic_volatility_model`.
 
 ## Methods
 
@@ -204,13 +242,13 @@ discretization along time direction (e.g. method of lines) so this argument
 may not be applicable to some implementations.
 
 The workhorse of this method is the `one_step_fn`. For the commonly used
-methods, see functions in <a href="../../tf_quant_finance/math/pde/steppers.md"><code>math.pde.steppers</code></a> module.
+methods, see functions in <a href="../../../tf_quant_finance/math/pde/steppers.md"><code>math.pde.steppers</code></a> module.
 
 The mapping between the arguments of this method and the above
 equation are described in the Args section below.
 
 For a simple instructive example of implementation of this method, see
-<a href="../../tf_quant_finance/models/GenericItoProcess.md#fd_solver_backward"><code>models.GenericItoProcess.fd_solver_backward</code></a>.
+<a href="../../../tf_quant_finance/models/GenericItoProcess.md#fd_solver_backward"><code>models.GenericItoProcess.fd_solver_backward</code></a>.
 
 TODO(b/142309558): Complete documentation.
 
@@ -358,13 +396,13 @@ discretization along time direction (e.g. method of lines) so this argument
 may not be applicable to some implementations.
 
 The workhorse of this method is the `one_step_fn`. For the commonly used
-methods, see functions in <a href="../../tf_quant_finance/math/pde/steppers.md"><code>math.pde.steppers</code></a> module.
+methods, see functions in <a href="../../../tf_quant_finance/math/pde/steppers.md"><code>math.pde.steppers</code></a> module.
 
 The mapping between the arguments of this method and the above
 equation are described in the Args section below.
 
 For a simple instructive example of implementation of this method, see
-<a href="../../tf_quant_finance/models/GenericItoProcess.md#fd_solver_forward"><code>models.GenericItoProcess.fd_solver_forward</code></a>.
+<a href="../../../tf_quant_finance/models/GenericItoProcess.md#fd_solver_forward"><code>models.GenericItoProcess.fd_solver_forward</code></a>.
 
 TODO(b/142309558): Complete documentation.
 
@@ -454,6 +492,199 @@ A tuple object containing at least the following attributes:
     is given by `max(min(end_time, start_time), 0)`.
 
 
+<h3 id="from_market_data"><code>from_market_data</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/local_stochastic_volatility/local_stochastic_volatility_model.py">View source</a>
+
+```python
+@classmethod
+from_market_data(
+    cls, valuation_date, expiry_dates, strikes, implied_volatilities,
+    variance_process, initial_spot, initial_variance, rho=None, risk_free_rate=None,
+    dividend_yield=None, time_step=None, num_grid_points=None, grid_minimums=None,
+    grid_maximums=None, dtype=None
+)
+```
+
+Creates a `LocalStochasticVolatilityModel` from market data.
+
+This function computes the leverage function for the LSV model by first
+computing the joint probability density function `p(t, X(t), v(t))` where
+`X(t)` is the log of the spot price and `v(t)` is the variance at time `t`.
+The joint probablity density is computed using the Fokker-Planck equation of
+the LSV model (see 6.8.2 in Ref [1]):
+
+```None
+dp/dt = 1/2 d^2 [v L(t,X)^2 p]/dX^2 + 1/2 d^2 [b(v)^2 p]/dv^2 +
+        rho d^2 [sqrt(v)L(t,X)b(v) p]/dXdv -
+        d[(r - d - 1/2 v L(t,X)^2)p]/dX -
+        d[a(v) p]/dv
+```
+
+where `a(v)` and `b(v)` are the drift and diffusion functions for the
+variance process. Defining
+
+```None
+I_n(k,t) = int v^n p(t, k, v) dv
+```
+
+we can calculate the leverage function as follows:
+```None
+L(k, t) = sigma(exp(k), t) sqrt(I_0(k, t)/I_1(k, t)).
+```
+
+Note that the computation of `I_0` and `I_1` require the knowledge of
+leverage function and hence the computation of the leverage function is
+implicit in nature.
+
+#### Args:
+
+
+* <b>`valuation_date`</b>: A scalar `DateTensor` specifying the valuation
+  (or settlement) date for the market data.
+* <b>`expiry_dates`</b>: A `DateTensor` of shape `(num_expiries,)` containing the
+  expiry dates on which the implied volatilities are specified.
+* <b>`strikes`</b>: A `Tensor` of real dtype and shape `(num_expiries,
+  num_strikes)` specifying the strike prices at which implied volatilities
+  are specified.
+* <b>`implied_volatilities`</b>: A `Tensor` of real dtype and shape `(num_expiries,
+  num_strikes)` specifying the implied volatilities.
+* <b>`variance_process`</b>: An instance of `LSVVarianceModel` or
+  `ItoProcess` specifying the dynamics of the variance process of
+  the LSV model.
+* <b>`initial_spot`</b>: A real scalar `Tensor` specifying the underlying spot price
+  on the valuation date.
+* <b>`initial_variance`</b>: A real scalar `Tensor` specifying the initial variance
+  on the valuation date.
+* <b>`rho`</b>: A real scalar `Tensor` specifying the correlation between spot price
+  and the stochastic variance.
+* <b>`risk_free_rate`</b>: A real scalar `Tensor` specifying the (continuosly
+  compounded) risk free interest rate. If the underlying is an FX rate,
+  then use this input to specify the domestic interest rate.
+  Default value: `None` in which case the input is set to zero.
+* <b>`dividend_yield`</b>: A real scalar `Tensor` specifying the (continuosly
+  compounded) divident yield. If the underlying is an FX rate, then use
+  this input to specify the foreign interest rate.
+  Default value: `None` in which case the input is set to zero.
+* <b>`time_step`</b>: A real scalar `Tensor` specifying the time step during the
+  numerical solution of the Fokker-Planck PDE.
+  Default value: None, in which case `time_step` corresponding to 100 time
+    steps is used.
+* <b>`num_grid_points`</b>: A scalar integer `Tensor` specifying the number of
+  discretization points for each spatial dimension.
+  Default value: None, in which case number of grid points is set to 100.
+* <b>`grid_minimums`</b>: An optional `Tensor` of size 2 containing the minimum grid
+  points for PDE spatial discretization. `grid_minimums[0]` correspond
+  to the minimum spot price in the spatial grid and `grid_minimums[1]`
+  correspond to the minimum variance value.
+* <b>`grid_maximums`</b>: An optional `Tensor` of size 2 containing the maximum grid
+  points for PDE spatial discretization. `grid_maximums[0]` correspond
+  to the maximum spot price in the spatial grid and `grid_maximums[1]`
+  correspond to the maximum variance value.
+* <b>`dtype`</b>: The default dtype to use when converting values to `Tensor`s.
+  Default value: `None` which means that default dtypes inferred by
+    TensorFlow are used.
+
+
+#### Returns:
+
+An instance of `LocalStochasticVolatilityModel` constructed using the
+input data.
+
+
+<h3 id="from_volatility_surface"><code>from_volatility_surface</code></h3>
+
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/local_stochastic_volatility/local_stochastic_volatility_model.py">View source</a>
+
+```python
+@classmethod
+from_volatility_surface(
+    cls, implied_volatility_surface, variance_process, initial_spot,
+    initial_variance, rho=None, risk_free_rate=None, dividend_yield=None,
+    time_step=None, num_grid_points=None, grid_minimums=None, grid_maximums=None,
+    dtype=None
+)
+```
+
+Creates a `LocalStochasticVolatilityModel` from volatility surface.
+
+This function computes the leverage function for the LSV model by first
+computing the joint probablity density function `p(t, X(t), v(t))` where
+`X(t)` is the log of the spot price and `v(t)` is the variance at time `t`.
+The joint probablity density is computed using the Fokker-Planck equation of
+the LSV model (see 6.8.2 in Ref [1]):
+```None
+dp/dt = 1/2 d^2 [v L(t,X)^2 p]/dX^2 + 1/2 d^2 [b(v)^2 p]/dv^2 +
+        rho d^2 [sqrt(v)L(t,X)b(v) p]/dXdv -
+        d[(r - d - 1/2 v L(t,X)^2)p]/dX -
+        d[a(v) p]/dv
+```
+
+where `a(v)` and `b(v)` are the drift and diffusion functions for the
+variance process. Defining
+
+```None
+I_n(k,t) = int v^n p(t, k, v) dv
+```
+
+we can calculate the leverage function as follows:
+```None
+L(k, t) = sigma(exp(k), t) sqrt(I_0(k, t)/I_1(k, t)).
+```
+
+#### Args:
+
+
+* <b>`implied_volatility_surface`</b>: Either an instance of
+  `processed_market_data.VolatilitySurface` or a Python object containing
+  the implied volatility market data. If the input is a Python object,
+  then the object must implement a function `volatility(strike,
+  expiry_times)` which takes real `Tensor`s corresponding to option
+  strikes and time to expiry and returns a real `Tensor` containing the
+  correspoding market implied volatility.
+* <b>`variance_process`</b>: An instance of `LSVVarianceModel` or
+  `ItoProcess`specifying the dynamics of the variance process of
+  the LSV model.
+* <b>`initial_spot`</b>: A real scalar `Tensor` specifying the underlying spot price
+  on the valuation date.
+* <b>`initial_variance`</b>: A real scalar `Tensor` specifying the initial variance
+  on the valuation date.
+* <b>`rho`</b>: A real scalar `Tensor` specifying the correlation between spot price
+  and the stochastic variance.
+* <b>`risk_free_rate`</b>: A real scalar `Tensor` specifying the (continuosly
+  compounded) risk free interest rate. If the underlying is an FX rate,
+  then use this input to specify the domestic interest rate.
+  Default value: `None` in which case the input is set to zero.
+* <b>`dividend_yield`</b>: A real scalar `Tensor` specifying the (continuosly
+  compounded) divident yield. If the underlying is an FX rate, then use
+  this input to specify the foreign interest rate.
+  Default value: `None` in which case the input is set to zero.
+* <b>`time_step`</b>: An optional real scalar `Tensor` specifying the time step
+  during the numerical solution of the Fokker-Planck PDE.
+  Default value: None, in which case `time_step` corresponding to 100 time
+    steps is used.
+* <b>`num_grid_points`</b>: A scalar integer `Tensor` specifying the number of
+  discretization points for each spatial dimension.
+  Default value: None, in which case number of grid points is set to 100.
+* <b>`grid_minimums`</b>: An optional `Tensor` of size 2 containing the minimum grid
+  points for PDE spatial discretization. `grid_minimums[0]` correspond
+  to the minimum spot price in the spatial grid and `grid_minimums[1]`
+  correspond to the minimum variance value.
+* <b>`grid_maximums`</b>: An optional `Tensor` of size 2 containing the maximum grid
+  points for PDE spatial discretization. `grid_maximums[0]` correspond
+  to the maximum spot price in the spatial grid and `grid_maximums[1]`
+  correspond to the maximum variance value.
+* <b>`dtype`</b>: The default dtype to use when converting values to `Tensor`s.
+  Default value: `None` which means that default dtypes inferred by
+    TensorFlow are used.
+
+
+#### Returns:
+
+An instance of `LocalStochasticVolatilityModel` constructed using the
+input data.
+
+
 <h3 id="name"><code>name</code></h3>
 
 <a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/generic_ito_process.py">View source</a>
@@ -467,32 +698,34 @@ The name to give to ops created by this class.
 
 <h3 id="sample_paths"><code>sample_paths</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/heston/heston_model.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/generic_ito_process.py">View source</a>
 
 ```python
 sample_paths(
-    times, initial_state, num_samples=1, random_type=None, seed=None,
-    time_step=None, skip=0, tolerance=1e-06, name=None
+    times, num_samples=1, initial_state=None, random_type=None, seed=None,
+    swap_memory=True, name=None, time_step=None, num_time_steps=None, skip=0,
+    precompute_normal_draws=True, times_grid=None, normal_draws=None,
+    watch_params=None, validate_args=False
 )
 ```
 
-Returns a sample of paths from the process.
+Returns a sample of paths from the process using Euler sampling.
 
-Using Quadratic-Exponential (QE) method described in [1] generates samples
-paths started at time zero and returns paths values at the specified time
-points.
+The default implementation uses the Euler scheme. However, for particular
+types of Ito processes more efficient schemes can be used.
 
 #### Args:
 
 
-* <b>`times`</b>: Rank 1 `Tensor` of positive real values. The times at which the
-  path points are to be evaluated.
-* <b>`initial_state`</b>: A rank 1 `Tensor` with two elements where the first element
-  corresponds to the initial value of the log spot `X(0)` and the second
-  to the starting variance value `V(0)`.
+* <b>`times`</b>: Rank 1 `Tensor` of increasing positive real values. The times at
+  which the path points are to be evaluated.
 * <b>`num_samples`</b>: Positive scalar `int`. The number of paths to draw.
-* <b>`random_type`</b>: Enum value of `RandomType`. The type of (quasi)-random
-  number generator to use to generate the paths.
+  Default value: 1.
+* <b>`initial_state`</b>: `Tensor` of shape `[dim]`. The initial state of the
+  process.
+  Default value: None which maps to a zero initial state.
+* <b>`random_type`</b>: Enum value of `RandomType`. The type of (quasi)-random number
+  generator to use to generate the paths.
   Default value: None which maps to the standard pseudo-random numbers.
 * <b>`seed`</b>: Seed for the random number generator. The seed is
   only relevant if `random_type` is one of
@@ -502,34 +735,72 @@ points.
   `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as an integer
   `Tensor` of shape `[2]`.
   Default value: `None` which means no seed is set.
-* <b>`time_step`</b>: Positive Python float to denote time discretization parameter.
+* <b>`swap_memory`</b>: A Python bool. Whether GPU-CPU memory swap is enabled for
+  this op. See an equivalent flag in `tf.while_loop` documentation for
+  more details. Useful when computing a gradient of the op since
+  `tf.while_loop` is used to propagate stochastic process in time.
+  Default value: True.
+* <b>`name`</b>: Python string. The name to give this op.
+  Default value: `None` which maps to `sample_paths` is used.
+* <b>`time_step`</b>: An optional scalar real `Tensor` - maximal distance between
+  points in the time grid.
+  Either this or `num_time_steps` should be supplied.
+  Default value: `None`.
+* <b>`num_time_steps`</b>: An optional Scalar integer `Tensor` - a total number of
+  time steps performed by the algorithm. The maximal distance betwen
+  points in grid is bounded by
+  `times[-1] / (num_time_steps - times.shape[0])`.
+  Either this or `time_step` should be supplied.
+  Default value: `None`.
 * <b>`skip`</b>: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
   Halton sequence to skip. Used only when `random_type` is 'SOBOL',
   'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
-* <b>`tolerance`</b>: Scalar positive real `Tensor`. Specifies minimum time tolerance
-  for which the stochastic process `X(t) != X(t + tolerance)`.
-Default value: 1e-6.
-* <b>`name`</b>: Str. The name to give this op.
-  Default value: `sample_paths`.
+  Default value: `0`.
+* <b>`precompute_normal_draws`</b>: Python bool. Indicates whether the noise
+  increments in Euler scheme are precomputed upfront (see
+  <a href="../../../tf_quant_finance/models/euler_sampling/sample.md"><code>models.euler_sampling.sample</code></a>). For `HALTON` and `SOBOL` random types
+  the increments are always precomputed. While the resulting graph
+  consumes more memory, the performance gains might be significant.
+  Default value: `True`.
+* <b>`times_grid`</b>: An optional rank 1 `Tensor` representing time discretization
+  grid. If `times` are not on the grid, then the nearest points from the
+  grid are used.
+  Default value: `None`, which means that times grid is computed using
+  `time_step` and `num_time_steps`.
+* <b>`normal_draws`</b>: A `Tensor` of shape `[num_samples, num_time_points, dim]`
+  and the same `dtype` as `times`. Represents random normal draws to
+  compute increments `N(0, t_{n+1}) - N(0, t_n)`. When supplied,
+  `num_sample`, `time_step` and `num_time_steps` arguments are ignored and
+  the first dimensions of `normal_draws` are used instead.
+* <b>`watch_params`</b>: An optional list of zero-dimensional `Tensor`s of the same
+  `dtype` as `initial_state`. If provided, specifies `Tensor`s with
+  respect to which the differentiation of the sampling function will
+  happen. A more efficient algorithm is used when `watch_params` are
+  specified. Note the the function becomes differentiable onlhy wrt to
+  these `Tensor`s and the `initial_state`. The gradient wrt any other
+  `Tensor` is set to be zero.
+* <b>`validate_args`</b>: Python `bool`. When `True` and `normal_draws` are supplied,
+  checks that `tf.shape(normal_draws)[1]` is equal to `num_time_steps`
+  that is either supplied as an argument or computed from `time_step`.
+  When `False` invalid dimension may silently render incorrect outputs.
+  Default value: `False`.
 
 
 #### Returns:
 
-A `Tensor`s of shape [num_samples, k, 2] where `k` is the size
-of the `times`. For each sample and time the first dimension represents
-the simulated log-state trajectories of the spot price `X(t)`, whereas the
-second one represents the simulated variance trajectories `V(t)`.
+A real `Tensor` of shape `[num_samples, k, n]` where `k` is the size of the
+`times`, and `n` is the dimension of the process.
 
 
 
 #### Raises:
 
 
-* <b>`ValueError`</b>: If `time_step` is not supplied.
-
-#### References:
-  [1]: Leif Andersen. Efficient Simulation of the Heston Stochastic
-    Volatility Models. 2006.
+* <b>`ValueError`</b>:   (a) When `times_grid` is not supplied, and neither `num_time_steps` nor
+    `time_step` are supplied or if both are supplied.
+  (b) If `normal_draws` is supplied and `dim` is mismatched.
+* <b>`tf.errors.InvalidArgumentError`</b>: If `normal_draws` is supplied and
+  `num_time_steps` is mismatched.
 
 <h3 id="volatility_fn"><code>volatility_fn</code></h3>
 

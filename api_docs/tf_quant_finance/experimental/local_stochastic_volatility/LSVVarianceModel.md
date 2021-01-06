@@ -6,7 +6,7 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2021-01-06.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.models.MultivariateGeometricBrownianMotion" />
+<meta itemprop="name" content="tf_quant_finance.experimental.local_stochastic_volatility.LSVVarianceModel" />
 <meta itemprop="path" content="Stable" />
 <meta itemprop="property" content="__init__"/>
 <meta itemprop="property" content="dim"/>
@@ -19,24 +19,24 @@ For open-source contributions the docs will be updated automatically.
 <meta itemprop="property" content="volatility_fn"/>
 </div>
 
-# tf_quant_finance.models.MultivariateGeometricBrownianMotion
+# tf_quant_finance.experimental.local_stochastic_volatility.LSVVarianceModel
 
 <!-- Insert buttons and diff -->
 
 <table class="tfo-notebook-buttons tfo-api" align="left">
 </table>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/local_stochastic_volatility/lsv_variance_model.py">View source</a>
 
 
 
-Multivariate Geometric Brownian Motion.
+Implements Heston like variance process for the LSV models.
 
-Inherits From: [`ItoProcess`](../../tf_quant_finance/models/ItoProcess.md)
+Inherits From: [`GenericItoProcess`](../../../tf_quant_finance/models/GenericItoProcess.md)
 
 ```python
-tf_quant_finance.models.MultivariateGeometricBrownianMotion(
-    dim, means=0.0, volatilities=1.0, corr_matrix=None, dtype=None, name=None
+tf_quant_finance.experimental.local_stochastic_volatility.LSVVarianceModel(
+    k, m, alpha, dtype=None
 )
 ```
 
@@ -44,78 +44,54 @@ tf_quant_finance.models.MultivariateGeometricBrownianMotion(
 
 <!-- Placeholder for "Used in" -->
 
-Represents a d-dimensional Ito process:
+Local stochastic volatility (LSV) models assume that the spot price of an
+asset follows the following stochastic differential equation under the risk
+neutral measure [1]:
 
 ```None
-  dX_i(t) = means_i * X_i(t) * dt + volatilities_i * X_i(t) * dW_i(t),
-  1 <= i <= d
+  dS / S =  (r - d) dt + sqrt(v) * L(t, S(t)) * dW_s
+  dv = a(t, v) dt + b(t, v) dW_v
+  E[dW_s * dW_v] = rho dt
+```
+where `r` and `d` denote the risk free interest rate and dividend yield
+respectively. `S` is the spot price, `v` denotes the stochastic variance
+and the function `L(t, S)` is the leverage function which is calibrated
+using the volatility smile data. The functions `a(t, v)` and `b(t, v)` denote
+the drift and volitility of the stochastic process for the variance and `rho`
+denotes the instantaneous correlation between the spot and the variance
+process. LSV models thus combine the local volatility dynamics with
+stochastic volatility.
+
+Using the relationship between the local volatility and the expectation of
+future instantaneous variance, leverage function can be computed as follows
+[2]:
+
+```
+sigma(T,K)^2 = L(T,K)^2 * E[v(T)|S(T)=K]
+```
+where the local volatility function `sigma(T,K)` can be computed using the
+Dupire's formula.
+
+The `LSVVarianceModel` class implements Heston like mean-reverting model
+for the dynamics of the variance process. The variance model dynamics is
+as follows:
+
+```None
+  dv = k * (m - v) dt + alpha * sqrt(v) * dW
 ```
 
-where `W(t) = (W_1(t), .., W_d(t))` is a d-dimensional Brownian motion with
-a correlation matrix `corr_matrix`, `means` and `volatilities` are `Tensor`s
-that correspond to mean and volatility of a Geometric Brownian Motion `X_i`
-
-## Example
-
-```python
-import tensorflow as tf
-import tf_quant_finance as tff
-corr_matrix = [[1, 0.1], [0.1, 1]]
-process = tff.models.MultivariateGeometricBrownianMotion(
-    dim=2,
-    means=1, volatilities=[0.1, 0.2],
-    corr_matrix=corr_matrix,
-    dtype=tf.float64)
-times = [0.1, 0.2, 1.0]
-initial_state=[1.0, 2.0]
-# Use SOBOL sequence to draw trajectories
-samples_sobol = process.sample_paths(
-    times=times,
-    initial_state=initial_state,
-    random_type=tff.math.random.RandomType.SOBOL,
-    num_samples=100000)
-
-# You can also supply the random normal draws directly to the sampler
-normal_draws = tf.random.stateless_normal(
-    [100000, 3, 2], seed=[4, 2], dtype=tf.float64)
-samples_custom = process.sample_paths(
-    times=times,
-    initial_state=initial_state,
-    normal_draws=normal_draws)
-```
-
-#### Args:
-
-
-* <b>`dim`</b>: A Python scalar. The dimensionality of the process
-* <b>`means`</b>:  A real `Tensor` of shape broadcastable to `[dim]`.
-  Corresponds to the vector of means of the GBM components `X_i`.
-Default value: 0.0.
-* <b>`volatilities`</b>: A `Tensor` of the same `dtype` as `means` and of shape
-  broadcastable to `[dim]`. Corresponds to the volatilities of the GBM
-  components `X_i`.
-  Default value: 1.0.
-* <b>`corr_matrix`</b>: An optional `Tensor` of the same `dtype` as `means` and of
-  shape `[dim, dim]`. Correlation of the GBM components `W_i`.
-  Default value: `None` which maps to a process with
-  independent GBM components `X_i`.
-* <b>`dtype`</b>: The default dtype to use when converting values to `Tensor`s.
-  Default value: `None` which means that default dtypes inferred by
-    TensorFlow are used.
-* <b>`name`</b>: Python string. The name to give to the ops created by this class.
-  Default value: `None` which maps to the default name
-  'multivariate_geometric_brownian_motion'.
-
-#### Raises:
-
-
-* <b>`ValueError`</b>: If `corr_matrix` is supplied and is not of shape `[dim, dim]`
+#### References:
+  [1]: Iain J. Clark. Foreign exchange option pricing - A Practitioner's
+  guide. Chapter 5. 2011.
+  [2]: I. Gyongy. Mimicking the one-dimensional marginal distributions of
+  processes having an ito differential. Probability Theory and Related
+  Fields, 71, 1986.
 
 ## Methods
 
 <h3 id="dim"><code>dim</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/generic_ito_process.py">View source</a>
 
 ```python
 dim()
@@ -126,7 +102,7 @@ The dimension of the process.
 
 <h3 id="drift_fn"><code>drift_fn</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/generic_ito_process.py">View source</a>
 
 ```python
 drift_fn()
@@ -134,10 +110,20 @@ drift_fn()
 
 Python callable calculating instantaneous drift.
 
+The callable should accept two real `Tensor` arguments of the same dtype.
+The first argument is the scalar time t, the second argument is the value of
+Ito process X - `Tensor` of shape `batch_shape + [dim]`. The result is the
+value of drift a(t, X). The return value of the callable is a real `Tensor`
+of the same dtype as the input arguments and of shape `batch_shape + [dim]`.
+
+#### Returns:
+
+The instantaneous drift rate callable.
+
 
 <h3 id="dtype"><code>dtype</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/generic_ito_process.py">View source</a>
 
 ```python
 dtype()
@@ -148,7 +134,7 @@ The data type of process realizations.
 
 <h3 id="fd_solver_backward"><code>fd_solver_backward</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/generic_ito_process.py">View source</a>
 
 ```python
 fd_solver_backward(
@@ -215,15 +201,15 @@ discretization along time direction (e.g. method of lines) so this argument
 may not be applicable to some implementations.
 
 The workhorse of this method is the `one_step_fn`. For the commonly used
-methods, see functions in <a href="../../tf_quant_finance/math/pde/steppers.md"><code>math.pde.steppers</code></a> module.
+methods, see functions in <a href="../../../tf_quant_finance/math/pde/steppers.md"><code>math.pde.steppers</code></a> module.
 
 The mapping between the arguments of this method and the above
 equation are described in the Args section below.
 
 For a simple instructive example of implementation of this method, see
-<a href="../../tf_quant_finance/models/GenericItoProcess.md#fd_solver_backward"><code>models.GenericItoProcess.fd_solver_backward</code></a>.
+<a href="../../../tf_quant_finance/models/GenericItoProcess.md#fd_solver_backward"><code>models.GenericItoProcess.fd_solver_backward</code></a>.
 
-# TODO(b/142309558): Complete documentation.
+TODO(b/142309558): Complete documentation.
 
 #### Args:
 
@@ -316,7 +302,7 @@ A tuple object containing at least the following attributes:
 
 <h3 id="fd_solver_forward"><code>fd_solver_forward</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/generic_ito_process.py">View source</a>
 
 ```python
 fd_solver_forward(
@@ -369,15 +355,15 @@ discretization along time direction (e.g. method of lines) so this argument
 may not be applicable to some implementations.
 
 The workhorse of this method is the `one_step_fn`. For the commonly used
-methods, see functions in <a href="../../tf_quant_finance/math/pde/steppers.md"><code>math.pde.steppers</code></a> module.
+methods, see functions in <a href="../../../tf_quant_finance/math/pde/steppers.md"><code>math.pde.steppers</code></a> module.
 
 The mapping between the arguments of this method and the above
 equation are described in the Args section below.
 
 For a simple instructive example of implementation of this method, see
-<a href="../../tf_quant_finance/models/GenericItoProcess.md#fd_solver_forward"><code>models.GenericItoProcess.fd_solver_forward</code></a>.
+<a href="../../../tf_quant_finance/models/GenericItoProcess.md#fd_solver_forward"><code>models.GenericItoProcess.fd_solver_forward</code></a>.
 
-# TODO(b/142309558): Complete documentation.
+TODO(b/142309558): Complete documentation.
 
 #### Args:
 
@@ -467,7 +453,7 @@ A tuple object containing at least the following attributes:
 
 <h3 id="name"><code>name</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/generic_ito_process.py">View source</a>
 
 ```python
 name()
@@ -478,30 +464,34 @@ The name to give to ops created by this class.
 
 <h3 id="sample_paths"><code>sample_paths</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/generic_ito_process.py">View source</a>
 
 ```python
 sample_paths(
-    times, initial_state=None, num_samples=1, random_type=None, seed=None, skip=0,
-    normal_draws=None, name=None
+    times, num_samples=1, initial_state=None, random_type=None, seed=None,
+    swap_memory=True, name=None, time_step=None, num_time_steps=None, skip=0,
+    precompute_normal_draws=True, times_grid=None, normal_draws=None,
+    watch_params=None, validate_args=False
 )
 ```
 
-Returns a sample of paths from the process.
+Returns a sample of paths from the process using Euler sampling.
 
+The default implementation uses the Euler scheme. However, for particular
+types of Ito processes more efficient schemes can be used.
 
 #### Args:
 
 
-* <b>`times`</b>: Rank 1 `Tensor` of positive real values. The times at which the
-  path points are to be evaluated.
-* <b>`initial_state`</b>: A `Tensor` of the same `dtype` as `times` and of shape
-  broadcastable with `[num_samples, dim]`. Represents the initial state of
-  the Ito process.
-Default value: `None` which maps to a initial state of ones.
+* <b>`times`</b>: Rank 1 `Tensor` of increasing positive real values. The times at
+  which the path points are to be evaluated.
 * <b>`num_samples`</b>: Positive scalar `int`. The number of paths to draw.
-* <b>`random_type`</b>: Enum value of `RandomType`. The type of (quasi)-random
-  number generator to use to generate the paths.
+  Default value: 1.
+* <b>`initial_state`</b>: `Tensor` of shape `[dim]`. The initial state of the
+  process.
+  Default value: None which maps to a zero initial state.
+* <b>`random_type`</b>: Enum value of `RandomType`. The type of (quasi)-random number
+  generator to use to generate the paths.
   Default value: None which maps to the standard pseudo-random numbers.
 * <b>`seed`</b>: Seed for the random number generator. The seed is
   only relevant if `random_type` is one of
@@ -511,43 +501,93 @@ Default value: `None` which maps to a initial state of ones.
   `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as an integer
   `Tensor` of shape `[2]`.
   Default value: `None` which means no seed is set.
+* <b>`swap_memory`</b>: A Python bool. Whether GPU-CPU memory swap is enabled for
+  this op. See an equivalent flag in `tf.while_loop` documentation for
+  more details. Useful when computing a gradient of the op since
+  `tf.while_loop` is used to propagate stochastic process in time.
+  Default value: True.
+* <b>`name`</b>: Python string. The name to give this op.
+  Default value: `None` which maps to `sample_paths` is used.
+* <b>`time_step`</b>: An optional scalar real `Tensor` - maximal distance between
+  points in the time grid.
+  Either this or `num_time_steps` should be supplied.
+  Default value: `None`.
+* <b>`num_time_steps`</b>: An optional Scalar integer `Tensor` - a total number of
+  time steps performed by the algorithm. The maximal distance betwen
+  points in grid is bounded by
+  `times[-1] / (num_time_steps - times.shape[0])`.
+  Either this or `time_step` should be supplied.
+  Default value: `None`.
 * <b>`skip`</b>: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
   Halton sequence to skip. Used only when `random_type` is 'SOBOL',
   'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
-  Default value: 0.
+  Default value: `0`.
+* <b>`precompute_normal_draws`</b>: Python bool. Indicates whether the noise
+  increments in Euler scheme are precomputed upfront (see
+  <a href="../../../tf_quant_finance/models/euler_sampling/sample.md"><code>models.euler_sampling.sample</code></a>). For `HALTON` and `SOBOL` random types
+  the increments are always precomputed. While the resulting graph
+  consumes more memory, the performance gains might be significant.
+  Default value: `True`.
+* <b>`times_grid`</b>: An optional rank 1 `Tensor` representing time discretization
+  grid. If `times` are not on the grid, then the nearest points from the
+  grid are used.
+  Default value: `None`, which means that times grid is computed using
+  `time_step` and `num_time_steps`.
 * <b>`normal_draws`</b>: A `Tensor` of shape `[num_samples, num_time_points, dim]`
   and the same `dtype` as `times`. Represents random normal draws to
   compute increments `N(0, t_{n+1}) - N(0, t_n)`. When supplied,
-  `num_samples` argument is ignored and the first dimensions of
-  `normal_draws` is used instead. `num_time_points` should be equal to
-  `tf.shape(times)[0]`.
-  Default value: `None` which means that the draws are generated by the
-  algorithm.
-* <b>`name`</b>: Str. The name to give this op.
-  Default value: `sample_paths`.
+  `num_sample`, `time_step` and `num_time_steps` arguments are ignored and
+  the first dimensions of `normal_draws` are used instead.
+* <b>`watch_params`</b>: An optional list of zero-dimensional `Tensor`s of the same
+  `dtype` as `initial_state`. If provided, specifies `Tensor`s with
+  respect to which the differentiation of the sampling function will
+  happen. A more efficient algorithm is used when `watch_params` are
+  specified. Note the the function becomes differentiable onlhy wrt to
+  these `Tensor`s and the `initial_state`. The gradient wrt any other
+  `Tensor` is set to be zero.
+* <b>`validate_args`</b>: Python `bool`. When `True` and `normal_draws` are supplied,
+  checks that `tf.shape(normal_draws)[1]` is equal to `num_time_steps`
+  that is either supplied as an argument or computed from `time_step`.
+  When `False` invalid dimension may silently render incorrect outputs.
+  Default value: `False`.
 
 
 #### Returns:
 
-A `Tensor`s of shape [num_samples, k, dim] where `k` is the size
-of the `times`.
+A real `Tensor` of shape `[num_samples, k, n]` where `k` is the size of the
+`times`, and `n` is the dimension of the process.
 
 
 
 #### Raises:
 
 
-* <b>`ValueError`</b>: If `normal_draws` is supplied and `dim` is mismatched.
+* <b>`ValueError`</b>:   (a) When `times_grid` is not supplied, and neither `num_time_steps` nor
+    `time_step` are supplied or if both are supplied.
+  (b) If `normal_draws` is supplied and `dim` is mismatched.
+* <b>`tf.errors.InvalidArgumentError`</b>: If `normal_draws` is supplied and
+  `num_time_steps` is mismatched.
 
 <h3 id="volatility_fn"><code>volatility_fn</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/geometric_brownian_motion/multivariate_geometric_brownian_motion.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/generic_ito_process.py">View source</a>
 
 ```python
 volatility_fn()
 ```
 
 Python callable calculating the instantaneous volatility.
+
+The callable should accept two real `Tensor` arguments of the same dtype and
+shape `times_shape`. The first argument is the scalar time t, the second
+argument is the value of Ito process X - `Tensor` of shape `batch_shape +
+[dim]`. The result is value of volatility `S_ij`(t, X). The return value of
+the callable is a real `Tensor` of the same dtype as the input arguments and
+of shape `batch_shape + [dim, dim]`.
+
+#### Returns:
+
+The instantaneous volatility callable.
 
 
 
