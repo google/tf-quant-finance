@@ -55,3 +55,17 @@ py_library(
         # tensorflow dep,
     ],
 )
+
+py_test(
+    name = "cashflow_streams_test",
+    size = "medium",
+    srcs = ["cashflow_streams_test.py"],
+    python_version = "PY3",
+    shard_count = 2,
+    deps = [
+        "//tf_quant_finance",
+        # test util,
+        # absl/testing:parameterized dep,
+        # tensorflow dep,
+    ],
+)

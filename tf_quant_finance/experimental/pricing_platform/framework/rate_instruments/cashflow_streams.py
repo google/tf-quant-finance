@@ -60,12 +60,16 @@ class FixedCashflowStream:
       start_date: A `DateTensor` of `batch_shape` specifying the starting dates
         of the accrual of the first coupon of the cashflow stream. The shape of
         the input correspond to the number of streams being created.
+        When passed as an integet `Tensor`, should be of shape
+        `batch_shape + [3]` and contain `[year, month, day]` for each date.
         Either this of `schedule` should be supplied
         Default value: `None`
       end_date: A `DateTensor` of `batch_shape`specifying the end dates for
         accrual of the last coupon in each cashflow stream. The shape of the
         input should be the same as that of `start_date`.
         Either this of `schedule` should be supplied
+        When passed as an integet `Tensor`, should be of shape
+        `batch_shape + [3]` and contain `[year, month, day]` for each date.
         Default value: `None`
       discount_curve_mask: An optional integer `Tensor` of values ranging from
         `0` to `len(discount_curve_type) - 1` and of shape `batch_shape`.
@@ -76,18 +80,23 @@ class FixedCashflowStream:
         of the first coupon of the cashflow stream. Use this input for cashflows
         with irregular first coupon. Should be of the same shape as
         `start_date`.
+        When passed as an integet `Tensor`, should be of shape
+        `batch_shape + [3]` and contain `[year, month, day]` for each date.
         Default value: None which implies regular first coupon.
       penultimate_coupon_date: An optional `DateTensor` specifying the payment
         dates of the penultimate (next to last) coupon of the cashflow
         stream. Use this input for cashflows with irregular last coupon.
         Should be of the same shape as `end_date`.
+        When passed as an integet `Tensor`, should be of shape
+        `batch_shape + [3]` and contain `[year, month, day]` for each date.
         Default value: None which implies regular last coupon.
       schedule_fn: A callable that accepts `start_date`, `end_date`,
         `coupon_frequency`, `settlement_days`, `first_coupon_date`, and
         `penultimate_coupon_date` as `Tensor`s and returns coupon payment
         days.
         Default value: `None`.
-      schedule: A `DateTensor` of coupon payment dates.
+      schedule: A `DateTensor` of coupon payment dates including the start and
+        end dates of the cashflows.
         Default value: `None`.
       dtype: `tf.Dtype` of the input and output real `Tensor`s.
         Default value: None which maps to the default dtype inferred by
@@ -108,8 +117,6 @@ class FixedCashflowStream:
         if (start_date is None) or (end_date is None):
           raise ValueError("If `schedule` is not supplied both "
                            "`start_date` and `end_date` should be supplied")
-
-      if schedule is None:
         if isinstance(start_date, tf.Tensor):
           self._start_date = dateslib.dates_from_tensor(
               start_date)
@@ -180,6 +187,8 @@ class FixedCashflowStream:
           coupon_dates = dateslib.dates_from_tensor(schedule)
         else:
           coupon_dates = dateslib.convert_to_date_tensor(schedule)
+        # Extract starting date for the cashflow
+        self._start_date = coupon_dates[..., 0]
       elif schedule_fn is None:
         coupon_dates = _generate_schedule(
             start_date=self._start_date,
@@ -191,6 +200,8 @@ class FixedCashflowStream:
             end_of_month=eom,
             first_coupon_date=self._first_coupon_date,
             penultimate_coupon_date=self._penultimate_coupon_date)
+        # Extract starting date for the cashflow
+        self._start_date = coupon_dates[..., 0]
       else:
         if first_coupon_date is not None:
           first_coupon_date = self._first_coupon_date.to_tensor()
@@ -335,12 +346,16 @@ class FloatingCashflowStream:
       start_date: A `DateTensor` of `batch_shape` specifying the starting dates
         of the accrual of the first coupon of the cashflow stream. The shape of
         the input correspond to the number of streams being created.
-        Either this of `schedule` should be supplied
+        Either this of `schedule` should be supplied.
+        When passed as an integet `Tensor`, should be of shape
+        `batch_shape + [3]` and contain `[year, month, day]` for each date.
         Default value: `None`
       end_date: A `DateTensor` of `batch_shape`specifying the end dates for
         accrual of the last coupon in each cashflow stream. The shape of the
         input should be the same as that of `start_date`.
-        Either this of `schedule` should be supplied
+        Either this of `schedule` should be supplied.
+        When passed as an integet `Tensor`, should be of shape
+        `batch_shape + [3]` and contain `[year, month, day]` for each date.
         Default value: `None`
       discount_curve_mask: An optional integer `Tensor` of values ranging from
         `0` to `len(discount_curve_type) - 1` and of shape `batch_shape`.
@@ -363,18 +378,23 @@ class FloatingCashflowStream:
         of the first coupon of the cashflow stream. Use this input for cashflows
         with irregular first coupon. Should be of the same shape as
         `start_date`.
+        When passed as an integet `Tensor`, should be of shape
+        `batch_shape + [3]` and contain `[year, month, day]` for each date.
         Default value: None which implies regular first coupon.
       penultimate_coupon_date: An optional `DateTensor` specifying the payment
         dates of the penultimate (next to last) coupon of the cashflow
         stream. Use this input for cashflows with irregular last coupon.
         Should be of the same shape as `end_date`.
+        When passed as an integet `Tensor`, should be of shape
+        `batch_shape + [3]` and contain `[year, month, day]` for each date.
         Default value: None which implies regular last coupon.
       schedule_fn: A callable that accepts `start_date`, `end_date`,
         `coupon_frequency`, `settlement_days`, `first_coupon_date`, and
         `penultimate_coupon_date` as `Tensor`s and returns coupon payment
         days.
         Default value: `None`.
-      schedule: A `DateTensor` of coupon payment dates.
+      schedule: A `DateTensor` of coupon payment dates including the start and
+        end dates of the cashflows.
         Default value: `None`.
       dtype: `tf.Dtype` of the input and output real `Tensor`s.
         Default value: None which maps to the default dtype inferred by
@@ -476,7 +496,12 @@ class FloatingCashflowStream:
                                     dtype=self._dtype,
                                     name="spread")
       if schedule is not None:
-        coupon_dates = dateslib.convert_to_date_tensor(schedule)
+        if isinstance(start_date, tf.Tensor):
+          coupon_dates = dateslib.dates_from_tensor(schedule)
+        else:
+          coupon_dates = dateslib.convert_to_date_tensor(schedule)
+        # Extract starting date for the cashflow
+        self._start_date = coupon_dates[..., 0]
       elif schedule_fn is None:
         coupon_dates = _generate_schedule(
             start_date=self._start_date,
@@ -488,6 +513,8 @@ class FloatingCashflowStream:
             end_of_month=eom,
             first_coupon_date=self._first_coupon_date,
             penultimate_coupon_date=self._penultimate_coupon_date)
+        # Extract starting date for the cashflow
+        self._start_date = coupon_dates[..., 0]
       else:
         if first_coupon_date is not None:
           first_coupon_date = self._first_coupon_date.to_tensor()
@@ -605,27 +632,51 @@ class FloatingCashflowStream:
           self._reference_curve_type, market, self._reference_mask)
       valuation_date = dateslib.convert_to_date_tensor(market.date)
 
+      # Previous fixing date
+      coupon_start_date_ord = self._coupon_start_dates.ordinal()
+      coupon_end_date_ord = self._coupon_end_dates.ordinal()
+      valuation_date_ord = valuation_date.ordinal()
+      batch_shape = tf.shape(coupon_start_date_ord)[:-1]
+      # Broadcast valuation date batch shape for tf.searchsorted
+      valuation_date_ord += tf.expand_dims(
+          tf.zeros(batch_shape, dtype=tf.int32), axis=-1)
+      ind = tf.maximum(tf.searchsorted(coupon_start_date_ord,
+                                       valuation_date_ord) - 1, 0)
+      # Fixings are assumed to be the same as coupon start dates
+      # TODO(b/177047910): add fixing settlement dates.
+      # Shape `batch_shape + [1]`
+      fixing_dates_ord = tf.gather(
+          coupon_start_date_ord, ind,
+          batch_dims=len(coupon_start_date_ord.shape) - 1)
+      fixing_end_dates_ord = tf.gather(
+          coupon_end_date_ord, ind,
+          batch_dims=len(coupon_start_date_ord.shape) - 1)
+      fixing_dates = dateslib.dates_from_ordinals(fixing_dates_ord)
+      fixing_end_dates = dateslib.dates_from_ordinals(fixing_end_dates_ord)
+      # Get fixings. Shape batch_shape + [1]
       past_fixing = _get_fixings(
-          self._start_date,
+          fixing_dates,
+          fixing_end_dates,
           self._reference_curve_type,
-          self._reset_frequency,
           self._reference_mask,
           market)
       forward_rates = reference_curve.forward_rate(
           self._accrual_start_date,
           self._accrual_end_date,
           day_count_fraction=self._daycount_fractions)
+      # Shape batch_shape + [num_cashflows]
       forward_rates = tf.where(self._daycount_fractions > 0., forward_rates,
                                tf.zeros_like(forward_rates))
       # If coupon end date is before the valuation date, the payment is in the
       # past. If valuation date is between coupon start date and coupon end
       # date, then the rate has been fixed but not paid. Otherwise the rate is
       # not fixed and should be read from the curve.
+      # Shape batch_shape + [num_cashflows]
       forward_rates = tf.where(
           self._coupon_end_dates < valuation_date,
           tf.constant(0, dtype=self._dtype),
           tf.where(self._coupon_start_dates >= valuation_date,
-                   forward_rates, tf.expand_dims(past_fixing, axis=-1)))
+                   forward_rates, past_fixing))
       return  self._coupon_end_dates, forward_rates
 
   def cashflows(self,
@@ -808,29 +859,47 @@ def get_discount_curve(
 
 
 def _get_fixings(start_dates,
+                 end_dates,
                  reference_curve_types,
-                 reset_frequencies,
                  reference_mask,
                  market):
   """Computes fixings for a list of reference curves."""
-  split_indices = [tf.squeeze(tf.where(tf.equal(reference_mask, i)), -1)
-                   for i in range(len(reference_curve_types))]
+  num_curves = len(reference_curve_types)
+  if num_curves > 1:
+    # For each curve get corresponding cashflow indices
+    split_indices = [tf.squeeze(tf.where(tf.equal(reference_mask, i)), -1)
+                     for i in range(num_curves)]
+  else:
+    split_indices = [0]
   fixings = []
+  start_dates_ordinal = start_dates.ordinal()
+  end_dates_ordinal = end_dates.ordinal()
   for idx, reference_curve_type in zip(split_indices, reference_curve_types):
-    start_date = dateslib.dates_from_ordinals(
-        tf.gather(start_dates.ordinal(), idx))
-    reset_quant = reset_frequencies.quantity()
-    # Do not use gather, if only one reset frequency is supplied
-    if reset_quant.shape.rank > 1:
-      reset_quant = tf.gather(reset_quant, idx)
-    fixings.append(market.fixings(
-        start_date,
-        reference_curve_type,
-        reset_quant))
+    if num_curves > 1:
+      # Get all dates corresponding to the reference curve
+      start_date = dateslib.dates_from_ordinals(
+          tf.gather(start_dates_ordinal, idx))
+      end_date = dateslib.dates_from_ordinals(
+          tf.gather(end_dates_ordinal, idx))
+    else:
+      start_date = start_dates
+      end_date = end_dates
+    fixing, fixing_daycount = market.fixings(start_date, reference_curve_type)
+    if fixing_daycount is not None:
+      fixing_daycount = market_data_utils.get_daycount_fn(
+          fixing_daycount, dtype=market.dtype)
+      year_fraction = fixing_daycount(start_date=start_date, end_date=end_date)
+    else:
+      year_fraction = 0.0
+    fixings.append(
+        fixing * year_fraction)
   fixings = pad.pad_tensors(fixings)
   all_indices = tf.concat(split_indices, axis=0)
   all_fixings = tf.concat(fixings, axis=0)
-  return tf.gather(all_fixings, tf.argsort(all_indices))
+  if num_curves > 1:
+    return tf.gather(all_fixings, tf.argsort(all_indices))
+  else:
+    return all_fixings
 
 
 def process_curve_types(

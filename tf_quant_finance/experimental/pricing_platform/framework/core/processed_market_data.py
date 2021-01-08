@@ -21,11 +21,10 @@ from typing import Any, List, Tuple, Callable, Optional
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types
-
+from tf_quant_finance.experimental.pricing_platform.framework.core import daycount_conventions
 from tf_quant_finance.experimental.pricing_platform.framework.core import implied_volatility_type
 from tf_quant_finance.experimental.pricing_platform.framework.core import interpolation_method
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
-from tf_quant_finance.experimental.pricing_platform.instrument_protos import period_pb2
 
 
 class RateCurve(abc.ABC):
@@ -229,10 +228,11 @@ class ProcessedMarketData(abc.ABC):
     pass
 
   @abc.abstractmethod
-  def fixings(self,
-              date: types.DateTensor,
-              fixing_type: curve_types.RateIndexCurve,
-              tenor: period_pb2.Period) -> tf.Tensor:
+  def fixings(
+      self,
+      date: types.DateTensor,
+      fixing_type: curve_types.RateIndexCurve
+      ) -> Tuple[tf.Tensor, daycount_conventions.DayCountConventions]:
     """Returns past fixings of the market rates at the specified dates."""
     pass
 

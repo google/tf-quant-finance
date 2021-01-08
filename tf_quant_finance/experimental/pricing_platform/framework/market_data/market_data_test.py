@@ -28,13 +28,15 @@ interpolation_method = tff.experimental.pricing_platform.framework.core.interpol
 class MarketDataTest(tf.test.TestCase):
 
   def setUp(self):
+    valuation_date = [(2020, 6, 24)]
+    fixing_dates = [(2020, 2, 24), (2020, 3, 12), (2020, 4, 14), (2020, 5, 21)]
+    fixing_rates = [0.01, 0.02, 0.03, 0.025]
     dates = [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
              [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]]
     discounts = [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
                  0.72494879, 0.37602059]
     vol_dates = [
         [2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8], [2027, 2, 8]]
-
     strikes = [[1500, 1550, 1510],
                [1500, 1550, 1510],
                [1500, 1550, 1510],
@@ -60,14 +62,17 @@ class MarketDataTest(tf.test.TestCase):
             "OIS":
             {"dates": dates, "discounts": discounts},
             "LIBOR_3M":
-            {"dates": dates, "discounts": discounts},},
+            {"dates": dates, "discounts": discounts,
+             "fixing_dates": fixing_dates,
+             "fixing_rates": fixing_rates,
+             "fixing_daycount": "ACTUAL_365"},},
         "GOOG": {
             "spot": 1500,
             "volatility_surface": {"dates": vol_dates,
                                    "strikes": strikes,
                                    "implied_volatilities": volatilities}
         }}
-    self._valuation_date = [(2020, 6, 24)]
+    self._valuation_date = valuation_date
     self._libor_discounts = discounts
     self._risk_free_discounts = risk_free_discounts
     super(MarketDataTest, self).setUp()
@@ -104,6 +109,26 @@ class MarketDataTest(tf.test.TestCase):
     vols = vol_surface.volatility(expiry_dates=expiry, strike=[[1510], [1520]])
     self.assertAllClose(
         self.evaluate(vols), [[0.108], [0.31]], atol=1e-6)
+
+  def test_fixings(self):
+    market = market_data.MarketDataDict(
+        self._valuation_date,
+        self._market_data_dict,
+        config=self._rate_config)
+    index_curve_3m = core.curve_types.RateIndexCurve(
+        "USD", core.rate_indices.RateIndex(type="LIBOR_3M"))
+    index_curve_ois = core.curve_types.RateIndexCurve(
+        "USD", core.rate_indices.RateIndex(type="OIS"))
+    dates = [(2020, 5, 24), (2020, 3, 24)]
+    with self.subTest("LIBOR_3M"):
+      fixings, fixings_daycount = market.fixings(dates, index_curve_3m)
+      self.assertAllClose(
+          self.evaluate(fixings), [0.025, 0.03], atol=1e-6)
+      self.assertEqual(fixings_daycount.value, "ACTUAL_365")
+    with self.subTest("OIS"):
+      fixings, _ = market.fixings(dates, index_curve_ois)
+      self.assertAllClose(
+          self.evaluate(fixings), [0.0, 0.0], atol=1e-6)
 
 if __name__ == "__main__":
   tf.test.main()

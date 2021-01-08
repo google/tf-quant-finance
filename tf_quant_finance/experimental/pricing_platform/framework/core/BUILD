@@ -96,6 +96,7 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":curve_types",
+        ":daycount_conventions",
         ":interpolation_method",
         ":rate_indices",
         ":types",

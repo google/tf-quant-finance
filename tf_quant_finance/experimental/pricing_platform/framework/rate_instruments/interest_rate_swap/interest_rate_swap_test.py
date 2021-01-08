@@ -129,6 +129,28 @@ class InterestRateSwapTest(tf.test.TestCase):
     with self.subTest("PriceBatch"):
       self.assertAllClose(price1, expected1)
 
+  def test_price_with_fixings(self):
+    """Creates swap from proto and tests pricing method with supplied fixings.
+    """
+    fixing_dates = [(2019, 10, 3), (2020, 1, 3), (2020, 4, 7), (2020, 5, 3)]
+    fixing_rates = [0.01, 0.02, 0.03, 0.025]
+    market_data_dict = self._market_data_dict
+    market_data_dict["USD"]["LIBOR_3M"]["fixing_dates"] = fixing_dates
+    market_data_dict["USD"]["LIBOR_3M"]["fixing_rates"] = fixing_rates
+    market_data_dict["USD"]["LIBOR_3M"]["fixing_daycount"] = "ACTUAL_365"
+    market = market_data.MarketDataDict(
+        self._valuation_date,
+        market_data_dict,
+        config=self._rate_config)
+    swaps = interest_rate_swap.InterestRateSwap.from_protos(
+        [self._swap_1, self._swap_2, self._swap_1])
+    with self.subTest("Batching"):
+      self.assertLen(swaps, 1)
+    price1 = swaps[0].price(market)
+    expected1 = np.array([9543.57776645, 8456.63557949, 9543.57776645])
+    with self.subTest("PriceBatch"):
+      self.assertAllClose(price1, expected1)
+
   def test_ir_delta_parallel(self):
     """Creates ir swap from proto and tests IR delta parallel method."""
     market = market_data.MarketDataDict(
