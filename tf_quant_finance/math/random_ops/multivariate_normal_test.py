@@ -257,5 +257,92 @@ class RandomTest(parameterized.TestCase, tf.test.TestCase):
               sample_shape, mean=mean, scale_matrix=scale,
               random_type=tff_rnd.RandomType.PSEUDO_ANTITHETIC))
 
+  @parameterized.named_parameters(
+      {
+          "testcase_name": "STATELESS",
+          "random_type": tff_rnd.RandomType.STATELESS,
+          "seed": [1, 4567]
+      }, {
+          "testcase_name": "STATELESS_2",
+          "random_type": tff_rnd.RandomType.STATELESS,
+          "seed": [456, 91011]
+      }, {
+          "testcase_name": "STATELESS_ANTITHETIC",
+          "random_type": tff_rnd.RandomType.STATELESS_ANTITHETIC,
+          "seed": [1, 4567]
+      }, {
+          "testcase_name": "SOBOL",
+          "random_type": tff_rnd.RandomType.SOBOL,
+          "seed": [1, 4567]
+      }, {
+          "testcase_name": "HALTON",
+          "random_type": tff_rnd.RandomType.HALTON,
+          "seed": [1, 4567]
+      }, {
+          "testcase_name": "HALTON_RANDOMIZED",
+          "random_type": tff_rnd.RandomType.HALTON_RANDOMIZED,
+          "seed": 7889
+      }
+  )
+  def test_results_are_repeatable(self, random_type, seed):
+    """Tests the sample is repeatably generated for pseudo and stateless."""
+    mean = np.array([[1.0, 0.1], [0.1, 1.0]])
+    covar = np.array([
+        [[0.9, -0.1], [-0.1, 1.0]],
+        [[1.1, -0.3], [-0.3, 0.6]],
+    ])
+    size = 10
+    sample1 = self.evaluate(
+        tff_rnd.mv_normal_sample(
+            [size], mean=mean, covariance_matrix=covar,
+            random_type=random_type, seed=seed))
+
+    sample2 = self.evaluate(
+        tff_rnd.mv_normal_sample(
+            [size], mean=mean, covariance_matrix=covar,
+            random_type=random_type, seed=seed))
+
+    np.testing.assert_array_almost_equal(sample1, sample2, decimal=6)
+
+  @parameterized.named_parameters(
+      {
+          "testcase_name":
+              "STATELESS",
+          "random_type":
+              tff_rnd.RandomType.STATELESS,
+          "mean":
+              np.array([[1.0, 0.1], [0.1, 1.0]]),
+          "covar":
+              np.array([
+                  [[0.9, -0.1], [-0.1, 1.0]],
+                  [[1.1, -0.3], [-0.3, 0.6]],
+              ]),
+          "seed": [1, 4567]
+      }, {
+          "testcase_name":
+              "STATELESS_2",
+          "random_type":
+              tff_rnd.RandomType.STATELESS,
+          "mean":
+              np.array([[1.0, 0.1, 2.1], [0.1, 1.0, -0.5]]),
+          "covar": None,
+          "seed": [456, 91011]
+      })
+  def test_adding_time_steps(self, random_type, mean, covar, seed):
+    """Tests that adding additional draws doesn't change previous draws."""
+    size = 10
+    sample1 = self.evaluate(
+        tff_rnd.mv_normal_sample(
+            [size], mean=mean, covariance_matrix=covar,
+            random_type=random_type, seed=seed))
+
+    size2 = 16  # Must be > size.
+    sample2 = self.evaluate(
+        tff_rnd.mv_normal_sample(
+            [size2], mean=mean, covariance_matrix=covar,
+            random_type=random_type, seed=seed))
+
+    np.testing.assert_array_almost_equal(sample1, sample2[:size], decimal=6)
+
 if __name__ == "__main__":
   tf.test.main()
