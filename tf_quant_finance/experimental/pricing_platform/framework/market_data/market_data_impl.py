@@ -14,45 +14,99 @@
 # limitations under the License.
 """Implementation of processed market data interface.
 
-Market data is expected in the following format:
+Market data is expected to be in a specific format. See details in
+https://github.com/google/tf-quant-finance/tree/master/tf_quant_finance/experimental/pricing_platform/framework/market_data/market_data.pdf
+
 
 {
   # Currencies
-  'USD': {
-    'risk_free_curve': {
-       # Sorted tensor of discount dates
-      'dates': [date1, date2]
-      # Discount factors
-      'dicounts': [discount1, dicount2]
+  'rates': {
+    'USD': {
+      'curves': {
+        'risk_free_curve': {
+           # Sorted tensor of dates
+          'dates': [date1, date2]
+          # Discount factors
+          'discounts': [discount1, discount2]
+          # Interpolation configuration
+          'config': curve_config
+        }
+        'LIBOR_3M': {
+           # Sorted tensor of discount dates
+          'dates': [date1, date2]
+          # Discount factors
+          'discounts': [discount1, discount2]
+          # Fixing source
+          'fixings_source': 'LIBOR_3M'
+          # Interpolation configuration
+          'config': curve_config
+        }
+      }
+      'historical_fixings': {
+        'LIBOR_3M': {
+          # Sorted tensor of fixing dates
+          'fixing_dates': [fixing_date1, fixing_date2,
+                           fixing_date3]
+          # Fixing rates represented as annualized simple rates
+          'fixing_rates': [rate1, rate2, rate3]
+          # Fixing daycount. Should have a value that is one of
+          # the `core.DayCountConventions`. Must be supplied if
+          # the fixings are specified
+          'fixing_daycount': 'ACTUAL_360'
+          # Business day convention
+          'business_convention': 'FOLLOWING'
+          # Holiday calendar
+          'holiday_calendar': 'US'
+        }
+      }
     }
-    'LIBOR_3M': {
-       # Sorted tensor of discount dates
-      'dates': [date1, date2]
-      # Discount factors
-      'dicounts': [discount1, dicount2]
-      # Sorted tensor of fixing dates
-      'fixing_dates': [fixing_date1, fixing_date2, fixing_date3]
-      # Fixing rates represented as annualized simple rates
-      'fixing_rates': [rate1, rate2, rate3]
-      # Fixing daycount. Should have a value that is one of the
-      # `core.DayCountConventions`. Must be supplied if the fixings are
-      # specified.
-      'fixing_daycount': 'ACTUAL_360'
+    'volatility_cube': {
+      'SWAPTION': {
+      # Option expiry
+      "expriries": [date1, date2]
+      # Swap tenors for each expiry. In each row, the last value
+      # can be repeated
+      "tenors": 2d array
+      # Strikes for each `tenors` entry.
+      "strikes": 3d array
+      # Implied volatilities corresponding to each `strikes` entry
+      "implied_volatilities": 3d array
+      # Interpolation configuration
+      'config': volatility_config
+      }
+    'CAP': {
+     ….
+     }
     }
   }
   # Equities
-  "GOOG": {
-    "spot": 1700,
-    "currency": "USD",
-    "volatility_surface": {
-      "dates": [date1, date2]
-      # Strikes for each date. In each row, the last value can be repeated,
-      # e.g, [[1650, 1700, 1750, 1800, 1800], [1650, 1700, 1750, 1770, 1790]]
-      "strikes": 2d array
-      # Implied volatilities corresponding to the dates and strikes.
-      "implied_volatilities" 2d array
+  'equities':{
+    "USD": {
+      "GOOG": {
+        "spot_price": 1700
+        "historical_spot_prices": {
+          "dates": [date1, date2]
+          "values": [price1, price2]
+        }
+        "currency": "USD"
+        "volatility_surface": {
+          "dates": [date1, date2]
+          # Strikes for each date. In each row, the last value can
+          # be repeated, e.g,
+          # [[1650, 1700, 1750, 1800, 1800],
+          #  [1650, 1700, 1750, 1770, 1790]]
+          "strikes": 2d array
+          # Implied volatilities corresponding to the dates and
+          # strikes.
+          "implied_volatilities": 2d array
+          # Interpolation configuration
+          'config': volatility_config
+        }
+      }
     }
   }
+# Snapshot date
+"reference_date": date
 }
 
 """
@@ -83,56 +137,8 @@ class MarketDataDict(pmd.ProcessedMarketData):
                dtype: Optional[tf.DType] = None):
     """Market data constructor.
 
-    The dictionary must have the following format
-
-    TODO(b/176962220): Add a doc describign market data structure.
-    ```None
-    {
-      # Currencies
-      'USD': {
-        'risk_free_curve': {
-           # Sorted tensor of discount dates
-          'dates': [date1, date2]
-          # Discount factors
-          'dicounts': [discount1, dicount2]
-        }
-        'LIBOR_3M': {
-           # Sorted tensor of discount dates
-          'dates': [date1, date2]
-          # Discount factors
-          'dicounts': [discount1, dicount2]
-          # Sorted tensor of fixing dates
-          'fixing_dates': [fixing_date1, fixing_date2, fixing_date3]
-          # Fixing rates represented as annualized simple rates
-          'fixing_rates': [rate1, rate2, rate3]
-          # Fixing daycount. Should have a value that is one of the
-          # `core.DayCountConventions`. Must be supplied if the fixings are
-          # specified.
-          'fixing_daycount': 'ACTUAL_360'
-        }
-      }
-      # Equities
-      "GOOG": {
-        "spot": 1700,
-        "currency": "USD",
-        "volatility_surface": {
-          "dates": [date1, date2]
-        # Strikes for each date. In each row, the last value can be repeated,
-        # e.g, [[1650, 1700, 1750, 1800, 1800], [1650, 1700, 1750, 1770, 1790]]
-        "strikes": 2d array
-        # Implied volatilities corresponding to the dates and strikes.
-        "implied_volatilities" 2d array
-        }
-      }
-    }
-    ```
-    For discounting `risk_free_curve` is used by defualt. Rate indices are
-    supplied as strings (e.g., "LIBOR_3M" above) and should have the same name
-    as in `rate_indices.RateIndexType`. The user is expected to
-    supply all necessary curves used for pricing. The pricing functions should
-    decide which curve to use. Configuration argument `config` should be used
-    to specify daycount convention and interpolation method used by a curve
-    or a volatility surface.
+    The dictionary must follow a format outlined in the doc:
+    https://github.com/google/tf-quant-finance/tree/master/tf_quant_finance/experimental/pricing_platform/framework/market_data/market_data.pdf
 
     Args:
       valuation_date: Valuation date.
