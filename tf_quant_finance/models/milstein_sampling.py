@@ -274,28 +274,26 @@ def _sample(*, dim, drift_fn, volatility_fn, grad_volatility_fn, times,
       random.RandomType.SOBOL, random.RandomType.HALTON,
       random.RandomType.HALTON_RANDOMIZED, random.RandomType.STATELESS,
       random.RandomType.STATELESS_ANTITHETIC):
-    normal_draws = utils.generate_mc_normal_draws(
-        num_normal_draws=dim,
+    # Process dimension plus auxiliary random variables for stratonovich
+    # integral computation.
+    all_normal_draws = utils.generate_mc_normal_draws(
+        num_normal_draws=dim + 3 * dim * stratonovich_order,
         num_time_steps=steps_num,
         num_sample_paths=num_samples,
         random_type=random_type,
         dtype=dtype,
         seed=seed,
         skip=skip)
+    normal_draws = all_normal_draws[:, :, :dim]
     wiener_mean = None
     # Auxiliary normal draws for use with the stratonovich integral
     # approximation.
     aux_normal_draws = []
+    start = dim
     for _ in range(3):
-      aux_normal_draws.append(
-          utils.generate_mc_normal_draws(
-              num_normal_draws=dim * stratonovich_order,
-              num_time_steps=steps_num,
-              num_sample_paths=num_samples,
-              random_type=random_type,
-              dtype=dtype,
-              seed=seed,
-              skip=skip))
+      end = start + dim * stratonovich_order
+      aux_normal_draws.append(all_normal_draws[:, :, start:end])
+      start = end
   else:
     # If pseudo or anthithetic sampling is used, proceed with random sampling
     # at each step.
