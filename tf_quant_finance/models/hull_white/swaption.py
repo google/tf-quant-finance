@@ -143,8 +143,8 @@ def _prepare_swaption_indices(tensor_shape):
     if i == 0 or i == len(tensor_shape) - 1:
       index = tf.tile(index, [batch_size])
     else:
-      index = tf.tile(
-          tf.repeat(index, np.prod(tensor_shape[i+1:])),
+      index = np.tile(
+          np.repeat(index, np.prod(tensor_shape[i+1:])),
           [np.prod(tensor_shape[1:i])])
     index_list.append(index)
 
@@ -216,9 +216,8 @@ def _map_payoff_to_sim_times(indices, payoff, num_samples):
   num_elements = np.prod(tensor_shape)
   for dim, _ in enumerate(tensor_shape[:-1]):
     idx = tf.range(0, tensor_shape[dim], dtype=indices.dtype)
-    idx = tf.tile(
-        tf.repeat(idx, np.prod(tensor_shape[dim + 1:])),
-        [np.prod(tensor_shape[:dim])])
+    idx = tf.tile(tf.repeat(idx, np.prod(tensor_shape[dim + 1:])),
+                  [np.prod(tensor_shape[:dim])])
     index_list.append(idx)
 
   index_list.append(tf.reshape(indices, [-1]))
@@ -685,7 +684,7 @@ def swaption_price(*,
                                  fixed_leg_coupon, reference_rate_fn,
                                  dim, mean_reversion, volatility, notional,
                                  is_payer_swaption, output_shape, dtype,
-                                 name + '_analytic_valyation')
+                                 name + '_analytic_valuation')
 
     # Monte-Carlo pricing
     model = vector_hull_white.VectorHullWhiteModel(

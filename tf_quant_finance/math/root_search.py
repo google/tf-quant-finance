@@ -627,7 +627,8 @@ def _brent(objective_fn,
           # when the search is finished for *all* starting points.
           lambda loop_vars: ~_should_stop(loop_vars, params.stopping_policy_fn),
           lambda state: _brent_loop_body(state, params, constants),
-          loop_vars=[state])
+          loop_vars=[state],
+          maximum_iterations=max_iterations)
 
   state = result[0]
   converged = tf.math.abs(state.value_at_best_estimate) <= function_tolerance

@@ -122,6 +122,7 @@ class HullWhiteModel1F(vector_hull_white.VectorHullWhiteModel):
       name: Python string. The name to give to the ops created by this class.
         Default value: `None` which maps to the default name `hull_white_model`.
     """
+    name = name or "hull_white_one_factor"
     super(HullWhiteModel1F, self).__init__(
         1, mean_reversion, volatility, initial_discount_rate_fn,
         corr_matrix=None, dtype=dtype, name=name)
