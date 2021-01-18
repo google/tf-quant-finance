@@ -134,7 +134,7 @@ class CubicInterpolationTest(tf.test.TestCase, parameterized.TestCase):
     # Repeated boundary values are allowed
     x_data = np.array([[1.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0],
                        [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]])
-    y_data = np.array([[3.0, 3.0, 1.0, 3.0, 2.0, 3.0, 2.0],
+    y_data = np.array([[3.0, 3.0, 1.0, 3.0, 2.0, 2.0, 2.0],
                        [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]])
     spline = tff.math.interpolation.cubic.build_spline(x_data, y_data)
     x_values = np.array([[0.0, 1.0, 1.5, 2.0, 2.5, 3.5, 4.0, 5.0],
