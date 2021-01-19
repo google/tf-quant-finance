@@ -60,23 +60,24 @@ https://github.com/google/tf-quant-finance/tree/master/tf_quant_finance/experime
         }
       }
     }
-    'volatility_cube': {
-      'SWAPTION': {
-      # Option expiry
-      "expriries": [date1, date2]
-      # Swap tenors for each expiry. In each row, the last value
-      # can be repeated
-      "tenors": 2d array
-      # Strikes for each `tenors` entry.
-      "strikes": 3d array
-      # Implied volatilities corresponding to each `strikes` entry
-      "implied_volatilities": 3d array
-      # Interpolation configuration
-      'config': volatility_config
+      'volatility_cube': {
+        'SWAPTION': {
+        # Option expiry
+        "expriries": [date1, date2]
+        # Swap tenors for each expiry. In each row, the last value
+        # can be repeated
+        "tenors": 2d array
+        # Strikes for each `tenors` entry.
+        "strikes": 3d array
+        # Implied volatilities corresponding to each `strikes` entry
+        "implied_volatilities": 3d array
+        # Interpolation configuration
+        'config': volatility_config
+        }
+      'CAP': {
+       ….
+       }
       }
-    'CAP': {
-     ….
-     }
     }
   }
   # Equities
@@ -131,9 +132,7 @@ class MarketDataDict(pmd.ProcessedMarketData):
   """Market data dictionary representation."""
 
   def __init__(self,
-               valuation_date: types.DateTensor,
                market_data_dict: Dict[str, Any],
-               config: Optional[Dict[str, Any]] = None,
                dtype: Optional[tf.DType] = None):
     """Market data constructor.
 
@@ -141,16 +140,13 @@ class MarketDataDict(pmd.ProcessedMarketData):
     https://github.com/google/tf-quant-finance/tree/master/tf_quant_finance/experimental/pricing_platform/framework/market_data/market_data.pdf
 
     Args:
-      valuation_date: Valuation date.
       market_data_dict: Market data dictionary.
-      config: Market data config. See `market_data_config` module description.
-        Used to set up rate curve and volatility surface parameters.
       dtype: A `dtype` to use for float-like `Tensor`s.
         Default value: `tf.float64`.
     """
-    self._valuation_date = dateslib.convert_to_date_tensor(valuation_date)
+    self._valuation_date = dateslib.convert_to_date_tensor(
+        market_data_dict["reference_date"])
     self._market_data_dict = market_data_dict
-    self._config = config
     self._dtype = dtype or tf.float64
 
   @property
@@ -174,17 +170,13 @@ class MarketDataDict(pmd.ProcessedMarketData):
         curve_id = "risk_free_curve"
       else:
         curve_id = curve_type.index.type.name
-      curve_data = self._market_data_dict[currency][curve_id]
+      curve_data = self._market_data_dict["rates"][currency][curve_id]
     except KeyError:
       raise KeyError(
           "No data for {0} which corresponds to curve {1}".format(
               curve_id, curve_type))
-    rate_config = None
-    if self._config is not None:
-      try:
-        rate_config = self._config[currency][curve_id]
-      except KeyError:
-        pass
+    rate_config = self._market_data_dict["rates"][currency][curve_id].get(
+        "config", None)
     dates = curve_data["dates"]
     discount_factors = curve_data["discounts"]
     if rate_config is None:
@@ -199,9 +191,9 @@ class MarketDataDict(pmd.ProcessedMarketData):
           discount_factors,
           self._valuation_date,
           curve_type=curve_type,
-          interpolator=rate_config.interpolation_method,
-          interpolate_rates=rate_config.interpolate_rates,
-          daycount_convention=rate_config.daycount_convention,
+          interpolator=rate_config.get("interpolation_method", None),
+          interpolate_rates=rate_config.get("interpolate_rates", True),
+          daycount_convention=rate_config.get("daycount_convention", None),
           dtype=self._dtype)
 
   def fixings(
@@ -237,7 +229,7 @@ class MarketDataDict(pmd.ProcessedMarketData):
     else:
       date = dateslib.convert_to_date_tensor(date)
     try:
-      curve_data = self._market_data_dict[currency][index_type]
+      curve_data = self._market_data_dict["rates"][currency][index_type]
       fixing_dates = curve_data["fixing_dates"]
       fixing_rates = curve_data["fixing_rates"]
     except KeyError:
@@ -265,22 +257,25 @@ class MarketDataDict(pmd.ProcessedMarketData):
     inds = tf.minimum(inds, tf.shape(fixing_dates_ordinal)[-1] - 1)
     return tf.gather(fixing_rates, inds), fixing_daycount
 
-  def spot(self, asset: List[str],
-           date: types.DateTensor = None) -> tf.Tensor:
+  def spot(
+      self, currency: List[str], asset: List[str],
+      date: types.DateTensor = None) -> tf.Tensor:
     """The spot price of an asset."""
     spots = []
-    for s in asset:
-      if s not in self.supported_assets:
+    for cur, s in zip(currency, asset):
+      if s not in self.supported_assets(cur):
         raise ValueError(f"No data for asset {s}")
-      data_s = self._market_data_dict[s]
-      spots.append(tf.convert_to_tensor(data_s["spot"], self._dtype))
+      data_spot = self._market_data_dict["equities"][cur][s]
+      spots.append(tf.convert_to_tensor(data_spot["spot_price"], self._dtype))
     return spots
 
   def volatility_surface(
-      self, asset: List[str]) -> volatility_surface.VolatilitySurface:
+      self, currency: List[str], asset: List[str]
+      ) -> volatility_surface.VolatilitySurface:
     """The volatility surface object for the lsit of assets.
 
     Args:
+      currency: A list of strings with currency names.
       asset: A list of strings with asset names.
 
     Returns:
@@ -289,14 +284,14 @@ class MarketDataDict(pmd.ProcessedMarketData):
     dates = []
     strikes = []
     implied_vols = []
-    for s in asset:
-      if s not in self.supported_assets:
+    for cur, s in zip(currency, asset):
+      if s not in self.supported_assets(cur):
         raise ValueError(f"No data for asset {s}")
-      data_s = self._market_data_dict[s]
-      if "volatility_surface" not in data_s:
+      data_spot = self._market_data_dict["equities"][cur][s]
+      if "volatility_surface" not in data_spot:
         raise ValueError(
             f"No volatility surface 'volatility_surface' for asset {s}")
-      vol_surface = data_s["volatility_surface"]
+      vol_surface = data_spot["volatility_surface"]
       vol_dates = dateslib.convert_to_date_tensor(vol_surface["dates"])
       vol_strikes = tf.convert_to_tensor(
           vol_surface["strikes"], dtype=self._dtype, name="strikes")
@@ -316,20 +311,19 @@ class MarketDataDict(pmd.ProcessedMarketData):
         self.date, dates, strikes, implied_vols)
     return vol_surface
 
-  def forward_curve(self, asset: str):
+  def forward_curve(self, currency: str, asset: str):
     """The forward curve of the asset prices object."""
     pass
 
   @property
   def supported_currencies(self) -> List[str]:
     """List of supported currencies."""
-    return [kk for kk in self._market_data_dict.keys()
-            if kk in currencies.Currency.__dict__["_member_names_"]]
+    return [key for key in self._market_data_dict["rates"].keys()
+            if key in currencies.Currency.__members__]
 
-  @property
-  def supported_assets(self) -> List[str]:
+  def supported_assets(self, currency: str) -> List[str]:
     """List of supported assets."""
-    market_keys = self._market_data_dict.keys()
+    market_keys = self._market_data_dict["equities"][currency].keys()
     return [k for k in market_keys if k not in self.supported_currencies]
 
   @property

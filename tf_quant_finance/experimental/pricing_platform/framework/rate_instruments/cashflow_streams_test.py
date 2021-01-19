@@ -35,12 +35,18 @@ class CashflowStreamsTest(parameterized.TestCase, tf.test.TestCase):
              [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]]
     discounts = [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
                  0.72494879, 0.37602059]
-    self._market_data_dict = {"USD": {
-        "risk_free_curve":
-        {"dates": dates, "discounts": discounts},
-        "LIBOR_3M":
-        {"dates": dates, "discounts": discounts},}}
-    self._valuation_date = [(2020, 6, 24)]
+    self._market_data_dict = {
+        "rates": {
+            "USD": {
+                "risk_free_curve":
+                    {
+                        "dates": dates, "discounts": discounts},
+                "LIBOR_3M":
+                    {"dates": dates, "discounts": discounts},
+            }
+        },
+        "reference_date": [(2020, 6, 24)],
+    }
     super(CashflowStreamsTest, self).setUp()
 
   @parameterized.named_parameters(
@@ -60,11 +66,11 @@ class CashflowStreamsTest(parameterized.TestCase, tf.test.TestCase):
 
   def test_fixings(self, fixing_dates, fixing_rates, expected_fixings):
     market_data_dict = self._market_data_dict
-    market_data_dict["USD"]["LIBOR_3M"]["fixing_dates"] = fixing_dates
-    market_data_dict["USD"]["LIBOR_3M"]["fixing_rates"] = fixing_rates
-    market_data_dict["USD"]["LIBOR_3M"]["fixing_daycount"] = "ACTUAL_365"
+    market_data_dict["rates"]["USD"]["LIBOR_3M"]["fixing_dates"] = fixing_dates
+    market_data_dict["rates"]["USD"]["LIBOR_3M"]["fixing_rates"] = fixing_rates
+    market_data_dict["rates"]["USD"]["LIBOR_3M"][
+        "fixing_daycount"] = "ACTUAL_365"
     market = market_data.MarketDataDict(
-        self._valuation_date,
         market_data_dict)
     coupon_spec = coupon_specs.FloatCouponSpecs(
         currency=core.currencies.Currency.USD,

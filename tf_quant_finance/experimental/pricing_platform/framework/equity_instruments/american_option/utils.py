@@ -71,7 +71,7 @@ def bs_lsm_price(
     dtype: `tf.Dtype` of the input and output real `Tensor`s.
       Default value: `None` which maps to `float64`.
     name: Python str. The name to give to the ops created by this class.
-      Default value: `None` which maps to 'forward_rate_agreement'.
+      Default value: `None` which maps to 'bs_lsm_price'.
   Returns:
     A `Tensor` of the same shape and dtyoe as `spots` representing american
     option prices.

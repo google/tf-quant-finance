@@ -660,6 +660,7 @@ class FloatingCashflowStream:
           self._reference_curve_type,
           self._reference_mask,
           market)
+      print("past_fixing: ", past_fixing)
       forward_rates = reference_curve.forward_rate(
           self._accrual_start_date,
           self._accrual_end_date,

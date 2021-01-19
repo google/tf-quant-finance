@@ -69,17 +69,16 @@ class AmericanOption(instrument.Instrument):
       business_day_convention=BusinessDayConvention.MODIFIED_FOLLOWING(),
       is_call_option=False)
 
-  valuation_date = [(2020, 2, 8)]
-  market = market_data.MarketDataDict(valuation_date, ...)
-  am_option_portfolio = forward_rate_agreement.ForwardRateAgreement.from_protos(
-      [american_option_proto])
+  market = market_data.MarketDataDict(...)
+  am_option_portfolio = AmericanOption.from_protos([american_option_proto])
   am_option_portfolio[0].price(market)
   ```
   """
 
   def __init__(self,
                short_position: types.BoolTensor,
-               currency: types.CurrencyProtoType,
+               currency: Union[types.CurrencyProtoType,
+                               List[types.CurrencyProtoType]],
                expiry_date: types.DateTensor,
                equity: List[str],
                contract_amount: types.FloatTensor,
@@ -288,9 +287,10 @@ class AmericanOption(instrument.Instrument):
     with tf.name_scope(name):
       discount_curve = cashflow_streams.get_discount_curve(
           self._discount_curve_type, market, self._discount_curve_mask)
+      currencies = [cur.currency.value for cur in self._discount_curve_type]
       vol_surface = equity_utils.get_vol_surface(
-          self._equity, market, self._equity_mask)
-      spots = tf.stack(market.spot(self._equity), axis=0)
+          currencies, self._equity, market, self._equity_mask)
+      spots = tf.stack(market.spot(currencies, self._equity), axis=0)
       discount_factors = discount_curve.discount_factor(
           self._expiry_date.expand_dims(axis=-1))
       daycount_convention = discount_curve.daycount_convention

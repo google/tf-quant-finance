@@ -82,7 +82,7 @@ def from_protos(
     instrument_type = am_option_proto.metadata.instrument_type
     if h not in prepare_fras:
       prepare_fras[h] = {"short_position": [short_position],
-                         "currency": currency,
+                         "currency": [currency],
                          "expiry_date": [expiry_date],
                          "equity": [equity],
                          "contract_amount": [contract_amount],
@@ -97,6 +97,7 @@ def from_protos(
       prepare_fras[h]["short_position"].append(short_position)
       prepare_fras[h]["expiry_date"].append(expiry_date)
       prepare_fras[h]["equity"].append(equity)
+      prepare_fras[h]["currency"].append(currency)
       prepare_fras[h]["contract_amount"].append(contract_amount)
       prepare_fras[h]["strike"].append(strike)
       prepare_fras[h]["is_call_option"].append(is_call_option)
@@ -121,18 +122,21 @@ def tensor_repr(am_option_data: Dict[str, Any],
       am_option_data["is_call_option"], dtype=tf.bool,
       name="is_call_options")
   currency = am_option_data["currency"]
+  if not isinstance(currency, (list, tuple)):
+    currency = [currency]
   discount_curve_type = []
-  if res["config"] is not None:
-    if currency in res["config"]["discounting_curve"]:
-      discount_curve = res["config"]["discounting_curve"][currency]
-      discount_curve_type.append(discount_curve)
+  for cur in currency:
+    if res["config"] is not None:
+      if cur in res["config"]["discounting_curve"]:
+        discount_curve = res["config"]["discounting_curve"][cur]
+        discount_curve_type.append(discount_curve)
+      else:
+        risk_free = curve_types_lib.RiskFreeCurve(currency=cur)
+        discount_curve_type.append(risk_free)
     else:
-      risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
+      # Default discounting is the risk free curve
+      risk_free = curve_types_lib.RiskFreeCurve(currency=cur)
       discount_curve_type.append(risk_free)
-  else:
-    # Default discounting is the risk free curve
-    risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
-    discount_curve_type.append(risk_free)
   discount_curve_type, mask = cashflow_streams.process_curve_types(
       discount_curve_type)
   res["discount_curve_mask"] = tf.convert_to_tensor(mask, dtype=tf.int32)

@@ -86,24 +86,30 @@ class ForwardRateAgreementTest(tf.test.TestCase):
             term=period_pb2.Period(type="MONTH", amount=3)),
         settlement_days=2)
 
-    self._dates = [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
-                   [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]]
-    self._discounts = [0.97197441, 0.94022746, 0.91074031, 0.85495089,
-                       0.8013675,
-                       0.72494879, 0.37602059]
+    dates = [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
+             [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]]
+    discounts = [0.97197441, 0.94022746, 0.91074031, 0.85495089,
+                 0.8013675, 0.72494879, 0.37602059]
     self._market_data_dict = {
-        "USD": {
-            "risk_free_curve":
-                {"dates": self._dates, "discounts": self._discounts},
-            "LIBOR_3M":
-                {"dates": self._dates, "discounts": self._discounts},}}
-    self._valuation_date = [(2020, 2, 8)]
+        "rates": {
+            "USD": {
+                "risk_free_curve": {
+                    "dates": dates,
+                    "discounts": discounts,
+                },
+                "LIBOR_3M": {
+                    "dates": dates,
+                    "discounts": discounts,
+                }
+            }
+        },
+        "reference_date": [(2020, 2, 8)],
+    }
 
     super(ForwardRateAgreementTest, self).setUp()
 
   def test_from_proto_price(self):
-    market = market_data.MarketDataDict(self._valuation_date,
-                                        self._market_data_dict)
+    market = market_data.MarketDataDict(self._market_data_dict)
     fra_portfolio = forward_rate_agreement.ForwardRateAgreement.from_protos(
         [self._fra_1, self._fra_2, self._fra_3])
     with self.subTest("Batching"):
@@ -123,7 +129,6 @@ class ForwardRateAgreementTest(tf.test.TestCase):
         forward_rate_agreement.ForwardRateAgreement.create_constructor_args(
             [self._fra_1, self._fra_1]))
     market = market_data.MarketDataDict(
-        self._valuation_date,
         self._market_data_dict)
     fras = forward_rate_agreement.ForwardRateAgreement(
         **list(fra_dict.values())[0])

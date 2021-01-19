@@ -88,42 +88,65 @@ class AmericanEquityOptionTest(tf.test.TestCase):
 
     vol_dates = [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8],
                  [2025, 2, 8], [2027, 2, 8]]
-    strikes = [[1500, 1550, 1510],
-               [1500, 1550, 1510],
-               [1500, 1550, 1510],
-               [1500, 1550, 1510],
-               [1500, 1550, 1510]]
+    strikes_goog = [[1450, 1500, 1550],
+                    [1450, 1500, 1550],
+                    [1450, 1500, 1550],
+                    [1450, 1500, 1550],
+                    [1450, 1500, 1550]]
+    strikes_ezj = [[570, 590, 610],
+                   [570, 590, 610],
+                   [570, 590, 610],
+                   [570, 590, 610],
+                   [570, 590, 610]]
     volatilities = [[0.1, 0.12, 0.13],
                     [0.15, 0.2, 0.15],
                     [0.1, 0.2, 0.1],
                     [0.1, 0.2, 0.1],
                     [0.1, 0.1, 0.3]]
     self._market_data_dict = {
-        "USD": {
-            "risk_free_curve":
-                {"dates": risk_free_dates, "discounts": risk_free_discounts}},
-        "GBP": {
-            "risk_free_curve":
-                {"dates": risk_free_dates, "discounts": risk_free_discounts}},
-        "GOOG": {
-            "spot": 1500,
-            "volatility_surface":
-                {"dates": vol_dates, "strikes": strikes,
-                 "implied_volatilities": volatilities}},
-        "EZJ": {
-            "spot": 590,
-            "volatility_surface":
-                {"dates": vol_dates, "strikes": strikes,
-                 "implied_volatilities": volatilities}},
+        "rates": {
+            "USD": {
+                "risk_free_curve": {
+                    "dates": risk_free_dates,
+                    "discounts": risk_free_discounts
+                }
+            },
+            "GBP": {
+                "risk_free_curve": {
+                    "dates": risk_free_dates,
+                    "discounts": risk_free_discounts
+                }
+            },
+        },
+        "equities": {
+            "USD": {
+                "GOOG": {
+                    "spot_price": 1500,
+                    "volatility_surface": {
+                        "dates": vol_dates,
+                        "strikes": strikes_goog,
+                        "implied_volatilities": volatilities
+                    }
+                }
+            },
+            "GBP": {
+                "EZJ": {
+                    "spot_price": 590,
+                    "volatility_surface": {
+                        "dates": vol_dates,
+                        "strikes": strikes_ezj,
+                        "implied_volatilities": volatilities
+                    }
+                }
+            }
+        },
+        "reference_date": [(2021, 2, 5)],
     }
-    self._valuation_date = [(2021, 2, 5)]
     super(AmericanEquityOptionTest, self).setUp()
 
   def test_from_proto_price(self):
     """Creates ir swap from proto and tests pricing method."""
-    market = market_data.MarketDataDict(
-        self._valuation_date,
-        self._market_data_dict)
+    market = market_data.MarketDataDict(self._market_data_dict)
     config = american_option.AmericanOptionConfig(
         num_samples=100, num_exercise_times=10, seed=[1, 2])
     am_option = american_option.AmericanOption.from_protos(
@@ -134,13 +157,13 @@ class AmericanEquityOptionTest(tf.test.TestCase):
     with self.subTest("Batching"):
       self.assertLen(am_option, 2)
     price1 = am_option[0].price(market)
-    expected1 = np.array([4665049.44065695, 379220.05705307])
+    expected1 = np.array([4851071.2698, 504899.2288])
     with self.subTest("PriceBatch"):
-      self.assertAllClose(price1, expected1)
+      self.assertAllClose(price1, expected1, rtol=1e-4, atol=1e-4)
     price2 = am_option[1].price(market)
-    expected2 = np.array([755892.10147832])
+    expected2 = np.array([891813.4915])
     with self.subTest("PriceSingle"):
-      self.assertAllClose(price2, expected2)
+      self.assertAllClose(price2, expected2, rtol=1e-4, atol=1e-4)
 
   def test_default_config(self):
     """Creates ir swap from proto and tests pricing method."""
@@ -168,9 +191,7 @@ class AmericanEquityOptionTest(tf.test.TestCase):
 
   def test_from_proto_price_num_calibration(self):
     """Creates ir swap from proto and tests pricing method."""
-    market = market_data.MarketDataDict(
-        self._valuation_date,
-        self._market_data_dict)
+    market = market_data.MarketDataDict(self._market_data_dict)
     config = american_option.AmericanOptionConfig(
         num_samples=100, num_calibration_samples=50,
         num_exercise_times=10, seed=[1, 2])
@@ -182,13 +203,13 @@ class AmericanEquityOptionTest(tf.test.TestCase):
     with self.subTest("Batching"):
       self.assertLen(am_option, 2)
     price1 = am_option[0].price(market)
-    expected1 = np.array([4728204.87745335, 298514.25020983])
+    expected1 = np.array([4943331.4747, 413834.5428])
     with self.subTest("PriceBatch"):
-      self.assertAllClose(price1, expected1)
+      self.assertAllClose(price1, expected1, rtol=1e-4, atol=1e-4)
     price2 = am_option[1].price(market)
-    expected2 = np.array([754373.67048095])
+    expected2 = np.array([899082.1254])
     with self.subTest("PriceSingle"):
-      self.assertAllClose(price2, expected2)
+      self.assertAllClose(price2, expected2, rtol=1e-4, atol=1e-4)
 
   def test_create_constructor_args_price(self):
     """Creates and prices swap from a dictionary representation."""
@@ -197,14 +218,12 @@ class AmericanEquityOptionTest(tf.test.TestCase):
         num_exercise_times=10, seed=[1, 2])
     am_option_dict = american_option.AmericanOption.create_constructor_args(
         [self._american_option_1, self._american_option_3], config)
-    market = market_data.MarketDataDict(
-        self._valuation_date,
-        self._market_data_dict)
+    market = market_data.MarketDataDict(self._market_data_dict)
     am_options = american_option.AmericanOption(
         **list(am_option_dict.values())[0])
     price = am_options.price(market)
-    expected = np.array([4728204.87745335, 298514.25020983])
-    self.assertAllClose(price, expected)
+    expected = np.array([4943331.4747, 413834.5428])
+    self.assertAllClose(price, expected, rtol=1e-4, atol=1e-4)
 
 
 if __name__ == "__main__":

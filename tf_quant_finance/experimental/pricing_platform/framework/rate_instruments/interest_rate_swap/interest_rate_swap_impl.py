@@ -103,27 +103,30 @@ class InterestRateSwap(instrument.Instrument):
               business_day_convention=BusinessDayConvention.
                 MODIFIED_FOLLOWING(),
               settlement_days=0)))
-  market_data_dict = {"USD": {
-      "risk_free_curve":
-      {"date": [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
-                [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]],
-        "discount": [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
-                     0.72494879, 0.37602059]},
-      "LIBOR_3M":
-      {"date": [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
-                [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]],
-        "discount": [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
-                     0.72494879, 0.37602059]}}}
-
-  ois_config = market_data_config.RateConfig(
-      interpolation_method=interpolation_method.InterpolationMethod.LINEAR)
-  libor_3m_config = market_data_config.RateConfig(
-      interpolation_method=interpolation_method.InterpolationMethod.LINEAR)
-  rate_config = {"USD": {"risk_free_curve": ois_config,
-                         "LIBOR_3M": libor_3m_config}}
-  valuation_date = [(2020, 2, 8)]
-  market = market_data.MarketDataDict(valuation_date, market_data_dict,
-                                      config=rate_config)
+    dates = [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
+             [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]]
+    discounts = [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
+                 0.72494879, 0.37602059]
+    libor_3m_config = {
+        "interpolation_method": interpolation_method.InterpolationMethod.LINEAR
+    }
+    self._market_data_dict = {
+        "rates": {
+            "USD": {
+                "risk_free_curve": {
+                    "dates": dates,
+                    "discounts": discounts,
+                },
+                "LIBOR_3M": {
+                    "dates": dates,
+                    "discounts": discounts,
+                    "config": libor_3m_config,
+                }
+            }
+        },
+        "reference_date": [(2020, 6, 24)],
+    }
+  market = market_data.MarketDataDict(market_data_dict)
   swaps = interest_rate_swap.InterestRateSwap.from_protos([swap])
   swaps[0].price(market)
   # Expected: [-69.42497649]

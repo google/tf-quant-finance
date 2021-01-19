@@ -113,25 +113,31 @@ class Swaption(instrument.Instrument):
 
   curve_discounts = np.exp(-0.01 * np.array([1, 2, 3, 5, 7, 10, 30]))
 
-  libor_3m_config = market_data.config.RateConfig(
-      interpolation_method=core.interpolation_method.InterpolationMethod
-      .LINEAR)
-  rate_config = {'USD': {'LIBOR_3M': libor_3m_config}}
-  market_data_dict = {
-      'USD': {
-          'risk_free_curve': {
-              'dates': curve_dates,
-              'discounts': curve_discounts
-          },
-          'LIBOR_3M': {
-              'dates': curve_dates,
-              'discounts': curve_discounts
-          },
-      }
-  }
+    dates = [[2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8],
+             [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]]
+    discounts = [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
+                 0.72494879, 0.37602059]
+    libor_3m_config = {
+        "interpolation_method": interpolation_method.InterpolationMethod.LINEAR
+    }
+    self._market_data_dict = {
+        "rates": {
+            "USD": {
+                "risk_free_curve": {
+                    "dates": dates,
+                    "discounts": discounts,
+                },
+                "LIBOR_3M": {
+                    "dates": dates,
+                    "discounts": discounts,
+                    "config": libor_3m_config,
+                }
+            }
+        },
+        "reference_date": [(2020, 2, 10)],
+    }
 
-  market = market_data.MarketDataDict(
-      valuation_date, market_data_dict, config=rate_config)
+  market = market_data.MarketDataDict(market_data_dict)
 
   swaption = rates_instruments.swaption.Swaption.from_protos(
       [swaption_proto], config=config)

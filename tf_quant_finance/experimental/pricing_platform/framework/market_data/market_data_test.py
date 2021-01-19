@@ -47,41 +47,54 @@ class MarketDataTest(tf.test.TestCase):
                     [0.1, 0.2, 0.1],
                     [0.1, 0.2, 0.1],
                     [0.1, 0.1, 0.3]]
-    libor_3m_config = market_data.config.RateConfig(
-        interpolation_method=interpolation_method.InterpolationMethod.LINEAR)
 
-    self._rate_config = {"USD": {"LIBOR_3M": libor_3m_config}}
     risk_free_dates = [
         [2021, 2, 8], [2022, 2, 8], [2023, 2, 8], [2025, 2, 8], [2050, 2, 8]]
     risk_free_discounts = [
         0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.37602059]
     self._market_data_dict = {
-        "USD": {
-            "risk_free_curve":
-            {"dates": risk_free_dates, "discounts": risk_free_discounts},
-            "OIS":
-            {"dates": dates, "discounts": discounts},
-            "LIBOR_3M":
-            {"dates": dates, "discounts": discounts,
-             "fixing_dates": fixing_dates,
-             "fixing_rates": fixing_rates,
-             "fixing_daycount": "ACTUAL_365"},},
-        "GOOG": {
-            "spot": 1500,
-            "volatility_surface": {"dates": vol_dates,
-                                   "strikes": strikes,
-                                   "implied_volatilities": volatilities}
-        }}
-    self._valuation_date = valuation_date
+        "rates": {
+            "USD": {
+                "risk_free_curve": {
+                    "dates": risk_free_dates, "discounts": risk_free_discounts
+                },
+                "OIS": {
+                    "dates": dates, "discounts": discounts
+                },
+                "LIBOR_3M": {
+                    "dates": dates,
+                    "discounts": discounts,
+                    "fixing_dates": fixing_dates,
+                    "fixing_rates": fixing_rates,
+                    "fixing_daycount": "ACTUAL_365",
+                    "config": {
+                        "interpolation_method": interpolation_method.
+                                                InterpolationMethod.LINEAR
+                    }
+                },
+            },
+        },
+        "equities": {
+            "USD": {
+                "GOOG": {
+                    "spot": 1500,
+                    "volatility_surface": {
+                        "dates": vol_dates,
+                        "strikes": strikes,
+                        "implied_volatilities": volatilities
+                    }
+                }
+            }
+        },
+        "reference_date": valuation_date,
+    }
     self._libor_discounts = discounts
     self._risk_free_discounts = risk_free_discounts
     super(MarketDataTest, self).setUp()
 
   def test_discount_curve(self):
     market = market_data.MarketDataDict(
-        self._valuation_date,
-        self._market_data_dict,
-        config=self._rate_config)
+        self._market_data_dict)
     # Get the risk free discount curve
     risk_free_curve_type = core.curve_types.RiskFreeCurve(currency="USD")
     risk_free_curve = market.yield_curve(risk_free_curve_type)
@@ -99,11 +112,10 @@ class MarketDataTest(tf.test.TestCase):
 
   def test_volatility(self):
     market = market_data.MarketDataDict(
-        self._valuation_date,
-        self._market_data_dict,
-        config=self._rate_config)
+        self._market_data_dict)
     # Get volatility surface
-    vol_surface = market.volatility_surface(["GOOG", "GOOG"])
+    vol_surface = market.volatility_surface(currency=["USD", "USD"],
+                                            asset=["GOOG", "GOOG"])
     expiry = tff.datetime.dates_from_year_month_day(
         year=[[2023], [2030]], month=[[5], [10]], day=[[10], [15]])
     vols = vol_surface.volatility(expiry_dates=expiry, strike=[[1510], [1520]])
@@ -112,9 +124,7 @@ class MarketDataTest(tf.test.TestCase):
 
   def test_fixings(self):
     market = market_data.MarketDataDict(
-        self._valuation_date,
-        self._market_data_dict,
-        config=self._rate_config)
+        self._market_data_dict)
     index_curve_3m = core.curve_types.RateIndexCurve(
         "USD", core.rate_indices.RateIndex(type="LIBOR_3M"))
     index_curve_ois = core.curve_types.RateIndexCurve(

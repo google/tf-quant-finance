@@ -70,24 +70,24 @@ format:
           'holiday_calendar': 'US'
         }
       }
-    }
-    'volatility_cube': {
-      'SWAPTION': {
-      # Option expiry
-      "expriries": [date1, date2]
-      # Swap tenors for each expiry. In each row, the last value
-      # can be repeated
-      "tenors": 2d array
-      # Strikes for each `tenors` entry.
-      "strikes": 3d array
-      # Implied volatilities corresponding to each `strikes` entry
-      "implied_volatilities": 3d array
-      # Interpolation configuration
-      'config': volatility_config
+      'volatility_cube': {
+        'SWAPTION': {
+        # Option expiry
+        "expriries": [date1, date2]
+        # Swap tenors for each expiry. In each row, the last value
+        # can be repeated
+        "tenors": 2d array
+        # Strikes for each `tenors` entry.
+        "strikes": 3d array
+        # Implied volatilities corresponding to each `strikes` entry
+        "implied_volatilities": 3d array
+        # Interpolation configuration
+        'config': volatility_config
+        }
+      'CAP': {
+       ….
+       }
       }
-    'CAP': {
-     ….
-     }
     }
   }
   # Equities

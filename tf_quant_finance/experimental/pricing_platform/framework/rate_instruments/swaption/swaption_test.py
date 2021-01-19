@@ -117,25 +117,30 @@ class SwaptionTest(tf.test.TestCase, parameterized.TestCase):
 
     curve_discounts = np.exp(-0.01 * np.array([1, 2, 3, 5, 7, 10, 30]))
 
-    libor_3m_config = market_data.config.RateConfig(
-        interpolation_method=core.interpolation_method.InterpolationMethod
-        .LINEAR)
-    rate_config = {'USD': {'LIBOR_3M': libor_3m_config}}
+    libor_3m_config = {
+        'interpolation_method': core.interpolation_method.InterpolationMethod
+                                .LINEAR
+    }
+
     market_data_dict = {
-        'USD': {
-            'risk_free_curve': {
-                'dates': curve_dates,
-                'discounts': curve_discounts
-            },
-            'LIBOR_3M': {
-                'dates': curve_dates,
-                'discounts': curve_discounts
-            },
-        }
+        'rates': {
+            'USD': {
+                'risk_free_curve': {
+                    'dates': curve_dates,
+                    'discounts': curve_discounts,
+                },
+                'LIBOR_3M': {
+                    'dates': curve_dates,
+                    'discounts': curve_discounts,
+                    'config': libor_3m_config,
+                }
+            }
+        },
+        'reference_date': self._valuation_date,
     }
 
     self._market = market_data.MarketDataDict(
-        self._valuation_date, market_data_dict, config=rate_config)
+        market_data_dict)
     super(SwaptionTest, self).setUp()
 
   @parameterized.named_parameters(

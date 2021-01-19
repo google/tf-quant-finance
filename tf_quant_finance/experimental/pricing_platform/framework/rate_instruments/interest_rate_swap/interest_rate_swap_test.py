@@ -103,23 +103,31 @@ class InterestRateSwapTest(tf.test.TestCase):
              [2027, 2, 8], [2030, 2, 8], [2050, 2, 8]]
     discounts = [0.97197441, 0.94022746, 0.91074031, 0.85495089, 0.8013675,
                  0.72494879, 0.37602059]
-    libor_3m_config = market_data_config.RateConfig(
-        interpolation_method=interpolation_method.InterpolationMethod.LINEAR)
-    self._rate_config = {"USD": {"LIBOR_3M": libor_3m_config}}
-    self._market_data_dict = {"USD": {
-        "risk_free_curve":
-        {"dates": dates, "discounts": discounts},
-        "LIBOR_3M":
-        {"dates": dates, "discounts": discounts},}}
-    self._valuation_date = [(2020, 6, 24)]
+    libor_3m_config = {
+        "interpolation_method": interpolation_method.InterpolationMethod.LINEAR
+    }
+    self._market_data_dict = {
+        "rates": {
+            "USD": {
+                "risk_free_curve": {
+                    "dates": dates,
+                    "discounts": discounts,
+                },
+                "LIBOR_3M": {
+                    "dates": dates,
+                    "discounts": discounts,
+                    "config": libor_3m_config,
+                }
+            }
+        },
+        "reference_date": [(2020, 6, 24)],
+    }
     super(InterestRateSwapTest, self).setUp()
 
   def test_from_proto_price(self):
     """Creates ir swap from proto and tests pricing method."""
     market = market_data.MarketDataDict(
-        self._valuation_date,
-        self._market_data_dict,
-        config=self._rate_config)
+        self._market_data_dict)
     swaps = interest_rate_swap.InterestRateSwap.from_protos(
         [self._swap_1, self._swap_2, self._swap_1])
     with self.subTest("Batching"):
@@ -135,13 +143,12 @@ class InterestRateSwapTest(tf.test.TestCase):
     fixing_dates = [(2019, 10, 3), (2020, 1, 3), (2020, 4, 7), (2020, 5, 3)]
     fixing_rates = [0.01, 0.02, 0.03, 0.025]
     market_data_dict = self._market_data_dict
-    market_data_dict["USD"]["LIBOR_3M"]["fixing_dates"] = fixing_dates
-    market_data_dict["USD"]["LIBOR_3M"]["fixing_rates"] = fixing_rates
-    market_data_dict["USD"]["LIBOR_3M"]["fixing_daycount"] = "ACTUAL_365"
+    market_data_dict["rates"]["USD"]["LIBOR_3M"]["fixing_dates"] = fixing_dates
+    market_data_dict["rates"]["USD"]["LIBOR_3M"]["fixing_rates"] = fixing_rates
+    market_data_dict["rates"]["USD"]["LIBOR_3M"][
+        "fixing_daycount"] = "ACTUAL_365"
     market = market_data.MarketDataDict(
-        self._valuation_date,
-        market_data_dict,
-        config=self._rate_config)
+        market_data_dict)
     swaps = interest_rate_swap.InterestRateSwap.from_protos(
         [self._swap_1, self._swap_2, self._swap_1])
     with self.subTest("Batching"):
@@ -154,9 +161,7 @@ class InterestRateSwapTest(tf.test.TestCase):
   def test_ir_delta_parallel(self):
     """Creates ir swap from proto and tests IR delta parallel method."""
     market = market_data.MarketDataDict(
-        self._valuation_date,
-        self._market_data_dict,
-        config=self._rate_config)
+        self._market_data_dict)
     swaps = interest_rate_swap.InterestRateSwap.from_protos(
         [self._swap_1, self._swap_2, self._swap_1])
     # Automatic differentiation test
@@ -170,9 +175,7 @@ class InterestRateSwapTest(tf.test.TestCase):
   def test_ir_delta_parallel_shock_size(self):
     """Creates ir swap from proto and tests IR delta parallel method."""
     market = market_data.MarketDataDict(
-        self._valuation_date,
-        self._market_data_dict,
-        config=self._rate_config)
+        self._market_data_dict)
     swaps = interest_rate_swap.InterestRateSwap.from_protos(
         [self._swap_1, self._swap_2, self._swap_1])
     # Shock size test
@@ -188,9 +191,7 @@ class InterestRateSwapTest(tf.test.TestCase):
     swaps_dict = interest_rate_swap.InterestRateSwap.create_constructor_args(
         [self._swap_1, self._swap_2, self._swap_1])
     market = market_data.MarketDataDict(
-        self._valuation_date,
-        self._market_data_dict,
-        config=self._rate_config)
+        self._market_data_dict)
     swaps = interest_rate_swap.InterestRateSwap(**list(swaps_dict.values())[0])
     price1 = swaps.price(market)
     expected1 = np.array([7655.98694587, 6569.04475892, 7655.98694587])

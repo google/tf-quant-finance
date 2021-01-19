@@ -60,6 +60,7 @@ def process_equities(
 
 
 def get_vol_surface(
+    currencies: List[str],
     equity_types: List[str],
     market: pmd.ProcessedMarketData,
     mask: List[int]) -> volatility_surface.VolatilitySurface:
@@ -70,25 +71,27 @@ def get_vol_surface(
 
   #### Example
   ```none
-  curve_types = ["GOOG", "MSFT"]
+  currencies = ["USD", "GBP"]
+  equity_types = ["GOOG", "EZJ"]
   # A mask to price a batch of 7 instruments with the corresponding discount
-  # curves ["GOOG", "MSFT", "MSFT", "MSFT" "GOOG", "GOOG"].
+  # curves ["GOOG", "EZJ", "EZJ", "EZJ" "GOOG", "GOOG"].
   mask = [0, 1, 1, 1, 0, 0]
   market = MarketDataDict(...)
-  get_vol_surface(curve_types, market, mask)
+  get_vol_surface(currencies, equity_types, market, mask)
   # Returns a VolatilitySurface object that can compute a volatilities for a
   # batch of 6 expiry dates and strikes.
   ```
 
   Args:
-    equity_types: A list of equity types.
+    currencies: A list of underlying currencies.
+    equity_types: A corresponding list of equity types.
     market: An instance of the processed market data.
     mask: An integer mask.
 
   Returns:
     An instance of `VolatilitySurface`.
   """
-  vols = market.volatility_surface(equity_types)
+  vols = market.volatility_surface(currencies, equity_types)
   expiries = vols.node_expiries().ordinal()
   strikes = vols.node_strikes()
   volatilities = vols.node_volatilities()
