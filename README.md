@@ -33,23 +33,22 @@ ODE & PDE solvers, Ito process framework, Diffusion Path Generators,
 Copula samplers etc.
 
 3. **Pricing methods and other quant finance specific utilities**.
-Specific Pricing models (e.g Local Vol (LV), Stochastic Vol (SV),
+Specific Pricing models (e.g., Local Vol (LV), Stochastic Vol (SV),
 Stochastic Local Vol (SLV), Hull-White (HW)) and their calibration.
-Rate curve building, payoff descriptions and schedule generation.
+Rate curve building, payoff descriptions, and schedule generation.
 
-We aim for the library components to be easily accessible at each level. Each
-layer will be accompanied by many examples which can be run independently of
-higher level components.
+We aim for the library components to be easily accessible at each level. Each layer will be accompanied by many examples that can run independently of
+higher-level components.
 
 ## Installation
 
 The easiest way to get started with the library is via the pip package.
 
-Note that library requires Python 3.7 and Tensorflow >= 2.3.
+Note that the library requires Python 3.7 and Tensorflow >= 2.3.
 
-First please install the most recent version of TensorFlow by following
+First, please install the most recent version of TensorFlow by following
 the [TensorFlow installation instructions](https://tensorflow.org/install).
-For example, you could install TensorFlow using
+For example, you could install TensorFlow
 
 ```sh
 pip3 install --upgrade tensorflow
@@ -65,7 +64,7 @@ You maybe also have to use the option ```--user```.
 
 ## TensorFlow training
 
-If you are not familiar with TensorFlow, a good place to get started is with the
+If you are not familiar with TensorFlow, an excellent place to get started is with the
 following self-study introduction to TensorFlow notebooks:
 
    * [Introduction to TensorFlow Part 1 - Basics](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Introduction_to_TensorFlow_Part_1_-_Basics.ipynb).
@@ -74,8 +73,7 @@ following self-study introduction to TensorFlow notebooks:
 
 ## Development roadmap
 
-We are working on expanding the coverage of the library. Areas under active
-development are:
+We are working on expanding the coverage of the library. Areas under active development are:
 
   * Ito Processes: Framework for defining [Ito processes](https://en.wikipedia.org/wiki/It%C3%B4_calculus#It%C3%B4_processes).
   Includes methods for sampling paths from a process and for solving the
@@ -84,7 +82,7 @@ development are:
       * Brownian Motion
       * Geometric Brownian Motion
       * Ornstein-Uhlenbeck
-      * Single factor Hull White model
+      * One-Factor Hull-White model
       * Heston model
       * Local volatility model.
       * Quadratic Local Vol model.
@@ -93,12 +91,12 @@ development are:
   * Model Calibration:
       * Dupire local vol calibration.
       * SABR model calibration.
-  * Rate curve fitting: Hagan-West algorithm for yield curve bootstrapping and
-  the Monotone Convex interpolation scheme.
+  * Rate curve fitting: Hagan-West algorithm for yield curve bootstrapping and the Monotone Convex interpolation scheme.
   * Support for dates, day-count conventions, holidays, etc.
 
 
 ## Examples
+
 See [`tf_quant_finance/examples/`](https://github.com/google/tf-quant-finance/tree/master/tf_quant_finance/examples)
 for end-to-end examples. It includes tutorial notebooks such as:
 
@@ -118,7 +116,7 @@ We're eager to collaborate with you! See [CONTRIBUTING.md](CONTRIBUTING.md) for 
 
 ## Development
 
-This section is meant for developers who want to contribute code to the
+This section is for developers who want to contribute code to the
 library. If you are only interested in using the library, please follow the
 instructions in the [Installation](#installation) section.
 
@@ -128,7 +126,7 @@ This library has the following dependencies:
 
 1.  Bazel
 2.  Python 3 (Bazel uses Python 3 by default)
-3.  TensorFlow nightly build (most functions should work with TensorFLow 2.3)
+3.  TensorFlow nightly build (most functions should work with TensorFlow 2.3)
 4.  TensorFlow Probability nightly build
 5.  Numpy version 1.16 or higher
 6.  Attrs
@@ -171,8 +169,8 @@ will run tests in
 [sobol_test.py](https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/random_ops/sobol/sobol_test.py)
 .
 
-Tests will be run using the Python version 3. Please make sure that you can
-run ```import tensorflow``` in the Python 3 shell, otherwise tests might fail.
+Tests run using Python version 3. Please make sure that you can
+run ```import tensorflow``` in the Python 3 shell. Otherwise, tests might fail.
 
 ### Building a custom pip package
 
@@ -188,6 +186,7 @@ pip install --user --upgrade artifacts/*.whl
 ```
 
 ## Community
+
 1. [GitHub repository](https://github.com/google/tf-quant-finance): Report bugs or make feature requests.
 
 2. [TensorFlow Blog](https://blog.tensorflow.org/): Stay up to date on content from the TensorFlow team and best articles from the community.
@@ -197,8 +196,10 @@ pip install --user --upgrade artifacts/*.whl
 4. TensorFlow Probability: This library will leverage methods from [TensorFlow Probability](https://www.tensorflow.org/probability) (TFP).
 
 ## Disclaimers
-This is not an officially supported Google product. This library is under active development. Interfaces may change at any time.
+
+Google does not officially support this product. This library is under active development, and interfaces may change at any time.
 
 ## License
+
 This library is licensed under the Apache 2 license (see [LICENSE](LICENSE)). This library uses Sobol primitive polynomials and initial direction numbers
 which are licensed under the BSD license.
