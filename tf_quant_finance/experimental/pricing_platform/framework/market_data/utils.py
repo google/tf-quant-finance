@@ -17,8 +17,6 @@
 import functools
 from typing import Callable, Dict, Tuple, List, Union
 
-import tensorflow.compat.v2 as tf
-
 from tf_quant_finance import datetime as dateslib
 
 from tf_quant_finance.experimental.pricing_platform.framework.core import business_days
@@ -107,7 +105,7 @@ def period_from_list(period: Tuple[int, List[int]]
   amount = period[1]
   period_type = period_pb2.PeriodType.Name(period[0])
   return dateslib.PeriodTensor(
-      amount + tf.compat.v1.placeholder_with_default(0, []),
+      amount,
       dateslib.PeriodType[period_type])
 
 
@@ -125,14 +123,14 @@ def period_from_dict(period: Dict[int, List[int]]
   amount = period["frequency"]
   period_type = period_pb2.PeriodType.Name(period["type"])
   return dateslib.PeriodTensor(
-      amount + tf.compat.v1.placeholder_with_default(0, []),
+      amount,
       dateslib.PeriodType[period_type])
 
 
 def get_period(period: period_pb2.Period) -> dateslib.PeriodTensor:
   period_type = period_pb2.PeriodType.Name(period.type)
   return dateslib.PeriodTensor(
-      period.amount + tf.compat.v1.placeholder_with_default(0, []),
+      period.amount,
       dateslib.PeriodType[period_type])
 
 

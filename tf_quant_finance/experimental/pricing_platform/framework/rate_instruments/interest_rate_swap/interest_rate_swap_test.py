@@ -14,6 +14,7 @@
 # limitations under the License.
 """Tests for insterest rate swap."""
 
+from absl.testing import parameterized
 import numpy as np
 import tensorflow.compat.v2 as tf
 
@@ -46,7 +47,7 @@ Currency = currencies.Currency
 
 
 @test_util.run_all_in_graph_and_eager_modes
-class InterestRateSwapTest(tf.test.TestCase):
+class InterestRateSwapTest(tf.test.TestCase, parameterized.TestCase):
 
   def setUp(self):
     self._swap_1 = ir_swap.InterestRateSwap(
@@ -196,6 +197,52 @@ class InterestRateSwapTest(tf.test.TestCase):
     price1 = swaps.price(market)
     expected1 = np.array([7655.98694587, 6569.04475892, 7655.98694587])
     self.assertAllClose(price1, expected1)
+
+  @parameterized.named_parameters({
+      "testcase_name": "no_fixigns",
+      "past_fixing": 0.0,
+      "expecter_res": [-0.7533],
+  }, {
+      "testcase_name": "with_fixigns",
+      "past_fixing": 0.1,
+      "expecter_res": [251.8048],
+  })
+  def test_swap_constructor(self, past_fixing, expecter_res):
+    fixed_coupon = rate_instruments.coupon_specs.FixedCouponSpecs(
+        currency=currencies.Currency.USD,
+        coupon_frequency=tff.datetime.months(3),
+        notional_amount=10000,
+        fixed_rate=0.03,
+        daycount_convention=daycount_conventions.DayCountConventions.ACTUAL_360,
+        businessday_rule=business_days.BusinessDayConvention.FOLLOWING,
+        settlement_days=2,
+        calendar=business_days.BankHolidays.US)
+    float_coupon = rate_instruments.coupon_specs.FloatCouponSpecs(
+        currency=currencies.Currency.USD,
+        coupon_frequency=tff.datetime.months(3),
+        reset_frequency=tff.datetime.months(3),
+        notional_amount=10000,
+        floating_rate_type=framework.core.rate_indices.RateIndex(
+            type="LIBOR_3M"),
+        daycount_convention=daycount_conventions.DayCountConventions.ACTUAL_360,
+        businessday_rule=business_days.BusinessDayConvention.FOLLOWING,
+        settlement_days=2,
+        spread=0.0,
+        calendar=business_days.BankHolidays.US)
+    schedule = tff.datetime.PeriodicSchedule(
+        start_date=tff.datetime.dates_from_tensor([2019, 1, 1]),
+        end_date=tff.datetime.dates_from_tensor([2021, 1, 1]),
+        tenor=tff.datetime.months(3)).dates()
+    swap = interest_rate_swap.InterestRateSwap(
+        pay_leg=fixed_coupon,
+        receive_leg=float_coupon,
+        pay_leg_schedule=schedule,
+        receive_leg_schedule=schedule,
+        config=interest_rate_swap.InterestRateSwapConfig(
+            past_fixing=past_fixing))
+    market = market_data.MarketDataDict(self._market_data_dict)
+    price = swap.price(market)
+    self.assertAllClose(price, expecter_res, rtol=1e-4, atol=1e-4)
 
 if __name__ == "__main__":
   tf.test.main()

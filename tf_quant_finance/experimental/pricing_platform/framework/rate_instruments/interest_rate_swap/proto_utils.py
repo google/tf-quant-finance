@@ -126,7 +126,7 @@ def floating_leg_tensor_repr(leg, config, dtype):
   coupon_spec["currency"] = [curve.currency for curve in discount_curve_type]
   coupon_spec["daycount_convention"] = leg.daycount_convention
   coupon_spec["businessday_rule"] = leg.businessday_rule
-  coupon_spec["floating_rate_type"] = rate_index_curves
+  coupon_spec["floating_rate_type"] = floating_rate_type
   coupon_spec["spread"] = tf.convert_to_tensor(
       leg.spread, dtype=dtype)
   res["coupon_spec"] = coupon_spec

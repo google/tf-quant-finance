@@ -38,7 +38,7 @@ class InterestRateSwapConfig:
   discounting_curve: Dict[
       types.CurrencyProtoType,
       curve_types_lib.CurveType] = dataclasses.field(default_factory=dict)
-  model: str = ""
+  past_fixing: types.FloatTensor = None
 
 
 class InterestRateSwap(instrument.Instrument):
@@ -138,12 +138,15 @@ class InterestRateSwap(instrument.Instrument):
   """
 
   def __init__(self,
-               start_date: Union[dateslib.DateTensor, List[List[int]]],
-               maturity_date: Union[dateslib.DateTensor, List[List[int]]],
+               *,
                pay_leg: Union[coupon_specs.FixedCouponSpecs,
-                              coupon_specs.FloatCouponSpecs],
+                              coupon_specs.FloatCouponSpecs,
+                              Dict[str, Any]],
                receive_leg: Union[coupon_specs.FixedCouponSpecs,
-                                  coupon_specs.FloatCouponSpecs],
+                                  coupon_specs.FloatCouponSpecs,
+                                  Dict[str, Any]],
+               start_date: types.DateTensor = None,
+               maturity_date: types.DateTensor = None,
                pay_leg_schedule_fn=None,
                pay_leg_schedule=None,
                receive_leg_schedule_fn=None,
@@ -155,15 +158,19 @@ class InterestRateSwap(instrument.Instrument):
     """Initializes a batch of IRS contracts.
 
     Args:
+      pay_leg: An instance of `FixedCouponSpecs` or `FloatCouponSpecs`, or
+        a dictionary specifying the coupon payments for the payment leg of the
+        swap.
+      receive_leg: An instance of `FixedCouponSpecs` or `FloatCouponSpecs`, or
+        a dictionary specifying the coupon payments for the receiving leg of th
+        swap.
       start_date: A `DateTensor` of `batch_shape` specifying the dates for the
         inception (start of the accrual) of the swap contracts. `batch_shape`
-        corresponds to the number of instruments being created.
+        corresponds to the number of instruments being created. Either this
+        or `pay_leg_schedule` and `receive_leg_schedule` should be provided.
       maturity_date: A `DateTensor` broadcastable with `start_date` specifying
-        the maturity dates for each contract.
-      pay_leg: An instance of `FixedCouponSpecs` or `FloatCouponSpecs`
-        specifying the coupon payments for the payment leg of the swap.
-      receive_leg: An instance of `FixedCouponSpecs` or `FloatCouponSpecs`
-        specifying the coupon payments for the receiving leg of the swap.
+        the maturity dates for each contract. Either this
+        or `pay_leg_schedule` and `receive_leg_schedule` should be provided.
       pay_leg_schedule_fn:  A callable that accepts `start_date`, `end_date`,
         `coupon_frequency`, `settlement_days`, `first_coupon_date`, and
         `penultimate_coupon_date` as `Tensor`s and returns coupon payment
@@ -199,7 +206,6 @@ class InterestRateSwap(instrument.Instrument):
       else:
         self._names = None
       self._dtype = dtype or tf.float64
-      self._model = None  # Ignore
 
       self._config = _process_config(config)
       if isinstance(pay_leg, dict):
@@ -218,18 +224,24 @@ class InterestRateSwap(instrument.Instrument):
             # Default discounting is the risk free curve
             risk_free = curve_types_lib.RiskFreeCurve(currency=currency)
             self._discount_curve_type.append(risk_free)
-      if isinstance(start_date, tf.Tensor):
-        self._start_date = dateslib.dates_from_tensor(
-            start_date)
+      if start_date is not None:
+        if isinstance(start_date, tf.Tensor):
+          self._start_date = dateslib.dates_from_tensor(
+              start_date)
+        else:
+          self._start_date = dateslib.convert_to_date_tensor(
+              start_date)
       else:
-        self._start_date = dateslib.convert_to_date_tensor(
-            start_date)
-      if isinstance(start_date, tf.Tensor):
-        self._maturity_date = dateslib.dates_from_tensor(
-            maturity_date)
+        self._start_date = None
+      if maturity_date is not None:
+        if isinstance(maturity_date, tf.Tensor):
+          self._maturity_date = dateslib.dates_from_tensor(
+              maturity_date)
+        else:
+          self._maturity_date = dateslib.convert_to_date_tensor(
+              maturity_date)
       else:
-        self._maturity_date = dateslib.convert_to_date_tensor(
-            maturity_date)
+        self._maturity_date = None
       self._pay_leg_schedule_fn = pay_leg_schedule_fn
       self._receive_leg_schedule_fn = receive_leg_schedule_fn
       self._pay_leg_schedule = pay_leg_schedule
@@ -238,12 +250,14 @@ class InterestRateSwap(instrument.Instrument):
           self._start_date,
           self._maturity_date, self._discount_curve_type, pay_leg,
           self._pay_leg_schedule_fn,
-          self._pay_leg_schedule)
+          self._pay_leg_schedule,
+          past_fixing=self._config.past_fixing)
       self._receive_leg = _setup_leg(
           self._start_date,
           self._maturity_date, self._discount_curve_type, receive_leg,
           self._receive_leg_schedule_fn,
-          self._receive_leg_schedule)
+          self._receive_leg_schedule,
+          past_fixing=self._config.past_fixing)
       self._batch_shape = self._pay_leg.batch_shape
 
   @classmethod
@@ -495,7 +509,13 @@ class InterestRateSwap(instrument.Instrument):
 
 
 def _setup_leg(
-    start_date, end_date, discount_curve_type, leg, schedule_fn, schedule):
+    start_date,
+    end_date,
+    discount_curve_type,
+    leg,
+    schedule_fn,
+    schedule,
+    past_fixing):
   """Setup swap legs."""
   if isinstance(leg, coupon_specs.FixedCouponSpecs):
     return cashflow_streams.FixedCashflowStream(
@@ -514,6 +534,7 @@ def _setup_leg(
         schedule_fn=schedule_fn,
         schedule=schedule,
         discount_curve_type=discount_curve_type,
+        past_fixing=past_fixing,
         dtype=tf.float64)
   elif isinstance(leg, dict):
     coupon_spec = leg["coupon_spec"]
@@ -540,6 +561,7 @@ def _setup_leg(
           discount_curve_mask=leg["discount_curve_mask"],
           reference_mask=leg["reference_mask"],
           rate_index_curves=leg["rate_index_curves"],
+          past_fixing=past_fixing,
           dtype=tf.float64)
   else:
     raise ValueError(f"Unknown leg type {type(leg)}")
@@ -553,15 +575,13 @@ def _process_config(
     return InterestRateSwapConfig()
   if isinstance(config, InterestRateSwapConfig):
     return config
-  def _get_value(config, key, default_value):
-    if key in config:
-      return config[key]
-    else:
-      return default_value
-  model = _get_value(config, "model", "")
-  discounting_curve = _get_value(config, "discounting_curve", dict())
-  return InterestRateSwapConfig(discounting_curve=discounting_curve,
-                                model=model)
+  if isinstance(config, dict):
+    past_fixing = config.get("past_fixing", None)
+    discounting_curve = config.get("discounting_curve", dict())
+    return InterestRateSwapConfig(discounting_curve=discounting_curve,
+                                  past_fixing=past_fixing)
+  else:
+    raise ValueError("Unknown type for InterestRateSwap `config`.")
 
 
 __all__ = ["InterestRateSwapConfig", "InterestRateSwap"]

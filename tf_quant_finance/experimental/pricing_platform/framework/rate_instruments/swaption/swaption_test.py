@@ -148,10 +148,10 @@ class SwaptionTest(tf.test.TestCase, parameterized.TestCase):
   )
   def test_swaption_correctness(self, dtype):
     swap = rates_instruments.interest_rate_swap.InterestRateSwap(
-        self._start_date,
-        self._maturity_date,
-        self._fix_spec,
-        self._flt_spec,
+        start_date=self._start_date,
+        maturity_date=self._maturity_date,
+        pay_leg=self._fix_spec,
+        receive_leg=self._flt_spec,
         dtype=dtype)
     swaption = rates_instruments.swaption.Swaption(
         swap, self._expiry_date, config=self._swaption_config,
@@ -164,10 +164,10 @@ class SwaptionTest(tf.test.TestCase, parameterized.TestCase):
   )
   def test_swaption_correctness_batch(self, dtype):
     swap = rates_instruments.interest_rate_swap.InterestRateSwap(
-        self._start_date_batch,
-        self._maturity_date_batch,
-        self._fix_spec,
-        self._flt_spec,
+        start_date=self._start_date_batch,
+        maturity_date=self._maturity_date_batch,
+        pay_leg=self._fix_spec,
+        receive_leg=self._flt_spec,
         dtype=dtype)
     swaption = rates_instruments.swaption.Swaption(
         swap, self._expiry_date_batch, config=self._swaption_config,

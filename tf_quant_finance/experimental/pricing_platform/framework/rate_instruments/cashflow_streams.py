@@ -38,7 +38,7 @@ class FixedCashflowStream:
 
   def __init__(self,
                coupon_spec: coupon_specs.FixedCouponSpecs,
-               discount_curve_type: _CurveType,
+               discount_curve_type: Union[_CurveType, List[_CurveType]],
                start_date: types.DateTensor = None,
                end_date: types.DateTensor = None,
                discount_curve_mask: types.IntTensor = None,
@@ -171,9 +171,7 @@ class FixedCashflowStream:
       fixed_rate = tf.convert_to_tensor(_get_attr(coupon_spec, "fixed_rate"),
                                         dtype=self._dtype,
                                         name="fixed_rate")
-      # TODO(b/160446193): Calendar is ignored and weekends only is used
-      calendar = dateslib.create_holiday_calendar(
-          weekend_mask=dateslib.WeekendMask.SATURDAY_SUNDAY)
+
       daycount_fn = market_data_utils.get_daycount_fn(
           _get_attr(coupon_spec, "daycount_convention"), self._dtype)
 
@@ -183,13 +181,17 @@ class FixedCashflowStream:
           name="settlement_days")
 
       if schedule is not None:
-        if isinstance(start_date, tf.Tensor):
+        if isinstance(schedule, tf.Tensor):
           coupon_dates = dateslib.dates_from_tensor(schedule)
         else:
           coupon_dates = dateslib.convert_to_date_tensor(schedule)
         # Extract starting date for the cashflow
         self._start_date = coupon_dates[..., 0]
       elif schedule_fn is None:
+        # TODO(b/160446193): Calendar is ignored and weekends only is used
+        calendar = dateslib.create_holiday_calendar(
+            weekend_mask=dateslib.WeekendMask.SATURDAY_SUNDAY)
+        self._calendar = calendar
         coupon_dates = _generate_schedule(
             start_date=self._start_date,
             end_date=self._end_date,
@@ -214,7 +216,6 @@ class FixedCashflowStream:
               settlement_days=self._settlement_days,
               first_coupon_date=first_coupon_date,
               penultimate_coupon_date=penultimate_coupon_date)
-
       # Convert to DateTensor if the result comes from a tf.function
       coupon_dates = dateslib.convert_to_date_tensor(coupon_dates)
 
@@ -232,7 +233,6 @@ class FixedCashflowStream:
       self._notional = notional
       self._daycount_fractions = daycount_fractions
       self._coupon_rate = coupon_rate
-      self._calendar = coupon_rate
       self._fixed_rate = tf.convert_to_tensor(fixed_rate, dtype=self._dtype)
       self._daycount_fn = daycount_fn
 
@@ -322,16 +322,19 @@ class FloatingCashflowStream:
 
   def __init__(self,
                coupon_spec: coupon_specs.FloatCouponSpecs,
-               discount_curve_type: _CurveType,
+               discount_curve_type: Union[_CurveType, List[_CurveType]],
                start_date: types.DateTensor = None,
                end_date: types.DateTensor = None,
                discount_curve_mask: types.IntTensor = None,
-               rate_index_curves: curve_types_lib.RateIndexCurve = None,
+               rate_index_curves: Union[
+                   curve_types_lib.RateIndexCurve,
+                   List[curve_types_lib.RateIndexCurve]] = None,
                reference_mask: types.IntTensor = None,
                first_coupon_date: Optional[types.DateTensor] = None,
                penultimate_coupon_date: Optional[types.DateTensor] = None,
                schedule_fn: Optional[Callable[..., Any]] = None,
                schedule: Optional[types.DateTensor] = None,
+               past_fixing: Optional[types.FloatTensor] = None,
                dtype: Optional[types.Dtype] = None,
                name: Optional[str] = None):
     """Initializes a batch of floating cashflow streams.
@@ -396,6 +399,9 @@ class FloatingCashflowStream:
       schedule: A `DateTensor` of coupon payment dates including the start and
         end dates of the cashflows.
         Default value: `None`.
+      past_fixing: An optional `Tensor` of shape compatible with
+        `batch_shape + [1]`. Represents the fixings for the cashflows as
+        observed at `market.date`.
       dtype: `tf.Dtype` of the input and output real `Tensor`s.
         Default value: None which maps to the default dtype inferred by
         TensorFlow.
@@ -446,9 +452,6 @@ class FloatingCashflowStream:
           else:
             self._penultimate_coupon_date = dateslib.convert_to_date_tensor(
                 penultimate_coupon_date)
-      # Ignored and weekends only is used
-      calendar = dateslib.create_holiday_calendar(
-          weekend_mask=dateslib.WeekendMask.SATURDAY_SUNDAY)
       # Convert coupon and reset frequencies to PeriodTensor
       coupon_frequency = _get_attr(coupon_spec, "coupon_frequency")
       # Update coupon frequency
@@ -496,13 +499,17 @@ class FloatingCashflowStream:
                                     dtype=self._dtype,
                                     name="spread")
       if schedule is not None:
-        if isinstance(start_date, tf.Tensor):
+        if isinstance(schedule, tf.Tensor):
           coupon_dates = dateslib.dates_from_tensor(schedule)
         else:
           coupon_dates = dateslib.convert_to_date_tensor(schedule)
         # Extract starting date for the cashflow
         self._start_date = coupon_dates[..., 0]
       elif schedule_fn is None:
+        # TODO(b/160446193): Calendar is ignored and weekends only is used
+        calendar = dateslib.create_holiday_calendar(
+            weekend_mask=dateslib.WeekendMask.SATURDAY_SUNDAY)
+        self._calendar = calendar
         coupon_dates = _generate_schedule(
             start_date=self._start_date,
             end_date=self._end_date,
@@ -574,6 +581,7 @@ class FloatingCashflowStream:
           self._reference_curve_type,
           self._reference_mask
       ] = process_curve_types(rate_index_curves, reference_mask)
+      self._past_fixing = past_fixing
 
   def daycount_fn(self) -> Callable[..., Any]:
     return self._daycount_fn
@@ -612,12 +620,16 @@ class FloatingCashflowStream:
 
   def forward_rates(self,
                     market: pmd.ProcessedMarketData,
+                    past_fixing: Optional[types.FloatTensor] = None,
                     name: Optional[str] = None
                     ) -> Tuple[types.DateTensor, types.FloatTensor]:
     """Returns forward rates for the floating leg.
 
     Args:
       market: An instance of `ProcessedMarketData`.
+      past_fixing: An optional `Tensor` of shape compatible with
+        `batch_shape + [1]`. Represents the fixings for the cashflows as
+        observed at `market.date`.
       name: Python str. The name to give to the ops created by this function.
         Default value: `None` which maps to 'forward_rates'.
 
@@ -654,13 +666,16 @@ class FloatingCashflowStream:
       fixing_dates = dateslib.dates_from_ordinals(fixing_dates_ord)
       fixing_end_dates = dateslib.dates_from_ordinals(fixing_end_dates_ord)
       # Get fixings. Shape batch_shape + [1]
-      past_fixing = _get_fixings(
-          fixing_dates,
-          fixing_end_dates,
-          self._reference_curve_type,
-          self._reference_mask,
-          market)
-      print("past_fixing: ", past_fixing)
+      if past_fixing is None:
+        past_fixing = _get_fixings(
+            fixing_dates,
+            fixing_end_dates,
+            self._reference_curve_type,
+            self._reference_mask,
+            market)
+      else:
+        past_fixing = tf.convert_to_tensor(past_fixing, dtype=self._dtype,
+                                           name="past_fixing")
       forward_rates = reference_curve.forward_rate(
           self._accrual_start_date,
           self._accrual_end_date,
@@ -682,12 +697,16 @@ class FloatingCashflowStream:
 
   def cashflows(self,
                 market: pmd.ProcessedMarketData,
+                past_fixing: Optional[types.FloatTensor] = None,
                 name: Optional[str] = None
                 ) -> Tuple[types.DateTensor, types.FloatTensor]:
     """Returns cashflows for the floating leg.
 
     Args:
       market: An instance of `ProcessedMarketData`.
+      past_fixing: An optional `Tensor` of shape compatible with
+        `batch_shape + [1]`. Represents the fixings for the cashflows as
+        observed at `market.date`.
       name: Python str. The name to give to the ops created by this function.
         Default value: `None` which maps to 'cashflows'.
 
@@ -698,7 +717,7 @@ class FloatingCashflowStream:
     """
     name = name or (self._name + "_cashflows")
     with tf.name_scope(name):
-      _, forward_rates = self.forward_rates(market)
+      _, forward_rates = self.forward_rates(market, past_fixing=past_fixing)
 
       coupon_rate = forward_rates + tf.expand_dims(
           self._spread, axis=-1)
@@ -729,7 +748,7 @@ class FloatingCashflowStream:
       discount_curve = get_discount_curve(
           self._discount_curve_type, market, self._mask)
       discount_factors = discount_curve.discount_factor(self._coupon_end_dates)
-      _, cashflows = self.cashflows(market)
+      _, cashflows = self.cashflows(market, past_fixing=self._past_fixing)
       # Cashflows present values
       cashflow_pvs = cashflows * discount_factors
       return tf.math.reduce_sum(cashflow_pvs, axis=1)
