@@ -1,5 +1,5 @@
 # Lint as: python3
-# Copyright 2020 Google LLC
+# Copyright 2021 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,11 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
   where `W(t)` is a 1D Brownian motion, `mu(t)` and `sigma(t)` are either
   constant `Tensor`s or piecewise constant functions of time.
 
+  Supports batching which enables modelling multiple univariate geometric
+  brownian motions (GBMs) efficiently. No guarantee is made about the
+  relationships between the batched univariate GMBs. To control the correlation
+  between multiple GBMs use `MultivariateGeometricBrownianMotion`.
+
   ## Example
 
   ```python
@@ -67,11 +72,16 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
     """Initializes the Geometric Brownian Motion.
 
     Args:
-      mu: Scalar real `Tensor` or an instance of batch-free left-continuous
-        `PiecewiseConstantFunc`. Corresponds to the mean of the Ito process.
-      sigma: Scalar real `Tensor` or an instance of batch-free left-continuous
-        `PiecewiseConstantFunc` of the same `dtype` as `mu`. Corresponds to
-        the volatility of the process and should be positive.
+      mu: Scalar real `Tensor` broadcastable to [`batch_shape`, 1] or an
+        instance of left-continuous `PiecewiseConstantFunc` with
+        [`batch_shape`, 1] dimensions. Where `batch_shape` is the larger of
+        `mu.shape` and `sigma.shape`. Corresponds to the mean drift of the Ito
+         process.
+      sigma: Scalar real `Tensor` broadcastable to [`batch_shape`, 1] or an
+        instance of left-continuous `PiecewiseConstantFunc` of the same `dtype`
+        and `batch_shape` as set by `mu`. Where `batch_shape` is the larger of
+        `mu.shape` and `sigma.shape`. Corresponds to the volatility of the
+        process and should be positive.
       dtype: The default dtype to use when converting values to `Tensor`s.
         Default value: `None` which means that default dtypes inferred by
           TensorFlow are used.
@@ -152,12 +162,16 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
                    name=None):
     """Returns a sample of paths from the process.
 
+    If `mu` and `sigma` were specified with batch dimensions the sample paths
+    will be generated for all batch dimensions for the specified `times` using
+    a single set of random draws.
+
     Args:
       times: Rank 1 `Tensor` of positive real values. The times at which the
         path points are to be evaluated.
       initial_state: A `Tensor` of the same `dtype` as `times` and of shape
-        broadcastable with `[num_samples]`. Represents the initial state of the
-        Ito process.
+        broadcastable to `[batch_shape, num_samples]`. Represents the initial
+        state of the Ito process.
       Default value: `None` which maps to a initial state of ones.
       num_samples: Positive scalar `int`. The number of paths to draw.
       random_type: Enum value of `RandomType`. The type of (quasi)-random
@@ -187,8 +201,8 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
         Default value: `sample_paths`.
 
     Returns:
-      A `Tensor`s of shape [num_samples, k, 1] where `k` is the size
-      of the `times`.
+      A `Tensor`s of shape [batch_shape, num_samples, k, 1] where `k` is the
+      size of the `times`.
 
     Raises:
       ValueError: If `normal_draws` is supplied and `1` is not `1`.
@@ -200,13 +214,12 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
         normal_draws = tf.convert_to_tensor(normal_draws, dtype=self._dtype,
                                             name="normal_draws")
       if initial_state is None:
-        initial_state = tf.zeros([num_samples, 1], dtype=self._dtype,
+        initial_state = tf.zeros([1], dtype=self._dtype,
                                  name="initial_state")
       else:
-        initial_state = (
-            tf.convert_to_tensor(initial_state, dtype=self._dtype,
-                                 name="initial_state")
-            + tf.zeros([num_samples, 1], dtype=self._dtype))
+        initial_state = tf.convert_to_tensor(
+            initial_state, dtype=self._dtype, name="initial_state")
+
       num_requested_times = times.shape[0]
       return self._sample_paths(
           times=times, num_requested_times=num_requested_times,
@@ -216,11 +229,11 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
           normal_draws=normal_draws)
 
   def _integrate_parameter(self, x, x_is_constant, t0, t1, name=None):
-    """Returns the integral of x(t).dt over the interval [t0,t1].
+    """Returns the integral of x(t).dt over the interval [t0, t1].
 
     Args:
-      x: Scalar real `Tensor` or an instance of batch-free left-continuous
-        `PiecewiseConstantFunc`. The function to be integrated.
+      x: Scalar real `Tensor` of shape [batch_shape] or an instance of a
+        left-continuous `PiecewiseConstantFunc`. The function to be integrated.
       x_is_constant: 'bool' which is True if x is a Scalar real `Tensor`.
       t0: A rank 1 `Tensor` of the start times of the intervals.
       t1: A rank 1 `Tensor` with the same length as t0 of the end times for the
@@ -228,7 +241,8 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
       name: Str. The name to give this op.
 
     Returns:
-      A rank 1 `Tensor` with the integrals over the intervals [t0, t1].
+      A `Tensor` of shape [batch_shape] with the integrals of x over the
+      intervals [t0, t1].
     """
     return x * (t1 - t0) if x_is_constant else x.integrate(t0, t1, name)
 
@@ -262,11 +276,18 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
                                             self._mu_is_constant,
                                             times[:-1],
                                             times[1:])
+    # mu_integral has shape [batch_shape, k-1], where self._mu has shape
+    # [batch_shape, 1] and times has shape [k].
+    mu_integral = tf.expand_dims(mu_integral, -2)
     sigma_sq_integral = self._integrate_parameter(self._sigma_squared,
                                                   self._sigma_is_constant,
-                                                  times[:-1],
-                                                  times[1:])
+                                                  times[:-1], times[1:])
+    sigma_sq_integral = tf.expand_dims(sigma_sq_integral, -2)
+    # Giving mu_integral and sigma_sq_integral shape = [batch_shape, 1, k-1],
+    # where self._mu has shape [batch_shape, 1] and times has shape [k].
+
     # The logarithm of all the increments between the times.
+
     log_increments = ((mu_integral - sigma_sq_integral / 2)
                       + tf.sqrt(sigma_sq_integral)
                       * tf.transpose(tf.squeeze(normal_draws, -1)))
@@ -277,7 +298,8 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
     lower_triangular = tf.linalg.band_part(once, -1, 0)
     cumsum = tf.linalg.matvec(lower_triangular,
                               log_increments)
-    samples = initial_state * tf.math.exp(cumsum)
+
+    samples = tf.expand_dims(initial_state, [-1]) * tf.math.exp(cumsum)
     return tf.expand_dims(samples, -1)
 
   def _sigma_squared_from_sigma(self, sigma, sigma_is_constant, dtype=None,

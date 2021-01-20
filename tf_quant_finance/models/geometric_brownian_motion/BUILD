@@ -14,6 +14,16 @@ py_library(
 )
 
 py_library(
+    name = "geometric_brownian_motion_test_utils",
+    srcs = ["geometric_brownian_motion_test_utils.py"],
+    deps = [
+        "//tf_quant_finance/models:utils",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
     name = "univariate_geometric_brownian_motion",
     srcs = ["univariate_geometric_brownian_motion.py"],
     deps = [
@@ -44,11 +54,30 @@ py_test(
     shard_count = 8,
     deps = [
         ":geometric_brownian_motion",
+        ":geometric_brownian_motion_test_utils",
         "//tf_quant_finance",
         # test util,
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
         # xla_cpu_jit xla dep,
+    ],
+)
+
+py_test(
+    name = "geometric_brownian_motion_test_utils_test",
+    size = "medium",
+    timeout = "moderate",
+    srcs = ["geometric_brownian_motion_test_utils_test.py"],
+    python_version = "PY3",
+    shard_count = 8,
+    deps = [
+        ":geometric_brownian_motion",
+        ":geometric_brownian_motion_test_utils",
+        "//tf_quant_finance",
+        # test util,
+        # absl/testing:parameterized dep,
+        # numpy dep,
+        # tensorflow dep,
     ],
 )
