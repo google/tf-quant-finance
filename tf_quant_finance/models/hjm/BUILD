@@ -11,6 +11,7 @@ py_library(
     deps = [
         ":cap_floor",
         ":quasi_gaussian_hjm",
+        ":swaption_pricing",
         ":zero_coupon_bond_option",
     ],
 )
@@ -94,6 +95,39 @@ py_test(
     size = "medium",
     timeout = "moderate",
     srcs = ["cap_floor_test.py"],
+    python_version = "PY3",
+    shard_count = 8,
+    deps = [
+        "//tf_quant_finance",
+        # test util,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "swaption_util",
+    srcs = ["swaption_util.py"],
+    deps = [
+        "//tf_quant_finance/models:utils",
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "swaption_pricing",
+    srcs = ["swaption_pricing.py"],
+    deps = [
+        ":quasi_gaussian_hjm",
+        ":swaption_util",
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "swaption_pricing_test",
+    timeout = "long",
+    srcs = ["swaption_pricing_test.py"],
     python_version = "PY3",
     shard_count = 8,
     deps = [

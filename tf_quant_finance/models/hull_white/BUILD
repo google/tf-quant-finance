@@ -113,6 +113,7 @@ py_library(
     deps = [
         ":vector_hull_white",
         ":zero_coupon_bond_option",
+        "//tf_quant_finance/models/hjm:swaption_util",
     ],
 )
 

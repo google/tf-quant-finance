@@ -20,6 +20,7 @@ from tf_quant_finance.math import pde
 from tf_quant_finance.math import root_search
 from tf_quant_finance.math.interpolation import linear
 from tf_quant_finance.models import utils
+from tf_quant_finance.models.hjm import swaption_util
 from tf_quant_finance.models.hull_white import vector_hull_white
 from tf_quant_finance.models.hull_white import zero_coupon_bond_option as zcb
 
@@ -585,7 +586,7 @@ def swaption_price(*,
       Corresponds to the mean reversion rate.
     volatility: A real positive `Tensor` of the same `dtype` as
       `mean_reversion` or a callable with the same specs as above.
-      Corresponds to the lond run price variance.
+      Corresponds to the long run price variance.
     notional: An optional `Tensor` of same dtype and compatible shape as
       `strikes`specifying the notional amount for the underlying swap.
        Default value: None in which case the notional is set to 1.
@@ -686,6 +687,10 @@ def swaption_price(*,
                                  is_payer_swaption, output_shape, dtype,
                                  name + '_analytic_valuation')
 
+    if time_step is None:
+      raise ValueError('`time_step` must be provided for simulation '
+                       'based bond option valuation.')
+
     # Monte-Carlo pricing
     model = vector_hull_white.VectorHullWhiteModel(
         dim,
@@ -694,70 +699,23 @@ def swaption_price(*,
         initial_discount_rate_fn=reference_rate_fn,
         dtype=dtype)
 
-    if time_step is None:
-      raise ValueError('`time_step` must be provided for simulation '
-                       'based bond option valuation.')
+    def _sample_discount_curve_path_fn(times, curve_times, num_samples):
+      return model.sample_discount_curve_paths(
+          times=times,
+          curve_times=curve_times,
+          num_samples=num_samples,
+          random_type=random_type,
+          seed=seed,
+          skip=skip)
 
-    sim_times, _ = tf.unique(tf.reshape(expiries, shape=[-1]))
-    longest_expiry = tf.reduce_max(sim_times)
-    sim_times, _ = tf.unique(tf.concat([sim_times, tf.range(
-        time_step, longest_expiry, time_step)], axis=0))
-    sim_times = tf.sort(sim_times, name='sort_sim_times')
-
-    maturities = fixed_leg_payment_times
-    swaptionlet_shape = maturities.shape
-    tau = maturities - expiries
-
-    curve_times_builder, _ = tf.unique(tf.reshape(tau, shape=[-1]))
-    curve_times = tf.sort(curve_times_builder, name='sort_curve_times')
-
-    p_t_tau, r_t = model.sample_discount_curve_paths(
-        times=sim_times,
-        curve_times=curve_times,
-        num_samples=num_samples,
-        random_type=random_type,
-        seed=seed,
-        skip=skip)
-
-    dt = tf.concat(
-        [tf.convert_to_tensor([0.0], dtype=dtype),
-         sim_times[1:] - sim_times[:-1]], axis=0)
-    dt = tf.expand_dims(tf.expand_dims(dt, axis=-1), axis=0)
-    discount_factors_builder = tf.math.exp(-r_t * dt)
-    # Transpose before (and after) because we want the cumprod along axis=1
-    # and `matvec` operates on the last axis.
-    discount_factors_builder = tf.transpose(
-        utils.cumprod_using_matvec(
-            tf.transpose(discount_factors_builder, [0, 2, 1])), [0, 2, 1])
-
-    # make discount factors the same shape as `p_t_tau`. This involves adding
-    # an extra dimenstion (corresponding to `curve_times`).
-    discount_factors_builder = tf.expand_dims(
-        discount_factors_builder,
-        axis=1)
-    # tf.repeat is needed because we will use gather_nd later on this tensor.
-    discount_factors_simulated = tf.repeat(
-        discount_factors_builder, tf.shape(p_t_tau)[1], axis=1)
-
-    # `sim_times` and `curve_times` are sorted for simulation. We need to
-    # select the indices corresponding to our input.
-    sim_time_index = tf.searchsorted(sim_times, tf.reshape(expiries, [-1]))
-    curve_time_index = tf.searchsorted(curve_times, tf.reshape(tau, [-1]))
-
-    gather_index = _prepare_indices_ijjk(
-        tf.range(0, num_samples), curve_time_index, sim_time_index,
-        tf.range(0, dim))
-
-    # The shape after `gather_nd` will be `(num_samples*num_swaptionlets*dim,)`
-    payoff_discount_factors_builder = tf.gather_nd(
-        discount_factors_simulated, gather_index)
-    # Reshape to `[num_samples] + swaptionlet.shape + [dim]`
-    payoff_discount_factors = tf.reshape(
-        payoff_discount_factors_builder,
-        [num_samples] + swaptionlet_shape + [dim])
-    payoff_bond_price_builder = tf.gather_nd(p_t_tau, gather_index)
-    payoff_bond_price = tf.reshape(
-        payoff_bond_price_builder, [num_samples] + swaptionlet_shape + [dim])
+    payoff_discount_factors, payoff_bond_price = (
+        swaption_util.discount_factors_and_bond_prices_from_samples(
+            expiries=expiries,
+            payment_times=fixed_leg_payment_times,
+            sample_discount_curve_paths_fn=_sample_discount_curve_path_fn,
+            num_samples=num_samples,
+            time_step=time_step,
+            dtype=dtype))
 
     # Add an axis corresponding to `dim`
     fixed_leg_pv = tf.expand_dims(
@@ -942,7 +900,7 @@ def bermudan_swaption_price(*,
       Corresponds to the mean reversion rate.
     volatility: A real positive `Tensor` of the same `dtype` as
       `mean_reversion` or a callable with the same specs as above.
-      Corresponds to the lond run price variance.
+      Corresponds to the long run price variance.
     notional: An optional `Tensor` of same dtype and compatible shape as
       `strikes`specifying the notional amount for the underlying swap.
        Default value: None in which case the notional is set to 1.

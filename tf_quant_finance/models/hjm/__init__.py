@@ -16,10 +16,18 @@
 
 from tf_quant_finance.models.hjm.cap_floor import cap_floor_price
 from tf_quant_finance.models.hjm.quasi_gaussian_hjm import QuasiGaussianHJM
+from tf_quant_finance.models.hjm.swaption_pricing import price as swaption_price
 from tf_quant_finance.models.hjm.zero_coupon_bond_option import bond_option_price
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
-_allowed_symbols = ['QuasiGaussianHJM', 'bond_option_price', 'cap_floor_price']
+# pyformat: disable
+_allowed_symbols = [
+    'QuasiGaussianHJM',
+    'bond_option_price',
+    'cap_floor_price',
+    'swaption_price'
+]
+# pyformat: enable
 
 remove_undocumented(__name__, _allowed_symbols)
