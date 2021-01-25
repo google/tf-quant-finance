@@ -182,7 +182,6 @@ def european_option_price(*,
     sigmas = tf.convert_to_tensor(sigmas, dtype=dtype, name='sigmas')
     rhos = tf.convert_to_tensor(rhos, dtype=dtype, name='rhos')
     variances = tf.convert_to_tensor(variances, dtype=dtype, name='variances')
-    forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
 
     if discount_factors is not None:
       discount_factors = tf.convert_to_tensor(

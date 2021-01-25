@@ -55,22 +55,35 @@ class HestonPriceTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.named_parameters(
       {
-          'testcase_name': 'DoublePrecision',
+          'testcase_name': 'DoublePrecisionUseForwards',
+          'use_forwards': True,
           'dtype': np.float64,
       },
       {
-          'testcase_name': 'SinglePrecision',
+          'testcase_name': 'DoublePrecisionUseSpots',
+          'use_forwards': False,
+          'dtype': np.float64,
+      },
+      {
+          'testcase_name': 'SinglePrecisionUseForwards',
+          'use_forwards': True,
           'dtype': np.float32,
       })
-  def test_heston_price(self, dtype):
+  def test_heston_price(self, dtype, use_forwards):
     kappas = np.array([0.1, 10.0], dtype=dtype)
     thetas = np.array([0.1, 0.5], dtype=dtype)
     variances = np.array([0.1, 0.5], dtype=dtype)
+    discount_factors = np.array([0.99, 0.98], dtype=dtype)
+    expiries = np.array([1.0], dtype=dtype)
     forwards = np.array([10.0], dtype=dtype)
+    if use_forwards:
+      spots = None
+    else:
+      spots = forwards * discount_factors
+      forwards = None
     sigmas = np.array([1.0, 0.9], dtype=dtype)
     strikes = np.array([9.7, 10.0], dtype=dtype)
-    expiries = np.array([1.0], dtype=dtype)
-    discount_factors = np.array([0.99, 0.98], dtype=dtype)
+
     rhos = np.array([0.5, 0.1], dtype=dtype)
 
     tff_prices = self.evaluate(
@@ -81,6 +94,7 @@ class HestonPriceTest(parameterized.TestCase, tf.test.TestCase):
             rhos=rhos,
             variances=variances,
             forwards=forwards,
+            spots=spots,
             expiries=expiries,
             strikes=strikes,
             discount_factors=discount_factors,
@@ -90,7 +104,6 @@ class HestonPriceTest(parameterized.TestCase, tf.test.TestCase):
     np.testing.assert_allclose(
         tff_prices,
         scipy_prices, rtol=1e-5, atol=1e-5)
-
 
 if __name__ == '__main__':
   tf.test.main()
