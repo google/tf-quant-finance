@@ -463,12 +463,11 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
     # 4. Compute the loss (which is being minized) as the weighted root mean
     #   squared difference between the model PV (computed above) and the market
     #   PV (specified as input).
-
     rates_start = _interpolate(float_leg_calc_times_start, expiry_times, x)
     rates_end = _interpolate(float_leg_calc_times_end, expiry_times, x)
     float_cashflows = (
-        tf.math.exp(float_leg_calc_times_end * rates_end) /
-        tf.math.exp(float_leg_calc_times_start * rates_start) - 1.)
+        tf.math.exp(float_leg_calc_times_end * rates_end -
+                    float_leg_calc_times_start * rates_start) - 1.)
 
     if self_discounting_float_leg:
       float_discount_rates = rates_end
@@ -499,14 +498,20 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
     calc_discounts_fixed_leg = (
         tf.math.exp(-fixed_discount_rates * fixed_leg_calc_times +
                     fixed_settle_rates * settle_times_fixed))
-
-    float_pv = tf.math.segment_sum(float_cashflows * calc_discounts_float_leg,
-                                   calc_groups_float)
-    fixed_pv = tf.math.segment_sum(
+    # Fast segment sum on `calc_discounts_float_leg` groups
+    # TODO(b/178173737): use tf.math.segment_sum once a fast version is
+    # supported
+    float_pv = tf.linalg.matvec(
+        calc_groups_float,
+        float_cashflows * calc_discounts_float_leg)
+    # Fast segment sum on `calc_fixed_leg_cashflows` groups
+    # TODO(b/178173737): use tf.math.segment_sum once a fast version is
+    # supported
+    fixed_pv = tf.linalg.matvec(
+        calc_groups_fixed,
         calc_fixed_leg_daycount * calc_fixed_leg_cashflows *
-        calc_discounts_fixed_leg, calc_groups_fixed)
+        calc_discounts_fixed_leg)
     swap_pv = float_pv + fixed_pv
-
     value = tf.math.reduce_sum(input_tensor=instrument_weights *
                                (swap_pv - present_values)**2)
 
@@ -596,13 +601,28 @@ def _create_curve_building_tensors(float_leg_start_times,
                                       pv_settlement_times[i]))
 
   expiry_times = tf.stack(expiry_times, axis=0)
+  dtype = expiry_times.dtype
+  # Float let groups
+  num_groups_float = len(calc_groups_float)  # Number of instruments
   calc_groups_float = tf.concat(calc_groups_float, axis=0)
+  # Shape [num_groups_float, calc_groups_float.shape[0]]
+  calc_groups_float_mat = tf.transpose(
+      tf.one_hot(calc_groups_float,
+                 num_groups_float,
+                 dtype=dtype))
+  # Fixed leg groups
+  num_groups_fixed = len(calc_groups_fixed)
   calc_groups_fixed = tf.concat(calc_groups_fixed, axis=0)
+  # Shape [num_groups_fixed, calc_groups_fixed.shape[0]]
+  calc_groups_fixed_mat = tf.transpose(
+      tf.one_hot(calc_groups_fixed,
+                 num_groups_fixed,
+                 dtype=dtype))
   settle_times_float = tf.concat(settle_times_float, axis=0)
   settle_times_fixed = tf.concat(settle_times_fixed, axis=0)
 
   return CurveFittingVars(expiry_times=expiry_times,
-                          calc_groups_float=calc_groups_float,
-                          calc_groups_fixed=calc_groups_fixed,
+                          calc_groups_float=calc_groups_float_mat,
+                          calc_groups_fixed=calc_groups_fixed_mat,
                           settle_times_float=settle_times_float,
                           settle_times_fixed=settle_times_fixed)
