@@ -18,7 +18,7 @@ import tensorflow.compat.v2 as tf
 from tf_quant_finance.datetime import date_tensor
 
 
-def pad_tensors(tensors, dtype=None, name=None):
+def pad_tensors(tensors, pad_values=None, dtype=None, name=None):
   """Pads the innermost dimension of `Tensor`s to a common shape.
 
   Given a list of `Tensor`s of the same `dtype` and with shapes
@@ -26,7 +26,7 @@ def pad_tensors(tensors, dtype=None, name=None):
   `batch_shape_i + [max(n_i)]`. For each tensor `t`, the padding is done with
   values `t[..., -1]`.
 
-  ### Example
+  ### Example. Pad with the terminal value
   ```python
   x = [[1, 2, 3, 9], [2, 3, 5, 2]]
   y = [4, 5, 8]
@@ -34,9 +34,21 @@ def pad_tensors(tensors, dtype=None, name=None):
   # Expected: [array([[1, 2, 3, 9], [2, 3, 5, 2]], array([4, 5, 8, 8])]
   ```
 
+  ### Example. Pad with user-supplied values
+  ```python
+  x = [[1, 2, 3, 9], [2, 3, 5, 2]]
+  y = [4, 5, 8]
+  pad_tensors([x, y], pad_values=10)
+  # Expected: [array([[1, 2, 3, 9], [2, 3, 5, 2]], array([4, 5, 8, 10])]
+  ```
+
   Args:
     tensors: A list of tensors of the same `dtype` and shapes
       `batch_shape_i + [n_i]`.
+    pad_values: An optional scalar `Tensor` or a list of `Tensor`s of shapes
+      broadcastable with the corresponding `batch_shape_i` and the same
+      `dtype` as `pad_values`. Corresponds to the padded values used for
+      `tensors`.
     dtype: The default dtype to use when converting values to `Tensor`s.
       Default value: `None` which means that default dtypes inferred by
         TensorFlow are used.
@@ -60,17 +72,16 @@ def pad_tensors(tensors, dtype=None, name=None):
     tensors = [t0] + [tf.convert_to_tensor(t, dtype=dtype) for t in tensors[1:]]
     max_size = tf.reduce_max([tf.shape(t)[-1] for t in tensors])
     padded_tensors = []
-
-    for t in tensors:
+    pad_values = _prepare_pad_values(pad_values, tensors, dtype)
+    for pad_value, t in zip(pad_values, tensors):
       paddings = (
           (t.shape.rank - 1) * [[0, 0]] + [[0, max_size - tf.shape(t)[-1]]])
       # Padded value has to be a constant
       constant_values = tf.reduce_min(t) - 1
       pad_t = tf.pad(t, paddings, mode="CONSTANT",
                      constant_values=constant_values)
-      # Correct padded value
       pad_t = tf.where(pad_t > constant_values,
-                       pad_t, tf.expand_dims(t[..., -1], axis=-1))
+                       pad_t, pad_value)
       padded_tensors.append(pad_t)
   return padded_tensors
 
@@ -106,6 +117,22 @@ def pad_date_tensors(date_tensors, name=None):
     padded_tensors = pad_tensors(ordinals)
     return [date_tensor.from_ordinals(p) for p in padded_tensors]
 
+
+def _prepare_pad_values(pad_values, tensors, dtype):
+  """Prepares a list of paddings."""
+  if pad_values is not None:
+    if isinstance(pad_values, (list, tuple)):
+      # Shapes compatible with [batch_shape_i, 1]
+      pad_values = [tf.expand_dims(
+          tf.convert_to_tensor(pad_value, dtype=dtype, name="pad_values"),
+          axis=-1) for pad_value in pad_values]
+    else:
+      pad_values = len(tensors) * [tf.constant(pad_values, dtype=dtype,
+                                               name="pad_values")]
+  else:
+    # Use final value for padding if `pad_values` are not supplied
+    pad_values = [t[..., -1:] for t in tensors]
+  return pad_values
 
 __all__ = [
     "pad_tensors",

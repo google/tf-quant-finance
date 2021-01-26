@@ -32,6 +32,7 @@ class PadTest(parameterized.TestCase, tf.test.TestCase):
           "testcase_name": "DifferentBatchSize",
           "x": [[1, 2, 3, 9], [2, 3, 5, 2]],
           "y": [4, 5, 8],
+          "pad_values": None,
           "expected_results": [[[1, 2, 3, 9], [2, 3, 5, 2]],
                                [4, 5, 8, 8]],
           "dtype": tf.int32
@@ -39,13 +40,32 @@ class PadTest(parameterized.TestCase, tf.test.TestCase):
           "testcase_name": "SameBatchSize",
           "x": [[1, 2, 3, 9], [2, 3, 5, 2]],
           "y": [[4, 5, 8], [4, 5, 1]],
+          "pad_values": None,
           "expected_results": [[[1, 2, 3, 9], [2, 3, 5, 2]],
                                [[4, 5, 8, 8], [4, 5, 1, 1]]],
           "dtype": tf.float64
+      }, {
+          "testcase_name": "SameBatchSizeScalarPad",
+          "x": [[1, 2, 3, 9], [2, 3, 5, 2]],
+          "y": [[4, 5, 8], [4, 5, 1]],
+          "pad_values": 10,
+          "expected_results": [[[1, 2, 3, 9], [2, 3, 5, 2]],
+                               [[4, 5, 8, 10], [4, 5, 1, 10]]],
+          "dtype": tf.float64
+      }, {
+          "testcase_name": "SameBatchSizeWithPad",
+          "x": [[[1, 2], [3, 9]], [[2, 3], [5, 2]]],
+          "y": [[4, 5, 8], [4, 5, 1]],
+          "pad_values": [[20, 30], 10],
+          "expected_results": [[[[1, 2, 20], [3, 9, 30]],
+                                [[2, 3, 20], [5, 2, 30]]],
+                               [[4, 5, 8], [4, 5, 1]]],
+          "dtype": tf.float64
       },
   )
-  def test_tensor_pad(self, x, y, expected_results, dtype):
-    padded_tensors = tff.math.pad.pad_tensors([x, y], dtype=dtype)
+  def test_tensor_pad(self, x, y, pad_values, expected_results, dtype):
+    padded_tensors = tff.math.pad.pad_tensors(
+        [x, y], pad_values=pad_values, dtype=dtype)
     for t, res in zip(padded_tensors, expected_results):
       self.assertAllEqual(self.evaluate(t), res)
 
