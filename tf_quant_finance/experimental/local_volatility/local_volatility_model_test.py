@@ -59,34 +59,16 @@ def build_volatility_surface(val_date, expiry_times, expiries, strikes, iv,
 # @test_util.run_all_in_graph_and_eager_modes
 class LocalVolatilityTest(tf.test.TestCase, parameterized.TestCase):
 
-  def setUp(self):
-    super(LocalVolatilityTest, self).setUp()
-
-    def _get_implied_vol_from_simulations(time, strike, paths, spot, r, dtype):
-      r = tf.convert_to_tensor(r, dtype=dtype)
-      discount_factor = tf.math.exp(-r * time)
-      paths = tf.boolean_mask(
-          paths, tf.math.logical_not(tf.math.is_nan(paths)))
-      option_value = tf.math.reduce_mean(tf.nn.relu(paths - strike))
-      iv = implied_vol(
-          prices=discount_factor * option_value,
-          strikes=strike,
-          expiries=time,
-          spots=spot,
-          discount_factors=discount_factor,
-          dtype=dtype)
-      return iv
-    self._get_implied_vol = _get_implied_vol_from_simulations
-
   @parameterized.named_parameters(
-      ('1d', 1, [0.0], 0.1, True),
-      ('2d', 2, [0.0], 0.1, True),
-      ('3d', 3, [0.0], 0.1, True),
-      ('1d_nonzero_riskfree_rate', 1, [0.05], 0.05, True),
-      ('1d_using_vol_surface', 1, [0.0], 0.1, False),
+      ('1d', 1, [0.0], 20, True, False),
+      ('2d', 2, [0.0], 20, True, False),
+      ('3d', 3, [0.0], 20, True, False),
+      ('1d_nonzero_riskfree_rate', 1, [0.05], 40, True, False),
+      ('1d_using_vol_surface', 1, [0.0], 20, False, False),
+      ('1d_with_xla', 1, [0.0], 20, True, True),
   )
-  def test_lv_correctness(self, dim, risk_free_rate, time_step,
-                          using_market_data):
+  def test_lv_correctness(self, dim, risk_free_rate, num_time_steps,
+                          using_market_data, use_xla):
     """Tests that the model reproduces implied volatility smile."""
     dtype = tf.float64
     num_samples = 10000
@@ -101,21 +83,44 @@ class LocalVolatilityTest(tf.test.TestCase, parameterized.TestCase):
       lv = LocalVolatilityModel.from_volatility_surface(
           dim, spot, vs, risk_free_rate, [0.0], dtype)
 
-    paths = lv.sample_paths(
-        [1.0, 2.0],
-        num_samples=num_samples,
-        initial_state=spot,
-        time_step=time_step,
-        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
-        seed=[1, 2])
+    @tf.function(experimental_compile=use_xla)
+    def _get_sample_paths():
+      return lv.sample_paths(
+          times=[1.0, 2.0],
+          num_samples=num_samples,
+          initial_state=spot,
+          num_time_steps=num_time_steps,
+          random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+          seed=[1, 2])
+
+    paths = self.evaluate(_get_sample_paths())
+
+    @tf.function(experimental_compile=use_xla)
+    def _get_implied_vol(time, strike, paths, spot, r, dtype):
+      r = tf.convert_to_tensor(r, dtype=dtype)
+      discount_factor = tf.math.exp(-r * time)
+      num_not_nan = tf.cast(
+          paths.shape[0] - tf.math.count_nonzero(tf.math.is_nan(paths)),
+          paths.dtype)
+      paths = tf.where(tf.math.is_nan(paths), tf.zeros_like(paths), paths)
+      # Calculate readuce_mean of paths. Workaround for XLA compatability.
+      option_value = tf.math.divide_no_nan(
+          tf.reduce_sum(tf.nn.relu(paths - strike)), num_not_nan)
+      iv = implied_vol(
+          prices=discount_factor * option_value,
+          strikes=strike,
+          expiries=time,
+          spots=spot,
+          discount_factors=discount_factor,
+          dtype=dtype)
+      return iv
 
     for d in range(dim):
       for i in range(2):
         for j in [1, 2, 3]:
           sim_iv = self.evaluate(
-              self._get_implied_vol(expiry_times[d][i], strikes[d][i][j],
-                                    paths[:, i, d], spot[d], risk_free_rate,
-                                    dtype))
+              _get_implied_vol(expiry_times[d][i], strikes[d][i][j],
+                               paths[:, i, d], spot[d], risk_free_rate, dtype))
           self.assertAllClose(sim_iv[0], iv[d][i][j], atol=0.005, rtol=0.005)
 
 

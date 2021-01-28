@@ -29,8 +29,8 @@ py_library(
 
 py_test(
     name = "local_volatility_model_test",
-    size = "medium",
-    timeout = "moderate",
+    size = "large",
+    timeout = "long",
     srcs = ["local_volatility_model_test.py"],
     python_version = "PY3",
     shard_count = 6,
