@@ -277,7 +277,9 @@ def least_square_mc(sample_paths,
           cashflow=cashflow,
           calibration_indices=calibration_indices)
 
-    loop_value = tf.while_loop(_lsm_loop_cond, loop_body, lsm_loop_vars)
+    max_iterations = tf.shape(exercise_times)[-1]
+    loop_value = tf.while_loop(_lsm_loop_cond, loop_body, lsm_loop_vars,
+                               maximum_iterations=max_iterations)
     present_values = _continuation_value_fn(
         loop_value.cashflow, discount_factors, 0)
     if num_calibration_samples is not None:
