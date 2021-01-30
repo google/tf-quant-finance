@@ -34,7 +34,7 @@ import collections
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.math import make_val_and_grad_fn
-from tf_quant_finance.math import optimizer
+from tf_quant_finance.math import optimizer as optimizers
 from tf_quant_finance.math.interpolation import linear
 from tf_quant_finance.rates import swap_curve_common as scc
 
@@ -47,14 +47,14 @@ def swap_curve_fit(float_leg_start_times,
                    fixed_leg_daycount_fractions,
                    fixed_leg_cashflows,
                    present_values,
+                   initial_curve_rates,
                    present_values_settlement_times=None,
                    float_leg_discount_rates=None,
                    float_leg_discount_times=None,
                    fixed_leg_discount_rates=None,
                    fixed_leg_discount_times=None,
-                   optimize=None,
+                   optimizer=None,
                    curve_interpolator=None,
-                   initial_curve_rates=None,
                    instrument_weights=None,
                    curve_tolerance=1e-8,
                    maximum_iterations=50,
@@ -166,64 +166,73 @@ def swap_curve_fit(float_leg_start_times,
       Volume I: Foundations and Vanilla Models. Chapter 6. 2010.
 
   Args:
-    float_leg_start_times: List of `Tensor`s. Each `Tensor` must be of rank 1
-      and of the same real dtype. They may be of different sizes. Each `Tensor`
-      represents the beginning of the accrual period for the forward rate which
-      determines the floating payment. Each element in the list belong to a
-      unique swap to be used to build the curve.
-    float_leg_end_times: List of `Tensor`s. Each `Tensor` must be of rank 1 and
-      and the same shape and of the same real dtype as the corresponding element
-      in `float_leg_start_times`. Each `Tensor` represents the end of the
+    float_leg_start_times: List of `Tensor`s. Each `Tensor` must be either of
+      shape `batch_shape  + [k_i]` or `[k_i]` and of the same real dtype. `k_i`
+      may be of different sizes. Each `Tensor` represents the beginning of the
       accrual period for the forward rate which determines the floating payment.
-    float_leg_daycount_fractions: List of `Tensor`s. Each `Tensor` must be of
-      the same shape and type as `float_leg_start_times`. They may be of
-      different sizes. Each `Tensor` represents the daycount fraction of the
-      forward rate which determines the floating payment.
-    fixed_leg_start_times: List of `Tensor`s. Each `Tensor` must be of rank 1
-      and of the same real dtype. They may be of different sizes. Each `Tensor`
-      represents the begining of the accrual period fixed coupon.
-    fixed_leg_end_times: List of `Tensor`s. Each `Tensor` must be of the same
-      shape and type as `fixed_leg_start_times`. Each `Tensor` represents the
+      Each element in the list belong to a unique swap to be used to build the
+      curve.
+    float_leg_end_times: List of `Tensor`s of shapes and `dtype` compatible with
+      `float_leg_start_times`. Each `Tensor` represents the end of the
+      accrual period for the forward rate which determines the floating payment.
+    float_leg_daycount_fractions: List of `Tensor`s of shapes and `dtype`
+      compatible with `float_leg_start_times`. Each `Tensor` represents the
+      daycount fraction of the forward rate which determines the floating
+      payment.
+    fixed_leg_start_times: List of `Tensor`s. Each `Tensor` must be either of
+      shape `batch_shape  + [n_i]` or `[n_i]` and of the same real dtype.
+      `n_i` may be of different sizes. All elements must have the same `dtype`
+      as `float_leg_start_times`. Each `Tensor` represents the begining of the
+      accrual period fixed coupon.
+    fixed_leg_end_times: List of `Tensor`s of shapes and `dtype` compatible with
+      `fixed_leg_start_times`. All elements must have the same `dtype` as
+      `fixed_leg_start_times`. Each `Tensor` represents the
       end of the accrual period for the fixed coupon.
-    fixed_leg_daycount_fractions: List of `Tensor`s. Each `Tensor` must be of
-      the same shape and type as `fixed_leg_start_times`. Each `Tensor`
-      represents the daycount fraction applicable for the fixed payment.
-    fixed_leg_cashflows: List of `Tensor`s. The list must be of the same length
-      as the `fixed_leg_start_times`. Each `Tensor` must be of rank 1 and of the
-      same dtype as the `Tensor`s in `fixed_leg_start_times`. The input contains
-      fixed cashflows at each coupon payment time including notional (if any).
-      The sign should be negative (positive) to indicate net outgoing (incoming)
-      cashflow.
-    present_values: List containing scalar `Tensor`s of the same dtype as
-      elements of `fixed_leg_cashflows`. The length of the list must be the same
-      as the length of `fixed_leg_cashflows`. The input contains the market
-      price of the underlying instruments.
-    present_values_settlement_times: List containing scalar `Tensor`s of the
-      same dtype as elements of `present_values`. The length of the list must be
-      the same as the length of `present_values`. The settlement times for the
+    fixed_leg_daycount_fractions: List of `Tensor`s of shapes and `dtype`
+    compatible with
+      `fixed_leg_start_times` Each `Tensor` represents the daycount fraction
+      applicable for the fixed payment.
+    fixed_leg_cashflows: List of `Tensor`s of shapes and `dtype` compatible with
+      `fixed_leg_start_times`. The input contains fixed cashflows at each
+      coupon payment time including notional (if any). The sign should be
+      negative (positive) to indicate net outgoing (incoming) cashflow.
+    present_values: List containing `Tensor`s of the same dtype as
+      elements of `fixed_leg_cashflows` and of shapes compatible with
+      `batch_shape`. The length of the list must be the same as the length of
+      `fixed_leg_cashflows`. The input contains the market price of the
+      underlying instruments.
+    initial_curve_rates: Optional `Tensor` of the `dtype` as `present_values`
+      and of shape `[batch_shape, num_instruments]` where `num_instruments`
+      is the length of `float_leg_start_times`. The starting guess for the
+      discount rates used to initialize the iterative procedure.
+    present_values_settlement_times: Optional list of `Tensor`s with the shapes
+      and `dtype` compatible with `present_values` The settlement times for the
       present values is the time from now when the instrument is traded to the
       time that the purchase price is actually delivered. If not supplied, then
       it is assumed that the settlement times are zero for every bond.
       Default value: `None` which is equivalent to zero settlement times.
-    float_leg_discount_rates: Optional list of scalar `Tensor`s of the same
-      length and dtype as `present_values`. This input contains the continuously
-      compounded discount rates the will be used to discount the floating
-      cashflows. This allows the swap curve to constructed using an independent
-      discount curve (e.g. OIS curve). By default the cashflows are discounted
-      using the curve that is being constructed.
-    float_leg_discount_times: Optional list of scalar `Tensor`s of the same
-      length and dtype as `present_values`. This input contains the times
-      corresponding to the rates specified via the `float_leg_discount_rates`.
-    fixed_leg_discount_rates:  Optional list of scalar `Tensor`s of the same
-      length and dtype as `present_values`. This input contains the continuously
-      compounded discount rates the will be used to discount the fixed
-      cashflows. This allows the swap curve to constructed using an independent
-      discount curve (e.g. OIS curve). By default the cashflows are discounted
-      using the curve that is being constructed.
-    fixed_leg_discount_times: Optional list of scalar `Tensor`s of the same
-      length and dtype as `present_values`. This input contains the times
-      corresponding to the rates specified via the `fixed_leg_discount_rates`.
-    optimize: Optional Python callable which implements the algorithm used to
+    float_leg_discount_rates: Optional list of `Tensor`s with the shapes
+      and `dtype` compatible with `present_values`. This input contains the
+      continuously compounded discount rates the will be used
+      to discount the floating cashflows. This allows the swap curve to
+      constructed using an independent discount curve (e.g. OIS curve). By
+      default the cashflows are discounted using the curve that is being
+      constructed.
+    float_leg_discount_times: Optional list of `Tensor`s with the shapes
+      and `dtype` compatible with `present_values`. This input contains the
+      times corresponding to the rates specified via
+      the `float_leg_discount_rates`.
+    fixed_leg_discount_rates: Optional list of `Tensor`s with the shapes
+      and `dtype` compatible with `present_values`. This input contains the
+      continuously compounded discount rates the will be used to discount the
+      fixed cashflows. This allows the swap curve to constructed using an
+      independent discount curve (e.g. OIS curve). By default the cashflows are
+      discounted using the curve that is being constructed.
+    fixed_leg_discount_times: Optional list of `Tensor`s with the shapes
+      and `dtype` compatible with `present_values`. This input contains the
+      times corresponding to the rates specified via the
+      `fixed_leg_discount_rates`.
+    optimizer: Optional Python callable which implements the algorithm used to
       minimize the objective function during curve construction. It should have
       the following interface:
       result = optimize(value_and_gradients_function, initial_position,
@@ -252,15 +261,13 @@ def swap_curve_fit(float_leg_start_times,
       desired and `yi` are the corresponding interpolated values returned by the
       function. The default value for `curve_interpolator` is None in which
       case linear interpolation is used.
-    initial_curve_rates: Optional `Tensor` of the same dtype and shape as
-      `present_values`. The starting guess for the discount rates used to
-      initialize the iterative procedure.
       Default value: `None`. If not supplied, the yields to maturity for the
         bonds is used as the initial value.
     instrument_weights: Optional 'Tensor' of the same dtype and shape as
-      `present_values`. This input contains the weight of each instrument in
-      computing the objective function for the conjugate gradient optimization.
-      By default the weights are set to be the inverse of maturities.
+      `initial_curve_rates`. This input contains the weight of each instrument
+      in computing the objective function for the conjugate gradient
+      optimization. By default the weights are set to be the inverse of
+      maturities.
     curve_tolerance: Optional positive scalar `Tensor` of same dtype as
       elements of `bond_cashflows`. The absolute tolerance for terminating the
       iterations used to fit the rate curve. The iterations are stopped when the
@@ -306,16 +313,17 @@ def swap_curve_fit(float_leg_start_times,
   """
 
   with tf.name_scope(name or 'swap_curve'):
-    if optimize is None:
-      optimize = optimizer.conjugate_gradient_minimize
+    if optimizer is None:
+      optimizer = optimizers.conjugate_gradient_minimize
 
     present_values = _convert_to_tensors(dtype, present_values,
                                          'present_values')
     dtype = present_values[0].dtype
     if present_values_settlement_times is None:
-      pv_settle_times = [tf.zeros_like(pv) for pv in present_values]
+      pv_settlement_times = [tf.zeros([], dtype=dtype) for pv in present_values]
     else:
-      pv_settle_times = present_values_settlement_times
+      pv_settlement_times = _convert_to_tensors(
+          dtype, present_values_settlement_times, 'pv_settlement_times')
 
     float_leg_start_times = _convert_to_tensors(dtype, float_leg_start_times,
                                                 'float_leg_start_times')
@@ -332,8 +340,7 @@ def swap_curve_fit(float_leg_start_times,
     fixed_leg_cashflows = _convert_to_tensors(dtype, fixed_leg_cashflows,
                                               'fixed_leg_cashflows')
 
-    pv_settle_times = _convert_to_tensors(dtype, pv_settle_times,
-                                          'pv_settle_times')
+    present_values = tf.stack(present_values, axis=-1)
     if instrument_weights is None:
       instrument_weights = _initialize_instrument_weights(float_leg_end_times,
                                                           fixed_leg_end_times,
@@ -344,9 +351,9 @@ def swap_curve_fit(float_leg_start_times,
 
     if curve_interpolator is None:
       def default_interpolator(xi, x, y):
-        return linear.interpolate(xi, x, y, dtype=dtype)
+        return linear.interpolate(xi, x, y,
+                                  dtype=dtype)
       curve_interpolator = default_interpolator
-
     self_discounting_float_leg = False
     self_discounting_fixed_leg = False
     # Determine how the floating and fixed leg will be discounted. If separate
@@ -371,15 +378,19 @@ def swap_curve_fit(float_leg_start_times,
     float_leg_discount_rates = _convert_to_tensors(dtype,
                                                    float_leg_discount_rates,
                                                    'float_disc_rates')
+    float_leg_discount_rates = tf.stack(float_leg_discount_rates, axis=-1)
     float_leg_discount_times = _convert_to_tensors(dtype,
                                                    float_leg_discount_times,
                                                    'float_disc_times')
+    float_leg_discount_times = tf.stack(float_leg_discount_times, axis=-1)
     fixed_leg_discount_rates = _convert_to_tensors(dtype,
                                                    fixed_leg_discount_rates,
                                                    'fixed_disc_rates')
+    fixed_leg_discount_rates = tf.stack(fixed_leg_discount_rates, axis=-1)
     fixed_leg_discount_times = _convert_to_tensors(dtype,
                                                    fixed_leg_discount_times,
                                                    'fixed_disc_times')
+    fixed_leg_discount_times = tf.stack(fixed_leg_discount_times, axis=-1)
 
     if initial_curve_rates is not None:
       initial_rates = tf.convert_to_tensor(
@@ -403,8 +414,8 @@ def swap_curve_fit(float_leg_start_times,
                              self_discounting_float_leg,
                              self_discounting_fixed_leg,
                              present_values,
-                             pv_settle_times,
-                             optimize,
+                             pv_settlement_times,
+                             optimizer,
                              curve_interpolator,
                              initial_rates,
                              instrument_weights,
@@ -419,7 +430,7 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
                       float_leg_discount_times, fixed_leg_discount_rates,
                       fixed_leg_discount_times, self_discounting_float_leg,
                       self_discounting_fixed_leg, present_values,
-                      pv_settlement_times, optimize, curve_interpolator,
+                      pv_settlement_times, optimizer, curve_interpolator,
                       initial_rates, instrument_weights, curve_tolerance,
                       maximum_iterations):
   """Build the zero swap curve."""
@@ -439,11 +450,11 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
   settle_times_float = curve_tensors.settle_times_float
   settle_times_fixed = curve_tensors.settle_times_fixed
 
-  float_leg_calc_times_start = tf.concat(float_leg_start_times, axis=0)
-  float_leg_calc_times_end = tf.concat(float_leg_end_times, axis=0)
-  calc_fixed_leg_cashflows = tf.concat(fixed_leg_cashflows, axis=0)
-  calc_fixed_leg_daycount = tf.concat(fixed_leg_daycount_fractions, axis=0)
-  fixed_leg_calc_times = tf.concat(fixed_leg_end_times, axis=0)
+  float_leg_calc_times_start = tf.concat(float_leg_start_times, axis=-1)
+  float_leg_calc_times_end = tf.concat(float_leg_end_times, axis=-1)
+  calc_fixed_leg_cashflows = tf.concat(fixed_leg_cashflows, axis=-1)
+  calc_fixed_leg_daycount = tf.concat(fixed_leg_daycount_fractions, axis=-1)
+  fixed_leg_calc_times = tf.concat(fixed_leg_end_times, axis=-1)
 
   def _interpolate(x1, x_data, y_data):
     return curve_interpolator(x1, x_data, y_data)
@@ -463,11 +474,12 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
     # 4. Compute the loss (which is being minized) as the weighted root mean
     #   squared difference between the model PV (computed above) and the market
     #   PV (specified as input).
+
     rates_start = _interpolate(float_leg_calc_times_start, expiry_times, x)
     rates_end = _interpolate(float_leg_calc_times_end, expiry_times, x)
     float_cashflows = (
-        tf.math.exp(float_leg_calc_times_end * rates_end -
-                    float_leg_calc_times_start * rates_start) - 1.)
+        tf.math.exp(float_leg_calc_times_end * rates_end
+                    - float_leg_calc_times_start * rates_start) - 1.)
 
     if self_discounting_float_leg:
       float_discount_rates = rates_end
@@ -494,7 +506,6 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
     calc_discounts_float_leg = (
         tf.math.exp(-float_discount_rates * float_leg_calc_times_end +
                     float_settle_rates * settle_times_float))
-
     calc_discounts_fixed_leg = (
         tf.math.exp(-fixed_discount_rates * fixed_leg_calc_times +
                     fixed_settle_rates * settle_times_fixed))
@@ -513,11 +524,11 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
         calc_discounts_fixed_leg)
     swap_pv = float_pv + fixed_pv
     value = tf.math.reduce_sum(input_tensor=instrument_weights *
-                               (swap_pv - present_values)**2)
+                               (swap_pv - present_values)**2, axis=-1)
 
     return value
 
-  optimization_result = optimize(
+  optimization_result = optimizer(
       loss_function, initial_position=initial_rates, tolerance=curve_tolerance,
       max_iterations=maximum_iterations)
 
@@ -595,31 +606,34 @@ def _create_curve_building_tensors(float_leg_start_times,
     calc_groups_float.append(
         tf.fill(tf.shape(float_leg_start_times[i]), i))
     calc_groups_fixed.append(tf.fill(tf.shape(fixed_leg_end_times[i]), i))
-    settle_times_float.append(tf.fill(tf.shape(float_leg_start_times[i]),
-                                      pv_settlement_times[i]))
-    settle_times_fixed.append(tf.fill(tf.shape(fixed_leg_end_times[i]),
-                                      pv_settlement_times[i]))
+    settle_time = pv_settlement_times[i]
+    if settle_time.shape.rank > 0:
+      settle_time = tf.expand_dims(settle_time, axis=-1)
+    # shape [batch_shape, float_leg_start_times[i].shape]
+    stf = settle_time + tf.zeros_like(float_leg_start_times[i])
+    settle_times_float.append(stf)
+    # shape [batch_shape, fixed_leg_end_times[i].shape]
+    stf = settle_time + tf.zeros_like(fixed_leg_end_times[i])
+    settle_times_fixed.append(stf)
 
   expiry_times = tf.stack(expiry_times, axis=0)
   dtype = expiry_times.dtype
   # Float let groups
   num_groups_float = len(calc_groups_float)  # Number of instruments
-  calc_groups_float = tf.concat(calc_groups_float, axis=0)
-  # Shape [num_groups_float, calc_groups_float.shape[0]]
-  calc_groups_float_mat = tf.transpose(
-      tf.one_hot(calc_groups_float,
-                 num_groups_float,
-                 dtype=dtype))
+  calc_groups_float = tf.concat(calc_groups_float, axis=-1)
+  # Shape batch_shape + [num_groups_float, calc_groups_float.shape[0]]
+  axis = calc_groups_float.shape.rank - 1
+  calc_groups_float_mat = tf.one_hot(
+      calc_groups_float, num_groups_float, axis=axis, dtype=dtype)
   # Fixed leg groups
   num_groups_fixed = len(calc_groups_fixed)
-  calc_groups_fixed = tf.concat(calc_groups_fixed, axis=0)
-  # Shape [num_groups_fixed, calc_groups_fixed.shape[0]]
-  calc_groups_fixed_mat = tf.transpose(
-      tf.one_hot(calc_groups_fixed,
-                 num_groups_fixed,
-                 dtype=dtype))
-  settle_times_float = tf.concat(settle_times_float, axis=0)
-  settle_times_fixed = tf.concat(settle_times_fixed, axis=0)
+  calc_groups_fixed = tf.concat(calc_groups_fixed, axis=-1)
+  # Shape batch_shape + [num_groups_fixed, calc_groups_fixed.shape[0]]
+  axis = calc_groups_fixed.shape.rank - 1
+  calc_groups_fixed_mat = tf.one_hot(
+      calc_groups_fixed, num_groups_fixed, axis=axis, dtype=dtype)
+  settle_times_float = tf.concat(settle_times_float, axis=-1)
+  settle_times_fixed = tf.concat(settle_times_fixed, axis=-1)
 
   return CurveFittingVars(expiry_times=expiry_times,
                           calc_groups_float=calc_groups_float_mat,

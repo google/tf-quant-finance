@@ -168,6 +168,81 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
     np.testing.assert_allclose(
         results.rates, expected_discount_rates, atol=curve_tolerance)
 
+  def test_OIS_discounting_batch(self):
+    """Test OIS discounting with batched inputs."""
+    curve_tolerance = 1e-6
+    dtype = np.float64
+    mats = [1., 2., 3., 5., 7., 10., 30.]
+    # Batch of 2 curves
+    par_swap_rates = np.array(
+        [[2.855, 3.097, 3.134, 3.152, 3.181, 3.23, 3.27],
+         [2.9, 3.09, 2.1, 3.15, 2.18, 3.1, 3.28]])
+
+    expected_discount_rates = np.array([
+        [0.02844861, 0.03084989, 0.03121727, 0.0313961, 0.0316839, 0.03217002,
+         0.03256696],
+        [0.02853547, 0.03043963, 0.01867736, 0.03429374, 0.01180023,
+         0.05393317, 0.11853233]], dtype=np.float64)
+
+    float_leg_start_times = [np.arange(0., x, 0.25, dtype) for x in mats]
+
+    float_leg_end_times = [
+        np.arange(0.25, x + 0.1, 0.25, dtype) for x in mats
+    ]
+
+    float_leg_dc = [
+        np.array(np.repeat(0.25, len(x)), dtype=dtype)
+        for x in float_leg_start_times
+    ]
+
+    fixed_leg_start_times = [np.arange(0., x, 0.5, dtype) for x in mats]
+
+    fixed_leg_end_times = [np.arange(0.5, x + 0.1, 0.5, dtype) for x in mats]
+
+    fixed_leg_dc = [
+        np.array(np.repeat(0.5, len(x)), dtype=dtype)
+        for x in fixed_leg_start_times
+    ]
+
+    # Shape par_swap_rates.shape
+    fixed_leg_cashflows = [
+        np.expand_dims(-par_swap_rates[:, i], -1) / 100 + np.zeros([len(x)])
+        for i, x in enumerate(fixed_leg_start_times)
+    ]
+
+    pvs = np.array(np.repeat(0., len(mats)), dtype=dtype)
+
+    discount_rates = [[0.0, 0.1], [0.0, 0.2], [0.0, 0.3], [0.0, 0.5]]
+    discount_times = [1.0, 5.0, 10.0, 30.0]
+
+    # Should be of of shape [2, len(mats)]
+    initial_curve_rates = 0.01 * np.array(np.ones_like(2 * [mats]))
+
+    results = self.evaluate(
+        tff.rates.swap_curve_fit(
+            float_leg_start_times,
+            float_leg_end_times,
+            float_leg_dc,
+            fixed_leg_start_times,
+            fixed_leg_end_times,
+            fixed_leg_cashflows,
+            fixed_leg_dc,
+            pvs,
+            float_leg_discount_rates=discount_rates,
+            float_leg_discount_times=discount_times,
+            curve_tolerance=curve_tolerance,
+            dtype=dtype,
+            initial_curve_rates=initial_curve_rates))
+
+    np.testing.assert_allclose(results.times, [1.0, 2.0, 3.0, 5.0, 7.0, 10.0,
+                                               30.0])
+    with self.subTest('NonFailed'):
+      self.assertFalse(np.any(results.failed))
+    with self.subTest('AllClose'):
+      self.assertAllClose(
+          results.rates, expected_discount_rates,
+          rtol=curve_tolerance, atol=curve_tolerance)
+
   @parameterized.named_parameters(
       {
           'testcase_name': 'SinglePrecision',
