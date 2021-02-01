@@ -51,7 +51,7 @@ else:
   # respective alpha releases, beta releases, and release candidates. And it
   # should be cleared, i.e. set to '', for stable releases (c.f. PEP 440).
   release_suffix = '.dev24'
-  tfp_package = 'tensorflow-probability >= 0.9.0'
+  tfp_package = 'tensorflow-probability >= 0.11.0'
 
 __version__ = '.'.join([major_version, minor_version, patch_version])
 if release_suffix:
