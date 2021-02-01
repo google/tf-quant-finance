@@ -112,7 +112,13 @@ class ItoProcess(object):
     """Returns a sample of paths from the process.
 
     Args:
-      times: Rank 1 `Tensor` of increasing positive real values. The times at
+      times: A `Tensor` of positive real values of a shape [`T`, `k`], where
+        `T` is either empty or a shape which is broadcastable to `batch_shape`
+        (as defined when this ItoProcess was initialised) and `k` is the
+        number of time points. The definition of `batch_shape` and how it is set
+        is dictated by the individual child classes. Typically `batch_shape`
+        is set based on the shapes of the input parameters that define the
+        ItoProcess, see `GeometricBrownianMotion` for an example. The times at
         which the path points are to be evaluated.
       num_samples: Positive scalar `int`. The number of paths to draw.
       initial_state: `Tensor` of shape `[dim]`. The initial state of the
@@ -132,8 +138,9 @@ class ItoProcess(object):
       **kwargs: Any other keyword args needed by an implementation.
 
     Returns:
-     A real `Tensor` of shape [num_samples, k, n] where `k` is the size of the
-        `times`, `n` is the dimension of the process.
+     A real `Tensor` of shape [`batch_shape`, num_samples, k, n] where `k` is
+     the size of `times`, `n` is the dimension of the process and `batch_shape`
+     is the batch dimensions of the ItoProcess.
     """
     pass
 

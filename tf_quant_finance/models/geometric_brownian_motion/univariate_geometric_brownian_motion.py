@@ -75,8 +75,8 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
       mu: Scalar real `Tensor` broadcastable to [`batch_shape`, 1] or an
         instance of left-continuous `PiecewiseConstantFunc` with
         [`batch_shape`, 1] dimensions. Where `batch_shape` is the larger of
-        `mu.shape` and `sigma.shape`. Corresponds to the mean drift of the Ito
-         process.
+        `mu.shape` and `sigma.shape`.  `batch_shape` can be `()`, Corresponds
+        to the mean drift of the Ito process.
       sigma: Scalar real `Tensor` broadcastable to [`batch_shape`, 1] or an
         instance of left-continuous `PiecewiseConstantFunc` of the same `dtype`
         and `batch_shape` as set by `mu`. Where `batch_shape` is the larger of
@@ -167,12 +167,16 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
     a single set of random draws.
 
     Args:
-      times: Rank 1 `Tensor` of positive real values. The times at which the
-        path points are to be evaluated.
+      times: A `Tensor` of positive real values of a shape [`T`, `k`], where
+        `T` is either empty or a shape which is broadcastable to `batch_shape`
+        (as defined by the shape of `mu` or `sigma` which were set when this
+        instance of GeometricBrownianMotion was initialised) and `k` is the
+        number of time points. The times at which the path points are to be
+        evaluated.
       initial_state: A `Tensor` of the same `dtype` as `times` and of shape
         broadcastable to `[batch_shape, num_samples]`. Represents the initial
         state of the Ito process.
-      Default value: `None` which maps to a initial state of ones.
+        Default value: `None` which maps to a initial state of ones.
       num_samples: Positive scalar `int`. The number of paths to draw.
       random_type: Enum value of `RandomType`. The type of (quasi)-random
         number generator to use to generate the paths.
@@ -202,47 +206,54 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
 
     Returns:
       A `Tensor`s of shape [batch_shape, num_samples, k, 1] where `k` is the
-      size of the `times`.
+      the number of `time points`.
 
     Raises:
-      ValueError: If `normal_draws` is supplied and `1` is not `1`.
+      ValueError: If `normal_draws` is supplied and does not have shape
+      broadcastable to `[num_samples, num_time_points, 1]`.
     """
     name = name or (self._name + "_sample_path")
+
     with tf.name_scope(name):
       times = tf.convert_to_tensor(times, self._dtype)
       if normal_draws is not None:
         normal_draws = tf.convert_to_tensor(normal_draws, dtype=self._dtype,
                                             name="normal_draws")
-      if initial_state is None:
-        initial_state = tf.zeros([1], dtype=self._dtype,
-                                 name="initial_state")
-      else:
-        initial_state = tf.convert_to_tensor(
-            initial_state, dtype=self._dtype, name="initial_state")
+      initial_state = utils.convert_to_tensor_with_default(
+          initial_state,
+          tf.zeros([1], dtype=self._dtype),
+          dtype=self._dtype,
+          name="initial_state")
 
-      num_requested_times = times.shape[0]
+      num_requested_times = times.shape[-1]
       return self._sample_paths(
-          times=times, num_requested_times=num_requested_times,
+          times=times,
+          num_requested_times=num_requested_times,
           initial_state=initial_state,
-          num_samples=num_samples, random_type=random_type,
-          seed=seed, skip=skip,
+          num_samples=num_samples,
+          random_type=random_type,
+          seed=seed,
+          skip=skip,
           normal_draws=normal_draws)
 
   def _integrate_parameter(self, x, x_is_constant, t0, t1, name=None):
     """Returns the integral of x(t).dt over the interval [t0, t1].
 
     Args:
-      x: Scalar real `Tensor` of shape [batch_shape] or an instance of a
+      x: Scalar real `Tensor` of shape [`batch_shape`] or an instance of a
         left-continuous `PiecewiseConstantFunc`. The function to be integrated.
       x_is_constant: 'bool' which is True if x is a Scalar real `Tensor`.
-      t0: A rank 1 `Tensor` of the start times of the intervals.
-      t1: A rank 1 `Tensor` with the same length as t0 of the end times for the
-          intervals.
+      t0: A `Tensor` which is broadcastable to [`batch_shape`, `k`], where `k`
+        is the number of intervals to evaluate the integral over. The start
+        times of the `k` intervals.
+      t1: A `Tensor` which is broadcastable to [`batch_shape`, `k`], where `k`
+        is the number of intervals to evaluate the integral over. The end
+        times of the `k` intervals.
       name: Str. The name to give this op.
 
     Returns:
-      A `Tensor` of shape [batch_shape] with the integrals of x over the
-      intervals [t0, t1].
+      A `Tensor` of shape [`batch_shape`, `k`] with the integrals of x over the
+      intervals [`t0`, `t1`].
     """
     return x * (t1 - t0) if x_is_constant else x.integrate(t0, t1, name)
 
@@ -271,23 +282,24 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
       if draws_dim != 1:
         raise ValueError(
             "`dim` should be equal to `1` but is {0}".format(draws_dim))
-    times = tf.concat([[0], times], -1)
-    mu_integral = self._integrate_parameter(self._mu,
-                                            self._mu_is_constant,
-                                            times[:-1],
-                                            times[1:])
+    # Create a set of zeros that is the right shape to add a '0' as the first
+    # element for each series of times.
+    zeros = tf.zeros(tf.concat([times.shape[:-1], [1]], 0), dtype=self._dtype)
+    times = tf.concat([zeros, times], -1)
+    mu_integral = self._integrate_parameter(self._mu, self._mu_is_constant,
+                                            times[..., :-1], times[..., 1:])
     # mu_integral has shape [batch_shape, k-1], where self._mu has shape
     # [batch_shape, 1] and times has shape [k].
     mu_integral = tf.expand_dims(mu_integral, -2)
     sigma_sq_integral = self._integrate_parameter(self._sigma_squared,
                                                   self._sigma_is_constant,
-                                                  times[:-1], times[1:])
+                                                  times[..., :-1],
+                                                  times[..., 1:])
     sigma_sq_integral = tf.expand_dims(sigma_sq_integral, -2)
     # Giving mu_integral and sigma_sq_integral shape = [batch_shape, 1, k-1],
     # where self._mu has shape [batch_shape, 1] and times has shape [k].
 
     # The logarithm of all the increments between the times.
-
     log_increments = ((mu_integral - sigma_sq_integral / 2)
                       + tf.sqrt(sigma_sq_integral)
                       * tf.transpose(tf.squeeze(normal_draws, -1)))

@@ -100,8 +100,10 @@ def generate_sample_paths(mu, sigma, times, initial_state, supply_draws,
       and `batch_shape` as set by `mu`. Where `batch_shape` is the larger of
       `mu.shape` and `sigma.shape`. Corresponds to the volatility of the
       process and should be positive.
-    times: Rank 1 `Tensor` of positive real values of length `num_times`. The
-      times at which the path points are to be evaluated.
+    times: A `Tensor` of positive real values of a shape [`T`, `num_times`],
+      where `T` is either empty or a shape which is broadcastable to
+      `batch_shape` (as defined by the shape of `mu` or `sigma`. The times at
+      which the path points are to be evaluated.
     initial_state: A `Tensor` of the same `dtype` as `times` and of shape
       broadcastable to `[batch_shape, num_samples]`. Represents the initial
       state of the Ito process.
@@ -117,13 +119,13 @@ def generate_sample_paths(mu, sigma, times, initial_state, supply_draws,
   process = tff.models.GeometricBrownianMotion(mu, sigma, dtype=dtype)
   normal_draws = None
   if supply_draws:
-    total_dimension = tf.zeros(times.shape, dtype=dtype)
-    # Shape [num_samples, times.shape[0]]
+    total_dimension = tf.zeros(times.shape[-1], dtype=dtype)
+    # Shape [num_samples, times.shape[-1]]
     normal_draws = tff.math.random.mv_normal_sample(
         [num_samples], mean=total_dimension,
         random_type=tff.math.random.RandomType.SOBOL,
         seed=[4, 2])
-    # Shape [num_samples, times.shape[0], 1]
+    # Shape [num_samples, times.shape[-1], 1]
     normal_draws = tf.expand_dims(normal_draws, axis=-1)
   return process.sample_paths(
       times=times,

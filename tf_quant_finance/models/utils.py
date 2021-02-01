@@ -296,3 +296,23 @@ def cumprod_using_matvec(input_tensor):
   lower_triangular = tf.linalg.band_part(ones, -1, 0)
   cumsum = tf.linalg.matvec(lower_triangular, tf.math.log(input_tensor))
   return tf.math.exp(cumsum)
+
+
+def convert_to_tensor_with_default(value, default, dtype=None, name=None):
+  """Converts the given `value` to a `Tensor` or returns the `default` value.
+
+  Converts the input `value` to a `Tensor` or returns `default` converted to a
+  `Tensor` if `value == None`.
+
+  Args:
+    value: An object whose type has a registered Tensor conversion function.
+    default: The value to return if `value == None`.
+    dtype: Optional element type for the returned tensor. If missing, the type
+      is inferred from the type of value.
+    name: Optional name to use if a new Tensor is created.
+
+  Returns:
+    A Tensor based on value.
+  """
+  rtn_val = default if value is None else value
+  return tf.convert_to_tensor(rtn_val, dtype=dtype, name=name)
