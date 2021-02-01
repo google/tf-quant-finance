@@ -260,7 +260,8 @@ def newton_root_finder(value_and_grad_func,
 
       return counter + 1, updated_parameters, converged, failed
 
-    return tf.while_loop(_condition, _updater, starting_position)[1:]
+    return tf.while_loop(_condition, _updater, starting_position,
+                         maximum_iterations=max_iterations)[1:]
 
 
 def _newton_implied_vol(prices, strikes, expiries, forwards, discount_factors,
