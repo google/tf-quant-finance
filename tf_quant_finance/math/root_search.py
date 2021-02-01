@@ -333,12 +333,12 @@ def _prepare_brent_args(objective_fn,
       Python float representing the second starting points. The function will
       search for roots between each pair of points defined by `left_bracket` and
       `right_bracket`. This argument must have the same shape as `left_bracket`.
-    value_at_left_bracket: Optional `Tensor` or Pyhon float representing the
+    value_at_left_bracket: Optional `Tensor` or Python float representing the
       value of `objective_fn` at `left_bracket`. If specified, this argument
       must have the same shape as `left_bracket`. If not specified, the value
       will be evaluated during the search.
       Default value: None.
-    value_at_right_bracket: Optional `Tensor` or Pyhon float representing the
+    value_at_right_bracket: Optional `Tensor` or Python float representing the
       value of `objective_fn` at `right_bracket`. If specified, this argument
       must have the same shape as `right_bracket`. If not specified, the value
       will be evaluated during the search.
@@ -515,12 +515,12 @@ def _brent(objective_fn,
       Python float representing the second starting points. The function will
       search for roots between each pair of points defined by `left_bracket` and
       `right_bracket`. This argument must have the same shape as `left_bracket`.
-    value_at_left_bracket: Optional `Tensor` or Pyhon float representing the
+    value_at_left_bracket: Optional `Tensor` or Python float representing the
       value of `objective_fn` at `left_bracket`. If specified, this argument
       must have the same shape as `left_bracket`. If not specified, the value
       will be evaluated during the search.
       Default value: None.
-    value_at_right_bracket: Optional `Tensor` or Pyhon float representing the
+    value_at_right_bracket: Optional `Tensor` or Python float representing the
       value of `objective_fn` at `right_bracket`. If specified, this argument
       must have the same shape as `right_bracket`. If not specified, the value
       will be evaluated during the search.
@@ -675,12 +675,12 @@ def brentq(objective_fn,
       Python float representing the second starting points. The function will
       search for roots between each pair of points defined by `left_bracket` and
       `right_bracket`. This argument must have the same shape as `left_bracket`.
-    value_at_left_bracket: Optional `Tensor` or Pyhon float representing the
+    value_at_left_bracket: Optional `Tensor` or Python float representing the
       value of `objective_fn` at `left_bracket`. If specified, this argument
       must have the same shape as `left_bracket`. If not specified, the value
       will be evaluated during the search.
       Default value: None.
-    value_at_right_bracket: Optional `Tensor` or Pyhon float representing the
+    value_at_right_bracket: Optional `Tensor` or Python float representing the
       value of `objective_fn` at `right_bracket`. If specified, this argument
       must have the same shape as `right_bracket`. If not specified, the value
       will be evaluated during the search.

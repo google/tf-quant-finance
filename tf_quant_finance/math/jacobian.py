@@ -110,7 +110,7 @@ def value_and_jacobian(f, x, unconnected_gradients=None, name=None,
 
 
 def _prepare_args(x):
-  """Converst `x` to a batched dimension if necessary."""
+  """Converts `x` to a batched dimension if necessary."""
   if len(x.shape) == 1:
     return tf.expand_dims(x, axis=0), False
 

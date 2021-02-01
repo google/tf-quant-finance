@@ -148,7 +148,7 @@ class PiecewiseConstantFunc(object):
       left_continuous: Python `bool`. Whether the function is left- or right-
         continuous, i.e., at the `jump_locations[..., i]` left-continuity means
         that the function has the same value
-        `values[batch_rank * slice(None), i]`, wheraes for
+        `values[batch_rank * slice(None), i]`, whereas for
         right-continuity, the value is
         `values[batch_rank * slice(None), i + 1]`.
         Default value: `True` which means that the function is left-continuous.

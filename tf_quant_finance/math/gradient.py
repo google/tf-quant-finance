@@ -70,7 +70,7 @@ def fwd_gradient(func_or_y, x, input_gradients=None, use_gradient_tape=False,
   ```
 
   Args:
-    func_or_y: Either a `Tensor` conencted to the input `x` or a Python callable
+    func_or_y: Either a `Tensor` connected to the input `x` or a Python callable
       accepting one `Tensor` of shape of `x` and returning a `Tensor` of any
       shape. The function whose gradient is to be computed. If eagerly
       executing, can only be a callable, i.e., one should not supply a Tensor
@@ -126,7 +126,7 @@ def gradients(func_or_y, xs, output_gradients=None, use_gradient_tape=False,
   """Computes the gradients of `func_or_y` wrt to `*xs`.
 
   Args:
-   func_or_y: Either a `Tensor` conencted to the input `x` or a Python callable
+   func_or_y: Either a `Tensor` connected to the input `x` or a Python callable
       accepting one `Tensor` of shape of `x` and returning a `Tensor` of any
       shape. The function whose gradient is to be computed. If eagerly
       executing, can only be a callable, i.e., one should not supply a Tensor
@@ -209,8 +209,8 @@ def value_and_gradient(f,
 
   Returns:
     A tuple of two elements. The first one is a `Tensor` representing the value
-    of the function at `xs` and the second one is either a `Tensot` or a list of
-    `Tensor`s representing grafient of `f(*xs)` wrt `xs`.
+    of the function at `xs` and the second one is either a `Tensor` or a list of
+    `Tensor`s representing the gradient of `f(*xs)` wrt `xs`.
     y: `y = f(*xs)`.
     dydx: Gradient of `y` wrt each of `xs`.
   """
@@ -249,7 +249,7 @@ def make_val_and_grad_fn(value_fn):
   and returns a tuple of two `Tensor`s with the value and the gradient of the
   defined quadratic function evaluated at the input point.
 
-  This is useful for constucting functions to optimize with tff.math.optimizer
+  This is useful for constructing functions to optimize with tff.math.optimizer
   methods.
 
   Args:
@@ -274,7 +274,7 @@ def _prepare_func(func_or_y):
 
 
 def _prepare_args(xs):
-  """Converst `xs` to a list if necessary."""
+  """Converts `xs` to a list if necessary."""
   if isinstance(xs, (list, tuple)):
     return xs, True
   else:
