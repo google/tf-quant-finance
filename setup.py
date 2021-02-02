@@ -44,7 +44,7 @@ if '--nightly' in sys.argv:
   sys.argv.remove('--nightly')
   project_name = 'tff-nightly'
   release_suffix = datetime.datetime.utcnow().strftime('.dev%Y%m%d')
-  tfp_package = 'tfp-nightly'
+  tfp_package = 'tensorflow-probability >= 0.11.0'
 else:
   project_name = 'tf-quant-finance'
   # The suffix should be replaced with 'aN', 'bN', or 'rcN' (note: no dots) for
@@ -58,7 +58,7 @@ if release_suffix:
   __version__ += release_suffix
 
 REQUIRED_PACKAGES = [
-    'attrs >= 18.2.0', tfp_package, 'numpy >= 1.16.0', 'protobuf'
+    'attrs >= 18.2.0', tfp_package, 'numpy >= 1.19.2', 'protobuf'
 ]
 
 
