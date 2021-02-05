@@ -9,7 +9,7 @@
 FROM ubuntu:latest
 
 # sudo isn't really needed, but we include it for convenience
-RUN apt-get update && apt-get install -y curl wget build-essential rsync vim openjdk-11-jdk sudo python3 python3-distutils git
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl wget build-essential rsync vim openjdk-11-jdk sudo python3 python3-distutils git
 
 # Install the latest version of pip.
 RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
@@ -21,7 +21,9 @@ RUN curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
 RUN sudo apt-get update && sudo apt-get install -y bazel
 
 # Install pip packages
-RUN pip install --upgrade tensorflow==2.2 tensorflow-probability==0.9 numpy==1.16 attrs dataclasses
+RUN python3 -m pip install --upgrade numpy==1.19.2 attrs
+RUN python3 -m pip install --upgrade tf-nightly
+RUN python3 -m pip install --upgrade tensorflow-probability==0.12.1
 
 # Clone GitHub repository
 RUN git clone https://github.com/google/tf-quant-finance.git tf-quant-finance
