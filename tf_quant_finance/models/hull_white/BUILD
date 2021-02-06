@@ -126,6 +126,7 @@ py_library(
         "//tf_quant_finance/math:gradient",
         "//tf_quant_finance/math:piecewise",
         "//tf_quant_finance/math/optimizer",
+        "//tf_quant_finance/math/root_search",
     ],
 )
 

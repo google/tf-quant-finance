@@ -1,5 +1,5 @@
 # Lint as: python3
-# Copyright 2019 Google LLC
+# Copyright 2021 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,9 +18,12 @@
 
 import collections
 
-import numpy as np
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance.math.root_search import utils
+
+# TODO(b/179451420): Refactor BrentResults as RootSearchResults and return it
+# for newton method as well.
 BrentResults = collections.namedtuple(
     "BrentResults",
     [
@@ -136,11 +139,6 @@ def _quadratic_interpolation_step(x1, x2, x3, y1, y2, y3):
   r2 = (x2 - x1) / (y2 - y1)
   r3 = (x3 - x1) / (y3 - y1)
   return -x1 * tf.math.divide_no_nan(x3 * r3 - x2 * r2, r3 * r2 * (x3 - x2))
-
-
-def default_relative_root_tolerance(dtype):
-  """Returns the default relative root tolerance used for a TensorFlow dtype."""
-  return 4 * np.finfo(dtype.as_numpy_dtype(0)).eps
 
 
 def _should_stop(state, stopping_policy_fn):
@@ -408,7 +406,7 @@ def _prepare_brent_args(objective_fn,
       dtype=left_bracket.dtype.base_dtype)
 
   if relative_root_tolerance is None:
-    relative_root_tolerance = default_relative_root_tolerance(
+    relative_root_tolerance = utils.default_relative_root_tolerance(
         left_bracket.dtype.base_dtype)
 
   absolute_root_tolerance = tf.convert_to_tensor(

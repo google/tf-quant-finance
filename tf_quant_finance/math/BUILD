@@ -14,36 +14,13 @@ py_library(
         ":jacobian",
         ":pad",
         ":piecewise",
-        ":root_search",
         ":segment_ops",
         "//tf_quant_finance/math/integration",
         "//tf_quant_finance/math/interpolation",
         "//tf_quant_finance/math/optimizer",
         "//tf_quant_finance/math/pde",
         "//tf_quant_finance/math/random_ops",
-    ],
-)
-
-py_library(
-    name = "root_search",
-    srcs = ["root_search.py"],
-    srcs_version = "PY3",
-    deps = [
-        # numpy dep,
-        # tensorflow dep,
-    ],
-)
-
-py_test(
-    name = "root_search_test",
-    size = "small",
-    timeout = "moderate",
-    srcs = ["root_search_test.py"],
-    python_version = "PY3",
-    deps = [
-        ":root_search",
-        # test util,
-        # tensorflow dep,
+        "//tf_quant_finance/math/root_search",
     ],
 )
 

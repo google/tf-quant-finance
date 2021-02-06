@@ -18,6 +18,7 @@ py_library(
     deps = [
         "//tf_quant_finance/black_scholes:implied_vol_newton_root",
         "//tf_quant_finance/math/random_ops",
+        "//tf_quant_finance/math/root_search:newton",
         "//tf_quant_finance/models:euler_sampling",
         # tensorflow dep,
     ],

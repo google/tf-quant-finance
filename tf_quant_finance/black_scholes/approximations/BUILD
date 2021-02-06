@@ -22,6 +22,7 @@ py_library(
         "//tf_quant_finance/black_scholes:implied_vol_newton_root",
         "//tf_quant_finance/black_scholes:vanilla_prices",
         "//tf_quant_finance/math",
+        "//tf_quant_finance/math/root_search:newton",
         # numpy dep,
         # tensorflow dep,
     ],

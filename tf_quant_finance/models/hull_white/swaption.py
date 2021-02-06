@@ -17,8 +17,8 @@ import numpy as np
 import tensorflow.compat.v2 as tf
 from tf_quant_finance.experimental.lsm_algorithm import lsm_v2
 from tf_quant_finance.math import pde
-from tf_quant_finance.math import root_search
 from tf_quant_finance.math.interpolation import linear
+from tf_quant_finance.math.root_search import brent
 from tf_quant_finance.models import utils
 from tf_quant_finance.models.hjm import swaption_util
 from tf_quant_finance.models.hull_white import vector_hull_white
@@ -115,7 +115,7 @@ def _jamshidian_decomposition(hw_model,
     lower_bound = -1 * tf.ones(swap_shape, dtype=dtype)
     upper_bound = 1 * tf.ones(swap_shape, dtype=dtype)
     # Solve Eq.(1)
-    brent_results = root_search.brentq(_zero_fun, lower_bound, upper_bound)
+    brent_results = brent.brentq(_zero_fun, lower_bound, upper_bound)
     breakeven_short_rate = brent_results.estimated_root
     return hw_model.discount_bond_price(breakeven_short_rate, expiries,
                                         maturities)

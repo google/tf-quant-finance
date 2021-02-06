@@ -1,5 +1,5 @@
 # Lint as: python3
-# Copyright 2019 Google LLC
+# Copyright 2021 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,14 +12,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for math.root_search."""
+"""Tests for math.brent."""
 
 import math
 
 import tensorflow.compat.v2 as tf
 
+import tf_quant_finance as tff
+
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
-from tf_quant_finance.math import root_search
+from tf_quant_finance.math.root_search import utils
+
+brentq = tff.math.root_search.brentq
 
 
 def polynomial5(x):
@@ -67,12 +71,12 @@ class BrentqTest(tf.test.TestCase):
         right_bracket), "Brackets have different sizes"
 
     if relative_root_tolerance is None:
-      relative_root_tolerance = root_search.default_relative_root_tolerance(
+      relative_root_tolerance = utils.default_relative_root_tolerance(
           dtype)
 
     expected_num_iterations, result = self.evaluate([
         tf.constant(expected_num_iterations, dtype=tf.int32),
-        root_search.brentq(
+        brentq(
             objective_fn,
             tf.constant(left_bracket, dtype=dtype),
             tf.constant(right_bracket, dtype=dtype),
@@ -194,9 +198,9 @@ class BrentqTest(tf.test.TestCase):
 
     expected_num_iterations, result = self.evaluate([
         tf.constant(expected_num_iterations, dtype=tf.int32),
-        root_search.brentq(polynomial5,
-                           tf.constant(left_bracket, dtype=tf.float16),
-                           tf.constant(right_bracket, dtype=tf.float16))
+        brentq(
+            polynomial5, tf.constant(left_bracket, dtype=tf.float16),
+            tf.constant(right_bracket, dtype=tf.float16))
     ])
 
     _, value_at_roots, num_iterations, _ = result
@@ -218,7 +222,7 @@ class BrentqTest(tf.test.TestCase):
 
     expected_num_iterations, result = self.evaluate([
         tf.constant(expected_num_iterations, dtype=tf.int32),
-        root_search.brentq(
+        brentq(
             objective_fn,
             tf.constant(left_bracket, dtype=tf.float64),
             tf.constant(right_bracket, dtype=tf.float64),
@@ -249,9 +253,10 @@ class BrentqTest(tf.test.TestCase):
 
     expected_num_iterations, result = self.evaluate([
         tf.constant(expected_num_iterations, dtype=tf.int32),
-        root_search.brentq(objective_fn,
-                           tf.constant(left_bracket, dtype=tf.float64),
-                           tf.constant(right_bracket, dtype=tf.float64))
+        brentq(
+            objective_fn,
+            tf.constant(left_bracket, dtype=tf.float64),
+            tf.constant(right_bracket, dtype=tf.float64))
     ])
 
     _, value_at_roots, num_iterations, _ = result
@@ -277,7 +282,7 @@ class BrentqTest(tf.test.TestCase):
     # Should return a Tensor built from the best guesses in input positions.
     guess, result = self.evaluate([
         tf.constant([-10, -1], dtype=tf.float64),
-        root_search.brentq(
+        brentq(
             polynomial5, first_guess, second_guess, max_iterations=0)
     ])
 
@@ -290,7 +295,7 @@ class BrentqTest(tf.test.TestCase):
     # Should fail: The objective function has the same sign at both positions.
     with self.assertRaises(tf.errors.InvalidArgumentError):
       self.evaluate(
-          root_search.brentq(
+          brentq(
               f,
               tf.constant(-1, dtype=tf.float64),
               tf.constant(1, dtype=tf.float64),
@@ -303,7 +308,7 @@ class BrentqTest(tf.test.TestCase):
     # Should fail: Absolute root tolerance is negative.
     with self.assertRaises(tf.errors.InvalidArgumentError):
       self.evaluate(
-          root_search.brentq(
+          brentq(
               f,
               tf.constant(-2, dtype=tf.float64),
               tf.constant(2, dtype=tf.float64),
@@ -317,7 +322,7 @@ class BrentqTest(tf.test.TestCase):
     # Should fail: Relative root tolerance is negative.
     with self.assertRaises(tf.errors.InvalidArgumentError):
       self.evaluate(
-          root_search.brentq(
+          brentq(
               f,
               tf.constant(-1, dtype=tf.float64),
               tf.constant(1, dtype=tf.float64),
@@ -331,7 +336,7 @@ class BrentqTest(tf.test.TestCase):
     # Should fail: Value tolerance is negative.
     with self.assertRaises(tf.errors.InvalidArgumentError):
       self.evaluate(
-          root_search.brentq(
+          brentq(
               f,
               tf.constant(-1, dtype=tf.float64),
               tf.constant(1, dtype=tf.float64),
@@ -345,7 +350,7 @@ class BrentqTest(tf.test.TestCase):
     # Should fail: Maximum number of iterations is negative.
     with self.assertRaises(tf.errors.InvalidArgumentError):
       self.evaluate(
-          root_search.brentq(
+          brentq(
               f,
               tf.constant(-1, dtype=tf.float64),
               tf.constant(1, dtype=tf.float64),

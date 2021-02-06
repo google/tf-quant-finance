@@ -143,6 +143,7 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":implied_vol_approximation",
+        "//tf_quant_finance/math/root_search:newton",
         # tensorflow dep,
         # tensorflow_probability dep,
     ],
@@ -155,19 +156,6 @@ py_test(
     python_version = "PY3",
     deps = [
         "//tf_quant_finance",
-        # test util,
-        # absl/testing:parameterized dep,
-        # numpy dep,
-        # tensorflow dep,
-    ],
-)
-
-py_test(
-    name = "newton_root_test",
-    srcs = ["newton_root_test.py"],
-    python_version = "PY3",
-    deps = [
-        ":implied_vol_newton_root",
         # test util,
         # absl/testing:parameterized dep,
         # numpy dep,

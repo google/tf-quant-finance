@@ -40,8 +40,8 @@ default to Euler sampling.
 """
 
 import tensorflow.compat.v2 as tf
-from tf_quant_finance.black_scholes.implied_vol_newton_root import newton_root_finder
 from tf_quant_finance.math import random_ops as random
+from tf_quant_finance.math.root_search.newton import root_finder
 from tf_quant_finance.models import generic_ito_process
 from tf_quant_finance.models import utils
 
@@ -476,7 +476,7 @@ class SabrModel(generic_ito_process.GenericItoProcess):
       p, dpc = ncx2cdf_and_gradient(a, b, c_star, self._ncx2_cdf_truncation)
       return 1 - p - uniforms, -dpc
 
-    result, _, _ = newton_root_finder(equation, c_init)
+    result, _, _ = root_finder(equation, c_init)
     return tf.math.maximum(result, 0)
 
 

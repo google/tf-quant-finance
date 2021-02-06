@@ -1,5 +1,5 @@
 # Lint as: python3
-# Copyright 2019 Google LLC
+# Copyright 2021 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,25 +13,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-"""Tests for the Newton root finder in implied_vol_newton.py."""
+"""Tests for math.root_finder_newton."""
 
 
 from absl.testing import parameterized
-
 import numpy as np
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.black_scholes import implied_vol_newton_root as ivn
+import tf_quant_finance as tff
 
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
+newton_root = tff.math.root_search.newton_root
 
+
+# TODO(b/179452351): Implement more unit tests for newton method as for brent.
 @test_util.run_all_in_graph_and_eager_modes
-class NewtonRootTest(parameterized.TestCase, tf.test.TestCase):
-  """Tests for the Newton root finder."""
+class RootFinderNewtonTest(parameterized.TestCase, tf.test.TestCase):
+  """Tests for methods in root_finder_newton module."""
 
-  def test_newton_root_finder(self):
+  def test_newton_root(self):
     """Tests that the newton root finder works on a square root example."""
 
     # Set up the problem of finding the square roots of three numbers.
@@ -44,8 +45,11 @@ class NewtonRootTest(parameterized.TestCase, tf.test.TestCase):
       return objective, gradient
 
     # Obtain and evaluate a tensor containing the roots.
-    roots = ivn.newton_root_finder(objective_and_gradient, initial_values)
-    root_values, converged, failed = self.evaluate(roots)
+    root_values, converged, failed = self.evaluate(
+        newton_root(
+            objective_and_gradient, initial_values
+        )
+    )
 
     # Reference values.
     roots_bench = np.array([2.0, 3.0, 4.0])
@@ -71,8 +75,11 @@ class NewtonRootTest(parameterized.TestCase, tf.test.TestCase):
       return objective, gradient
 
     # Obtain and evaluate a tensor containing the roots.
-    roots = ivn.newton_root_finder(objective_and_gradient, initial_values)
-    _, converged, failed = self.evaluate(roots)
+    _, converged, failed = self.evaluate(
+        newton_root(
+            objective_and_gradient, initial_values
+        )
+    )
 
     # Reference values - we should not have converged and should have failed.
     converged_bench = np.array([False, False, False])
@@ -95,9 +102,11 @@ class NewtonRootTest(parameterized.TestCase, tf.test.TestCase):
       return objective, gradient
 
     # Obtain and evaluate a tensor containing the roots.
-    roots = ivn.newton_root_finder(
-        objective_and_gradient, initial_values, max_iterations=1)
-    _, converged, failed = self.evaluate(roots)
+    _, converged, failed = self.evaluate(
+        newton_root(
+            objective_and_gradient, initial_values, max_iterations=1
+        )
+    )
 
     # Reference values - we should neither have converged nor failed.
     converged_bench = np.array([False, False, False])

@@ -17,9 +17,9 @@
 
 import numpy as np
 import tensorflow.compat.v2 as tf
-from tf_quant_finance.black_scholes import implied_vol_newton_root
 from tf_quant_finance.black_scholes import vanilla_prices
 from tf_quant_finance.math import gradient
+from tf_quant_finance.math.root_search import newton as root_finder_newton
 
 
 def adesi_whaley(*,
@@ -312,7 +312,7 @@ def _adesi_whaley_critical_values(*,
                       x + (s_inf - x) * (1 - tf.math.exp(h)),
                       s_inf + (x - s_inf) * tf.math.exp(h))
 
-  s_crit, converged, failed = implied_vol_newton_root.newton_root_finder(
+  s_crit, converged, failed = root_finder_newton.root_finder(
       value_and_grad_func=value_and_gradient_func, initial_values=s_seed,
       max_iterations=max_iterations, tolerance=tolerance, dtype=dtype)
 
