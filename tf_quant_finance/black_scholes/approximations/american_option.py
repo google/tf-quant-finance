@@ -22,7 +22,6 @@ from tf_quant_finance.black_scholes import vanilla_prices
 from tf_quant_finance.math import gradient
 
 
-# TODO(b/151823233): remove `cost_of_carries` argument
 def adesi_whaley(*,
                  volatilities,
                  strikes,
@@ -31,7 +30,6 @@ def adesi_whaley(*,
                  forwards=None,
                  discount_rates=None,
                  continuous_dividends=None,
-                 cost_of_carries=None,
                  discount_factors=None,
                  is_call_options=None,
                  max_iterations=100,
@@ -47,14 +45,14 @@ def adesi_whaley(*,
   strikes = [100.0, 100.0, 100.0, 100.0, 100.0]
   volatilities = [0.2, 0.2, 0.2, 0.2, 0.2]
   expiries = 0.25
-  cost_of_carries = -0.04
+  dividends = 0.12
   discount_rates = 0.08
   computed_prices = adesi_whaley(
       volatilities=volatilities,
       strikes=strikes,
       expiries=expiries,
       discount_rates=discount_rates,
-      cost_of_carries=cost_of_carries,
+      continuous_dividends=continuous_dividends,
       spots=spots,
       dtype=tf.float64)
   # Expected print output of computed prices:
@@ -86,20 +84,12 @@ def adesi_whaley(*,
       Default value: `None`, equivalent to r = 0 and discount factors = 1 when
       discount_factors also not given.
     continuous_dividends: An optional real `Tensor` of same dtype as the
-      `volatilities`. If not `None`, cost_of_carries is calculated as r - q,
-      where r are the discount rates and q is continuous_dividends. Either this
-      or cost_of_carries can be given.
-      Default value: `None`, equivalent to q = 0.
-    cost_of_carries: An optional real `Tensor` of same dtype as the
-      `volatilities`. Cost of storing a physical commodity, the cost of
-      interest paid when long, or the opportunity cost, or the cost of paying
-      dividends when short. If not `None`, and `spots` is supplied, used to
-      calculate forwards from spots: F = e^(bT) * S. If `None`, value assumed
-      to be equal to the discount rate - continuous_dividends
-      Default value: `None`, equivalent to b = r.
+      `volatilities`. The continuous dividend rate on the underliers. May be
+      negative (to indicate costs of holding the underlier).
+      Default value: `None`, equivalent to zero dividends.
     discount_factors: An optional real `Tensor` of same dtype as the
       `volatilities`. If not `None`, these are the discount factors to expiry
-      (i.e. e^(-rT)). Mutually exclusive with discount_rate and cost_of_carry.
+      (i.e. e^(-rT)). Mutually exclusive with discount_rate.
       If neither is given, no discounting is applied (i.e. the undiscounted
       option price is returned). If `spots` is supplied and `discount_factors`
       is not `None` then this is also used to compute the forwards to expiry.
@@ -146,16 +136,12 @@ def adesi_whaley(*,
   Raises:
     ValueError:
       (a) If both `forwards` and `spots` are supplied or if neither is supplied.
-      (b) If both `continuous_dividends` and `cost_of_carries` are supplied.
   """
   if (spots is None) == (forwards is None):
     raise ValueError("Either spots or forwards must be supplied but not both.")
   if (discount_rates is not None) and (discount_factors is not None):
     raise ValueError("At most one of discount_rates and discount_factors may "
                      "be supplied")
-  if (continuous_dividends is not None) and (cost_of_carries is not None):
-    raise ValueError("At most one of continuous_dividends and cost_of_carries "
-                     "may be supplied")
   with tf.name_scope(name or "adesi_whaley"):
     volatilities = tf.convert_to_tensor(volatilities, dtype=dtype,
                                         name="volatilities")
@@ -172,23 +158,17 @@ def adesi_whaley(*,
     else:
       discount_rates = tf.constant(0.0, dtype=dtype, name="discount_rates")
 
-    if cost_of_carries is not None:
-      cost_of_carries = tf.convert_to_tensor(cost_of_carries, dtype=dtype,
-                                             name="cost_of_carries")
+    if continuous_dividends is not None:
+      continuous_dividends = tf.convert_to_tensor(
+          continuous_dividends, dtype=dtype, name="continuous_dividends")
     else:
-      if continuous_dividends is not None:
-        continuous_dividends = tf.convert_to_tensor(continuous_dividends,
-                                                    dtype=dtype,
-                                                    name="continuous_dividends")
-        cost_of_carries = tf.convert_to_tensor(
-            discount_rates - continuous_dividends, name="cost_of_carries")
-      else:
-        cost_of_carries = tf.convert_to_tensor(
-            discount_rates, name="cost_of_carries")
+      continuous_dividends = 0
     # Set forwards and spots
     if forwards is not None:
       spots = tf.convert_to_tensor(
-          forwards * tf.exp(-cost_of_carries * expiries), dtype=dtype,
+          forwards *
+          tf.exp(-(discount_rates - continuous_dividends) * expiries),
+          dtype=dtype,
           name="spots")
     else:
       spots = tf.convert_to_tensor(spots, dtype=dtype, name="spots")
@@ -197,40 +177,42 @@ def adesi_whaley(*,
                                              name="is_call_options")
     else:
       is_call_options = tf.constant(True, name="is_call_options")
-    # American option prices
+
     am_prices, converged, failed = _adesi_whaley(
-        sigma=volatilities, x=strikes, t=expiries, s=spots, r=discount_rates,
-        b=cost_of_carries, is_call_options=is_call_options, dtype=dtype,
-        max_iterations=max_iterations, tolerance=tolerance)
+        sigma=volatilities,
+        x=strikes,
+        t=expiries,
+        s=spots,
+        r=discount_rates,
+        d=continuous_dividends,
+        is_call_options=is_call_options,
+        dtype=dtype,
+        max_iterations=max_iterations,
+        tolerance=tolerance)
 
     # For call options where b >= r as per reference [1], only the European
     # option price should be calclated, while for the rest the american price
-    # formula should be used. For this reason, the vanilla EU price is
+    # formula should be used. For this reason, the vanilla European price is
     # calculated for all the spot prices, (assuming they are all call options),
     # and a subset of these will be used further down, if any of the date points
     # fit the criteria that they are all call options with b >= r.
     eu_prices = vanilla_prices.option_price(
-        volatilities=volatilities, strikes=strikes, expiries=expiries,
-        spots=spots, discount_rates=discount_rates,
-        cost_of_carries=cost_of_carries, dtype=dtype, name=name)
-    calculate_eu = tf.logical_and(is_call_options,
-                                  cost_of_carries >= discount_rates)
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        spots=spots,
+        discount_rates=discount_rates,
+        continuous_dividends=continuous_dividends,
+        dtype=dtype,
+        name=name)
+    calculate_eu = is_call_options & (continuous_dividends <= 0)
     converged = tf.where(calculate_eu, True, converged)
     failed = tf.where(calculate_eu, False, failed)
     return tf.where(calculate_eu, eu_prices, am_prices), converged, failed
 
 
-def _adesi_whaley(*,
-                  sigma,
-                  x,
-                  t,
-                  r,
-                  b,
-                  s,
-                  is_call_options,
-                  max_iterations,
-                  tolerance,
-                  dtype):
+def _adesi_whaley(*, sigma, x, t, r, d, s, is_call_options, max_iterations,
+                  tolerance, dtype):
   """Computes American option prices using the Baron-Adesi Whaley formula."""
 
   # The naming convention will align variables with the variables named in
@@ -243,13 +225,26 @@ def _adesi_whaley(*,
       tf.constant(-1, dtype=dtype))
 
   q2, a2, s_crit, converged, failed = _adesi_whaley_critical_values(
-      sigma=sigma, x=x, t=t, r=r, b=b, sign=sign,
+      sigma=sigma,
+      x=x,
+      t=t,
+      r=r,
+      d=d,
+      sign=sign,
       is_call_options=is_call_options,
-      max_iterations=max_iterations, tolerance=tolerance, dtype=dtype)
+      max_iterations=max_iterations,
+      tolerance=tolerance,
+      dtype=dtype)
 
   eu_prices = vanilla_prices.option_price(
-      volatilities=sigma, strikes=x, expiries=t, spots=s, discount_rates=r,
-      cost_of_carries=b, is_call_options=is_call_options, dtype=dtype)
+      volatilities=sigma,
+      strikes=x,
+      expiries=t,
+      spots=s,
+      discount_rates=r,
+      continuous_dividends=d,
+      is_call_options=is_call_options,
+      dtype=dtype)
 
   # The divisive condition is different for put and call options
   condition = tf.where(is_call_options, s < s_crit, s > s_crit)
@@ -267,7 +262,7 @@ def _adesi_whaley_critical_values(*,
                                   x,
                                   t,
                                   r,
-                                  b,
+                                  d,
                                   sign,
                                   is_call_options,
                                   max_iterations=20,
@@ -281,22 +276,23 @@ def _adesi_whaley_critical_values(*,
   # [1] https://deriscope.com/docs/Barone_Adesi_Whaley_1987.pdf
 
   m = 2 * r / sigma ** 2
-  n = 2 * b / sigma ** 2
-  k = 1 - tf.exp(- r * t)
+  n = 2 * (r - d) / sigma**2
+  k = 1 - tf.exp(-r * t)
   q = _calc_q(n, m, sign, k)
 
   def value_fn(s_crit):
-    return (vanilla_prices.option_price(volatilities=sigma,
-                                        strikes=x,
-                                        expiries=t,
-                                        spots=s_crit,
-                                        discount_rates=r,
-                                        cost_of_carries=b,
-                                        is_call_options=is_call_options,
-                                        dtype=dtype)
-            + sign * (1 - tf.math.exp((b - r) * t)
-                      * _ncdf(sign * _calc_d1(s_crit, x, sigma, b, t)))
-            * tf.math.divide_no_nan(s_crit, q) - sign * (s_crit - x))
+    return (vanilla_prices.option_price(
+        volatilities=sigma,
+        strikes=x,
+        expiries=t,
+        spots=s_crit,
+        discount_rates=r,
+        continuous_dividends=d,
+        is_call_options=is_call_options,
+        dtype=dtype) + sign *
+            (1 - tf.math.exp(-d * t) *
+             _ncdf(sign * _calc_d1(s_crit, x, sigma, r - d, t))) *
+            tf.math.divide_no_nan(s_crit, q) - sign * (s_crit - x))
 
   def value_and_gradient_func(price):
     return  gradient.value_and_gradient(value_fn, price)
@@ -307,8 +303,8 @@ def _adesi_whaley_critical_values(*,
   q_inf = _calc_q(n, m, sign)
   s_inf = tf.math.divide_no_nan(
       x, 1 - tf.math.divide_no_nan(tf.constant(1, dtype=dtype), q_inf))
-  h = (-(sign * b * t + 2 * sigma * tf.math.sqrt(t))
-       * sign * tf.math.divide_no_nan(x, s_inf - x))
+  h = (-(sign * (r - d) * t + 2 * sigma * tf.math.sqrt(t)) * sign *
+       tf.math.divide_no_nan(x, s_inf - x))
   if is_call_options is None:
     s_seed = x + (s_inf - x) * (1 - tf.math.exp(h))
   else:
@@ -320,9 +316,10 @@ def _adesi_whaley_critical_values(*,
       value_and_grad_func=value_and_gradient_func, initial_values=s_seed,
       max_iterations=max_iterations, tolerance=tolerance, dtype=dtype)
 
-  a = (sign * tf.math.divide_no_nan(s_crit, q)
-       * (1 - tf.math.exp((b - r) * t)
-          * _ncdf(sign * _calc_d1(s_crit, x, sigma, b, t))))
+  a = (
+      sign * tf.math.divide_no_nan(s_crit, q) *
+      (1 - tf.math.exp(-d * t) *
+       _ncdf(sign * _calc_d1(s_crit, x, sigma, r - d, t))))
 
   return q, a, s_crit, converged, failed
 

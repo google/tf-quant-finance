@@ -19,8 +19,10 @@ from absl.testing import parameterized
 import numpy as np
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.black_scholes.approximations.american_option import adesi_whaley
+import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+
+adesi_whaley = tff.black_scholes.approximations.adesi_whaley
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -28,31 +30,27 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
   """Tests for methods for the american pricing module."""
 
   @parameterized.parameters(
-      (0.08, 0.2, 0.25,
+      (0.08, 0.12, 0.2, 0.25,
        [0.03, 0.59, 3.52, 10.31, 20.0, 20.42, 11.25, 4.40, 1.12, 0.18]),
-      (0.12, 0.2, 0.25,
+      (0.12, 0.16, 0.2, 0.25,
        [0.03, 0.59, 3.51, 10.29, 20.0, 20.25, 11.15, 4.35, 1.11, 0.18]),
-      (0.08, 0.4, 0.25,
+      (0.08, 0.12, 0.4, 0.25,
        [1.07, 3.28, 7.41, 13.50, 21.23, 21.46, 13.93, 8.27, 4.52, 2.30]),
-      (0.08, 0.2, 0.5,
+      (0.08, 0.12, 0.2, 0.5,
        [0.23, 1.39, 4.72, 10.96, 20.0, 20.98, 12.64, 6.37, 2.65, 0.92]),
   )
-  def test_option_prices_neg_carries(self,
-                                     discount_rates,
-                                     volatilities,
-                                     expiries,
-                                     expected_prices):
+  def test_option_prices_neg_carries(self, discount_rates, dividends,
+                                     volatilities, expiries, expected_prices):
     """Tests the prices for negative cost_of_carries."""
     spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
     strikes = np.array([100.0] * 10)
     is_call_options = np.array([True] * 5 + [False] * 5)
-    cost_of_carries = -0.04
     computed_prices, converged, failed = adesi_whaley(
         volatilities=volatilities,
         strikes=strikes,
         expiries=expiries,
         discount_rates=discount_rates,
-        cost_of_carries=cost_of_carries,
+        continuous_dividends=dividends,
         is_call_options=is_call_options,
         spots=spots,
         dtype=tf.float64)
@@ -66,31 +64,27 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
       self.assertAllEqual(failed, tf.zeros_like(computed_prices))
 
   @parameterized.parameters(
-      (0.08, 0.2, 0.25,
+      (0.08, 0.04, 0.2, 0.25,
        [0.05, 0.85, 4.44, 11.66, 20.90, 20.00, 10.18, 3.54, 0.80, 0.12]),
-      (0.12, 0.2, 0.25,
+      (0.12, 0.08, 0.2, 0.25,
        [0.05, 0.84, 4.40, 11.55, 20.69, 20.00, 10.16, 3.53, 0.79, 0.12]),
-      (0.08, 0.4, 0.25,
+      (0.08, 0.04, 0.4, 0.25,
        [1.29, 3.82, 8.35, 14.80, 22.72, 20.53, 12.93, 7.46, 3.96, 1.95]),
-      (0.08, 0.2, 0.5,
+      (0.08, 0.04, 0.2, 0.5,
        [0.41, 2.18, 6.50, 13.42, 22.06, 20.00, 10.71, 4.77, 1.76, 0.55]),
   )
-  def test_option_prices_pos_carries(self,
-                                     discount_rates,
-                                     volatilities,
-                                     expiries,
-                                     expected_prices):
+  def test_option_prices_pos_carries(self, discount_rates, dividends,
+                                     volatilities, expiries, expected_prices):
     """Tests the prices for positive cost_of_carries."""
     spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
     strikes = np.array([100.0] * 10)
     is_call_options = [True] * 5 + [False] * 5
-    cost_of_carries = 0.04
     computed_prices, converged, failed = adesi_whaley(
         volatilities=volatilities,
         strikes=strikes,
         expiries=expiries,
         discount_rates=discount_rates,
-        cost_of_carries=cost_of_carries,
+        continuous_dividends=dividends,
         spots=spots,
         is_call_options=is_call_options,
         dtype=tf.float64)
@@ -121,13 +115,13 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
     forwards = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
     strikes = np.array([100.0] * 10)
     is_call_options = [True] * 5 + [False] * 5
-    cost_of_carries = 0.
+    dividends = discount_rates
     computed_prices, converged, failed = adesi_whaley(
         volatilities=volatilities,
         strikes=strikes,
         expiries=expiries,
         discount_rates=discount_rates,
-        cost_of_carries=cost_of_carries,
+        continuous_dividends=dividends,
         forwards=forwards,
         is_call_options=is_call_options,
         dtype=tf.float64)
@@ -149,13 +143,9 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
       (tf.float32, 0.08, 0.4, 0.25, [20.25, 12.51, 7.10, 3.71, 1.81]),
       (tf.float32, 0.08, 0.2, 0.5, [20.0, 10.23, 4.19, 1.45, 0.42]),
   )
-  def test_option_prices_no_cost_of_carries(self,
-                                            dtype,
-                                            discount_rates,
-                                            volatilities,
-                                            expiries,
-                                            expected_prices):
-    """Tests the prices when no cost_of_carries is supplied."""
+  def test_option_prices_no_dividends(self, dtype, discount_rates, volatilities,
+                                      expiries, expected_prices):
+    """Tests the prices when no dividends are supplied."""
     spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0])
     strikes = np.array([100.0, 100.0, 100.0, 100.0, 100.0])
     is_call_options = False

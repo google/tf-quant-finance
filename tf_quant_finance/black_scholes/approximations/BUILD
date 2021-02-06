@@ -33,7 +33,6 @@ py_test(
     python_version = "PY3",
     shard_count = 6,
     deps = [
-        ":american_option",
         "//tf_quant_finance",
         # test util,
         # absl/testing:parameterized dep,
