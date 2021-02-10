@@ -9,60 +9,14 @@ py_library(
     srcs = ["__init__.py"],
     srcs_version = "PY3",
     deps = [
-        "swap_curve_common",
         ":cashflows",
         ":forwards",
         ":swap_curve_bootstrap",
+        ":swap_curve_common",
         ":swap_curve_fit",
+        "//tf_quant_finance/rates/analytics",
         "//tf_quant_finance/rates/constant_fwd",
         "//tf_quant_finance/rates/hagan_west",
-    ],
-)
-
-py_library(
-    name = "forwards",
-    srcs = ["forwards.py"],
-    srcs_version = "PY3",
-    deps = [
-        "//tf_quant_finance/math:segment_ops",
-        # numpy dep,
-        # tensorflow dep,
-    ],
-)
-
-py_test(
-    name = "forwards_test",
-    size = "small",
-    srcs = ["forwards_test.py"],
-    python_version = "PY3",
-    deps = [
-        ":forwards",
-        # test util,
-        # numpy dep,
-        # tensorflow dep,
-    ],
-)
-
-py_library(
-    name = "cashflows",
-    srcs = ["cashflows.py"],
-    srcs_version = "PY3",
-    deps = [
-        # numpy dep,
-        # tensorflow dep,
-    ],
-)
-
-py_test(
-    name = "cashflows_test",
-    size = "small",
-    srcs = ["cashflows_test.py"],
-    python_version = "PY3",
-    deps = [
-        ":cashflows",
-        # test util,
-        # numpy dep,
-        # tensorflow dep,
     ],
 )
 
@@ -113,6 +67,27 @@ py_test(
         "//tf_quant_finance/math/interpolation/linear",
         "//tf_quant_finance/rates/constant_fwd",
         # absl/testing:parameterized dep,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "cashflows",
+    srcs = ["cashflows.py"],
+    srcs_version = "PY3",
+    deps = [
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "forwards",
+    srcs = ["forwards.py"],
+    srcs_version = "PY3",
+    deps = [
+        "//tf_quant_finance/math:segment_ops",
         # numpy dep,
         # tensorflow dep,
     ],

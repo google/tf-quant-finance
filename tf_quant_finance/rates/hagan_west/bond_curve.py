@@ -41,7 +41,7 @@ method described by Hagan and West in Ref [1, 2].
 import collections
 import tensorflow.compat.v2 as tf
 
-from tf_quant_finance.rates import cashflows
+from tf_quant_finance.rates.analytics import cashflows
 from tf_quant_finance.rates.hagan_west import monotone_convex
 
 CurveBuilderResult = collections.namedtuple(

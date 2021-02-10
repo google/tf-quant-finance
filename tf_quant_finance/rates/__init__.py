@@ -13,7 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Functions to handle rates."""
+import copy
 
+from tf_quant_finance.rates import analytics
 from tf_quant_finance.rates import cashflows
 from tf_quant_finance.rates import constant_fwd
 from tf_quant_finance.rates import forwards
@@ -23,13 +25,13 @@ from tf_quant_finance.rates import swap_curve_fit as swap_curve_fit_lib
 from tf_quant_finance.rates.swap_curve_common import SwapCurveBuilderResult
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
-
 swap_curve_fit = swap_curve_fit_lib.swap_curve_fit
 swap_curve_bootstrap = swap_curve_boot_lib.swap_curve_bootstrap
 
 _allowed_symbols = [
     'cashflows',
     'forwards',
+    'analytics',
     'hagan_west',
     'constant_fwd',
     'swap_curve_fit',

@@ -56,7 +56,7 @@ import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.math import piecewise
 from tf_quant_finance.math.diff_ops import diff
-from tf_quant_finance.rates import forwards
+from tf_quant_finance.rates.analytics import forwards
 
 
 def interpolate(times,

@@ -21,7 +21,7 @@ py_library(
     deps = [
         "//tf_quant_finance/math:diff_ops",
         "//tf_quant_finance/math:piecewise",
-        "//tf_quant_finance/rates:forwards",
+        "//tf_quant_finance/rates/analytics:forwards",
         # numpy dep,
         # tensorflow dep,
     ],
@@ -47,7 +47,8 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":monotone_convex",
-        "//tf_quant_finance/rates:cashflows",
+        "//tf_quant_finance/math:pad",
+        "//tf_quant_finance/rates/analytics:cashflows",
         # numpy dep,
         # tensorflow dep,
     ],
