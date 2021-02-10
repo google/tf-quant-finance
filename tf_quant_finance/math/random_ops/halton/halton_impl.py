@@ -271,7 +271,9 @@ def sample(dim,
       weight_mask = exponents_by_axes >= max_sizes_by_axes
       capped_exponents = tf.where(weight_mask, tf.zeros_like(exponents_by_axes),
                                   exponents_by_axes)
-      weights = radixes**capped_exponents
+      # Round to nearest integer to correct small errors when applying floating-
+      # point pow(radixes, capped_exponents).
+      weights = tf.compat.v1.round(radixes**capped_exponents)
       # The following computes the base b expansion of the indices. Suppose,
       # x = a0 + a1*b + a2*b^2 + ... Then, performing a floor div of x with
       # the vector (1, b, b^2, b^3, ...) will produce
