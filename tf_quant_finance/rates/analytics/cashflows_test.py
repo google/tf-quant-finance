@@ -202,6 +202,29 @@ class CashflowsTest(tf.test.TestCase, parameterized.TestCase):
             max_iterations=30))
     np.testing.assert_allclose(expected_yields, actual_yields, atol=1e-9)
 
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'SinglePrecision',
+          'dtype': np.float32
+      }, {
+          'testcase_name': 'DoublePrecision',
+          'dtype': np.float64
+      })
+  def test_discount_factors(self, dtype):
+    """Tests docstring discount factors."""
+    # 2 and 3 year bonds with 1000 face value and 4%, 6% semi-annual coupons.
+    cashflows = [[20, 20, 20, 1020, 0, 0],
+                 [30, 30, 30, 30, 30, 1030]]
+    discount_factors = [[0.96, 0.93, 0.9, 0.87, 1.0, 1.0],
+                        [0.97, 0.95, 0.93, 0.9, 0.88, 0.86]]
+    expected_prices = [943.2, 1024.7]
+    actual_prices = self.evaluate(
+        tff.rates.analytics.cashflows.present_value(
+            cashflows,
+            discount_factors,
+            dtype=dtype))
+    np.testing.assert_allclose(expected_prices, actual_prices, atol=1e-9)
+
 
 if __name__ == '__main__':
   tf.test.main()

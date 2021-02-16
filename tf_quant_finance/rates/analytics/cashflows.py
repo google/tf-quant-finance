@@ -17,6 +17,58 @@
 import tensorflow.compat.v2 as tf
 
 
+def present_value(cashflows,
+                  discount_factors,
+                  dtype=None,
+                  name=None):
+  """Computes present value of a stream of cashflows given discount factors.
+
+
+  ```python
+
+    # 2 and 3 year bonds with 1000 face value and 4%, 6% semi-annual coupons.
+    # Note that the first four entries in the cashflows are the cashflows of
+    # the first bond (group=0) and the next six are the cashflows of the second
+    # bond (group=1).
+    cashflows = [[20, 20, 20, 1020, 0, 0],
+                 [30, 30, 30, 30, 30, 1030]]
+
+    # Corresponding discount factors for the cashflows
+    discount_factors = [[0.96, 0.93, 0.9, 0.87, 1.0, 1.0],
+                        [0.97, 0.95, 0.93, 0.9, 0.88, 0.86]]
+
+    present_values = present_value(
+        cashflows, discount_factors, dtype=np.float64)
+    # Expected: [943.2, 1024.7]
+  ```
+
+  Args:
+    cashflows: A real `Tensor` of shape `batch_shape + [n]`. The set of
+      cashflows of underlyings. `n` is the number of cashflows per bond
+      and `batch_shape` is the number of bonds. Bonds with different number
+      of cashflows should be padded to a common number `n`.
+    discount_factors: A `Tensor` of the same `dtype` as `cashflows` and of
+      compatible shape. The set of discount factors corresponding to the
+      cashflows.
+    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+      Default value: None which maps to the default dtype inferred from
+      `cashflows`.
+    name: Python str. The name to give to the ops created by this function.
+      Default value: None which maps to 'present_value'.
+
+  Returns:
+    Real `Tensor` of shape `batch_shape`. The present values of the cashflows.
+  """
+  name = name or 'present_value'
+  with tf.name_scope(name):
+    cashflows = tf.convert_to_tensor(cashflows, dtype=dtype, name='cashflows')
+    dtype = dtype or cashflows.dtype
+    discount_factors = tf.convert_to_tensor(
+        discount_factors, dtype=dtype, name='discount_factors')
+    discounted = cashflows * discount_factors
+    return tf.math.reduce_sum(discounted, axis=-1)
+
+
 def pv_from_yields(cashflows,
                    times,
                    yields,
@@ -85,7 +137,7 @@ def pv_from_yields(cashflows,
       `k-1` where `k` is the number of related cashflows.
       Default value: None. This implies that all the cashflows are treated as a
         single group.
-    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tenssor`s.
+    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
       Default value: None which maps to the default dtype inferred from
       `cashflows`.
     name: Python str. The name to give to the ops created by this function.
@@ -194,7 +246,7 @@ def yields_from_pv(cashflows,
       iterations is exhausted or the tolerance is reached (whichever is
       earlier). Supply `None` to remove the limit on the number of iterations.
       Default value: 10.
-    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tenssor`s.
+    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
       Default value: None which maps to the default dtype inferred from
       `cashflows`.
     name: Python str. The name to give to the ops created by this function.
@@ -250,4 +302,4 @@ def yields_from_pv(cashflows,
         parallel_iterations=1)
     return estimated_yields
 
-__all__ = ['pv_from_yields', 'yields_from_pv']
+__all__ = ['present_value', 'pv_from_yields', 'yields_from_pv']

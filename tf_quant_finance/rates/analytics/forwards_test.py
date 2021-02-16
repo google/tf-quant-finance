@@ -35,6 +35,29 @@ class ForwardRatesTest(tf.test.TestCase, parameterized.TestCase):
           'dtype': np.float64
       })
   def test_forward_rates(self, dtype):
+    # Discount factors at start dates
+    df_start_dates = [[0.95, 0.9, 0.75], [0.95, 0.99, 0.85]]
+    # Discount factors at end dates
+    df_end_dates = [[0.8, 0.6, 0.5], [0.8, 0.9, 0.5]]
+    # Daycount fractions between the dates
+    daycount_fractions = [[0.5, 1.0, 2], [0.6, 0.4, 4.0]]
+    forward_rates = self.evaluate(
+        tff.rates.analytics.forwards.forward_rates(
+            df_start_dates, df_end_dates, daycount_fractions, dtype=dtype))
+    expected_forward_rates = np.array(
+        [[0.375, 0.5, 0.25], [0.3125, 0.25, 0.175]], dtype=dtype)
+    np.testing.assert_allclose(
+        forward_rates, expected_forward_rates, atol=1e-6)
+
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'SinglePrecision',
+          'dtype': np.float32
+      }, {
+          'testcase_name': 'DoublePrecision',
+          'dtype': np.float64
+      })
+  def test_forward_rates_from_yields(self, dtype):
     groups = np.array([0, 0, 0, 1, 1, 1, 1])
     times = np.array([0.25, 0.5, 1.0, 0.25, 0.5, 1.0, 1.5], dtype=dtype)
     rates = np.array([0.04, 0.041, 0.044, 0.022, 0.025, 0.028, 0.036],
@@ -55,7 +78,7 @@ class ForwardRatesTest(tf.test.TestCase, parameterized.TestCase):
           'testcase_name': 'DoublePrecision',
           'dtype': np.float64
       })
-  def test_forward_rates_no_batches(self, dtype):
+  def test_forward_rates_from_yields_no_batches(self, dtype):
     times = np.array([0.25, 0.5, 1.0, 1.25, 1.5, 2.0, 2.5], dtype=dtype)
     rates = np.array([0.04, 0.041, 0.044, 0.046, 0.046, 0.047, 0.050],
                      dtype=dtype)

@@ -1,5 +1,5 @@
 # Lint as: python3
-# Copyright 2019 Google LLC
+# Copyright 2021 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,58 @@
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.math import segment_ops
+
+
+def forward_rates(df_start_dates,
+                  df_end_dates,
+                  daycount_fractions,
+                  dtype=None,
+                  name=None):
+  """Computes forward rates from daycount fractions and discount factors.
+
+  #### Example
+  ```python
+  # Discount factors at start dates
+  df_start_dates = [[0.95, 0.9, 0.75], [0.95, 0.99, 0.85]]
+  # Discount factors at end dates
+  df_end_dates = [[0.8, 0.6, 0.5], [0.8, 0.9, 0.5]]
+  # Daycount fractions between the dates
+  daycount_fractions = [[0.5, 1.0, 2], [0.6, 0.4, 4.0]]
+  # Expected:
+  #  [[0.375 , 0.5   , 0.25  ],
+  #   [0.3125, 0.25  , 0.175 ]]
+  forward_rates(df_start_dates, df_end_dates, daycount_fractions,
+                dtype=tf.float64)
+  ```
+
+  Args:
+    df_start_dates: A real `Tensor` representing discount factors at the start
+      dates.
+    df_end_dates: A real `Tensor` representing discount factors at the end
+      dates.
+    daycount_fractions: A real `Tensor` representing  year fractions for the
+      coupon accrual.
+    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+      Default value: None which maps to the default dtype inferred from
+      `df_start_dates`.
+    name: Python str. The name to give to the ops created by this function.
+      Default value: None which maps to 'forward_rates'.
+
+  Returns:
+
+  """
+  name = name or 'forward_rates'
+  with tf.name_scope(name):
+    df_start_dates = tf.convert_to_tensor(
+        df_start_dates, dtype, name='df_start_dates')
+    dtype = dtype or df_start_dates.dtype
+    df_end_dates = tf.convert_to_tensor(
+        df_end_dates, dtype, name='df_end_dates')
+    daycount_fractions = tf.convert_to_tensor(
+        daycount_fractions, dtype, name='daycount_fractions')
+    return tf.math.divide_no_nan(
+        tf.math.divide_no_nan(df_start_dates, df_end_dates) - 1,
+        daycount_fractions)
 
 
 def forward_rates_from_yields(yields,
@@ -245,4 +297,6 @@ def yields_from_forward_rates(discrete_forwards,
     return tf.math.divide_no_nan(y, times)
 
 
-__all__ = ['forward_rates_from_yields', 'yields_from_forward_rates']
+__all__ = ['forward_rates_from_yields',
+           'yields_from_forward_rates',
+           'forward_rates']

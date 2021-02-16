@@ -11,6 +11,7 @@ py_library(
     deps = [
         ":cashflows",
         ":forwards",
+        ":swap",
     ],
 )
 
@@ -54,6 +55,32 @@ py_test(
     name = "cashflows_test",
     size = "small",
     srcs = ["cashflows_test.py"],
+    python_version = "PY3",
+    shard_count = 4,
+    deps = [
+        "//tf_quant_finance",
+        # test util,
+        # absl/testing:parameterized dep,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "swap",
+    srcs = ["swap.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":cashflows",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "swap_test",
+    size = "small",
+    srcs = ["swap_test.py"],
     python_version = "PY3",
     shard_count = 4,
     deps = [

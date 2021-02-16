@@ -16,12 +16,14 @@
 
 from tf_quant_finance.rates.analytics import cashflows
 from tf_quant_finance.rates.analytics import forwards
+from tf_quant_finance.rates.analytics import swap
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 
 _allowed_symbols = [
     'cashflows',
     'forwards',
+    'swap',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
