@@ -110,11 +110,10 @@ F(S, u) = k S^{p_+}
 \end{equation}$$
 
 To fix the constant $$k$$, we impose the free boundary condition at the exercise
-boundary where the option must be worth its intrinsic value.
-Assume there exists a value of the spot $$S_{*}$$ such that for $$S >
-S_{*}$$, early exercise is optimal. At this point, the value of the American
-option must be equal to its intrinsic value $$S_{*} - K$$. This leads to the
-condition:
+boundary where the option must be worth its intrinsic value. Assume there exists
+a value of the spot $$S_{*}$$ such that for $$S > S_{*}$$, early exercise is
+optimal. At this point, the value of the American option must be equal to its
+intrinsic value $$S_{*} - K$$. This leads to the condition:
 
 $$\begin{equation}
 S_* - K = c(S_*, T) + k (1-e^{-rT}) S_{*}^{p_{+}} \label{valuematch}
@@ -127,11 +126,10 @@ k = \frac{S_* - K - c(S_*, T)}{(1-e^{-rT}) S_{*}^{p_{+}}} \label{constant}
 \end{equation}$$
 
 While the previous condition ensures that the solution is continuous in $$S$$,
-we also need the first derivative of [$$\ref{valuematch}$$] to be continuous
-(in financial terms, we want delta to not jump suddenly across the boundary).
-This leads to a second equation which can be used to find the exercise boundary
+we also need the first derivative of [$$\ref{valuematch}$$] to be continuous (in
+financial terms, we want delta to not jump suddenly across the boundary). This
+leads to a second equation which can be used to find the exercise boundary
 $$S_*$$.
-
 
 $$\begin{equation}
 1 = e^{-dT} \N(d_1) + \frac{(S_* - K - c(S_*, T))}{ S_{*}} p_{+} \label{temp1}
@@ -153,25 +151,22 @@ H(S_*) = 1 \label{tosolve}
 The exercise boundary is found by solving Eq. ($$\ref{tosolve}$$). A few
 limiting cases are important. Firstly, if the dividends are zero, it is easy to
 see that there is no solution to the equation (i.e. early exercise is never
-optimal). This follows from the well known
-bound on the European call option price: $$c(S, T) > S - K e^{-rT} >= S - K$$.
-Hence,
-the second term in Eq. ($$\ref{hdef}$$) is always negative. The first term is
-the call option delta monotonically approaches 1 as $$S \rightarrow \infty$$.
-Hence, the sum of the two terms (one always less than one and the other
-negative) cannot equal 1 for any finite value of $$S$$. A similar argument (but
-a little more tricky) shows that this is also true if the dividends are
-negative.
+optimal). This follows from the well known bound on the European call option
+price: $$c(S, T) > S - K e^{-rT} >= S - K$$. Hence, the second term in Eq.
+($$\ref{hdef}$$) is always negative. The first term is the call option delta
+monotonically approaches 1 as $$S \rightarrow \infty$$. Hence, the sum of the
+two terms (one always less than one and the other negative) cannot equal 1 for
+any finite value of $$S$$. A similar argument (but a little more tricky) shows
+that this is also true if the dividends are negative.
 
 For a positive dividend, the equation always has a solution. To show this, it is
 sufficient to show that the asymptotic value of the function $$H(S)$$ is greater
-than 1, that $$H(S)$$ is negative for
-sufficiently small $$S$$ and that $$H(S)$$ is monotonically increasing. That
-$$H(S)$$ is negative for small $$S$$ is seen by considering the limit of
-$$S\rightarrow 0$$. As $$S\rightarrow 0$$, $$\N(d_1), c(S,T) \rightarrow 0$$
-and $$H(S) \rightarrow -\frac{Kp_+}{S} < 0$$ (because $$p_+ >0$$).
-The gradient of $$H(S)$$ with respect to $$S$$ is straightforward to compute
-and the result is:
+than 1, that $$H(S)$$ is negative for sufficiently small $$S$$ and that $$H(S)$$
+is monotonically increasing. That $$H(S)$$ is negative for small $$S$$ is seen
+by considering the limit of $$S\rightarrow 0$$. As $$S\rightarrow 0$$,
+$$\N(d_1), c(S,T) \rightarrow 0$$ and $$H(S) \rightarrow -\frac{Kp_+}{S} < 0$$
+(because $$p_+ >0$$). The gradient of $$H(S)$$ with respect to $$S$$ is
+straightforward to compute and the result is:
 
 $$\begin{equation}
 \frac{dH(S)}{dS} = \frac{e^{-dT} n(d_1) }{S\sigma \sqrt{T}} + \frac{Kp_+(1-e^{-rT} \N(d_2))}{S^2}
@@ -271,8 +266,8 @@ $$ \begin{eqnarray} p_+ &>& 1 \\
 Note that for $$d = 0$$, the result fails because while $$p_+ > 1$$,
 $$(1-e^{-dT})$$ is zero. $$\square$$
 
-Next, we derive a useful lower bound on the exercise boundary.
-Consider the subleading term of the $$H(S)$$.
+Next, we derive a useful lower bound on the exercise boundary. Consider the
+subleading term of the $$H(S)$$.
 
 **Claim 3:** $$H(S)$$ is bounded above by the following function:
 
@@ -326,7 +321,7 @@ $$H(S)$$ for all values of $$S$$ if $$r>0$$. $$\square$$
 
 Note that this bound is not particularly useful in the case that $$r \leq 0$$.
 However, for the "regular" case of $$r>0$$ it does provide a very useful
-starting point for finding the solution of Eq $$[\ref{tosolve}]$$. 
+starting point for finding the solution of Eq $$[\ref{tosolve}]$$.
 
 ## Put Options
 
@@ -421,35 +416,34 @@ h_{\pm} &=& ((r-d) T \pm 2 \sigma \sqrt{T}) \frac{K}{K - S^{\infty}_{\pm}}
 $$S_+$$ and $$S_-$$ are the suggested starting points for calls and puts
 respectively.
 
-
 ## Root Finding
 
 As we will be batching put and call options together, it is useful to combine
-the expressions for calls and puts into one equation.
-The equations we need to solve are $$H(S) = 1$$ and $$G(S) = -1$$ with
-definitons in Eqns [$$\ref{tosolve}$$] and [$$\ref{tosolveput}$$]. Define:
+the expressions for calls and puts into one equation. The equations we need to
+solve are $$H(S) = 1$$ and $$G(S) = -1$$ with definitons in Eqns
+[$$\ref{tosolve}$$] and [$$\ref{tosolveput}$$]. Define:
 
 $$\begin{eqnarray}
-K_{+}(S) &=& S(H(S) - 1) \\
-K_{-}(S) &=& S(G(S) + 1)
+J_{+}(S) &=& S(H(S) - 1) \\
+J_{-}(S) &=& S(G(S) + 1)
 \end{eqnarray}$$
 
-Some algebraic manipulation shows that $$K_{\pm}(S)$$ has the following symmetric
-form:
+Some algebraic manipulation shows that $$J_{\pm}(S)$$ has the following
+symmetric form:
 
 $$\begin{equation}
-K_{\pm}(S)=S(p_{\pm}-1)(1-e^{-dT}\N(\pm d_1)) - p_{\pm} (1-e^{-rT} \N(\pm d_2))K
+J_{\pm}(S)=S(p_{\pm}-1)(1-e^{-dT}\N(\pm d_1)) - p_{\pm} (1-e^{-rT} \N(\pm d_2))K
 \end{equation}$$
 
-And we need to find the root of $$K_{\pm}$$. This is done iteratively. Let
-$$S_i$$ be the root estimate at the i'th iteration. Then
-$$S_{i+1} = S_{i}+\delta S_{i}$$ and:
+And we need to find the root of $$J_{\pm}$$. This is done iteratively. Let
+$$S_i$$ be the root estimate at the i'th iteration. Then $$S_{i+1} =
+S_{i}+\delta S_{i}$$ and:
 
 $$\begin{equation}
-\delta S_{i} = -\frac{K_{\pm}(S_i)}{K'_{\pm}(S_i)}
+\delta S_{i} = -\frac{J_{\pm}(S_i)}{J'_{\pm}(S_i)}
 \end{equation}$$
 
-where $$K'_{\pm}$$ is the derivative with respect to $$S$$. A little bit of
+where $$J'_{\pm}$$ is the derivative with respect to $$S$$. A little bit of
 algebra along with the identity ($$n(x)$$ is the standard normal PDF):
 
 $$\begin{equation}
@@ -459,16 +453,86 @@ $$\begin{equation}
 yields the following expression for the derivative:
 
 $$\begin{equation}
-K'_{\pm}(S) = (p_{\pm}-1)[1-e^{-dT} \N(\pm d_1)] \pm \frac{e^{-dT}n(d_1)}{\sigma\sqrt{T}}
+J'_{\pm}(S) = (p_{\pm}-1)[1-e^{-dT} \N(\pm d_1)] \pm \frac{e^{-dT}n(d_1)}{\sigma\sqrt{T}}
 \end{equation}$$
 
 Given the bounds on $$p_{\pm}$$ from the previous sections, it is clear that the
-derivative is always positive for $$K_+$$ and always negative for $$K_-$$. Hence
+derivative is always positive for $$J_+$$ and always negative for $$J_-$$. Hence
 the two functions are monotonic. This implies that given a current value of the
-spot $$S_0$$, for a call, if $$K_+(S) > 0$$ then we know early exercise is
+spot $$S_0$$, for a call, if $$J_+(S) > 0$$ then we know early exercise is
 optimal and we can avoid the root finding (i.e. we don't need the value of
-$$S_*$$). Similarly, for a put if $$K_-(S) > 0$$, we are in early exercise
+$$S_*$$). Similarly, for a put if $$J_-(S) > 0$$, we are in early exercise
 region and we can avoid the root finding.
+
+## Implementation Notes
+
+Implementing the above algorithm in TensorFlow (efficiently) is mostly
+straightforward but requires some care to handle the edge cases as well as the
+vectorization. A rough outline of the implementation is as follows:
+
+1.  Inputs: A batch of options with strikes ($$K$$), volatilities ($$\Sigma$$),
+    spots ($$S$$), expiries ($$T$$), risk free rates ($$r$$), dividend rates
+    ($$d$$) and put call indicators ($$E$$). The put call indicator values are
+    $$+1$$ for a call and $$-1$$ for a put.
+2.  Compute the (safe) bounds on the exercise prices
+
+    $$B = K * E * max\left(E, E*\frac{p (1-e^{-rT})}{(p-1)(1-e^{-dT})}\right)$$
+
+    where
+
+    $$\begin{eqnarray}
+    \alpha &=& \frac{2 * r}{\Sigma^2} \nonumber \\
+    \beta &=& \frac{2 * (r-d)}{\Sigma^2} \nonumber \\
+    u &=& 1 - e^{-rT} \nonumber \\
+    p &=& \frac{1}{2} \left(1-\beta + E \sqrt{(1-\beta)^2 + \frac{4\alpha}{u}} \right)\nonumber
+    \end{eqnarray}$$
+
+3.  Check if the early exercise premium is too small to matter:
+
+    a. Define the ratio of the early exercise premium $$\rho(S,T)$$ to the base
+    option price $$a(S,T)$$ as a function of the critical price $$S_*$$.
+
+    $$r(S_*) = \frac{1}{p}\left[\frac{1-e^{-dT}\N(Ed_1)}{e^{-dT}\N(Ed_1)-\frac{K}{S} e^{-rT}N(Ed_2)}\right]\left(\frac{S}{S_{ * }}\right)^{(p-1)}$$
+
+    b. Calculate the ratio at the bounds i.e. $$|r(B)|$$ and compare to some
+    small tolerance. Define the variable:
+
+    $$too\_small = abs(r(B)) < rtol$$
+
+4.  Check if the option is already in the early exercise regime:
+    $$exercise\_now = J(S) > 0$$
+
+    where:
+
+    $$J(S) = S(p-1)(1-e^{-dT}\N( E d_1)) - p (1-e^{-rT} \N(E d_2))K$$
+
+5.  Initialize loop variables: `converged = exercise_now or too_small` and
+    `s_critical = bounds`
+
+6.  Repeat the following steps until all converged:
+
+    ```
+    change = -J(s_critical) / J'(s_critical)
+    converged_now = (change / s_critical) < tolerance | abs(change) < tolerance
+    s_critical = s_critical + (converged ? 0 : change)
+    converged = converged | converged_now
+    ```
+
+7.  Update:
+
+  ```
+  exercise_now = exercise_now | (E*S > E*s_critical)
+  ```
+
+8.  Calculate early exercise premium ($$S_* = s\_critical$$):
+
+    $$ee\_premium = E (1-e^{-dT}\N(E d_1)) \left(\frac{S}{S_*}\right)^{(p-1)} \frac{S}{p}$$
+
+9.  Calculate intrinsic value: $$E(S-K)$$.
+
+10. Calculate Black-Scholes European option value: $$BS$$.
+
+11. Return: `exercise_now ? intrinsic : BS + (too_small ? 0, ee_premium)`
 
 ## References
 
