@@ -57,6 +57,7 @@ py_library(
 py_test(
     name = "multivariate_normal_test",
     size = "small",
+    timeout = "moderate",
     srcs = ["multivariate_normal_test.py"],
     python_version = "PY3",
     shard_count = 3,
