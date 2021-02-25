@@ -63,6 +63,17 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
       self.assertAllClose(
           vol, np.expand_dims(expected_vol, axis=-1), atol=1e-8, rtol=1e-8)
 
+  def test_univariate_default_initialization(self):
+    """Tests default intialization behavior of univariate sample_paths."""
+    drift_in = 0.05
+    vol_in = 0.5
+    times = [0, 1, 2, 3]
+    num_samples = 2
+    dtype = tf.float64
+    process = tff.models.GeometricBrownianMotion(drift_in, vol_in, dtype=dtype)
+    sample_paths = process.sample_paths(times=times, num_samples=num_samples)
+    self.assertAllEqual(sample_paths[:, 0, 0], np.ones((num_samples,)))
+
   @parameterized.named_parameters(
       {
           "testcase_name": "SinglePrecision",
@@ -912,4 +923,3 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
 
 if __name__ == "__main__":
   tf.test.main()
-

@@ -221,7 +221,7 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
                                             name="normal_draws")
       initial_state = utils.convert_to_tensor_with_default(
           initial_state,
-          tf.zeros([1], dtype=self._dtype),
+          tf.ones([1], dtype=self._dtype),
           dtype=self._dtype,
           name="initial_state")
 
