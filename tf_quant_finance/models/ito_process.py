@@ -112,7 +112,7 @@ class ItoProcess(object):
     """Returns a sample of paths from the process.
 
     Args:
-      times: A `Tensor` of positive real values of a shape [`T`, `k`], where
+      times: A `Tensor` of positive real values of a shape `[T, k]`, where
         `T` is either empty or a shape which is broadcastable to `batch_shape`
         (as defined when this ItoProcess was initialised) and `k` is the
         number of time points. The definition of `batch_shape` and how it is set

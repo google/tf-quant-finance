@@ -167,7 +167,7 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
     a single set of random draws.
 
     Args:
-      times: A `Tensor` of positive real values of a shape [`T`, `k`], where
+      times: A `Tensor` of positive real values of a shape `[T, k]`, where
         `T` is either empty or a shape which is broadcastable to `batch_shape`
         (as defined by the shape of `mu` or `sigma` which were set when this
         instance of GeometricBrownianMotion was initialised) and `k` is the
