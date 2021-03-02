@@ -14,7 +14,7 @@
 # limitations under the License.
 """Cubic spline interpolation methods."""
 
-
+from tf_quant_finance.math.interpolation.cubic.cubic_interpolation import BoundaryConditionType
 from tf_quant_finance.math.interpolation.cubic.cubic_interpolation import build as build_spline
 from tf_quant_finance.math.interpolation.cubic.cubic_interpolation import interpolate
 from tf_quant_finance.math.interpolation.cubic.cubic_interpolation import SplineParameters
@@ -24,6 +24,7 @@ _allowed_symbols = [
     'build_spline',
     'interpolate',
     'SplineParameters',
+    'BoundaryConditionType',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
