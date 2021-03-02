@@ -23,6 +23,8 @@ import tensorflow.compat.v2 as tf
 import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
+ImpliedVolUnderlyingDistribution = tff.black_scholes.ImpliedVolUnderlyingDistribution
+
 
 @test_util.run_all_in_graph_and_eager_modes
 class ImpliedVolNewtonTest(parameterized.TestCase, tf.test.TestCase):
@@ -76,6 +78,100 @@ class ImpliedVolNewtonTest(parameterized.TestCase, tf.test.TestCase):
     self.assertTrue(np.all(converged))
     self.assertFalse(np.any(failed))
     self.assertArrayNear(volatilities, implied_vols, 1e-7)
+
+  def test_bachelier_positive_underlying(self):
+    """Tests the Newton root finder recovers the volatility on Bachelier Model.
+
+    This are the cases with positive underlying and strike.
+    """
+    forwards = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    strikes = np.array([1.0, 2.0, 1.0, 0.5, 1.0, 1.0])
+    expiries = np.array([1.0, 1.0, 1.0, 1.0, 0.5, 2.0])
+    discounts = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    init_vols = np.array([2.0, 0.5, 2.0, 0.5, 1.5, 1.5])
+    is_call_options = np.array([True, True, False, False, True, True])
+    volatilities = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    prices = np.array([
+        0.3989423, 0.0833155, 0.3989423, 0.1977966, 0.2820948, 0.5641896
+    ])
+    implied_vols, converged, failed = self.evaluate(
+        tff.black_scholes.implied_vol_newton(
+            prices=prices,
+            strikes=strikes,
+            expiries=expiries,
+            forwards=forwards,
+            discount_factors=discounts,
+            is_call_options=is_call_options,
+            initial_volatilities=init_vols,
+            underlying_distribution=ImpliedVolUnderlyingDistribution.NORMAL,
+            max_iterations=100))
+    self.assertTrue(np.all(converged))
+    self.assertFalse(np.any(failed))
+    self.assertArrayNear(volatilities, implied_vols, 1e-6)
+
+  def test_bachelier_negative_underlying(self):
+    """Tests the Newton root finder recovers the volatility on Bachelier Model.
+
+    These are the cases with negative underlying and strike.
+    """
+    forwards = np.array([-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0])
+    strikes = np.array([1.0, 0.0, -1.0, -1.0, -1.0, -1.0, -0.5])
+    expiries = np.array([1.0, 1.0, 1.0, 2.0, 0.5, 1.0, 1.0])
+    discounts = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    init_vols = np.array([2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    is_call_options = np.array([True, True, True, True, True, False, False])
+    volatilities = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    prices = np.array([
+        0.0084907, 0.0833155, 0.3989423, 0.5641896, 0.2820948, 0.3989423,
+        0.6977965
+    ])
+    implied_vols, converged, failed = self.evaluate(
+        tff.black_scholes.implied_vol_newton(
+            prices=prices,
+            strikes=strikes,
+            expiries=expiries,
+            forwards=forwards,
+            discount_factors=discounts,
+            is_call_options=is_call_options,
+            initial_volatilities=init_vols,
+            underlying_distribution=ImpliedVolUnderlyingDistribution.NORMAL,
+            max_iterations=100))
+    self.assertTrue(np.all(converged))
+    self.assertFalse(np.any(failed))
+    self.assertArrayNear(volatilities, implied_vols, 1e-6)
+
+  def test_bachelier_at_the_money(self):
+    """Tests the Newton root finder recovers the volatility on Bachelier Model.
+
+    These are the cases for at the money (forward = strike).
+    """
+    forwards = np.array([1.0, 0.0, -1.0, 1.0, 0.0, -1.0])
+    strikes = np.array([1.0, 0.0, -1.0, 1.0, 0.0, -1.0])
+    expiries = np.array([1.0, 1.0, 2.0, 1.0, 1.0, 2.0])
+    discounts = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    init_vols = np.array([2.0, 1.0, 1.0, 2.0, 1.0, 1.0])
+    is_call_options = np.array([True, True, True, False, False, False])
+    volatilities = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    prices = np.array([
+        0.3989423, 0.3989423, 0.5641896, 0.3989423, 0.3989423, 0.5641896
+    ])
+    implied_vols, converged, failed = self.evaluate(
+        tff.black_scholes.implied_vol_newton(
+            prices=prices,
+            strikes=strikes,
+            expiries=expiries,
+            forwards=forwards,
+            discount_factors=discounts,
+            is_call_options=is_call_options,
+            initial_volatilities=init_vols,
+            underlying_distribution=ImpliedVolUnderlyingDistribution.NORMAL,
+            max_iterations=100))
+    print('converged', converged)
+    print('failed', failed)
+    print('implied_vols', implied_vols)
+    self.assertTrue(np.all(converged))
+    self.assertFalse(np.any(failed))
+    self.assertArrayNear(volatilities, implied_vols, 1e-6)
 
   @parameterized.named_parameters(
       # This case should hit the call lower bound since C = F - K.

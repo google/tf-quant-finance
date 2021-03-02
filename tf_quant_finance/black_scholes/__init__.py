@@ -22,6 +22,7 @@ from tf_quant_finance.black_scholes.implied_vol_approximation import implied_vol
 from tf_quant_finance.black_scholes.implied_vol_lib import implied_vol
 from tf_quant_finance.black_scholes.implied_vol_lib import ImpliedVolMethod
 from tf_quant_finance.black_scholes.implied_vol_newton_root import implied_vol as implied_vol_newton
+from tf_quant_finance.black_scholes.implied_vol_utils import UnderlyingDistribution as ImpliedVolUnderlyingDistribution
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
@@ -44,6 +45,7 @@ _allowed_symbols = [
     'option_price',
     'option_price_binomial',
     'ImpliedVolMethod',
+    'ImpliedVolUnderlyingDistribution',
     'barrier_price',
     'swaption_price',
 ]

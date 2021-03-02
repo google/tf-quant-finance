@@ -19,6 +19,7 @@ import enum
 
 from tf_quant_finance.black_scholes import implied_vol_approximation as approx
 from tf_quant_finance.black_scholes import implied_vol_newton_root as newton
+from tf_quant_finance.black_scholes import implied_vol_utils as utils
 
 
 @enum.unique
@@ -41,6 +42,7 @@ def implied_vol(*,
                 discount_factors=None,
                 is_call_options=None,
                 method=ImpliedVolMethod.NEWTON,
+                underlying_distribution=utils.UnderlyingDistribution.LOG_NORMAL,
                 validate_args=False,
                 dtype=None,
                 name=None,
@@ -85,9 +87,11 @@ def implied_vol(*,
     spots: A real `Tensor` of any shape that broadcasts to the shape of the
       `prices`. The current spot price of the underlying. Either this argument
       or the `forwards` (but not both) must be supplied.
+      Default value: None.
     forwards: A real `Tensor` of any shape that broadcasts to the shape of
       `prices`. The forwards to maturity. Either this argument or the `spots`
       must be supplied but both must not be supplied.
+      Default value: None.
     discount_factors: An optional real `Tensor` of same dtype as the `prices`.
       If not None, these are the discount factors to expiry (i.e. e^(-rT)). If
       None, no discounting is applied (i.e. it is assumed that the undiscounted
@@ -98,8 +102,13 @@ def implied_vol(*,
     is_call_options: A boolean `Tensor` of a shape compatible with `prices`.
       Indicates whether the option is a call (if True) or a put (if False). If
       not supplied, call options are assumed.
+      Default value: None.
     method: Enum value of ImpliedVolMethod to select the algorithm to use to
       infer the implied volatility.
+      Default value: ImpliedVolMethod.NEWTON
+    underlying_distribution: Enum value of ImpliedVolUnderlyingDistribution to
+      select the distribution of the underlying.
+      Default value: UnderlyingDistribution.LOG_NORMAL
     validate_args: A Python bool. If True, indicates that arguments should be
       checked for correctness before performing the computation. The checks
       performed are: (1) Forwards and strikes are positive. (2) The prices
@@ -108,6 +117,7 @@ def implied_vol(*,
         `max(K-F, 0) <= Price <= K`.). (3) Checks that the prices are not too
         close to the bounds. It is numerically unstable to compute the implied
         vols from options too far in the money or out of the money.
+      Default value: False.
     dtype: `tf.Dtype` to use when converting arguments to `Tensor`s. If not
       supplied, the default TensorFlow conversion will take place. Note that
       this argument does not do any casting for `Tensor`s or numpy arrays.
@@ -126,9 +136,13 @@ def implied_vol(*,
 
   Raises:
     ValueError: If both `forwards` and `spots` are supplied or if neither is
-      supplied.
+      supplied. Or, if `underlying_distribution` is
+      `UnderlyingDistribution.NORMAL` when `method` is `FAST_APPROX`.
   """
   if method == ImpliedVolMethod.FAST_APPROX:
+    if underlying_distribution is utils.UnderlyingDistribution.NORMAL:
+      raise ValueError('Only LOG_NORMAL underlying distribution is supported '
+                       'for FAST_APPROX method.')
     return approx.implied_vol(
         prices=prices,
         strikes=strikes,
@@ -150,6 +164,7 @@ def implied_vol(*,
         forwards=forwards,
         discount_factors=discount_factors,
         is_call_options=is_call_options,
+        underlying_distribution=underlying_distribution,
         validate_args=validate_args,
         dtype=dtype,
         name=name,

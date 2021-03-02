@@ -89,12 +89,23 @@ py_test(
 )
 
 py_library(
+    name = "implied_vol_utils",
+    srcs = ["implied_vol_utils.py"],
+    srcs_version = "PY3",
+    deps = [
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
     name = "implied_vol_lib",
     srcs = ["implied_vol_lib.py"],
     srcs_version = "PY3",
     deps = [
         ":implied_vol_approximation",
         ":implied_vol_newton_root",
+        ":implied_vol_utils",
         # numpy dep,
         # tensorflow dep,
     ],
@@ -106,6 +117,8 @@ py_test(
     srcs = ["implied_vol_lib_test.py"],
     python_version = "PY3",
     deps = [
+        ":implied_vol_newton_root",
+        ":implied_vol_utils",
         "//tf_quant_finance",
         # test util,
         # absl/testing:parameterized dep,
@@ -143,6 +156,7 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":implied_vol_approximation",
+        ":implied_vol_utils",
         "//tf_quant_finance/math/root_search:newton",
         # tensorflow dep,
         # tensorflow_probability dep,

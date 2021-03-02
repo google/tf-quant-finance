@@ -14,11 +14,24 @@
 # limitations under the License.
 """Calculation of the Black-Scholes implied volatility via Newton's method."""
 
+import numpy as np
 import tensorflow.compat.v2 as tf
-import tensorflow_probability as tfp
 
 from tf_quant_finance.black_scholes import implied_vol_approximation as approx
+from tf_quant_finance.black_scholes import implied_vol_utils as utils
 from tf_quant_finance.math.root_search import newton
+
+_SQRT_2 = np.sqrt(2., dtype=np.float64)
+_SQRT_2_PI = np.sqrt(2 * np.pi, dtype=np.float64)
+_NORM_PDF_AT_ZERO = 1. / _SQRT_2_PI
+
+
+def _cdf(x):
+  return (tf.math.erf(x / _SQRT_2) + 1) / 2
+
+
+def _pdf(x):
+  return tf.math.exp(-0.5 * x ** 2) / _SQRT_2_PI
 
 
 def implied_vol(*,
@@ -30,6 +43,7 @@ def implied_vol(*,
                 discount_factors=None,
                 is_call_options=None,
                 initial_volatilities=None,
+                underlying_distribution=utils.UnderlyingDistribution.LOG_NORMAL,
                 tolerance=1e-8,
                 max_iterations=20,
                 validate_args=False,
@@ -54,9 +68,11 @@ def implied_vol(*,
     spots: A real `Tensor` of any shape that broadcasts to the shape of the
       `prices`. The current spot price of the underlying. Either this argument
       or the `forwards` (but not both) must be supplied.
+      Default value: None.
     forwards: A real `Tensor` of any shape that broadcasts to the shape of
       `prices`. The forwards to maturity. Either this argument or the `spots`
       must be supplied but both must not be supplied.
+      Default value: None.
     discount_factors: An optional real `Tensor` of same dtype as the `prices`.
       If not None, these are the discount factors to expiry (i.e. e^(-rT)). If
       None, no discounting is applied (i.e. it is assumed that the undiscounted
@@ -67,14 +83,20 @@ def implied_vol(*,
     is_call_options: A boolean `Tensor` of a shape compatible with `prices`.
       Indicates whether the option is a call (if True) or a put (if False). If
       not supplied, call options are assumed.
+      Default value: None.
     initial_volatilities: A real `Tensor` of the same shape and dtype as
       `forwards`. The starting postions for Newton's method.
       Default value: None. If not supplied, the starting point is chosen using
         the Stefanica-Radoicic scheme. See `polya_approx.implied_vol` for
         details.
+      Default value: None.
+    underlying_distribution: Enum value of ImpliedVolUnderlyingDistribution to
+      select the distribution of the underlying.
+      Default value: UnderlyingDistribution.LOG_NORMAL
     tolerance: `float`. The root finder will stop where this tolerance is
       crossed.
     max_iterations: `int`. The maximum number of iterations of Newton's method.
+      Default value: 20.
     validate_args: A Python bool. If True, indicates that arguments should be
       checked for correctness before performing the computation. The checks
       performed are: (1) Forwards and strikes are positive. (2) The prices
@@ -83,13 +105,14 @@ def implied_vol(*,
         `max(K-F, 0) <= Price <= K`.). (3) Checks that the prices are not too
         close to the bounds. It is numerically unstable to compute the implied
         vols from options too far in the money or out of the money.
+      Default value: False.
     dtype: `tf.Dtype` to use when converting arguments to `Tensor`s. If not
       supplied, the default TensorFlow conversion will take place. Note that
       this argument does not do any casting for `Tensor`s or numpy arrays.
       Default value: None.
     name: (Optional) Python str. The name prefixed to the ops created by this
       function. If not supplied, the default name 'implied_vol' is used.
-      Default value: None
+      Default value: None.
 
   Returns:
     A 3-tuple containing the following items in order:
@@ -141,27 +164,31 @@ def implied_vol(*,
       forwards = spots / discount_factors
 
     if initial_volatilities is None:
-      initial_volatilities = approx.implied_vol(
-          prices=prices,
-          strikes=strikes,
-          expiries=expiries,
-          forwards=forwards,
-          discount_factors=discount_factors,
-          is_call_options=is_call_options,
-          validate_args=validate_args)
+      if underlying_distribution is utils.UnderlyingDistribution.LOG_NORMAL:
+        initial_volatilities = approx.implied_vol(
+            prices=prices,
+            strikes=strikes,
+            expiries=expiries,
+            forwards=forwards,
+            discount_factors=discount_factors,
+            is_call_options=is_call_options,
+            validate_args=validate_args)
+      elif underlying_distribution is utils.UnderlyingDistribution.NORMAL:
+        initial_volatilities = prices / _NORM_PDF_AT_ZERO
     else:
       initial_volatilities = tf.convert_to_tensor(
           initial_volatilities, dtype=dtype, name='initial_volatilities')
 
     implied_vols, converged, failed = _newton_implied_vol(
         prices, strikes, expiries, forwards, discount_factors, is_call_options,
-        initial_volatilities, tolerance, max_iterations)
+        initial_volatilities, underlying_distribution,
+        tolerance, max_iterations)
     return implied_vols, converged, failed
 
 
 def _newton_implied_vol(prices, strikes, expiries, forwards, discount_factors,
-                        is_call_options, initial_volatilities, tolerance,
-                        max_iterations):
+                        is_call_options, initial_volatilities,
+                        underlying_distribution, tolerance, max_iterations):
   """Uses Newton's method to find Black Scholes implied volatilities of options.
 
   Finds the volatility implied under the Black Scholes option pricing scheme for
@@ -191,6 +218,8 @@ def _newton_implied_vol(prices, strikes, expiries, forwards, discount_factors,
       not supplied, call options are assumed.
     initial_volatilities: A real `Tensor` of the same shape and dtype as
       `forwards`. The starting postions for Newton's method.
+    underlying_distribution: Enum value of ImpliedVolUnderlyingDistribution to
+      select the distribution of the underlying.
     tolerance: `float`. The root finder will stop where this tolerance is
       crossed.
     max_iterations: `int`. The maximum number of iterations of Newton's method.
@@ -202,9 +231,15 @@ def _newton_implied_vol(prices, strikes, expiries, forwards, discount_factors,
     and a boolean `Tensor` which is true where the corresponding implied
     volatility is not a finite real number.
   """
-  pricer = _make_black_objective_and_vega_func(prices, forwards, strikes,
-                                               expiries, is_call_options,
-                                               discount_factors)
+  if underlying_distribution is utils.UnderlyingDistribution.LOG_NORMAL:
+    pricer = _make_black_lognormal_objective_and_vega_func(
+        prices, forwards, strikes, expiries, is_call_options,
+        discount_factors)
+  elif underlying_distribution is utils.UnderlyingDistribution.NORMAL:
+    pricer = _make_bachelier_objective_and_vega_func(
+        prices, forwards, strikes, expiries, is_call_options,
+        discount_factors)
+
   results = newton.root_finder(
       pricer,
       initial_volatilities,
@@ -213,8 +248,44 @@ def _newton_implied_vol(prices, strikes, expiries, forwards, discount_factors,
   return results
 
 
-def _make_black_objective_and_vega_func(prices, forwards, strikes, expiries,
-                                        is_call_options, discount_factors):
+def _get_normalizations(prices, forwards, strikes, discount_factors):
+  """Returns the normalized prices, normalization factors, and discount_factors.
+
+  The normalization factors is the larger of strikes and forwards.
+  If `discount_factors` is not None, these are the discount factors to expiry.
+  If None, no discounting is applied and 1's are returned.
+
+  Args:
+    prices: A real `Tensor` of any shape. The observed market prices of the
+      assets.
+    forwards: A real `Tensor` of the same shape and dtype as `prices`. The
+      current forward prices to expiry.
+    strikes: A real `Tensor` of the same shape and dtype as `prices`. The strike
+      prices of the options.
+    discount_factors: A real `Tensor` of same dtype as the `prices`.
+
+  Returns:
+    the normalized prices, normalization factors, and discount_factors.
+  """
+  strikes_abs = tf.abs(strikes)
+  forwards_abs = tf.abs(forwards)
+  # orientations will decide the normalization strategy.
+  orientations = strikes_abs >= forwards_abs
+  # normalization is the greater of strikes or forwards
+  normalization = tf.where(orientations, strikes_abs, forwards_abs)
+  normalization = tf.where(tf.equal(normalization, 0),
+                           tf.ones_like(normalization), normalization)
+  normalized_prices = prices / normalization
+  if discount_factors is not None:
+    normalized_prices /= discount_factors
+  else:
+    discount_factors = tf.ones_like(normalized_prices)
+
+  return normalized_prices, normalization, discount_factors
+
+
+def _make_black_lognormal_objective_and_vega_func(
+    prices, forwards, strikes, expiries, is_call_options, discount_factors):
   """Produces an objective and vega function for the Black Scholes model.
 
   The returned function maps volatilities to a tuple of objective function
@@ -255,24 +326,11 @@ def _make_black_objective_and_vega_func(prices, forwards, strikes, expiries,
     A function from volatilities to a Black Scholes objective and its
     derivative (which is coincident with Vega).
   """
-  dtype = prices.dtype
-  phi = tfp.distributions.Normal(
-      loc=tf.zeros(1, dtype=dtype), scale=tf.ones(1, dtype=dtype))
-  # orientations will decide the normalization strategy.
-  orientations = strikes >= forwards
-  # normalization is the greater of strikes or forwards
-  normalization = tf.where(orientations, strikes, forwards)
-  normalized_prices = prices / normalization
-  if discount_factors is not None:
-    normalized_prices /= discount_factors
-  else:
-    discount_factors = tf.ones_like(normalized_prices)
+  normalized_prices, normalization, discount_factors = _get_normalizations(
+      prices, forwards, strikes, discount_factors)
 
-  units = tf.ones_like(forwards)
-  # y is 1 when strikes >= forwards and strikes/forwards otherwise
-  y = tf.where(orientations, units, strikes / forwards)
-  # x is forwards/strikes when strikes >= forwards and 1 otherwise
-  x = tf.where(orientations, forwards / strikes, units)
+  norm_forwards = forwards / normalization
+  norm_strikes = strikes / normalization
   lnz = tf.math.log(forwards) - tf.math.log(strikes)
   sqrt_t = tf.sqrt(expiries)
   if is_call_options is not None:
@@ -292,16 +350,94 @@ def _make_black_objective_and_vega_func(prices, forwards, strikes, expiries,
       A tuple containing (value, gradient) of the black scholes price, both of
         which are `Tensor`s of the same shape and dtype as `volatilities`.
     """
-    v = volatilities * sqrt_t
-    d1 = (lnz / v + v / 2)
-    d2 = d1 - v
-    implied_prices = x * phi.cdf(d1) - y * phi.cdf(d2)
+    vol_t = volatilities * sqrt_t
+    d1 = (lnz / vol_t + vol_t / 2)
+    d2 = d1 - vol_t
+    implied_prices = norm_forwards * _cdf(d1) - norm_strikes * _cdf(d2)
     if is_call_options is not None:
-      put_prices = implied_prices - x + y
+      put_prices = implied_prices - norm_forwards + norm_strikes
       implied_prices = tf.where(
           tf.broadcast_to(is_call_options, tf.shape(put_prices)),
           implied_prices, put_prices)
-    vega = x * phi.prob(d1) * sqrt_t / discount_factors
+    vega = norm_forwards * _pdf(d1) * sqrt_t / discount_factors
     return implied_prices - normalized_prices, vega
 
   return _black_objective_and_vega
+
+
+def _make_bachelier_objective_and_vega_func(
+    prices, forwards, strikes, expiries, is_call_options, discount_factors):
+  """Produces an objective and vega function for the Bachelier model.
+
+  The returned function maps volatilities to a tuple of objective function
+  values and their gradients with respect to the volatilities. The objective
+  function is the difference between model implied prices and observed market
+  prices, whereas the gradient is called vega of the option. That is:
+
+  ```
+  g(s) = (f(s) - a, f'(s))
+  ```
+
+  Where `g` is the returned function taking volatility parameter `s`, `f` the
+  Black Scholes price with all other variables curried and `f'` its derivative,
+  and `a` the observed market prices of the options. Hence `g` calculates the
+  information necessary for finding the volatility implied by observed market
+  prices for options with given terms using first order methods.
+
+  #### References
+  [1] Wenqing H., 2013. Risk Measures with Normal Distributed Black Options
+  Pricing Model. Mälardalen University, Sweden. (p. 10 - 17)
+
+  Args:
+    prices: A real `Tensor` of any shape. The observed market prices of the
+      options.
+    forwards: A real `Tensor` of the same shape and dtype as `prices`. The
+      current forward prices to expiry.
+    strikes: A real `Tensor` of the same shape and dtype as `prices`. The strike
+      prices of the options.
+    expiries: A real `Tensor` of same shape and dtype as `forwards`. The expiry
+      for each option. The units should be such that `expiry * volatility**2` is
+      dimensionless.
+    is_call_options: A boolean `Tensor` of same shape and dtype as `forwards`.
+      `True` for call options and `False` for put options.
+    discount_factors: A real `Tensor` of the same shape and dtype as `forwards`.
+      The total discount factors to option expiry.
+
+  Returns:
+    A function from volatilities to a Black Scholes objective and its
+    derivative (which is coincident with Vega).
+  """
+  normalized_prices, normalization, discount_factors = _get_normalizations(
+      prices, forwards, strikes, discount_factors)
+  norm_forwards = forwards / normalization
+  norm_strikes = strikes / normalization
+  sqrt_t = tf.sqrt(expiries)
+  if is_call_options is not None:
+    is_call_options = tf.convert_to_tensor(is_call_options,
+                                           dtype=tf.bool,
+                                           name='is_call_options')
+  def _objective_and_vega(volatilities):
+    """Calculate the Bachelier price and vega for a given volatility.
+
+    This method returns normalized results.
+
+    Args:
+      volatilities: A real `Tensor` of same shape and dtype as `forwards`. The
+        volatility to expiry.
+
+    Returns:
+      A tuple containing (value, gradient) of the black scholes price, both of
+        which are `Tensor`s of the same shape and dtype as `volatilities`.
+    """
+    vols = volatilities * sqrt_t / normalization
+    d1 = (norm_forwards - norm_strikes) / vols
+    implied_prices = (norm_forwards - norm_strikes) * _cdf(d1) + \
+        vols * _pdf(d1)
+    if is_call_options is not None:
+      put_prices = implied_prices - norm_forwards + norm_strikes
+      implied_prices = tf.where(is_call_options, implied_prices, put_prices)
+
+    vega = _pdf(d1) * sqrt_t / discount_factors
+    return implied_prices - normalized_prices, vega
+
+  return _objective_and_vega
