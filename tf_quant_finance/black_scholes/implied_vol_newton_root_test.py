@@ -19,7 +19,6 @@ from absl.testing import parameterized
 
 import numpy as np
 import tensorflow.compat.v2 as tf
-
 import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
@@ -274,6 +273,30 @@ class ImpliedVolNewtonTest(parameterized.TestCase, tf.test.TestCase):
             max_iterations=1000,
             tolerance=1e-8))[0]
 
+    self.assertArrayNear(volatilities, implied_vols, 1e-7)
+
+  def test_bachelier_tricky(self):
+    """Tests the Newton root finder recovers the volatility on a few cases."""
+    forwards = np.array([0.00982430235191995])
+    strikes = np.array([0.00982430235191995])
+    expiries = np.array([0.5])
+    discounts = np.array([1.0])
+    is_call_options = np.array([True])
+    volatilities = np.array([0.01])
+    prices = np.array([0.002820947917738782])
+    implied_vols, converged, failed = self.evaluate(
+        tff.black_scholes.implied_vol_newton(
+            prices=prices,
+            strikes=strikes,
+            expiries=expiries,
+            forwards=forwards,
+            discount_factors=discounts,
+            is_call_options=is_call_options,
+            underlying_distribution=ImpliedVolUnderlyingDistribution.NORMAL,
+            max_iterations=100,
+            dtype=np.float64))
+    self.assertTrue(np.all(converged))
+    self.assertFalse(np.any(failed))
     self.assertArrayNear(volatilities, implied_vols, 1e-7)
 
 

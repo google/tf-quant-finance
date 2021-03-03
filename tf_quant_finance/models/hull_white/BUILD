@@ -123,10 +123,12 @@ py_library(
     deps = [
         ":one_factor",
         ":swaption",
+        "//tf_quant_finance/black_scholes",
         "//tf_quant_finance/math:gradient",
         "//tf_quant_finance/math:piecewise",
         "//tf_quant_finance/math/optimizer",
         "//tf_quant_finance/math/root_search",
+        "//tf_quant_finance/models/hjm:swaption_util",
     ],
 )
 

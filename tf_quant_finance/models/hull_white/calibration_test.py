@@ -79,8 +79,8 @@ class HullWhiteCalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'use_analytic_pricing': True,
           'expected_mr': [0.03],
           'expected_vol': [0.01],
-      },
-      {
+          'vol_based_calib': False,
+      }, {
           'testcase_name': 'no_noise_low_vol',
           'hw_vol': [0.002],
           'optimizer_fn': None,
@@ -88,8 +88,8 @@ class HullWhiteCalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'use_analytic_pricing': True,
           'expected_mr': [0.03],
           'expected_vol': [0.002],
-      },
-      {
+          'vol_based_calib': False,
+      }, {
           'testcase_name': 'no_noise_high_vol',
           'hw_vol': [0.05],
           'optimizer_fn': None,
@@ -97,8 +97,8 @@ class HullWhiteCalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'use_analytic_pricing': True,
           'expected_mr': [0.03],
           'expected_vol': [0.05],
-      },
-      {
+          'vol_based_calib': False,
+      }, {
           'testcase_name': 'no_noise_bfgs',
           'hw_vol': [0.01],
           'optimizer_fn': tfp.optimizer.bfgs_minimize,
@@ -106,8 +106,8 @@ class HullWhiteCalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'use_analytic_pricing': True,
           'expected_mr': [0.03],
           'expected_vol': [0.01],
-      },
-      {
+          'vol_based_calib': False,
+      }, {
           'testcase_name': '5_percent_noise',
           'hw_vol': [0.01],
           'optimizer_fn': None,
@@ -115,8 +115,8 @@ class HullWhiteCalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'use_analytic_pricing': True,
           'expected_mr': [0.03080334],
           'expected_vol': [0.01036309],
-      },
-      {
+          'vol_based_calib': False,
+      }, {
           'testcase_name': 'mc_pricing',
           'hw_vol': [0.01],
           'optimizer_fn': None,
@@ -124,9 +124,65 @@ class HullWhiteCalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'use_analytic_pricing': False,
           'expected_mr': [0.03683715],
           'expected_vol': [0.01037683],
+          'vol_based_calib': False,
+      }, {
+          'testcase_name': 'no_noise_vol_based',
+          'hw_vol': [0.01],
+          'optimizer_fn': None,
+          'noise_size': 0.0,
+          'use_analytic_pricing': True,
+          'expected_mr': [0.03],
+          'expected_vol': [0.01],
+          'vol_based_calib': True,
+      }, {
+          'testcase_name': 'no_noise_low_vol_vol_based',
+          'hw_vol': [0.002],
+          'optimizer_fn': None,
+          'noise_size': 0.0,
+          'use_analytic_pricing': True,
+          'expected_mr': [0.03],
+          'expected_vol': [0.002],
+          'vol_based_calib': True,
+      }, {
+          'testcase_name': 'no_noise_high_vol_vol_based',
+          'hw_vol': [0.05],
+          'optimizer_fn': None,
+          'noise_size': 0.0,
+          'use_analytic_pricing': True,
+          'expected_mr': [0.03],
+          'expected_vol': [0.05],
+          'vol_based_calib': True,
+      }, {
+          'testcase_name': 'no_noise_bfgs_vol_based',
+          'hw_vol': [0.01],
+          'optimizer_fn': tfp.optimizer.bfgs_minimize,
+          'noise_size': 0.0,
+          'use_analytic_pricing': True,
+          'expected_mr': [0.03],
+          'expected_vol': [0.01],
+          'vol_based_calib': True,
+      }, {
+          'testcase_name': '5_percent_noise_vol_based',
+          'hw_vol': [0.01],
+          'optimizer_fn': None,
+          'noise_size': 0.05,
+          'use_analytic_pricing': True,
+          'expected_mr': [0.0170023],
+          'expected_vol': [0.0096614],
+          'vol_based_calib': True,
+      }, {
+          'testcase_name': 'mc_pricing_vol_based',
+          'hw_vol': [0.01],
+          'optimizer_fn': None,
+          'noise_size': 0.0,
+          'use_analytic_pricing': False,
+          'expected_mr': [0.032912],
+          'expected_vol': [0.01025818],
+          'vol_based_calib': True,
       })
   def test_correctness(self, hw_vol, optimizer_fn, noise_size,
-                       use_analytic_pricing, expected_mr, expected_vol):
+                       use_analytic_pricing, expected_mr, expected_vol,
+                       vol_based_calib):
     """Tests calibration with constant parameters."""
     dtype = tf.float64
 
@@ -166,6 +222,7 @@ class HullWhiteCalibrationTest(parameterized.TestCase, tf.test.TestCase):
         volatility=[0.005],
         optimizer_fn=optimizer_fn,
         use_analytic_pricing=use_analytic_pricing,
+        volatility_based_calibration=vol_based_calib,
         num_samples=2000,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[0, 0],

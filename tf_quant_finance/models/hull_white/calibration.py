@@ -14,11 +14,16 @@
 """Calibration methods for the Hull-White model."""
 
 import tensorflow.compat.v2 as tf
+
+from tf_quant_finance.black_scholes import implied_vol
+from tf_quant_finance.black_scholes.implied_vol_utils import UnderlyingDistribution
 from tf_quant_finance.math import make_val_and_grad_fn
 from tf_quant_finance.math import optimizer
 from tf_quant_finance.math import piecewise
+from tf_quant_finance.models.hjm import swaption_util
 from tf_quant_finance.models.hull_white import one_factor
 from tf_quant_finance.models.hull_white import swaption
+
 
 __all__ = ['calibration_from_swaptions']
 
@@ -43,10 +48,11 @@ def calibration_from_swaptions(*,
                                seed=None,
                                skip=0,
                                time_step=None,
+                               volatility_based_calibration=True,
                                optimizer_fn=None,
                                mean_reversion_lower_bound=0.001,
                                mean_reversion_upper_bound=0.5,
-                               volatility_lower_bound=0.0,
+                               volatility_lower_bound=0.00001,
                                volatility_upper_bound=0.1,
                                tolerance=1e-6,
                                maximum_iterations=50,
@@ -226,6 +232,12 @@ def calibration_from_swaptions(*,
       in Euler scheme. Relevant when Euler scheme is used for simulation. This
       input is ignored during analytic valuation.
       Default value: `None`.
+    volatility_based_calibration: An optional Python boolean specifying whether
+      calibration is performed using swaption implied volatilities. If the
+      input is `True`, then the swaption prices are first converted to normal
+      implied volatilities and calibration is performed by minimizing the
+      error between input implied volatilities and model implied volatilities.
+      Default value: True.
     optimizer_fn: Optional Python callable which implements the algorithm used
       to minimize the objective function during calibration. It should have
       the following interface:
@@ -254,7 +266,7 @@ def calibration_from_swaptions(*,
       Default value: 0.5.
     volatility_lower_bound: An optional scalar `Tensor` specifying the
       lower limit of Hull White volatility during calibration.
-      Default value: 0.
+      Default value: 0.00001 (0.1 basis points).
     volatility_upper_bound: An optional scalar `Tensor` specifying the
       upper limit of Hull White volatility during calibration.
       Default value: 0.1.
@@ -311,8 +323,23 @@ def calibration_from_swaptions(*,
     if optimizer_fn is None:
       optimizer_fn = optimizer.conjugate_gradient_minimize
 
-    price_lb = tf.constant(0.0, dtype=dtype)
-    price_ub = tf.math.reduce_max(prices)
+    if volatility_based_calibration:
+      swap_rate, annuity = swaption_util.get_swap_rate_and_annuity(
+          float_leg_start_times, float_leg_end_times, fixed_leg_payment_times,
+          fixed_leg_daycount_fractions, reference_rate_fn)
+      target_values = implied_vol(
+          prices=prices / annuity / notional,
+          strikes=fixed_leg_coupon[..., 0],
+          expiries=expiries,
+          forwards=swap_rate,
+          is_call_options=is_payer_swaption,
+          underlying_distribution=UnderlyingDistribution.NORMAL,
+          dtype=dtype)
+    else:
+      target_values = prices
+
+    target_lb = tf.constant(0.0, dtype=dtype)
+    target_ub = tf.math.reduce_max(target_values)
 
     def _scale(x, lb, ub):
       return (x - lb) / (ub - lb)
@@ -327,7 +354,7 @@ def calibration_from_swaptions(*,
         [_to_unconstrained(mean_reversion.values(), mr_lb, mr_ub),
          _to_unconstrained(volatility.values(), vol_lb, vol_ub)], axis=0)
     num_mean_reversion = mean_reversion.values().shape.as_list()[0]
-    scaled_prices = _scale(prices, price_lb, price_ub)
+    scaled_target = _scale(target_values, target_lb, target_ub)
 
     @make_val_and_grad_fn
     def loss_function(x):
@@ -341,7 +368,7 @@ def calibration_from_swaptions(*,
           jump_locations=volatility.jump_locations(),
           values=x_vol, dtype=dtype)
 
-      model_prices = swaption.swaption_price(
+      model_values = swaption.swaption_price(
           expiries=expiries,
           floating_leg_start_times=float_leg_start_times,
           floating_leg_end_times=float_leg_end_times,
@@ -363,8 +390,22 @@ def calibration_from_swaptions(*,
           time_step=time_step,
           dtype=dtype)[:, 0]
 
+      if volatility_based_calibration:
+        model_values = implied_vol(
+            prices=model_values / annuity / notional,
+            strikes=fixed_leg_coupon[..., 0],
+            expiries=expiries,
+            forwards=swap_rate,
+            is_call_options=is_payer_swaption,
+            underlying_distribution=UnderlyingDistribution.NORMAL,
+            dtype=dtype)
+        model_values = tf.where(
+            tf.math.is_nan(model_values), tf.zeros_like(model_values),
+            model_values)
+        print(x_mr, x_vol, model_values)
+
       value = tf.math.reduce_sum(
-          (_scale(model_prices, price_lb, price_ub)-scaled_prices)**2)
+          (_scale(model_values, target_lb, target_ub) - scaled_target)**2)
       return value
 
     optimization_result = optimizer_fn(

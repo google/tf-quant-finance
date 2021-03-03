@@ -437,7 +437,7 @@ def _make_bachelier_objective_and_vega_func(
       put_prices = implied_prices - norm_forwards + norm_strikes
       implied_prices = tf.where(is_call_options, implied_prices, put_prices)
 
-    vega = _pdf(d1) * sqrt_t / discount_factors
+    vega = _pdf(d1) * sqrt_t / discount_factors / normalization
     return implied_prices - normalized_prices, vega
 
   return _objective_and_vega
