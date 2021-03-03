@@ -29,6 +29,7 @@ def price(*,
           mean_reversion,
           volatility,
           time_step,
+          corr_matrix=None,
           notional=None,
           is_payer_swaption=None,
           num_samples=1,
@@ -94,6 +95,11 @@ def price(*,
     time_step: Scalar real `Tensor`. Maximal distance between time grid points
       in Euler scheme. Relevant when Euler scheme is used for simulation. This
       input is required.
+    corr_matrix: A `Tensor` of shape `[num_hjm_factors, num_hjm_factors]` and
+      the same `dtype` as `mean_reversion`. Specifies the correlation between
+      HJM factors.
+      Default value: `None` in which case the factors are assumed to be
+        uncorrelated.
     notional: An optional `Tensor` of same dtype and compatible shape as
       `strikes`specifying the notional amount for the underlying swaps.
        Default value: None in which case the notional is set to 1.
@@ -183,6 +189,7 @@ def price(*,
         mean_reversion=mean_reversion,
         volatility=volatility,
         initial_discount_rate_fn=reference_rate_fn,
+        corr_matrix=corr_matrix,
         dtype=dtype)
 
     def _sample_discount_curve_path_fn(times, curve_times, num_samples):

@@ -358,6 +358,70 @@ class HJMSwaptionTest(tf.test.TestCase):
 
     self.assertNear(hjm_price, hw_price, error_tol)
 
+  def test_correctness_2_factor_hull_white_consistency_with_corr(self):
+    """Test that under certain conditions HJM matches analytic HW results.
+
+    For the two factor model, when both mean reversions are equivalent, then
+    the HJM model matches that of a HW one-factor model with the same mean
+    reversion, and effective volatility:
+
+      eff_vol = sqrt(vol1^2 + vol2^2 + 2 rho vol1 * vol2)
+
+    where rho is the cross correlation between the two factors. In this
+    specific test, we assume rho = 0.0.
+    """
+    dtype = tf.float64
+    error_tol = 1e-3
+
+    expiries = np.array([1.0])
+    fixed_leg_payment_times = np.array([1.25, 1.5, 1.75, 2.0])
+    fixed_leg_daycount_fractions = 0.25 * np.ones_like(fixed_leg_payment_times)
+    fixed_leg_coupon = 0.011 * np.ones_like(fixed_leg_payment_times)
+    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+
+    mu = 0.03
+    vol1 = 0.02
+    vol2 = 0.01
+    rho = -0.5
+    eff_vol = np.sqrt(vol1**2 + vol2**2 + 2*rho*vol1*vol2)
+
+    hjm_price = tff.models.hjm.swaption_price(
+        expiries=expiries,
+        fixed_leg_payment_times=fixed_leg_payment_times,
+        fixed_leg_daycount_fractions=fixed_leg_daycount_fractions,
+        fixed_leg_coupon=fixed_leg_coupon,
+        reference_rate_fn=zero_rate_fn,
+        notional=100.,
+        num_hjm_factors=2,
+        mean_reversion=[mu, mu],
+        volatility=[vol1, vol2],
+        corr_matrix=[[1, rho], [rho, 1]],
+        num_samples=500000,
+        time_step=0.1,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        seed=[1, 2],
+        dtype=dtype)
+    hjm_price = self.evaluate(hjm_price)
+
+    hw_price = tff.models.hull_white.swaption_price(
+        expiries=expiries,
+        floating_leg_start_times=[0],  # Unused
+        floating_leg_end_times=[0],  # Unused
+        floating_leg_daycount_fractions=[0],  # Unused
+        fixed_leg_payment_times=fixed_leg_payment_times,
+        fixed_leg_daycount_fractions=fixed_leg_daycount_fractions,
+        fixed_leg_coupon=fixed_leg_coupon,
+        reference_rate_fn=zero_rate_fn,
+        notional=100.,
+        dim=1,
+        mean_reversion=[mu],
+        volatility=[eff_vol],
+        use_analytic_pricing=True,
+        dtype=dtype)
+    hw_price = self.evaluate(hw_price)
+
+    self.assertNear(hjm_price, hw_price, error_tol)
+
 
 if __name__ == '__main__':
   tf.test.main()
