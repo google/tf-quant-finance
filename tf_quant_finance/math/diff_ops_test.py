@@ -50,6 +50,14 @@ class DiffOpsTest(tf.test.TestCase):
     # The sum of [1, 2x-1, 3x^2-2x] at x = 2 is 12.
     self.assertEqual(grad, 12.0)
 
+  @test_util.run_in_graph_and_eager_modes
+  def test_batch_diff(self):
+    """Tests that the diffs op works on batched inputs."""
+    x = tf.constant([[1, 2, 3, 4], [10, 20, 30, 40]])
+    dx_true = np.array([[1, 1, 1], [10, 10, 10]])
+    dx = self.evaluate(math.diff(x, order=1, exclusive=True))
+    self.assertAllEqual(dx, dx_true)
+
 
 if __name__ == '__main__':
   tf.test.main()
