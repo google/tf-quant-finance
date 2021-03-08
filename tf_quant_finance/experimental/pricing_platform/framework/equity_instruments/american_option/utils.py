@@ -20,8 +20,8 @@ import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import math
 from tf_quant_finance import models
-from tf_quant_finance.experimental import lsm_algorithm
 from tf_quant_finance.experimental.pricing_platform.framework.core import types
+from tf_quant_finance.models import longstaff_schwartz
 
 
 def bs_lsm_price(
@@ -145,13 +145,13 @@ def bs_lsm_price(
 
     if basis_fn is None:
       # Polynomial basis with 2 functions
-      basis_fn = lsm_algorithm.make_polynomial_basis_v2(2)
+      basis_fn = longstaff_schwartz.make_polynomial_basis(2)
 
     # Set up Longstaff-Schwartz algorithm
     def lsm_price(sample_paths):
       exercise_times = tf.range(tf.shape(times)[0])
       # This is Longstaff-Schwartz algorithm
-      return lsm_algorithm.least_square_mc_v2(
+      return longstaff_schwartz.least_square_mc(
           sample_paths=sample_paths,
           exercise_times=exercise_times,
           payoff_fn=_payoff_fn,

@@ -15,7 +15,6 @@
 
 import numpy as np
 import tensorflow.compat.v2 as tf
-from tf_quant_finance.experimental.lsm_algorithm import lsm_v2
 from tf_quant_finance.math import pde
 from tf_quant_finance.math.interpolation import linear
 from tf_quant_finance.math.root_search import brent
@@ -23,6 +22,7 @@ from tf_quant_finance.models import utils
 from tf_quant_finance.models.hjm import swaption_util
 from tf_quant_finance.models.hull_white import vector_hull_white
 from tf_quant_finance.models.hull_white import zero_coupon_bond_option as zcb
+from tf_quant_finance.models.longstaff_schwartz import lsm
 
 __all__ = ['swaption_price', 'bermudan_swaption_price']
 
@@ -995,7 +995,7 @@ def bermudan_swaption_price(*,
         is_payer_swaption, dtype=tf.bool, name='is_payer_swaption')
 
     if lsm_basis is None:
-      basis_fn = lsm_v2.make_polynomial_basis(2)
+      basis_fn = lsm.make_polynomial_basis(2)
     else:
       basis_fn = lsm_basis
 
@@ -1138,7 +1138,7 @@ def bermudan_swaption_price(*,
     discount_factors_simulated = tf.gather(
         discount_factors_simulated, sim_time_index, axis=2)
 
-    option_value = lsm_v2.least_square_mc(
+    option_value = lsm.least_square_mc(
         short_rate, tf.range(0, tf.shape(short_rate)[1]),
         _payoff_fn,
         basis_fn,

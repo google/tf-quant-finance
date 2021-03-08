@@ -17,6 +17,7 @@ py_library(
         "//tf_quant_finance/models/heston",
         "//tf_quant_finance/models/hjm",
         "//tf_quant_finance/models/hull_white",
+        "//tf_quant_finance/models/longstaff_schwartz",
         "//tf_quant_finance/models/sabr",
     ],
 )

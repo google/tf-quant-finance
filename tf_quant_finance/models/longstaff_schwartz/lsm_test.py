@@ -1,5 +1,5 @@
 # Lint as: python3
-# Copyright 2020 Google LLC
+# Copyright 2021 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
-lsm_algorithm = tff.experimental.lsm_algorithm
+lsm_algorithm = tff.models.longstaff_schwartz
 
 _SAMPLES = [[1.0, 1.09, 1.08, 1.34],
             [1.0, 1.16, 1.26, 1.54],
@@ -64,10 +64,10 @@ class LsmTest(parameterized.TestCase, tf.test.TestCase):
     # Longstaff, F.A. and Schwartz, E.S., 2001. Valuing American options by
     # simulation: a simple least-squares approach. The review of financial
     # studies, 14(1), pp.113-147.
-    basis_fn = lsm_algorithm.make_polynomial_basis_v2(2)
+    basis_fn = lsm_algorithm.make_polynomial_basis(2)
     payoff_fn = lsm_algorithm.make_basket_put_payoff([1.1], dtype=dtype)
     # Option price
-    european_put_price = lsm_algorithm.least_square_mc_v2(
+    european_put_price = lsm_algorithm.least_square_mc(
         self.samples, [3], payoff_fn, basis_fn,
         discount_factors=[self.discount_factors[-1]], dtype=dtype)
     self.assertAllClose(european_put_price, [0.0564],
@@ -90,10 +90,10 @@ class LsmTest(parameterized.TestCase, tf.test.TestCase):
     # Longstaff, F.A. and Schwartz, E.S., 2001. Valuing American options by
     # simulation: a simple least-squares approach. The review of financial
     # studies, 14(1), pp.113-147.
-    basis_fn = lsm_algorithm.make_polynomial_basis_v2(2)
+    basis_fn = lsm_algorithm.make_polynomial_basis(2)
     payoff_fn = lsm_algorithm.make_basket_put_payoff([1.1], dtype=dtype)
     # Option price
-    american_put_price = lsm_algorithm.least_square_mc_v2(
+    american_put_price = lsm_algorithm.least_square_mc(
         self.samples, [1, 2, 3], payoff_fn, basis_fn,
         discount_factors=self.discount_factors,
         dtype=dtype)
@@ -117,10 +117,10 @@ class LsmTest(parameterized.TestCase, tf.test.TestCase):
     # Longstaff, F.A. and Schwartz, E.S., 2001. Valuing American options by
     # simulation: a simple least-squares approach. The review of financial
     # studies, 14(1), pp.113-147.
-    basis_fn = lsm_algorithm.make_polynomial_basis_v2(2)
+    basis_fn = lsm_algorithm.make_polynomial_basis(2)
     payoff_fn = lsm_algorithm.make_basket_put_payoff([1.1], dtype=dtype)
     # Option price
-    american_put_price = lsm_algorithm.least_square_mc_v2(
+    american_put_price = lsm_algorithm.least_square_mc(
         self.samples, [1, 2, 3], payoff_fn, basis_fn,
         discount_factors=self.discount_factors,
         num_calibration_samples=num_calibration_samples,
@@ -135,7 +135,7 @@ class LsmTest(parameterized.TestCase, tf.test.TestCase):
     # simulation: a simple least-squares approach. The review of financial
     # studies, 14(1), pp.113-147.
     # This is the minimum number of basis functions for the tests to pass.
-    basis_fn = lsm_algorithm.make_polynomial_basis_v2(10)
+    basis_fn = lsm_algorithm.make_polynomial_basis(10)
     exercise_times = [1, 2, 3]
     dtype = np.float64
     payoff_fn = lsm_algorithm.make_basket_put_payoff([1.1, 1.2, 1.3],
@@ -144,13 +144,13 @@ class LsmTest(parameterized.TestCase, tf.test.TestCase):
     samples = tf.convert_to_tensor(self.samples, dtype=dtype)
     samples_2d = tf.concat([samples, samples], -1)
     # Price American basket option
-    american_basket_put_price = lsm_algorithm.least_square_mc_v2(
+    american_basket_put_price = lsm_algorithm.least_square_mc(
         samples_2d, exercise_times, payoff_fn, basis_fn,
         discount_factors=self.discount_factors, dtype=dtype)
     # Since the marginal processes of `samples_2d` are 100% correlated, the
     # price should be the same as of the American option computed for
     # `samples`
-    american_put_price = lsm_algorithm.least_square_mc_v2(
+    american_put_price = lsm_algorithm.least_square_mc(
         self.samples, exercise_times, payoff_fn, basis_fn,
         discount_factors=self.discount_factors, dtype=dtype)
     with self.subTest(name='Price'):
@@ -173,14 +173,14 @@ class LsmTest(parameterized.TestCase, tf.test.TestCase):
     # Longstaff, F.A. and Schwartz, E.S., 2001. Valuing American options by
     # simulation: a simple least-squares approach. The review of financial
     # studies, 14(1), pp.113-147.
-    basis_fn = lsm_algorithm.make_polynomial_basis_v2(2)
+    basis_fn = lsm_algorithm.make_polynomial_basis(2)
     payoff_fn = lsm_algorithm.make_basket_put_payoff([1.1, 1.2], dtype=dtype)
     interest_rates = [[0.06, 0.06, 0.06],
                       [0.05, 0.05, 0.05]]
     discount_factors = np.exp(-np.cumsum(interest_rates, -1))
     discount_factors = np.expand_dims(discount_factors, 0)
     # Option price
-    american_put_price = lsm_algorithm.least_square_mc_v2(
+    american_put_price = lsm_algorithm.least_square_mc(
         self.samples, [1, 2, 3], payoff_fn, basis_fn,
         discount_factors=discount_factors, dtype=dtype)
     self.assertAllClose(american_put_price, [0.1144, 0.199],
@@ -200,7 +200,7 @@ class LsmTest(parameterized.TestCase, tf.test.TestCase):
     # Longstaff, F.A. and Schwartz, E.S., 2001. Valuing American options by
     # simulation: a simple least-squares approach. The review of financial
     # studies, 14(1), pp.113-147.
-    basis_fn = lsm_algorithm.make_polynomial_basis_v2(2)
+    basis_fn = lsm_algorithm.make_polynomial_basis(2)
     payoff_fn = lsm_algorithm.make_basket_put_payoff([1.1, 1.2], dtype=dtype)
     interest_rates = [[0.06, 0.06, 0.06],
                       [0.05, 0.05, 0.05]]
@@ -214,7 +214,7 @@ class LsmTest(parameterized.TestCase, tf.test.TestCase):
     # Shape [2, num_samples, dum_times, dim]
     sample_paths = tf.stack([sample_paths1, sample_paths2], axis=0)
     # Option price
-    american_put_price = lsm_algorithm.least_square_mc_v2(
+    american_put_price = lsm_algorithm.least_square_mc(
         sample_paths, [1, 2, 3], payoff_fn, basis_fn,
         discount_factors=discount_factors, dtype=dtype)
     self.assertAllClose(american_put_price, [0.1144, 0.1157],

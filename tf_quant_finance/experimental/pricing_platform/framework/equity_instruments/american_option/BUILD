@@ -74,10 +74,10 @@ py_library(
     srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/datetime",
-        "//tf_quant_finance/experimental/lsm_algorithm",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:types",
         "//tf_quant_finance/math",
         "//tf_quant_finance/models",
+        "//tf_quant_finance/models/longstaff_schwartz",
         # tensorflow dep,
     ],
 )
