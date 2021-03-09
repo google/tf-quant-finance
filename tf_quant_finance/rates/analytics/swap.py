@@ -18,11 +18,14 @@ import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.rates.analytics import cashflows
 
-__all__ = ['swap_price',
-           'equity_leg_cashflows',
-           'rate_leg_cashflows',
-           'ir_swap_price',
-           'equity_swap_price']
+__all__ = [
+    'swap_price',
+    'equity_leg_cashflows',
+    'rate_leg_cashflows',
+    'ir_swap_price',
+    'ir_swap_par_rate_and_annuity',
+    'equity_swap_price'
+]
 
 
 def swap_price(pay_leg_cashflows,
@@ -329,6 +332,69 @@ def ir_swap_price(
                       receive_leg_cashflows,
                       pay_leg_discount_factors,
                       receive_leg_discount_factors)
+
+
+def ir_swap_par_rate_and_annuity(floating_leg_start_times,
+                                 floating_leg_end_times,
+                                 fixed_leg_payment_times,
+                                 fixed_leg_daycount_fractions,
+                                 reference_rate_fn,
+                                 dtype=None,
+                                 name=None):
+  """Utility function to compute par swap rate and annuity.
+
+  Args:
+    floating_leg_start_times: A real `Tensor` of the same dtype as `expiries`.
+      The times when accrual begins for each payment in the floating leg. The
+      shape of this input should be `expiries.shape + [m]` where `m` denotes the
+      number of floating payments in each leg.
+    floating_leg_end_times: A real `Tensor` of the same dtype as `expiries`. The
+      times when accrual ends for each payment in the floating leg. The shape of
+      this input should be `expiries.shape + [m]` where `m` denotes the number
+      of floating payments in each leg.
+    fixed_leg_payment_times: A real `Tensor` of the same dtype as `expiries`.
+      The payment times for each payment in the fixed leg. The shape of this
+      input should be `expiries.shape + [n]` where `n` denotes the number of
+      fixed payments in each leg.
+    fixed_leg_daycount_fractions: A real `Tensor` of the same dtype and
+      compatible shape as `fixed_leg_payment_times`. The daycount fractions for
+      each payment in the fixed leg.
+    reference_rate_fn: A Python callable that accepts expiry time as a real
+      `Tensor` and returns a `Tensor` of shape `input_shape + [dim]`. Returns
+      the continuously compounded zero rate at the present time for the input
+      expiry time.
+    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+      Default value: None which maps to the default dtype inferred from
+        `floating_leg_start_times`.
+    name: Python str. The name to give to the ops created by this function.
+      Default value: None which maps to 'ir_swap_par_rate_and_annuity'.
+
+  Returns:
+    A tuple with two elements containing par swap rate and swap annuities.
+  """
+  name = name or 'ir_swap_par_rate_and_annuity'
+  with tf.name_scope(name):
+    floating_leg_start_times = tf.convert_to_tensor(
+        floating_leg_start_times, dtype=dtype)
+    dtype = dtype or floating_leg_start_times.dtype
+    floating_leg_end_times = tf.convert_to_tensor(
+        floating_leg_end_times, dtype=dtype)
+    fixed_leg_payment_times = tf.convert_to_tensor(
+        fixed_leg_payment_times, dtype=dtype)
+    fixed_leg_daycount_fractions = tf.convert_to_tensor(
+        fixed_leg_daycount_fractions, dtype=dtype)
+
+    floating_leg_start_df = tf.math.exp(
+        -reference_rate_fn(floating_leg_start_times) * floating_leg_start_times)
+    floating_leg_end_df = tf.math.exp(
+        -reference_rate_fn(floating_leg_end_times) * floating_leg_end_times)
+    fixed_leg_payment_df = tf.math.exp(
+        -reference_rate_fn(fixed_leg_payment_times) * fixed_leg_payment_times)
+    annuity = tf.math.reduce_sum(
+        fixed_leg_payment_df * fixed_leg_daycount_fractions, axis=-1)
+    swap_rate = tf.math.reduce_sum(
+        floating_leg_start_df - floating_leg_end_df, axis=-1) / annuity
+    return swap_rate, annuity
 
 
 def equity_swap_price(

@@ -20,9 +20,9 @@ from tf_quant_finance.black_scholes.implied_vol_utils import UnderlyingDistribut
 from tf_quant_finance.math import make_val_and_grad_fn
 from tf_quant_finance.math import optimizer
 from tf_quant_finance.math import piecewise
-from tf_quant_finance.models.hjm import swaption_util
 from tf_quant_finance.models.hull_white import one_factor
 from tf_quant_finance.models.hull_white import swaption
+from tf_quant_finance.rates.analytics import swap
 
 
 __all__ = ['calibration_from_swaptions']
@@ -324,7 +324,7 @@ def calibration_from_swaptions(*,
       optimizer_fn = optimizer.conjugate_gradient_minimize
 
     if volatility_based_calibration:
-      swap_rate, annuity = swaption_util.get_swap_rate_and_annuity(
+      swap_rate, annuity = swap.ir_swap_par_rate_and_annuity(
           float_leg_start_times, float_leg_end_times, fixed_leg_payment_times,
           fixed_leg_daycount_fractions, reference_rate_fn)
       target_values = implied_vol(

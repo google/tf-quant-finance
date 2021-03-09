@@ -148,24 +148,6 @@ def discount_factors_and_bond_prices_from_samples(
   return payoff_discount_factors, payoff_bond_price
 
 
-# TODO(b/181766055): Move this to rates/analytics module.
-def get_swap_rate_and_annuity(floating_leg_start_times, floating_leg_end_times,
-                              fixed_leg_payment_times,
-                              fixed_leg_daycount_fractions, reference_rate_fn):
-  """Utility function to compute par swap rate and annuity."""
-  floating_leg_start_df = tf.math.exp(
-      -reference_rate_fn(floating_leg_start_times) * floating_leg_start_times)
-  floating_leg_end_df = tf.math.exp(-reference_rate_fn(floating_leg_end_times) *
-                                    floating_leg_end_times)
-  fixed_leg_payment_df = tf.math.exp(
-      -reference_rate_fn(fixed_leg_payment_times) * fixed_leg_payment_times)
-  annuity = tf.math.reduce_sum(
-      fixed_leg_payment_df * fixed_leg_daycount_fractions, axis=-1)
-  swap_rate = tf.math.reduce_sum(
-      floating_leg_start_df - floating_leg_end_df, axis=-1) / annuity
-  return swap_rate, annuity
-
-
 def _prepare_indices_ijjk(idx0, idx1, idx2, idx3):
   """Prepares indices to get x[i, j, j, k]."""
   # For a 4-D `Tensor` x, creates indices for tf.gather_nd to retrieve

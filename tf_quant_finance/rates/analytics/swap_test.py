@@ -158,6 +158,44 @@ class SwapTest(tf.test.TestCase, parameterized.TestCase):
   @parameterized.named_parameters(
       {
           'testcase_name': 'NoBatch',
+          'floating_leg_start_times': [0.5, 1.0, 1.5],
+          'floating_leg_end_times': [1.0, 1.5, 2.0],
+          'fixed_leg_payment_times': [1.0, 1.5, 2.0],
+          'fixed_leg_daycount_fractions': [0.5, 0.5, 0.5],
+          'reference_rate_fn': lambda x: 0.01,
+          'expected_values': [0.010025041718802, 1.477680223329493],
+      }, {
+          'testcase_name':
+              'WithBatch',
+          'floating_leg_start_times': [[0.5, 1.0, 1.5], [0.5, 1.0, 1.5]],
+          'floating_leg_end_times': [[1.0, 1.5, 2.0], [1.0, 1.5, 2.0]],
+          'fixed_leg_payment_times': [[1.0, 1.5, 2.0], [1.0, 1.5, 2.0]],
+          'fixed_leg_daycount_fractions': [[0.5, 0.5, 0.5], [0.5, 0.5, 0.5]],
+          'reference_rate_fn':
+              lambda x: 0.01,
+          'expected_values': [[0.010025041718802, 0.010025041718802],
+                              [1.477680223329493, 1.477680223329493]],
+      })
+  def test_ir_swap_par_rate_and_annuity(self, floating_leg_start_times,
+                                        floating_leg_end_times,
+                                        fixed_leg_payment_times,
+                                        fixed_leg_daycount_fractions,
+                                        reference_rate_fn, expected_values):
+    dtype = tf.float64
+    actual_parrate, actual_annuity = self.evaluate(
+        tff.rates.analytics.swap.ir_swap_par_rate_and_annuity(
+            floating_leg_start_times,
+            floating_leg_end_times,
+            fixed_leg_payment_times,
+            fixed_leg_daycount_fractions,
+            reference_rate_fn,
+            dtype=dtype))
+    np.testing.assert_allclose(expected_values[0], actual_parrate)
+    np.testing.assert_allclose(expected_values[1], actual_annuity)
+
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'NoBatch',
           'rate_leg_coupon_rates': [0.1, 0.2, 0.05],
           'forward_prices': [110, 120, 140, 150],
           'spots': 100,

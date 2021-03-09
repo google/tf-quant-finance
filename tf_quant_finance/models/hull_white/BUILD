@@ -130,6 +130,7 @@ py_library(
         "//tf_quant_finance/math/root_search",
         "//tf_quant_finance/models/hjm:swaption_util",
         "//tf_quant_finance/models/longstaff_schwartz:lsm",
+        "//tf_quant_finance/rates/analytics:swap",
     ],
 )
 
