@@ -15,6 +15,7 @@ py_library(
         ":implied_vol_lib",
         ":implied_vol_newton_root",
         ":vanilla_prices",
+        ":variance_swaps",
         "//tf_quant_finance/black_scholes/approximations",
         # numpy dep,
         # tensorflow dep,
@@ -174,6 +175,32 @@ py_test(
         # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "variance_swaps",
+    srcs = ["variance_swaps.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":vanilla_prices",
+        "//tf_quant_finance/math:diff_ops",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "variance_swaps_test",
+    srcs = ["variance_swaps_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":variance_swaps",
+        "//tf_quant_finance",
+        # test util,
+        # numpy dep,
+        # tensorflow dep,
+        # xla_cpu_jit xla dep,
     ],
 )
 

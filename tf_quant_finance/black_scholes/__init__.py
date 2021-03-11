@@ -18,6 +18,7 @@ from tf_quant_finance.black_scholes import approximations
 from tf_quant_finance.black_scholes import brownian_bridge
 from tf_quant_finance.black_scholes import crr_binomial_tree
 from tf_quant_finance.black_scholes import vanilla_prices
+from tf_quant_finance.black_scholes import variance_swaps
 from tf_quant_finance.black_scholes.implied_vol_approximation import implied_vol as implied_vol_approx
 from tf_quant_finance.black_scholes.implied_vol_lib import implied_vol
 from tf_quant_finance.black_scholes.implied_vol_lib import ImpliedVolMethod
@@ -33,6 +34,7 @@ brownian_bridge_double = brownian_bridge.brownian_bridge_double
 option_price = vanilla_prices.option_price
 option_price_binomial = crr_binomial_tree.option_price_binomial
 swaption_price = vanilla_prices.swaption_price
+variance_swap_fair_strike = variance_swaps.fair_strike
 
 _allowed_symbols = [
     'approximations',
@@ -48,6 +50,7 @@ _allowed_symbols = [
     'ImpliedVolUnderlyingDistribution',
     'barrier_price',
     'swaption_price',
+    'variance_swap_fair_strike'
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
