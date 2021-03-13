@@ -175,7 +175,6 @@ def multivariate_normal(sample_shape,
   """
   random_type = RandomType.PSEUDO if random_type is None else random_type
   # Convert sample_shape to a list
-  sample_shape = list(sample_shape)
   if mean is None and covariance_matrix is None and scale_matrix is None:
     raise ValueError('At least one of mean, covariance_matrix or scale_matrix'
                      ' must be specified.')
@@ -184,10 +183,8 @@ def multivariate_normal(sample_shape,
     raise ValueError('Only one of covariance matrix or scale matrix'
                      ' must be specified')
 
-  with tf.compat.v1.name_scope(
-      name,
-      default_name='multivariate_normal',
-      values=[sample_shape, mean, covariance_matrix, scale_matrix]):
+  name = name or 'multivariate_normal'
+  with tf.name_scope(name):
     if mean is not None:
       mean = tf.convert_to_tensor(mean, dtype=dtype, name='mean')
     if random_type in [RandomType.PSEUDO, RandomType.STATELESS]:
@@ -258,7 +255,7 @@ def _mvnormal_pseudo(sample_shape,
   (mean, scale_matrix,
    batch_shape, _, dtype) = _process_mean_scale(mean, scale_matrix,
                                                 covariance_matrix, dtype)
-  output_shape = sample_shape + batch_shape
+  output_shape = tf.concat([sample_shape, batch_shape], axis=0)
   if random_type == RandomType.PSEUDO:
     samples = tf.random.normal(shape=output_shape,
                                dtype=dtype,
@@ -369,7 +366,7 @@ def _mvnormal_quasi(sample_shape,
    batch_shape, dim, dtype) = _process_mean_scale(mean, scale_matrix,
                                                   covariance_matrix, dtype)
   # Reverse elements of the batch shape
-  batch_shape_reverse = tf.TensorShape(reversed(batch_shape))
+  batch_shape_reverse = tf.reverse(batch_shape, [0])
   # Transposed shape of the output
   output_shape_t = tf.concat([batch_shape_reverse, sample_shape], -1)
   # Number of quasi random samples
@@ -380,6 +377,12 @@ def _mvnormal_quasi(sample_shape,
   else:
     skip = 0
   if random_type == RandomType.SOBOL:
+    # TODO(b/182621549): For Sobol sequences, dimension should be known at graph
+    # construction time.
+    dim = tf.get_static_value(dim)
+    if dim is None:
+      raise ValueError('For Sobol sequences, dimension should be known at graph'
+                       ' construction time.')
     # Shape [num_samples, dim] of the Sobol samples
     low_discrepancy_seq = sobol.sample(
         dim=dim, num_results=num_samples, skip=skip,
@@ -433,11 +436,24 @@ def _process_mean_scale(mean, scale_matrix, covariance_matrix, dtype):
   if mean is None:
     mean = 0.0
     # batch_shape includes the dimension of the samples
-    batch_shape = scale_matrix.shape.as_list()[:-1]
-    dim = scale_matrix.shape.as_list()[-1]
+    batch_shape = tf.shape(scale_matrix)[:-1]
+    # TODO(b/182621549): For Sobol sequences, dimension should be known at graph
+    # construction time.
+    dim = _get_static_dim(scale_matrix)
     dtype = scale_matrix.dtype
   else:
-    batch_shape = mean.shape.as_list()
-    dim = mean.shape.as_list()[-1]
+    batch_shape = tf.shape(mean)
+    # TODO(b/182621549): For Sobol sequences, dimension should be known at graph
+    # construction time.
+    dim = _get_static_dim(mean)
     dtype = mean.dtype
   return mean, scale_matrix, batch_shape, dim, dtype
+
+
+def _get_static_dim(t):
+  """Returns static dimension value if possible."""
+  dim = t.shape.as_list()[-1]
+  if dim is None:
+    return tf.shape(t)[-1]
+  else:
+    return dim

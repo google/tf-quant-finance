@@ -349,7 +349,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
     name = name or self._name + '_sample_discount_curve_paths'
     with tf.name_scope(name):
       times = tf.convert_to_tensor(times, self._dtype)
-      num_times = times.shape.as_list()[0]
+      num_times = tf.shape(times)[0]
       curve_times = tf.convert_to_tensor(curve_times, self._dtype)
       rate_paths, discount_factor_paths, x_t, y_t = self._sample_paths(
           times, time_step, num_samples, random_type, skip, seed)
@@ -361,8 +361,8 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       # Reshape all `Tensor`s so that they have the dimensions same as (or
       # broadcastable to) the output shape
       # ([num_smaples,num_curve_times,num_sim_times]).
-      num_curve_nodes = curve_times.shape.as_list()[0]  # m
-      num_sim_steps = times.shape.as_list()[0]  # k
+      num_curve_nodes = tf.shape(curve_times)[0]  # m
+      num_sim_steps = tf.shape(times)[0]  # k
       times = tf.reshape(times, (1, 1, num_sim_steps, 1))
       curve_times = tf.reshape(curve_times, (1, num_curve_nodes, 1, 1))
 

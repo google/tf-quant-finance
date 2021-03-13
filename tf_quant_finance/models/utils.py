@@ -158,13 +158,16 @@ def maybe_update_along_axis(*,
     do_update = tf.convert_to_tensor(do_update, name='do_update')
     size_along_axis = tensor.shape.as_list()[axis]
     def _write_update_to_result():
-      one_hot = tf.one_hot(ind, depth=size_along_axis)
-      mask_shape = len(tensor.shape) * [1]
-      mask_shape[axis] = size_along_axis
+      size_along_axis_dynamic = tf.shape(tensor)[axis]
+      one_hot = tf.one_hot(ind, depth=size_along_axis_dynamic)
+      mask_size = tensor.shape.rank
+      mask_shape = tf.pad(
+          [size_along_axis_dynamic],
+          paddings=[[axis, mask_size - axis - 1]], constant_values=1)
       mask = tf.reshape(one_hot > 0, mask_shape)
       return tf.where(mask, new_tensor, tensor)
-    # Update only if size_along_axis > 1.
-    if size_along_axis > 1:
+    # Update only if size_along_axis > 1 or if the shape is dynamic
+    if size_along_axis is None or size_along_axis > 1:
       return tf.cond(do_update,
                      _write_update_to_result,
                      lambda: tensor)
@@ -281,7 +284,7 @@ def block_diagonal_to_dense(*matrices):
 def cumsum_using_matvec(input_tensor):
   """Computes cumsum using matrix algebra."""
   dtype = input_tensor.dtype
-  axis_length = input_tensor.shape.as_list()[-1]
+  axis_length = tf.shape(input_tensor)[-1]
   ones = tf.ones([axis_length, axis_length], dtype=dtype)
   lower_triangular = tf.linalg.band_part(ones, -1, 0)
   cumsum = tf.linalg.matvec(lower_triangular, input_tensor)
@@ -291,7 +294,7 @@ def cumsum_using_matvec(input_tensor):
 def cumprod_using_matvec(input_tensor):
   """Computes cumprod using matrix algebra."""
   dtype = input_tensor.dtype
-  axis_length = input_tensor.shape.as_list()[-1]
+  axis_length = tf.shape(input_tensor)[-1]
   ones = tf.ones([axis_length, axis_length], dtype=dtype)
   lower_triangular = tf.linalg.band_part(ones, -1, 0)
   cumsum = tf.linalg.matvec(lower_triangular, tf.math.log(input_tensor))

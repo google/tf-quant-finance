@@ -98,6 +98,40 @@ class RandomTest(parameterized.TestCase, tf.test.TestCase):
     np.testing.assert_array_almost_equal(
         np.cov(sample[:, 1, :], rowvar=False), covar[1], decimal=1)
 
+  @parameterized.named_parameters(
+      {
+          "testcase_name": "HALTON",
+          "random_type": tff_rnd.RandomType.HALTON,
+          "seed": None,
+      }, {
+          "testcase_name": "STATELESS",
+          "random_type": tff_rnd.RandomType.STATELESS,
+          "seed": [1, 4567]
+      })
+  def test_dynamic_shapes(self, random_type, seed):
+    """Tests that the sample is correctly generated for pseudo and stateless."""
+    mean = np.array([[1.0, 0.1], [0.1, 1.0]])
+    covar = np.array([
+        [[0.9, -0.1], [-0.1, 1.0]],
+        [[1.1, -0.3], [-0.3, 0.6]],
+    ])
+    size = 30000
+    @tf.function(input_signature=[tf.TensorSpec([None, None]),
+                                  tf.TensorSpec([None, None, None])])
+    def sampler(mean, covar):
+      return tff_rnd.mv_normal_sample(
+          [size], mean=mean, covariance_matrix=covar,
+          random_type=tff_rnd.RandomType.HALTON, seed=seed)
+
+    sample = self.evaluate(sampler(mean, covar))
+    np.testing.assert_array_equal(sample.shape, [size, 2, 2])
+    np.testing.assert_array_almost_equal(
+        np.mean(sample, axis=0), mean, decimal=1)
+    np.testing.assert_array_almost_equal(
+        np.cov(sample[:, 0, :], rowvar=False), covar[0], decimal=1)
+    np.testing.assert_array_almost_equal(
+        np.cov(sample[:, 1, :], rowvar=False), covar[1], decimal=1)
+
   def test_mean_and_scale(self):
     """Tests sample for scale specification."""
     mean = np.array([[1.0, 0.1], [0.1, 1.0]])
