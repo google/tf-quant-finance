@@ -9,6 +9,7 @@ py_library(
     srcs = ["__init__.py"],
     srcs_version = "PY3",
     deps = [
+        ":calibration",
         ":cap_floor",
         ":quasi_gaussian_hjm",
         ":swaption_pricing",
@@ -128,6 +129,38 @@ py_test(
     name = "swaption_pricing_test",
     timeout = "long",
     srcs = ["swaption_pricing_test.py"],
+    python_version = "PY3",
+    shard_count = 8,
+    deps = [
+        "//tf_quant_finance",
+        # test util,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "calibration",
+    srcs = ["calibration.py"],
+    deps = [
+        ":quasi_gaussian_hjm",
+        ":swaption_util",
+        "//tf_quant_finance/black_scholes",
+        "//tf_quant_finance/math:gradient",
+        "//tf_quant_finance/math:piecewise",
+        "//tf_quant_finance/math/optimizer",
+        "//tf_quant_finance/math/root_search",
+        "//tf_quant_finance/rates/analytics:swap",
+        # numpy dep,
+        # tensorflow dep,
+        # tensorflow_probability dep,
+    ],
+)
+
+py_test(
+    name = "calibration_test",
+    timeout = "long",
+    srcs = ["calibration_test.py"],
     python_version = "PY3",
     shard_count = 8,
     deps = [

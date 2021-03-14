@@ -111,6 +111,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
                volatility,
                initial_discount_rate_fn,
                corr_matrix=None,
+               validate_args=False,
                dtype=None,
                name=None):
     """Initializes the HJM model.
@@ -126,7 +127,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
         `r(t)` of shape `[num_samples]` and returns a 2-D `Tensor` of shape
         `[num_samples, dim]`. The variable `t`  stands for time and `r(t)` is
         the short rate at time `t`.  The function returns instantaneous
-        volatility `sigma(t) = sigma(t, r(r))`.
+        volatility `sigma(t) = sigma(t, r(t))`.
         When `volatility` is specified is a real `Tensor`, each factor is
         assumed to have a constant instantaneous volatility  and the  model is
         effectively a Gaussian HJM model.
@@ -139,6 +140,10 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       corr_matrix: A `Tensor` of shape `[dim, dim]` and the same `dtype` as
         `mean_reversion`.
         Corresponds to the correlation matrix `Rho`.
+      validate_args: Optional boolean flag to enable validation of the input
+        correlation matrix. If the flag is enabled and the input correlation
+        matrix is not positive semidefinite, an error is raised.
+        Default value: False.
       dtype: The default dtype to use when converting values to `Tensor`s.
         Default value: `None` which means that default dtypes inferred by
           TensorFlow are used.
@@ -188,7 +193,14 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       if corr_matrix is None:
         corr_matrix = tf.eye(dim, dim, dtype=self._dtype)
       self._rho = tf.convert_to_tensor(corr_matrix, dtype=dtype, name='rho')
-      self._sqrt_rho = tf.linalg.cholesky(self._rho)
+      if validate_args:
+        try:
+          self._sqrt_rho = tf.linalg.cholesky(self._rho)
+        except:
+          raise ValueError('The input correlation matrix is not '
+                           'positive semidefinite.')
+      else:
+        self._sqrt_rho = _get_valid_sqrt_matrix(self._rho)
 
     # Volatility function
     def _vol_fn(t, state):
@@ -448,3 +460,21 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
     p_t_tau = p_0_t_tau[..., 0] * tf.math.exp(-term1 - 0.5 * term2)
     # p_t_tau.shape=(num_samples, num_curve_times, num_sim_steps)
     return p_t_tau
+
+
+def _get_valid_sqrt_matrix(rho):
+  """Returns a matrix L such that rho = LL^T."""
+  e, v = tf.linalg.eigh(rho)
+
+  def _psd_true():
+    return tf.linalg.cholesky(rho)
+
+  def _psd_false():
+    # [e1, v1] = tf.linalg.eigh(rho)
+    realv = tf.math.real(v)
+    adjusted_e = tf.zeros(shape=(tf.shape(rho)[0],), dtype=rho.dtype)
+    adjusted_e = tf.linalg.diag(tf.maximum(tf.math.real(e), 1e-5))
+    return tf.matmul(realv, tf.math.sqrt(adjusted_e))
+
+  return tf.cond(
+      tf.math.reduce_any(tf.less(tf.math.real(e), 1e-5)), _psd_false, _psd_true)

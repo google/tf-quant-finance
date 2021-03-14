@@ -87,7 +87,7 @@ def price(*,
         of shape `[num_samples]` and returns a 2-D `Tensor` of shape
         `[num_samples, num_hjm_factors]`. The variable `t`  stands for time and
         `r(t)` is the short rate at time `t`.  The function returns the
-        instantaneous volatility `sigma(t) = sigma(t, r(r))`. When `volatility`
+        instantaneous volatility `sigma(t) = sigma(t, r(t))`. When `volatility`
         is specified as a real `Tensor`, each factor is assumed to have a
         constant instantaneous volatility  and the  model is effectively a
         Gaussian HJM model. Corresponds to the instantaneous volatility of each
