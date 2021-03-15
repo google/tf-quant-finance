@@ -11,6 +11,7 @@ py_library(
     deps = [
         ":calibration",
         ":cap_floor",
+        ":gaussian_hjm",
         ":quasi_gaussian_hjm",
         ":swaption_pricing",
         ":zero_coupon_bond_option",
@@ -38,6 +39,36 @@ py_test(
     shard_count = 8,
     deps = [
         ":quasi_gaussian_hjm",
+        "//tf_quant_finance",
+        # test util,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "gaussian_hjm",
+    srcs = ["gaussian_hjm.py"],
+    srcs_version = "PY3",
+    deps = [
+        "quasi_gaussian_hjm",
+        "//tf_quant_finance/math:piecewise",
+        "//tf_quant_finance/math/random_ops",
+        "//tf_quant_finance/models:generic_ito_process",
+        "//tf_quant_finance/models:utils",
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "gaussian_hjm_test",
+    size = "medium",
+    timeout = "moderate",
+    srcs = ["gaussian_hjm_test.py"],
+    python_version = "PY3",
+    shard_count = 8,
+    deps = [
+        ":gaussian_hjm",
         "//tf_quant_finance",
         # test util,
         # numpy dep,

@@ -54,12 +54,13 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
 
   ```None
     HJM Model
-    dx(t) = (y(t) - k * x(t)) dt + sigma(t) dW
-    dy(t) = (sigma(t)^2 - 2 * k * y(t)) dt
+    dx_i(t) = (sum_j [y_ij(t)] - k_i * x_i(t)) dt + sigma_i(t) dW_i
+    dy_ij(t) = (rho_ij * sigma_i(t)*sigma_j(t) - (k_i + k_j) * y_ij(t)) dt
     r(t) = sum_i x_i(t) + f(0, t)
   ```
-  where `x` and `y` are `n`-dimensional vectors. The HJM class implements the
-  model outlined above by jointly simulating the state [x_t, y_t].
+  where `x` is an `n`-dimensional vector and `y` is an `nxn` dimensional
+  matrix. The HJM class implements the model outlined above by jointly
+  simulating the state [x_t, y_t].
 
   The price at time `t` of a zero-coupon bond maturing at `T` is given by
   (Ref. [1]):
@@ -70,8 +71,8 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
   ```
 
   The HJM model implentation supports constant mean-reversion rate `k` and
-  `sigma(t)` can be an arbitrary function of `t` and `r`. We use Euler
-  discretization to simulate the HJM model.
+  `sigma(t)` can be an arbitrary function of `t` and `r`. The implementation
+  uses Euler discretization to simulate the HJM model.
 
   #### Example. Simulate a 4-factor HJM process.
 
@@ -208,8 +209,8 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       # Get parameter values at time `t`
       x = state[..., :self._factors]
       num_samples = x.shape.as_list()[0]
-      r_t = self._instant_forward_rate_fn(t) + tf.reduce_sum(x, axis=-1,
-                                                             keepdims=True)
+      r_t = self._instant_forward_rate_fn(t) + tf.reduce_sum(
+          x, axis=-1, keepdims=True)
       volatility = self._volatility(t, r_t)
       volatility = tf.expand_dims(volatility, axis=-1)
 
@@ -265,8 +266,8 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
     follows the notations in [1], section ###.
 
     Args:
-      times: Rank 1 `Tensor` of positive real values. The times at which the
-        path points are to be evaluated.
+      times: A real positive `Tensor` of shape `(num_times,)`. The times at
+        which the path points are to be evaluated.
       num_samples: Positive scalar `int32` `Tensor`. The number of paths to
         draw.
       time_step: Scalar real `Tensor`. Maximal distance between time grid points
@@ -291,8 +292,20 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
         Default value: `sample_paths`.
 
     Returns:
-      A `Tensor` of shape [num_samples, k, dim] where `k` is the size
-      of the `times` and `dim` is the dimension of the process.
+      A tuple containing four elements.
+
+      * The first element is a `Tensor` of
+      shape `[num_samples, num_times]` containing the simulated short rate
+      paths.
+      * The second element is a `Tensor` of shape
+      `[num_samples, num_times]` containing the simulated discount factor
+      paths.
+      * The third element is a `Tensor` of shape
+      `[num_samples, num_times, dim]` conating the simulated values of the
+      state variable `x`
+      * The fourth element is a `Tensor` of shape
+      `[num_samples, num_times, dim^2]` conating the simulated values of the
+      state variable `y`.
 
     Raises:
       ValueError:
@@ -320,10 +333,10 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
     """Returns a sample of simulated discount curves for the Hull-white model.
 
     Args:
-      times: Rank 1 `Tensor` of positive real values. The times at which the
-        discount curves are to be evaluated.
-      curve_times: Rank 1 `Tensor` of positive real values. The maturities
-        at which discount curve is computed at each simulation time.
+      times: A real positive `Tensor` of shape `[num_times,]`. The times `t` at
+        which the discount curves are to be evaluated.
+      curve_times: A real positive `Tensor` of shape `[num_curve_times]`. The
+        maturities at which discount curve is computed at each simulation time.
       num_samples: Positive scalar `int`. The number of paths to draw.
       time_step: Scalar real `Tensor`. Maximal distance between time grid points
         in Euler scheme. Used only when Euler scheme is applied.
@@ -348,11 +361,10 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
 
     Returns:
       A tuple containing two `Tensor`s. The first element is a `Tensor` of
-      shape [num_samples, m, k, dim] and contains the simulated bond curves
-      where `m` is the size of `curve_times`, `k` is the size of `times` and
-      `dim` is the dimension of the process. The second element is a `Tensor`
-      of shape [num_samples, k, dim] and contains the simulated short rate
-      paths.
+      shape [num_samples, num_curve_times, num_times] and contains the
+      simulated zero coupon bond curves `P(t, T)`. The second element is a
+      `Tensor` of shape [num_samples, num_times] and contains the simulated
+      discount factor paths.
 
     ### References:
       [1]: Leif B.G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling,
@@ -373,8 +385,8 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       # Reshape all `Tensor`s so that they have the dimensions same as (or
       # broadcastable to) the output shape
       # ([num_smaples,num_curve_times,num_sim_times]).
-      num_curve_nodes = tf.shape(curve_times)[0]  # m
-      num_sim_steps = tf.shape(times)[0]  # k
+      num_curve_nodes = tf.shape(curve_times)[0]
+      num_sim_steps = tf.shape(times)[0]
       times = tf.reshape(times, (1, 1, num_sim_steps, 1))
       curve_times = tf.reshape(curve_times, (1, num_curve_nodes, 1, 1))
 

@@ -1,0 +1,200 @@
+# Lint as: python3
+# Copyright 2021 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Tests for Gaussian HJM module."""
+
+from absl.testing import parameterized
+
+import numpy as np
+import tensorflow.compat.v2 as tf
+
+import tf_quant_finance as tff
+
+from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+
+
+# TODO(b/182805203): Enable tests in graph mode.
+# @test_util.run_all_in_graph_and_eager_modes
+class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
+
+  def setUp(self):
+    self.instant_forward_rate = lambda *args: [0.01]
+    # See D. Brigo, F. Mercurio. Interest Rate Models. 2007.
+    def _true_std_time_dep(t, intervals, vol, k):
+      res = np.zeros_like(t, dtype=np.float64)
+      for i, tt in enumerate(t):
+        var = 0.0
+        for j in range(len(intervals) - 1):
+          if tt >= intervals[j] and tt < intervals[j + 1]:
+            var = var + vol[j]**2 / 2 / k * (
+                np.exp(2 * k * tt) - np.exp(2 * k * intervals[j]))
+            break
+          else:
+            var = var + vol[j]**2 / 2 / k * (
+                np.exp(2 * k * intervals[j + 1]) - np.exp(2 * k * intervals[j]))
+        else:
+          var = var + vol[-1]**2/2/k *(np.exp(2*k*tt)-np.exp(2*k*intervals[-1]))
+        res[i] = np.exp(-k*tt) * np.sqrt(var)
+
+      return res
+    self.true_std_time_dep = _true_std_time_dep
+
+    def _true_zcb_std(t, tau, v, k):
+      e_tau = np.exp(-k*tau)
+      et = np.exp(k*t)
+      val = v/k * (1. - e_tau*et) * np.sqrt((1.-1./et/et)/k/2)
+      return val
+    self.true_zcb_std = _true_zcb_std
+
+    super(GaussianHJMModelTest, self).setUp()
+
+  @parameterized.named_parameters(
+      {
+          'testcase_name': '1f_constant',
+          'dim': 1,
+          'mr': [0.03],
+          'vol': [0.01],
+          'corr': None,
+          'vol_jumps': None,
+          'vol_values': None,
+      },
+      {
+          'testcase_name': '1f_time_dep',
+          'dim': 1,
+          'mr': [0.03],
+          'vol': None,
+          'corr': None,
+          'vol_jumps': [[0.5, 1.0]],
+          'vol_values': [[0.01, 0.02, 0.01]],
+      },
+      {
+          'testcase_name': '2f_constant',
+          'dim': 2,
+          'mr': [0.03, 0.1],
+          'vol': [0.005, 0.012],
+          'corr': None,
+          'vol_jumps': None,
+          'vol_values': None,
+      },
+      {
+          'testcase_name': '2f_constant_with_corr',
+          'dim': 2,
+          'mr': [0.03, 0.1],
+          'vol': [0.005, 0.012],
+          'corr': [[1.0, 0.5], [0.5, 1.0]],
+          'vol_jumps': None,
+          'vol_values': None,
+      },
+      {
+          'testcase_name': '2f_time_dep',
+          'dim': 2,
+          'mr': [0.03, 0.1],
+          'vol': None,
+          'corr': None,
+          'vol_jumps': [[0.5, 1.0], [0.5, 1.0]],
+          'vol_values': [[0.005, 0.008, 0.005], [0.005, 0.008, 0.005]],
+      }
+      )
+  def test_correctness_rate_df_sims(self, dim, mr, vol, corr, vol_jumps,
+                                    vol_values):
+    """Tests short rate and discount factor simulations."""
+    dtype = tf.float64
+    if vol is None:
+      vol = tff.math.piecewise.PiecewiseConstantFunc(vol_jumps, vol_values,
+                                                     dtype=dtype)
+    num_samples = 100000
+    process = tff.models.hjm.GaussianHJM(
+        dim=dim,
+        mean_reversion=mr,
+        volatility=vol,
+        initial_discount_rate_fn=self.instant_forward_rate,
+        corr_matrix=corr,
+        dtype=dtype)
+    times = np.array([0.1, 0.5, 1.0, 2.0])
+    paths, df, _, _ = process.sample_paths(
+        times,
+        num_samples=num_samples,
+        time_step=0.1,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        seed=[1, 2],
+        skip=1000000)
+    self.assertEqual(paths.dtype, dtype)
+    paths = self.evaluate(paths)
+    self.assertAllEqual(paths.shape, [num_samples, 4])
+    self.assertAllEqual(df.shape, [num_samples, 4])
+    discount_mean = np.mean(df, axis=0)
+    expected_mean = np.exp(-0.01 * times)
+    self.assertAllClose(discount_mean, expected_mean, rtol=2e-4, atol=2e-4)
+
+  @parameterized.named_parameters(
+      {
+          'testcase_name': '1f_constant',
+          'dim': 1,
+          'mr': [0.03],
+          'vol': [0.005],
+          'corr': None,
+          'factor': 1.0,
+      },
+      {
+          'testcase_name': '2f_constant',
+          'dim': 2,
+          'mr': [0.03, 0.03],
+          'vol': [0.005, 0.005],
+          'corr': None,
+          'factor': np.sqrt(2.0),
+      },
+      {
+          'testcase_name': '2f_constant_with_corr',
+          'dim': 2,
+          'mr': [0.03, 0.03],
+          'vol': [0.005, 0.005],
+          'corr': [[1.0, 0.5], [0.5, 1.0]],
+          'factor': np.sqrt(3.0),
+      }
+      )
+  def test_correctness_zcb_sims(self, dim, mr, vol, corr, factor):
+    """Tests discount bond simulations."""
+    dtype = tf.float64
+    num_samples = 100000
+    process = tff.models.hjm.GaussianHJM(
+        dim=dim,
+        mean_reversion=mr,
+        volatility=vol,
+        initial_discount_rate_fn=self.instant_forward_rate,
+        corr_matrix=corr,
+        dtype=dtype)
+    times = np.array([0.1, 0.5, 1.0, 2.0])
+    curve_times = np.array([0., 0.5, 1.0, 2.0, 5.0])
+    paths, _, _ = process.sample_discount_curve_paths(
+        times,
+        curve_times=curve_times,
+        num_samples=num_samples,
+        time_step=0.1,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        seed=[1, 2],
+        skip=1000000)
+    self.assertEqual(paths.dtype, dtype)
+    paths = self.evaluate(paths)
+    self.assertAllEqual(paths.shape, [num_samples, 5, 4])
+    sampled_std = tf.math.reduce_std(tf.math.log(paths), axis=0)
+    for tidx in range(4):
+      true_std = self.true_zcb_std(times[tidx], curve_times + times[tidx],
+                                   0.005, 0.03)
+      self.assertAllClose(
+          sampled_std[:, tidx], factor * true_std, rtol=1e-3, atol=1e-3)
+
+
+if __name__ == '__main__':
+  tf.test.main()
