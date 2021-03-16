@@ -193,7 +193,8 @@ py_test(
     timeout = "long",
     srcs = ["calibration_test.py"],
     python_version = "PY3",
-    shard_count = 8,
+    shard_count = 10,
+    tags = ["nofastbuild"],
     deps = [
         "//tf_quant_finance",
         # test util,
