@@ -18,4 +18,4 @@ install:
   - pip install --upgrade tf-nightly tfp-nightly numpy==1.19.5 attrs dataclasses
 
 script:
-  - bazel test tf_quant_finance/... --test_summary=detailed --test_output=errors
+  - bazel test --test_timeout_filters=short,moderate --test_summary=detailed --test_output=errors  tf_quant_finance/...
