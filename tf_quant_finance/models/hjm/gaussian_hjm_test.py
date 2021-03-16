@@ -25,8 +25,7 @@ import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
-# TODO(b/182805203): Enable tests in graph mode.
-# @test_util.run_all_in_graph_and_eager_modes
+@test_util.run_all_in_graph_and_eager_modes
 class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
 
   def setUp(self):
@@ -110,7 +109,7 @@ class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
   def test_correctness_rate_df_sims(self, dim, mr, vol, corr, vol_jumps,
                                     vol_values):
     """Tests short rate and discount factor simulations."""
-    dtype = tf.float64
+    dtype = np.float64
     if vol is None:
       vol = tff.math.piecewise.PiecewiseConstantFunc(vol_jumps, vol_values,
                                                      dtype=dtype)
@@ -132,6 +131,7 @@ class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
         skip=1000000)
     self.assertEqual(paths.dtype, dtype)
     paths = self.evaluate(paths)
+    df = self.evaluate(df)
     self.assertAllEqual(paths.shape, [num_samples, 4])
     self.assertAllEqual(df.shape, [num_samples, 4])
     discount_mean = np.mean(df, axis=0)
@@ -166,7 +166,7 @@ class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
       )
   def test_correctness_zcb_sims(self, dim, mr, vol, corr, factor):
     """Tests discount bond simulations."""
-    dtype = tf.float64
+    dtype = np.float64
     num_samples = 100000
     process = tff.models.hjm.GaussianHJM(
         dim=dim,

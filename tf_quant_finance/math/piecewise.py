@@ -14,8 +14,6 @@
 # limitations under the License.
 """Piecewise utility functions."""
 
-
-import numpy as np
 import tensorflow.compat.v2 as tf
 
 
@@ -111,18 +109,21 @@ class PiecewiseConstantFunc(object):
       self._values = tf.convert_to_tensor(values, dtype=dtype,
                                           name='values')
       shape_values = self._values.shape.as_list()
+
       shape_jump_locations = self._jump_locations.shape.as_list()
-      batch_rank = len(shape_jump_locations[:-1])
+      batch_rank = self._jump_locations.shape.rank - 1
       self._batch_rank = batch_rank
-      if shape_values[:batch_rank] != shape_jump_locations[:-1]:
-        raise ValueError('Batch shapes of `values` and `jump_locations` should '
-                         'be the same but are {0} and {1}'.format(
-                             shape_values[:-1], shape_jump_locations[:-1]))
-      if shape_values[batch_rank] - 1 != shape_jump_locations[-1]:
-        raise ValueError('Event shape of `values` should have one more '
-                         'element than the event shape of `jump_locations` '
-                         'but are {0} and {1}'.format(
-                             shape_values[-1], shape_jump_locations[-1]))
+      if None not in shape_values and None not in shape_jump_locations:
+        if shape_values[:batch_rank] != shape_jump_locations[:-1]:
+          raise ValueError(
+              'Batch shapes of `values` and `jump_locations` should '
+              'be the same but are {0} and {1}'.format(
+                  shape_values[:-1], shape_jump_locations[:-1]))
+        if shape_values[batch_rank] - 1 != shape_jump_locations[-1]:
+          raise ValueError('Event shape of `values` should have one more '
+                           'element than the event shape of `jump_locations` '
+                           'but are {0} and {1}'.format(
+                               shape_values[-1], shape_jump_locations[-1]))
 
   def values(self):
     """The value of the piecewise constant function between jump locations."""
@@ -160,16 +161,11 @@ class PiecewiseConstantFunc(object):
       A `Tensor` of the same `dtype` as `x` and shape
       `batch_shape + [num_points] + event_shape` containing values of the
       piecewise constant function.
-
-    Raises:
-      ValueError:
-        If `batch_shape` of `x` is incompatible with the batch shape of
-        `self.jump_locations()`.
     """
     with tf.compat.v1.name_scope(name, self._name + '_call', [x]):
       x = tf.convert_to_tensor(x, dtype=self._jump_locations.dtype, name='x')
-      batch_shape = self._jump_locations.shape.as_list()[:-1]
-      x = _try_broadcast_to(x, batch_shape, name='x')
+      batch_shape = tf.shape(self._jump_locations)[:-1]
+      x = _try_broadcast_to(x, batch_shape)
       side = 'left' if left_continuous else 'right'
       return _piecewise_constant_function(
           x, self._jump_locations, self._values, self._batch_rank, side=side)
@@ -193,20 +189,15 @@ class PiecewiseConstantFunc(object):
       A `Tensor` of the same `dtype` as `x` and shape
       `batch_shape + [num_points] + event_shape` containing values of the
       integral of the piecewise constant function between `[x1, x2]`.
-
-    Raises:
-      ValueError:
-        If `batch_shape` of `x1` and `x2` are incompatible with the batch shape
-        of `self.jump_locations()`.
     """
     with tf.compat.v1.name_scope(name, self._name + '_integrate', [x1, x2]):
       x1 = tf.convert_to_tensor(x1, dtype=self._jump_locations.dtype,
                                 name='x1')
       x2 = tf.convert_to_tensor(x2, dtype=self._jump_locations.dtype,
                                 name='x2')
-      batch_shape = self._jump_locations.shape.as_list()[:-1]
-      x1 = _try_broadcast_to(x1, batch_shape, name='x1')
-      x2 = _try_broadcast_to(x2, batch_shape, name='x1')
+      batch_shape = tf.shape(self._jump_locations)[:-1]
+      x1 = _try_broadcast_to(x1, batch_shape)
+      x2 = _try_broadcast_to(x2, batch_shape)
       return _piecewise_constant_integrate(
           x1, x2, self._jump_locations, self._values, self._batch_rank)
 
@@ -302,16 +293,13 @@ def _piecewise_constant_function(x, jump_locations, values,
   else:
     no_batch_shape = True
     x = tf.expand_dims(x, 0)
+    batch_rank += 1
   # Expand batch size to one if there is no batch shape
   if not batch_shape:
     jump_locations = tf.expand_dims(jump_locations, 0)
     values = tf.expand_dims(values, 0)
   indices = tf.searchsorted(jump_locations, x, side=side)
-  index_matrix = _prepare_index_matrix(
-      indices.shape.as_list()[:-1], indices.shape.as_list()[-1], indices.dtype)
-  indices_nd = tf.concat(
-      [index_matrix, tf.expand_dims(indices, -1)], -1)
-  res = tf.gather_nd(values, indices_nd)
+  res = tf.gather(values, indices, axis=batch_rank, batch_dims=batch_rank)
   if no_batch_shape:
     return tf.squeeze(res, 0)
   else:
@@ -333,41 +321,40 @@ def _piecewise_constant_integrate(x1, x2, jump_locations, values, batch_rank):
     jump_locations = tf.expand_dims(jump_locations, 0)
     values = tf.expand_dims(values, 0)
     batch_rank += 1
-
-  # Compute the index matrix that is later used for `tf.gather_nd`.
-  index_matrix = _prepare_index_matrix(
-      x1.shape.as_list()[:-1], x1.shape.as_list()[-1], tf.int32)
-  # Compute integral values at the jump locations starting from the first jump
-  # location.
-  event_shape = values.shape[(batch_rank+1):]
-  num_data_points = values.shape.as_list()[batch_rank]
+  # Compute integral values between the jump locations
+  event_shape = tf.shape(values)[(batch_rank+1):]
+  event_rank = values.shape.rank - batch_rank - 1
+  num_data_points = tf.shape(values)[batch_rank]
   diff = jump_locations[..., 1:] - jump_locations[..., :-1]
   # Broadcast `diff` to the shape of
   # `batch_shape + [num_data_points - 2] + [1] * sample_rank`.
-  for _ in event_shape:
+  for _ in range(event_rank):
     diff = tf.expand_dims(diff, -1)
   slice_indices = batch_rank * [slice(None)]
   slice_indices += [slice(1, num_data_points - 1)]
   integrals = tf.cumsum(values[slice_indices] * diff, batch_rank)
   # Pad integrals with zero values on left and right.
-  batch_shape = integrals.shape.as_list()[:batch_rank]
-  zeros = tf.zeros(batch_shape + [1] + event_shape, dtype=integrals.dtype)
+  batch_shape = tf.shape(integrals)[:batch_rank]
+  pad_shape = tf.concat([batch_shape, [1], event_shape], axis=0)
+  zeros = tf.zeros(pad_shape, dtype=integrals.dtype)
   integrals = tf.concat([zeros, integrals, zeros], axis=batch_rank)
   # Get jump locations and values and the integration end points
-  value1, jump_location1, indices_nd1 = _get_indices_and_values(
-      x1, index_matrix, jump_locations, values, 'left', batch_rank)
-  value2, jump_location2, indices_nd2 = _get_indices_and_values(
-      x2, index_matrix, jump_locations, values, 'right', batch_rank)
-  integrals1 = tf.gather_nd(integrals, indices_nd1)
-  integrals2 = tf.gather_nd(integrals, indices_nd2)
+  value1, jump_location1, indices_1 = _get_indices_and_values(
+      x1, jump_locations, values, 'left', batch_rank)
+  value2, jump_location2, indices_2 = _get_indices_and_values(
+      x2, jump_locations, values, 'right', batch_rank)
+  integrals1 = tf.gather(
+      integrals, indices_1, axis=batch_rank, batch_dims=batch_rank)
+  integrals2 = tf.gather(
+      integrals, indices_2, axis=batch_rank, batch_dims=batch_rank)
   # Broadcast `x1`, `x2`, `jump_location1`, `jump_location2` to the shape
   # `batch_shape + [num_points] + [1] * sample_rank`.
-  for _ in event_shape:
+  for _ in range(event_rank):
     x1 = tf.expand_dims(x1, -1)
     x2 = tf.expand_dims(x2, -1)
     jump_location1 = tf.expand_dims(jump_location1, -1)
     jump_location2 = tf.expand_dims(jump_location2, -1)
-  # Compute the value of the integral.
+  # Compute the value of the integrals.
   res = ((jump_location1 - x1) * value1
          + (x2 - jump_location2) * value2
          + integrals2 - integrals1)
@@ -377,7 +364,7 @@ def _piecewise_constant_integrate(x1, x2, jump_locations, values, batch_rank):
     return res
 
 
-def _get_indices_and_values(x, index_matrix, jump_locations, values, side,
+def _get_indices_and_values(x, jump_locations, values, side,
                             batch_rank):
   """Computes values and jump locations of the piecewise constant function.
 
@@ -389,10 +376,6 @@ def _get_indices_and_values(x, index_matrix, jump_locations, values, side,
   Args:
     x: A real `Tensor` of shape `batch_shape + [num_points]`. Points at which
       the function has to be evaluated.
-    index_matrix: An `int32` `Tensor` of shape
-      `batch_shape + [num_points] + [len(batch_shape)]` such that if
-      `batch_shape = [i1, .., in]`, then for all `j1, ..., jn, l`,
-      `index_matrix[j1,..,jn, l] = [j1, ..., jn]`.
     jump_locations: A `Tensor` of the same `dtype` as `x` and shape
       `batch_shape + [num_jump_points]`. The locations where the function
       changes its values. Note that the values are expected to be ordered
@@ -418,43 +401,16 @@ def _get_indices_and_values(x, index_matrix, jump_locations, values, side,
     indices_jump = tf.maximum(indices_jump, 0)
   else:
     indices_jump = tf.minimum(indices, num_data_points)
-  indices_nd = tf.concat(
-      [index_matrix, tf.expand_dims(indices, -1)], -1)
-  indices_jump_nd = tf.concat(
-      [index_matrix, tf.expand_dims(indices_jump, -1)], -1)
-  value = tf.gather_nd(values, indices_nd)
-  jump_location = tf.gather_nd(jump_locations, indices_jump_nd)
-  return value, jump_location, indices_jump_nd
+  value = tf.gather(values, indices, axis=batch_rank, batch_dims=batch_rank)
+  jump_location = tf.gather(
+      jump_locations, indices_jump, axis=batch_rank, batch_dims=batch_rank)
+  return value, jump_location, indices_jump
 
 
-def _prepare_index_matrix(batch_shape, num_points, dtype):
-  """Prepares index matrix for index argument of `tf.gather_nd`."""
-  batch_shape_reverse = batch_shape.copy()
-  batch_shape_reverse.reverse()
-  index_matrix = tf.constant(
-      np.flip(np.transpose(np.indices(batch_shape_reverse)), -1),
-      dtype=dtype)
-  batch_rank = len(batch_shape)
-  # Broadcast index matrix to the shape of
-  # `batch_shape + [num_points] + [batch_rank]`.
-  broadcasted_shape = batch_shape + [num_points] + [batch_rank]
-  index_matrix = tf.expand_dims(index_matrix, -2) + tf.zeros(
-      tf.TensorShape(broadcasted_shape), dtype=dtype)
-  return index_matrix
-
-
-def _try_broadcast_to(x, batch_shape, name):
+def _try_broadcast_to(x, batch_shape):
   """Broadcasts batch shape of `x` to a `batch_shape` if possible."""
-  batch_shape_x = x.shape.as_list()[:-1]
-  if batch_shape_x != batch_shape:
-    try:
-      np.broadcast_to(np.zeros(batch_shape_x), batch_shape)
-    except ValueError:
-      raise ValueError('Batch shapes of `{2}` should be broadcastable with {0} '
-                       'but it is {1} instead'.format(
-                           batch_shape, batch_shape_x, name))
-    return tf.broadcast_to(x, batch_shape + x.shape[-1:])
-  return x
+  broadcast_shape = tf.concat([batch_shape, tf.shape(x)[-1:]], axis=0)
+  return x + tf.zeros(broadcast_shape, dtype=x.dtype)
 
 
 def convert_to_tensor_or_func(x, dtype=None, name=None):

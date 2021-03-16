@@ -203,36 +203,42 @@ class Piecewise(tf.test.TestCase):
       self.assertAllClose(value, expected_value, atol=1e-5, rtol=1e-5)
       self.assertAllClose(integral, expected_integral, atol=1e-5, rtol=1e-5)
 
-  def test_invalid_x_batch_shape(self):
-    """Tests that `x` should have compatible batch with `jump_locations`."""
-    for dtype in [np.float32, np.float64]:
-      x = np.array([[0., 0.1, 2., 11.],
-                    [0., 0.1, 2., 11.], [0., 0.1, 2., 11.]])
-      jump_locations = np.array([[0.1, 10], [2., 10]])
-      values = tf.constant([[3, 4, 5], [3, 4, 5]], dtype=dtype)
-      piecewise_func = piecewise.PiecewiseConstantFunc(jump_locations, values,
-                                                       dtype=dtype)
-      with self.assertRaises(ValueError):
-        piecewise_func(x, left_continuous=False)
-
-  def test_incompatible_x1_x2_batch_shape(self):
-    """Tests that `x1` and `x2` should have the same batch shape."""
-    for dtype in [np.float32, np.float64]:
-      x1 = np.array([[0., 0.1, 2., 11.],
-                     [0., 0.1, 2., 11.]])
-      x2 = np.array([[0., 0.1, 2., 11.],
-                     [0., 0.1, 2., 11.], [0., 0.1, 2., 11.]])
-      x3 = x2 + 1
-      jump_locations = np.array([[0.1, 10]])
-      values = tf.constant([[3, 4, 5]], dtype=dtype)
-      piecewise_func = piecewise.PiecewiseConstantFunc(jump_locations, values,
-                                                       dtype=dtype)
-      with self.assertRaises(ValueError):
-        piecewise_func.integrate(x1, x2)
-      # `x2` and `x3` have the same batch shape but different from
-      # the batch shape of `jump_locations`
-      with self.assertRaises(ValueError):
-        piecewise_func.integrate(x2, x3)
+  def test_dynamic_shapes(self):
+    """Tests for dynamically shaped inputs."""
+    dtype = np.float64
+    x = tf.constant([[0, 1, 2, 3], [0.5, 1.5, 2.5, 3.5]], dtype=dtype)
+    jump_locations = tf.constant([[0.5, 2], [0.5, 1.5]], dtype=dtype)
+    values = tf.constant([[[0, 1, 1.5], [2, 3, 0], [1, 0, 1]],
+                          [[0, 0.5, 1], [1, 3, 2], [2, 3, 1]]], dtype=dtype)
+    @tf.function(
+        input_signature=[tf.TensorSpec([None, None], dtype=dtype),
+                         tf.TensorSpec([None, None], dtype=dtype),
+                         tf.TensorSpec([None, None, None], dtype=dtype)])
+    def fn(x, jump_locations, values):
+      piecewise_func = piecewise.PiecewiseConstantFunc(
+          jump_locations, values, dtype=dtype)
+      value = piecewise_func(x)
+      integral = piecewise_func.integrate(x, x + 1)
+      return value, integral
+    value, integral = fn(x, jump_locations, values)
+    expected_value = [[[0, 1, 1.5],
+                       [2, 3, 0],
+                       [2, 3, 0],
+                       [1, 0, 1]],
+                      [[0, 0.5, 1],
+                       [1, 3, 2],
+                       [2, 3, 1],
+                       [2, 3, 1]]]
+    expected_integral = [[[1, 2, 0.75],
+                          [2, 3, 0],
+                          [1, 0, 1],
+                          [1, 0, 1]],
+                         [[1, 3, 2],
+                          [2, 3, 1],
+                          [2, 3, 1],
+                          [2, 3, 1]]]
+    self.assertAllClose(value, expected_value, atol=1e-5, rtol=1e-5)
+    self.assertAllClose(integral, expected_integral, atol=1e-5, rtol=1e-5)
 
   def test_convert_to_tensor_or_func_tensors(self):
     """Tests that tensor_or_func converts inputs into Tensors."""
