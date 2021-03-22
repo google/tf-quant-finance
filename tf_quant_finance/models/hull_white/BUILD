@@ -93,7 +93,7 @@ py_library(
 py_test(
     name = "cap_floor_test",
     size = "medium",
-    timeout = "long",
+    timeout = "moderate",
     srcs = ["cap_floor_test.py"],
     python_version = "PY3",
     shard_count = 6,

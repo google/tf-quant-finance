@@ -84,6 +84,53 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
       {
           'testcase_name': 'analytic',
           'use_analytic_pricing': True,
+      }, {
+          'testcase_name': 'simulation',
+          'use_analytic_pricing': False,
+      })
+  def test_gradient_1d(self, use_analytic_pricing):
+    """Tests that gradient calculation in 1 dimension."""
+    # 1 year cap with quarterly resets.
+    dtype = tf.float64
+    mean_reversion_1d = tf.convert_to_tensor(self.mean_reversion_1d,
+                                             dtype=dtype)
+    volatility_1d = tf.convert_to_tensor(self.volatility_1d,
+                                         dtype=dtype)
+    discount_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+    with tf.GradientTape(persistent=True) as tape:
+      tape.watch([mean_reversion_1d, volatility_1d])
+      price = tff.models.hull_white.cap_floor_price(
+          strikes=self.strikes,
+          expiries=self.expiries,
+          maturities=self.maturities,
+          daycount_fractions=self.daycount_fractions,
+          notional=100.0,
+          dim=1,
+          mean_reversion=mean_reversion_1d,
+          volatility=volatility_1d,
+          reference_rate_fn=discount_rate_fn,
+          use_analytic_pricing=use_analytic_pricing,
+          num_samples=10000,
+          time_step=0.1,
+          random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+          seed=[42, 42],
+          dtype=dtype)
+      grad_mr = tape.gradient(price, mean_reversion_1d)
+      grad_vol = tape.gradient(price, volatility_1d)
+    self.assertEqual(price.dtype, dtype)
+    self.assertAllEqual(price.shape, [1, 1])
+    price = self.evaluate(price)
+    with self.subTest('GradMeanReversion'):
+      self.assertAllClose(grad_mr, [-0.16],
+                          rtol=1e-2, atol=1e-2)
+    with self.subTest('GradVolatility'):
+      self.assertAllClose(grad_vol, [20.32],
+                          rtol=1e-2, atol=1e-2)
+
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'analytic',
+          'use_analytic_pricing': True,
           'error_tol': 1e-8,
       }, {
           'testcase_name': 'simulation',

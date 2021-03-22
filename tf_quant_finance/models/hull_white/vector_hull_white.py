@@ -678,11 +678,15 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
 
       if corr_matrix_root is not None:
         normals = tf.linalg.matvec(corr_matrix_root[i], normals)
-
+      vol_x_t = tf.math.sqrt(tf.nn.relu(tf.transpose(var_x_t)[i]))
+      # If numerically `vol_x_t == 0`, the gradient of `vol_x_t` becomes `NaN`.
+      # To prevent this, we explicitly set `vol_x_t` to zero tensor at zero
+      # values so that the gradient is set to zero at this values.
+      vol_x_t = tf.where(vol_x_t > 0.0, vol_x_t, 0.0)
       next_x = (tf.math.exp(-tf.transpose(mean_reversion)[i + 1] * dt[i])
                 * current_x
                 + tf.transpose(exp_x_t)[i]
-                + tf.math.sqrt(tf.transpose(var_x_t)[i]) * normals)
+                + vol_x_t * normals)
       f_0_t = self._instant_forward_rate_fn(times[i + 1])
 
       # Update `rate_paths`
