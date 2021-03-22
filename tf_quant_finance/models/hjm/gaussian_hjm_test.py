@@ -195,6 +195,66 @@ class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
       self.assertAllClose(
           sampled_std[:, tidx], factor * true_std, rtol=1e-3, atol=1e-3)
 
+  @parameterized.named_parameters(
+      {
+          'testcase_name': '1f_single_time',
+          'dim': 1,
+          'mr': [0.03],
+          'vol': [0.005],
+          'corr': None,
+          'times': [1.0],
+          'expected': [0.9803327113840525],
+      },
+      {
+          'testcase_name': '1f_many_times',
+          'dim': 1,
+          'mr': [0.03],
+          'vol': [0.005],
+          'corr': None,
+          'times': [1.0, 2.0, 3.0],
+          'expected': [0.9803327113840525,
+                       0.9803218405347454,
+                       0.9803116028646381],
+      },
+      {
+          'testcase_name': '2f_single_time',
+          'dim': 2,
+          'mr': [0.03, 0.03],
+          'vol': [0.005, 0.005],
+          'corr': None,
+          'times': [1.0],
+          'expected': [0.9707109604475661],
+      },
+      {
+          'testcase_name': '2f_many_times',
+          'dim': 2,
+          'mr': [0.03, 0.03],
+          'vol': [0.005, 0.005],
+          'corr': None,
+          'times': [1.0, 2.0, 3.0],
+          'expected': [0.9707109604475661,
+                       0.9706894322583266,
+                       0.9706691582097785]
+      }
+      )
+  def test_correctness_discount_bond_price(self, dim, mr, vol, corr, times,
+                                           expected):
+    """Tests discount bond price computation."""
+    dtype = np.float64
+    process = tff.models.hjm.GaussianHJM(
+        dim=dim,
+        mean_reversion=mr,
+        volatility=vol,
+        initial_discount_rate_fn=self.instant_forward_rate,
+        corr_matrix=corr,
+        dtype=dtype)
+    x_t = 0.01 * np.ones(shape=(len(times), dim))
+    times = np.array(times)
+    bond_prices = self.evaluate(
+        process.discount_bond_price(x_t, times, times + 1.0))
+    self.assertAllEqual(bond_prices.shape, times.shape)
+    self.assertAllClose(expected, bond_prices, 1e-8, 1e-8)
+
 
 if __name__ == '__main__':
   tf.test.main()

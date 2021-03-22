@@ -338,6 +338,49 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
 
     return tf.math.exp(-mr2 * t) * v_squared_t
 
+  def discount_bond_price(self, state, times, maturities, name=None):
+    """Returns zero-coupon bond prices `P(t,T)` conditional on `x(t)`.
+
+    Args:
+      state: A `Tensor` of real dtype and shape compatible with
+        `(num_times, dim)` specifying the state `x(t)`.
+      times: A `Tensor` of real dtype and shape `(num_times,)`. The time `t`
+        at which discount bond prices are computed.
+      maturities: A `Tensor` of real dtype and shape `(num_times,)`. The time
+        to maturity of the discount bonds.
+      name: Str. The name to give this op.
+        Default value: `discount_bond_prices`.
+
+    Returns:
+      A `Tensor` of real dtype and the same shape as `(num_times,)`
+      containing the price of zero-coupon bonds.
+    """
+    name = name or self._name + '_discount_bond_prices'
+    with tf.name_scope(name):
+      x_t = tf.convert_to_tensor(state, self._dtype)
+      times = tf.convert_to_tensor(times, self._dtype)
+      maturities = tf.convert_to_tensor(maturities, self._dtype)
+      # Flatten it because `PiecewiseConstantFunction` expects the first
+      # dimension to be broadcastable to [dim]
+      input_shape_times = tf.shape(times)
+      # The shape of `mean_reversion` will be (dim,n) where `n` is the number
+      # of elements in `times`.
+      mean_reversion = self._mean_reversion
+      y_t = self.state_y(times)
+
+      times = tf.expand_dims(times, axis=-1)
+      maturities = tf.expand_dims(maturities, axis=-1)
+      y_t = tf.reshape(tf.transpose(y_t), tf.concat(
+          [input_shape_times, [self._dim, self._dim]], axis=0))
+
+      # note that by making `times` and `maturities` of the same shape, we
+      # ensure that the shape of the output is `(1, 1, num_times)` instead of
+      # `(1, num_maturities, num_times)`
+      values = self._bond_reconstitution(  # shape=(1, 1, num_times)
+          times, maturities, mean_reversion, x_t, y_t, 1,
+          tf.shape(times)[0])
+      return values[0][0]
+
   def _sample_paths(self, times, time_step, num_samples, random_type, skip,
                     seed):
     """Returns a sample of paths from the process."""
