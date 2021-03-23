@@ -14,6 +14,7 @@
 # limitations under the License.
 """TensorFlow Quantitative Finance tools to build Hull White type models."""
 
+from tf_quant_finance.models.hull_white.calibration import calibration_from_cap_floors
 from tf_quant_finance.models.hull_white.calibration import calibration_from_swaptions
 from tf_quant_finance.models.hull_white.cap_floor import cap_floor_price
 from tf_quant_finance.models.hull_white.one_factor import HullWhiteModel1F
@@ -32,6 +33,7 @@ _allowed_symbols = [
     'cap_floor_price',
     'swaption_price',
     'calibration_from_swaptions',
+    'calibration_from_cap_floors',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

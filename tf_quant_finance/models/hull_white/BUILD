@@ -170,10 +170,10 @@ py_test(
 py_test(
     name = "calibration_test",
     size = "medium",
-    timeout = "long",
+    timeout = "moderate",
     srcs = ["calibration_test.py"],
     python_version = "PY3",
-    shard_count = 8,
+    shard_count = 12,
     deps = [
         "//tf_quant_finance",
         # test util,

@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Tests for calibration.py."""
 
 from absl.testing import parameterized
@@ -27,7 +26,8 @@ from tensorflow.python.framework import test_util  # pylint: disable=g-direct-te
 
 
 # @test_util.run_all_in_graph_and_eager_modes
-class HullWhiteCalibrationTest(parameterized.TestCase, tf.test.TestCase):
+class HullWhiteCalibrationSwaptionTest(parameterized.TestCase,
+                                       tf.test.TestCase):
 
   def setUp(self):
     self.mean_reversion = [0.03]
@@ -68,7 +68,7 @@ class HullWhiteCalibrationTest(parameterized.TestCase, tf.test.TestCase):
     self.fixed_leg_daycount_fractions = self.float_leg_daycount_fractions
     self.fixed_leg_coupon = 0.01 * np.ones_like(self.fixed_leg_payment_times)
 
-    super(HullWhiteCalibrationTest, self).setUp()
+    super(HullWhiteCalibrationSwaptionTest, self).setUp()
 
   @parameterized.named_parameters(
       {
@@ -238,6 +238,305 @@ class HullWhiteCalibrationTest(parameterized.TestCase, tf.test.TestCase):
     vol = calib_parameters[1:]
     self.assertAllClose(mr, expected_mr, rtol=1e-4, atol=1e-4)
     self.assertAllClose(vol, expected_vol, rtol=1e-4, atol=1e-4)
+
+
+class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
+                                       tf.test.TestCase):
+
+  def setUp(self):
+    self.is_valid = np.tile(
+        np.arange(0, 20), reps=(10, 1)) < np.array(
+            [[4], [4], [8], [8], [12], [12], [16], [16], [20], [20]])
+    self.daycount_fractions = 0.25 * self.is_valid.astype(np.float64)
+    self.maturities = np.cumsum(self.daycount_fractions, axis=1) * self.is_valid
+    self.expiries = (np.cumsum(self.daycount_fractions, axis=1) -
+                     0.25) * self.is_valid
+    self.is_cap = np.array(
+        [True, False, True, False, True, False, True, False, True, False])
+    self.strikes = 0.01 * np.ones_like(self.is_valid)
+
+    super(HullWhiteCalibrationCapFloorTest, self).setUp()
+
+  def test_docstring_example(self):
+    """Explicitly test the code provided in the docstring."""
+
+    # In this example, we synthetically generate some prices. Then we use our
+    # calibration to back out these prices.
+    dtype = tf.float64
+
+    daycount_fractions = np.array([
+        [0.25, 0.25, 0.25, 0.25, 0.0, 0.0, 0.0, 0.0],
+        [0.25, 0.25, 0.25, 0.25, 0.0, 0.0, 0.0, 0.0],
+        [0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25],
+        [0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25],
+    ])
+    expiries = np.array([
+        [0.0, 0.25, 0.5, 0.75, 1.0, 0.0, 0.0, 0.0],
+        [0.0, 0.25, 0.5, 0.75, 1.0, 0.0, 0.0, 0.0],
+        [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.50, 1.75],
+        [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.50, 1.75],
+    ])
+    maturities = np.array([
+        [0.25, 0.5, 0.75, 1.0, 0.0, 0.0, 0.0, 0.0],
+        [0.25, 0.5, 0.75, 1.0, 0.0, 0.0, 0.0, 0.0],
+        [0.25, 0.5, 0.75, 1.0, 1.25, 1.50, 1.75, 2.0],
+        [0.25, 0.5, 0.75, 1.0, 1.25, 1.50, 1.75, 2.0],
+    ])
+    is_cap = np.array([True, False, True, False])
+    strikes = 0.01 * np.ones_like(expiries)
+
+    # Setup - generate some observed prices using the model.
+    expected_mr = [0.4]
+    expected_vol = [0.01]
+
+    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+    prices = tff.models.hull_white.cap_floor_price(
+        strikes=strikes,
+        expiries=expiries,
+        maturities=maturities,
+        daycount_fractions=daycount_fractions,
+        reference_rate_fn=zero_rate_fn,
+        notional=1.0,
+        dim=1,
+        mean_reversion=expected_mr,
+        volatility=expected_vol,
+        is_cap=tf.expand_dims(is_cap, axis=1),
+        use_analytic_pricing=True,
+        dtype=dtype)
+
+    # Calibrate the model.
+    calibrated_model, is_converged, _ = (
+        tff.models.hull_white.calibration_from_cap_floors(
+            prices=tf.squeeze(prices),
+            strikes=strikes,
+            expiries=expiries,
+            maturities=maturities,
+            daycount_fractions=daycount_fractions,
+            reference_rate_fn=zero_rate_fn,
+            mean_reversion=[0.3],
+            volatility=[0.02],
+            notional=1.0,
+            dim=1,
+            is_cap=tf.expand_dims(is_cap, axis=1),
+            use_analytic_pricing=True,
+            optimizer_fn=None,
+            num_samples=1000,
+            random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+            seed=[0, 0],
+            time_step=0.1,
+            maximum_iterations=200,
+            dtype=dtype))
+
+    calibrated_mr = calibrated_model.mean_reversion.values()
+    calibrated_vol = calibrated_model.volatility.values()
+
+    calibrated_mr, calibrated_vol = self.evaluate(
+        [calibrated_mr, calibrated_vol])
+    self.assertTrue(is_converged)
+    self.assertAllClose(calibrated_mr, expected_mr, atol=1e-3, rtol=1e-2)
+    self.assertAllClose(calibrated_vol, expected_vol, atol=1e-3, rtol=1e-2)
+
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'no_noise',
+          'optimizer_fn': None,
+          'noise_size': 0.0,
+          'use_analytic_pricing': True,
+          'expected_mr': 0.3,
+          'expected_vol': 0.01,
+      },
+      {
+          'testcase_name': 'no_noise_low_vol',
+          'optimizer_fn': None,
+          'noise_size': 0.0,
+          'use_analytic_pricing': True,
+          'expected_mr': 0.3,
+          'expected_vol': 0.005,
+          'mr_rtol': 0.1,
+          'mr_atol': 0.1,
+      },
+      {
+          'testcase_name': 'no_noise_high_vol',
+          'optimizer_fn': None,
+          'noise_size': 0.0,
+          'use_analytic_pricing': True,
+          'expected_mr': 0.3,
+          'expected_vol': 0.05
+      },
+      {
+          'testcase_name': 'no_noise_bfgs',
+          'optimizer_fn': tfp.optimizer.bfgs_minimize,
+          'noise_size': 0.0,
+          'use_analytic_pricing': True,
+          'expected_mr': 0.3,
+          'expected_vol': 0.01
+      },
+      {
+          'testcase_name': '1_percent_noise',
+          'optimizer_fn': None,
+          'noise_size': 0.01,
+          'use_analytic_pricing': True,
+          'expected_mr': 0.3,
+          'expected_vol': 0.01,
+          # Mean-reversion parameter is very sensitive to noise, so we loosen
+          # the pass-fail tolerances.
+          'mr_rtol': 0.1,
+          'mr_atol': 0.1,
+      },
+      {
+          'testcase_name': '5_percent_noise',
+          'optimizer_fn': None,
+          'noise_size': 0.05,
+          'use_analytic_pricing': True,
+          'expected_mr': 0.3,
+          'expected_vol': 0.01,
+          # Mean-reversion parameter is very sensitive to noise, so we loosen
+          # the pass-fail tolerances.
+          'mr_rtol': 0.1,
+          'mr_atol': 0.1,
+      },
+      {
+          'testcase_name': 'mc_pricing',
+          'optimizer_fn': None,
+          'noise_size': 0.0,
+          'use_analytic_pricing': False,
+          'expected_mr': 0.3,
+          'expected_vol': 0.01,
+          # Mean-reversion parameter is very sensitive to noise, so we loosen
+          # the pass-fail tolerances.
+          'mr_rtol': 0.1,
+          'mr_atol': 0.1,
+      })
+  def test_correctness(self,
+                       optimizer_fn,
+                       noise_size,
+                       use_analytic_pricing,
+                       expected_mr,
+                       expected_vol,
+                       mr_rtol=1e-4,
+                       mr_atol=1e-3,
+                       vol_rtol=1e-4,
+                       vol_atol=1e-3):
+    """Tests calibration with constant parameters."""
+    dtype = tf.float64
+
+    # Setup - generate some observed prices using the model.
+    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+    prices = tff.models.hull_white.cap_floor_price(
+        strikes=self.strikes,
+        expiries=self.expiries,
+        maturities=self.maturities,
+        daycount_fractions=self.daycount_fractions,
+        reference_rate_fn=zero_rate_fn,
+        notional=1.0,
+        dim=1,
+        mean_reversion=[expected_mr],
+        volatility=[expected_vol],
+        is_cap=tf.expand_dims(self.is_cap, axis=1),
+        use_analytic_pricing=True,
+        dtype=dtype)
+
+    prices = prices + tf.random.normal(
+        prices.shape, stddev=noise_size * prices, seed=0, dtype=dtype)
+
+    # Calibrate the model.
+    calibrated_model, is_converged, _ = (
+        tff.models.hull_white.calibration_from_cap_floors(
+            prices=tf.squeeze(prices),
+            strikes=self.strikes,
+            expiries=self.expiries,
+            maturities=self.maturities,
+            daycount_fractions=self.daycount_fractions,
+            reference_rate_fn=zero_rate_fn,
+            mean_reversion=[0.4],
+            volatility=[0.02],
+            notional=1.0,
+            dim=1,
+            is_cap=tf.expand_dims(self.is_cap, axis=1),
+            use_analytic_pricing=use_analytic_pricing,
+            optimizer_fn=optimizer_fn,
+            num_samples=1000,
+            random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+            seed=[0, 0],
+            time_step=0.1,
+            maximum_iterations=200,
+            dtype=dtype))
+
+    calib_parameters = tf.concat(
+        axis=0,
+        values=[
+            calibrated_model.mean_reversion.values(),
+            calibrated_model.volatility.values()
+        ])
+    calib_parameters = self.evaluate(calib_parameters)
+    mr = calib_parameters[0]
+    vol = calib_parameters[1]
+
+    # Assert model convergence to expected parameters.
+    self.assertTrue(is_converged)
+    self.assertAllClose(mr, expected_mr, rtol=mr_rtol, atol=mr_atol)
+    self.assertAllClose(vol, expected_vol, rtol=vol_rtol, atol=vol_atol)
+
+  def test_correctness_time_dependent_vol(self):
+    """Tests calibration with time-dependent vol parameters."""
+    dtype = tf.float64
+
+    expected_mr = 0.3
+    volatility = tff.math.piecewise.PiecewiseConstantFunc(
+        jump_locations=[0.5, 2.0], values=[0.01, 0.015, 0.02], dtype=dtype)
+
+    # Setup - generate some observed prices using the model.
+    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+    prices = tff.models.hull_white.cap_floor_price(
+        strikes=self.strikes,
+        expiries=self.expiries,
+        maturities=self.maturities,
+        daycount_fractions=self.daycount_fractions,
+        reference_rate_fn=zero_rate_fn,
+        notional=1.0,
+        dim=1,
+        mean_reversion=[expected_mr],
+        volatility=volatility,
+        is_cap=tf.expand_dims(self.is_cap, axis=1),
+        use_analytic_pricing=False,
+        num_samples=250,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        seed=[0, 0],
+        time_step=0.1,
+        dtype=dtype)
+
+    # Calibrate the model.
+    calibrated_model, is_converged, _ = (
+        tff.models.hull_white.calibration_from_cap_floors(
+            prices=tf.squeeze(prices),
+            strikes=self.strikes,
+            expiries=self.expiries,
+            maturities=self.maturities,
+            daycount_fractions=self.daycount_fractions,
+            reference_rate_fn=zero_rate_fn,
+            mean_reversion=[0.4],
+            volatility=volatility,
+            notional=1.0,
+            dim=1,
+            is_cap=tf.expand_dims(self.is_cap, axis=1),
+            use_analytic_pricing=False,
+            num_samples=250,
+            random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+            seed=[0, 0],
+            time_step=0.1,
+            maximum_iterations=200,
+            dtype=dtype))
+
+    vol = calibrated_model.volatility.values()
+    vol = self.evaluate(vol)
+
+    # Assert model convergence to expected parameters.
+    self.assertTrue(is_converged)
+
+    # Assert that the calibrated y-values of the piecewise-constant function are
+    # close to the true values.
+    self.assertAllClose(vol, [0.01, 0.015, 0.02], atol=1e-3, rtol=1e-3)
+
 
 if __name__ == '__main__':
   tf.test.main()
