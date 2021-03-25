@@ -209,7 +209,7 @@ def _map_payoff_to_sim_times(indices, payoff, num_samples):
   """
   indices = tf.expand_dims(indices, axis=0)
   indices = tf.repeat(indices, num_samples, axis=0)
-  index_list = list()
+  index_list = []
   tensor_shape = np.array(indices.shape.as_list())
   output_shape = indices.shape.as_list()[:-1] + [
       tf.math.reduce_max(indices) + 1
