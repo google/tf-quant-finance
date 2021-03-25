@@ -240,7 +240,7 @@ def _analytic_valuation(discount_rate_fn, model, strikes, expiries, maturities,
   # Make `dim` as the last dimension and return.
   return tf.transpose(
       option_value,
-      perm=[i for i in range(1, len(option_value.shape.as_list()))] + [0])
+      perm=list(range(1, len(option_value.shape.as_list()))) + [0])
 
 
 # TODO(b/158501671): Clean-up this implementation.
