@@ -71,7 +71,8 @@ class LocalStochasticVolatilityTest(tf.test.TestCase, parameterized.TestCase):
         expiries=time,
         spots=spot,
         discount_factors=discount_factor,
-        dtype=dtype)
+        dtype=dtype,
+        validate_args=True)
     return iv
 
   @parameterized.named_parameters(

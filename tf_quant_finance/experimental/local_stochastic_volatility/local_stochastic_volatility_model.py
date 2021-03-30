@@ -264,9 +264,21 @@ class LocalStochasticVolatilityModel(generic_ito_process.GenericItoProcess):
       An instance of `LocalStochasticVolatilityModel` constructed using the
       input data.
     """
+    if risk_free_rate is None:
+      discount_factor_fn = lambda t: tf.ones_like(t, dtype=dtype)
+    else:
+      r = tf.convert_to_tensor(risk_free_rate, dtype=dtype)
+      discount_factor_fn = lambda t: tf.math.exp(-r * t)
     lv_model = lvm.LocalVolatilityModel.from_market_data(
-        1, valuation_date, expiry_dates, strikes, implied_volatilities,
-        initial_spot, risk_free_rate, dividend_yield, dtype)
+        dim=1,
+        valuation_date=valuation_date,
+        expiry_dates=expiry_dates,
+        strikes=strikes,
+        implied_volatilities=implied_volatilities,
+        spot=initial_spot,
+        discount_factor_fn=discount_factor_fn,
+        dividend_yield=dividend_yield,
+        dtype=dtype)
 
     dtype = dtype or lv_model.dtype()
     max_time = tf.math.reduce_max(
@@ -389,9 +401,18 @@ class LocalStochasticVolatilityModel(generic_ito_process.GenericItoProcess):
       input data.
     """
 
+    if risk_free_rate is None:
+      discount_factor_fn = lambda t: tf.ones_like(t, dtype=dtype)
+    else:
+      r = tf.convert_to_tensor(risk_free_rate, dtype=dtype)
+      discount_factor_fn = lambda t: tf.math.exp(-r * t)
     lv_model = lvm.LocalVolatilityModel.from_volatility_surface(
-        1, initial_spot, implied_volatility_surface, risk_free_rate,
-        dividend_yield, dtype)
+        dim=1,
+        spot=initial_spot,
+        implied_volatility_surface=implied_volatility_surface,
+        discount_factor_fn=discount_factor_fn,
+        dividend_yield=dividend_yield,
+        dtype=dtype)
 
     dtype = dtype or lv_model.dtype()
     day_count_fn = utils.get_daycount_fn(

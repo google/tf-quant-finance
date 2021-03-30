@@ -14,8 +14,9 @@
 # limitations under the License.
 """Tests for the Local volatility model."""
 
-from absl.testing import parameterized
+import functools
 
+from absl.testing import parameterized
 import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
@@ -56,32 +57,70 @@ def build_volatility_surface(val_date, expiry_times, expiries, strikes, iv,
       val_date, expiries, strikes, iv, interpolator=_interpolator, dtype=dtype)
 
 
+def callable_discount_factor(t, lower=0.01, upper=0.02):
+  # For time dependent rates calculate the discount rate by integrating the risk
+  # free rate: exp(-int_0^t r(s) ds)
+  return tf.expand_dims(
+      tf.where(
+          t < 0.5,
+          tf.math.exp(-lower * t) * tf.ones_like(t, dtype=tf.float64),
+          tf.math.exp(-lower * 0.5 - upper * (t - 0.5)) *
+          tf.ones_like(t, dtype=tf.float64)), -1)
+
+
 # @test_util.run_all_in_graph_and_eager_modes
 class LocalVolatilityTest(tf.test.TestCase, parameterized.TestCase):
 
   @parameterized.named_parameters(
-      ('1d', 1, [0.0], 20, True, False),
-      ('2d', 2, [0.0], 20, True, False),
-      ('3d', 3, [0.0], 20, True, False),
-      ('1d_nonzero_riskfree_rate', 1, [0.05], 40, True, False),
-      ('1d_using_vol_surface', 1, [0.0], 20, False, False),
-      ('1d_with_xla', 1, [0.0], 20, True, True),
+      ('1d', 1, [0.0], None, 20, True, False),
+      ('2d', 2, [0.0], None, 20, True, False),
+      ('3d', 3, [0.0], None, 20, True, False),
+      ('1d_nonzero_riskfree_rate', 1, [0.05], None, 40, True, False),
+      ('1d_using_vol_surface', 1, [0.0], None, 20, False, False),
+      ('1d_with_callable_rate1', 1, None,
+       functools.partial(callable_discount_factor,
+                         upper=0.02), 40, True, False),
+      ('1d_with_callable_rate1_and_vol_surface', 1, None,
+       functools.partial(callable_discount_factor,
+                         upper=0.02), 40, False, False),
+      ('1d_with_callable_rate2', 1, None,
+       functools.partial(callable_discount_factor,
+                         upper=0.05), 40, True, False),
+      ('1d_with_xla', 1, [0.0], None, 20, True, True),
   )
-  def test_lv_correctness(self, dim, risk_free_rate, num_time_steps,
-                          using_market_data, use_xla):
+  def test_lv_correctness(self, dim, risk_free_rate, discount_factor_fn,
+                          num_time_steps, using_market_data, use_xla):
     """Tests that the model reproduces implied volatility smile."""
     dtype = tf.float64
     num_samples = 10000
     val_date, expiries, expiry_times, strikes, iv, spot = build_tensors(dim)
+
+    # Handle the cases where we have constant rates.
+    if discount_factor_fn is None:
+      r = tf.convert_to_tensor(risk_free_rate, dtype=dtype)
+      discount_factor_fn = lambda t: tf.math.exp(-r * t)
+
     if using_market_data:
       lv = LocalVolatilityModel.from_market_data(
-          dim, val_date, expiries, strikes, iv, spot, risk_free_rate, [0.0],
+          dim=dim,
+          valuation_date=val_date,
+          expiry_dates=expiries,
+          strikes=strikes,
+          implied_volatilities=iv,
+          spot=spot,
+          discount_factor_fn=discount_factor_fn,
+          dividend_yield=[0.0],
           dtype=dtype)
     else:
       vs = build_volatility_surface(
           val_date, expiry_times, expiries, strikes, iv, dtype=dtype)
       lv = LocalVolatilityModel.from_volatility_surface(
-          dim, spot, vs, risk_free_rate, [0.0], dtype)
+          dim=dim,
+          spot=spot,
+          implied_volatility_surface=vs,
+          discount_factor_fn=discount_factor_fn,
+          dividend_yield=[0.0],
+          dtype=dtype)
 
     @tf.function(experimental_compile=use_xla)
     def _get_sample_paths():
@@ -96,14 +135,14 @@ class LocalVolatilityTest(tf.test.TestCase, parameterized.TestCase):
     paths = self.evaluate(_get_sample_paths())
 
     @tf.function(experimental_compile=use_xla)
-    def _get_implied_vol(time, strike, paths, spot, r, dtype):
-      r = tf.convert_to_tensor(r, dtype=dtype)
-      discount_factor = tf.math.exp(-r * time)
+    def _get_implied_vol(time, strike, paths, spot, dtype):
+      discount_factor = discount_factor_fn(time)
+
       num_not_nan = tf.cast(
           paths.shape[0] - tf.math.count_nonzero(tf.math.is_nan(paths)),
           paths.dtype)
       paths = tf.where(tf.math.is_nan(paths), tf.zeros_like(paths), paths)
-      # Calculate readuce_mean of paths. Workaround for XLA compatability.
+      # Calculate reduce_mean of paths. Workaround for XLA compatibility.
       option_value = tf.math.divide_no_nan(
           tf.reduce_sum(tf.nn.relu(paths - strike)), num_not_nan)
       iv = implied_vol(
@@ -112,7 +151,8 @@ class LocalVolatilityTest(tf.test.TestCase, parameterized.TestCase):
           expiries=time,
           spots=spot,
           discount_factors=discount_factor,
-          dtype=dtype)
+          dtype=dtype,
+          validate_args=True)
       return iv
 
     for d in range(dim):
@@ -120,9 +160,8 @@ class LocalVolatilityTest(tf.test.TestCase, parameterized.TestCase):
         for j in [1, 2, 3]:
           sim_iv = self.evaluate(
               _get_implied_vol(expiry_times[d][i], strikes[d][i][j],
-                               paths[:, i, d], spot[d], risk_free_rate, dtype))
+                               paths[:, i, d], spot[d], dtype))
           self.assertAllClose(sim_iv[0], iv[d][i][j], atol=0.005, rtol=0.005)
-
 
 if __name__ == '__main__':
   tf.test.main()
