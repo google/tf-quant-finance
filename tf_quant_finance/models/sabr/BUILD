@@ -9,6 +9,7 @@ py_library(
     srcs = ["__init__.py"],
     deps = [
         ":sabr_model",
+        "//tf_quant_finance/models/sabr/approximations",
     ],
 )
 

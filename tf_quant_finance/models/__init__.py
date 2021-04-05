@@ -44,6 +44,7 @@ _allowed_symbols = [
     'GeometricBrownianMotion',
     'ItoProcess',
     'JoinedItoProcess',
+    'sabr',
     'SabrModel',
 ]
 
