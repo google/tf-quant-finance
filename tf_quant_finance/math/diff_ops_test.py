@@ -14,6 +14,7 @@
 # limitations under the License.
 """Tests for diff.py."""
 
+from absl.testing import parameterized
 import numpy as np
 import tensorflow.compat.v2 as tf
 
@@ -21,7 +22,7 @@ from tf_quant_finance import math
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
-class DiffOpsTest(tf.test.TestCase):
+class DiffOpsTest(parameterized.TestCase, tf.test.TestCase):
 
   @test_util.run_in_graph_and_eager_modes
   def test_diffs(self):
@@ -50,12 +51,34 @@ class DiffOpsTest(tf.test.TestCase):
     # The sum of [1, 2x-1, 3x^2-2x] at x = 2 is 12.
     self.assertEqual(grad, 12.0)
 
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'exclusive_0',
+          'exclusive': True,
+          'axis': 0,
+          'dx_true': np.array([[9, 18, 27, 36]])
+      }, {
+          'testcase_name': 'exclusive_1',
+          'exclusive': True,
+          'axis': 1,
+          'dx_true': np.array([[1, 1, 1], [10, 10, 10]])
+      }, {
+          'testcase_name': 'nonexclusive_0',
+          'exclusive': False,
+          'axis': 0,
+          'dx_true': np.array([[1, 2, 3, 4], [9, 18, 27, 36]]),
+      }, {
+          'testcase_name': 'nonexclusive_1',
+          'exclusive': False,
+          'axis': 1,
+          'dx_true': np.array([[1, 1, 1, 1], [10, 10, 10, 10]]),
+      },
+  )
   @test_util.run_in_graph_and_eager_modes
-  def test_batch_diff(self):
-    """Tests that the diffs op works on batched inputs."""
+  def test_batched_axis(self, exclusive, axis, dx_true):
+    """Tests batch diff works with axis argument use of exclusivity."""
     x = tf.constant([[1, 2, 3, 4], [10, 20, 30, 40]])
-    dx_true = np.array([[1, 1, 1], [10, 10, 10]])
-    dx = self.evaluate(math.diff(x, order=1, exclusive=True))
+    dx = self.evaluate(math.diff(x, order=1, exclusive=exclusive, axis=axis))
     self.assertAllEqual(dx, dx_true)
 
 

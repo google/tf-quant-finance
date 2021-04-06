@@ -20,10 +20,10 @@ import tensorflow.compat.v2 as tf
 
 # TODO(b/136354274): Move this function to a math library and provide a more
 # efficient C++ kernel.
-def diff(x, order=1, exclusive=False, dtype=None, name=None):
+def diff(x, order=1, exclusive=False, axis=-1, dtype=None, name=None):
   """Computes the difference between elements of an array at a regular interval.
 
-  If exclusive is True, then computes
+  For a difference along the final axis, if exclusive is True, then computes:
 
   ```
     result[..., i] = x[..., i+order] - x[..., i] for i < size(x) - order
@@ -58,6 +58,8 @@ def diff(x, order=1, exclusive=False, dtype=None, name=None):
       Default value: 1
     exclusive: Python bool. See description above.
       Default value: False
+    axis: Python int. The axis of `x` along which to difference.
+      Default value: -1 (the final axis).
     dtype: Optional `tf.DType`. If supplied, the dtype for `x` to use when
       converting to `Tensor`.
       Default value: None which maps to the default dtype inferred by TF.
@@ -72,8 +74,16 @@ def diff(x, order=1, exclusive=False, dtype=None, name=None):
   """
   with tf.name_scope(name or 'diff'):
     x = tf.convert_to_tensor(x, dtype=dtype)
-    exclusive_diff = x[..., order:] - x[..., :-order]
+
+    slices = x.shape.rank * [slice(None)]
+    slices[axis] = slice(None, -order)
+    x0 = x[slices]
+    slices[axis] = slice(order, None)
+    x1 = x[slices]
+    exclusive_diff = x1 - x0
+
     if exclusive:
       return exclusive_diff
 
-    return tf.concat([x[..., :order], exclusive_diff], axis=0)
+    slices[axis] = slice(None, order)
+    return tf.concat([x[slices], exclusive_diff], axis=axis)
