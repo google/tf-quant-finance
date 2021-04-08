@@ -179,14 +179,18 @@ def option_price(*,
 
     sqrt_var = volatilities * tf.math.sqrt(expiries)
     if not is_normal_volatility:  # lognormal model
-      d1 = (tf.math.log(forwards / strikes) +
-            sqrt_var * sqrt_var / 2) / sqrt_var
+      d1 = tf.math.divide_no_nan(tf.math.log(forwards / strikes),
+                                 sqrt_var) + sqrt_var / 2
       d2 = d1 - sqrt_var
-      undiscounted_calls = forwards * _ncdf(d1) - strikes * _ncdf(d2)
+      undiscounted_calls = tf.where(sqrt_var > 0,
+                                    forwards * _ncdf(d1) - strikes * _ncdf(d2),
+                                    tf.maximum(forwards - strikes, 0.0))
     else:  # normal model
-      d1 = (forwards - strikes) / sqrt_var
-      undiscounted_calls = (forwards - strikes) * _ncdf(
-          d1) + sqrt_var * tf.math.exp(-0.5 * d1**2) / np.sqrt(2 * np.pi)
+      d1 = tf.math.divide_no_nan((forwards - strikes), sqrt_var)
+      undiscounted_calls = tf.where(
+          sqrt_var > 0.0, (forwards - strikes) * _ncdf(d1) +
+          sqrt_var * tf.math.exp(-0.5 * d1**2) / np.sqrt(2 * np.pi),
+          tf.maximum(forwards - strikes, 0.0))
 
     if is_call_options is None:
       return discount_factors * undiscounted_calls

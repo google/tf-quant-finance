@@ -353,6 +353,106 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     self.assertArrayNear(implied_binary_price, actual_binary_price, 1e-10)
     return (90.0, 105, 1.4653, False, False, False, 0)
 
+  @parameterized.product(
+      (
+          {
+              'vol': 0.25,
+              'strikes': 90.0,
+              'expiries': 0.5,
+              'forwards': 100.0
+          },
+          {
+              'vol': 0.25,
+              'strikes': 90.0,
+              'expiries': 0.0,  # Differentiable even at 0.0 expiry.
+              'forwards': 100.0
+          },
+          {
+              'vol': 0.25,
+              'strikes': 90.0,
+              'expiries': 0.5,
+              'forwards': 90.0  # Differentiable at the money.
+          },
+      ),
+      is_call=(True, False),
+      is_normal=(True, False),
+  )
+  def test_vanilla_options_price_gradient_continuous(self, vol, strikes,
+                                                     expiries, forwards,
+                                                     is_call, is_normal):
+    """Tests that the gradient exists, and is also right-continuous."""
+    dtype = tf.float64
+    vol = tf.convert_to_tensor(vol, dtype=dtype)
+    strikes = tf.convert_to_tensor(strikes, dtype=dtype)
+    expiries = tf.convert_to_tensor(expiries, dtype=dtype)
+    forwards = tf.convert_to_tensor(forwards, dtype=dtype)
+
+    with tf.GradientTape(persistent=True) as tape:
+      tape.watch([vol, strikes, expiries, forwards])
+      price = tff.black_scholes.option_price(
+          volatilities=vol,
+          strikes=strikes,
+          expiries=expiries,
+          forwards=forwards,
+          is_call_options=is_call,
+          is_normal_volatility=is_normal,
+          dtype=dtype)
+      grad = tape.gradient(
+          target=price, sources=[vol, strikes, expiries, forwards])
+
+    grad = self.evaluate(grad)
+    self.assertTrue(all(np.all(np.isfinite(x)) for x in grad))
+
+    with tf.GradientTape(persistent=True) as tape:
+      tape.watch([vol, strikes, expiries, forwards])
+      price_perturb_vol = tff.black_scholes.option_price(
+          volatilities=vol + 1e-6,
+          strikes=strikes,
+          expiries=expiries,
+          forwards=forwards,
+          is_call_options=is_call,
+          is_normal_volatility=is_normal,
+          dtype=dtype)
+      grad_perturb_vol = tape.gradient(
+          target=price_perturb_vol, sources=[vol, strikes, expiries, forwards])
+
+    grad_perturb_vol = self.evaluate(grad_perturb_vol)
+    self.assertAllClose(grad, grad_perturb_vol, rtol=1e-4)
+
+    with tf.GradientTape(persistent=True) as tape:
+      tape.watch([vol, strikes, expiries, forwards])
+      price_perturb_expiries = tff.black_scholes.option_price(
+          volatilities=vol,
+          strikes=strikes,
+          expiries=expiries + 1e-6,
+          forwards=forwards,
+          is_call_options=is_call,
+          is_normal_volatility=is_normal,
+          dtype=dtype)
+      grad_perturb_expiries = tape.gradient(
+          target=price_perturb_expiries,
+          sources=[vol, strikes, expiries, forwards])
+
+    grad_perturb_expiries = self.evaluate(grad_perturb_expiries)
+    self.assertAllClose(grad, grad_perturb_expiries, rtol=1e-4)
+
+    with tf.GradientTape(persistent=True) as tape:
+      tape.watch([vol, strikes, expiries, forwards])
+      price_perturb_strikes = tff.black_scholes.option_price(
+          volatilities=vol,
+          strikes=strikes + 1e-6,
+          expiries=expiries,
+          forwards=forwards,
+          is_call_options=is_call,
+          is_normal_volatility=is_normal,
+          dtype=dtype)
+      grad_perturb_strikes = tape.gradient(
+          target=price_perturb_strikes,
+          sources=[vol, strikes, expiries, forwards])
+
+    grad_perturb_strikes = self.evaluate(grad_perturb_strikes)
+    self.assertAllClose(grad, grad_perturb_strikes, rtol=1e-4)
+
   @parameterized.named_parameters(
       {
           'testcase_name': 'ScalarInputsUIP',
