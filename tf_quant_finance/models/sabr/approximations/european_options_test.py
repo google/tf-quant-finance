@@ -60,6 +60,58 @@ class SabrApproximationEuropeanOptionsTest(parameterized.TestCase,
     prices = self.evaluate(prices)
     self.assertAllClose(prices, [10.412692, 1.472544])
 
+  @parameterized.product(
+      (
+          # Generic example, with tensor values, including at-the-money case and
+          # at-expiry case.
+          {
+              'strikes':
+                  np.array([[130.0, 140.0, 150.0], [130.0, 140.0, 150.0]]),
+              'forwards':
+                  140.0,
+              'expiries': [[0.0], [1.0]],
+              'alpha': [[0.25], [0.5]],
+              'beta': [[0.33], [0.66]],
+              'nu': [[1.0], [2.0]],
+              'rho': [[0.001], [-0.001]],
+          },),
+      is_call=(True, False, [[True], [False]], [[False], [True]]),
+      vol_type=(NORMAL, LOGNORMAL),
+  )
+  def test_european_option_differentiable(self, strikes, forwards, expiries,
+                                          alpha, beta, nu, rho, is_call,
+                                          vol_type):
+    dtype = tf.float64
+
+    forwards = tf.convert_to_tensor(forwards, dtype=dtype)
+    strikes = tf.convert_to_tensor(strikes, dtype=dtype)
+    expiries = tf.convert_to_tensor(expiries, dtype=dtype)
+    alpha = tf.convert_to_tensor(alpha, dtype=dtype)
+    beta = tf.convert_to_tensor(beta, dtype=dtype)
+    rho = tf.convert_to_tensor(rho, dtype=dtype)
+    nu = tf.convert_to_tensor(nu, dtype=dtype)
+    is_call = tf.convert_to_tensor(is_call)
+
+    with tf.GradientTape(persistent=True) as tape:
+      tape.watch([forwards, strikes, expiries, alpha, beta, rho, nu])
+      price = tff.models.sabr.approximations.european_option_price(
+          forwards=forwards,
+          strikes=strikes,
+          expiries=expiries,
+          is_call_options=is_call,
+          alpha=alpha,
+          beta=beta,
+          rho=rho,
+          nu=nu,
+          volatility_type=vol_type,
+          dtype=dtype)
+      grad = tape.gradient(
+          target=price,
+          sources=[forwards, strikes, expiries, alpha, beta, rho, nu])
+
+    grad = self.evaluate(grad)
+    self.assertTrue(all(np.all(np.isfinite(x)) for x in grad))
+
 
 if __name__ == '__main__':
   tf.test.main()

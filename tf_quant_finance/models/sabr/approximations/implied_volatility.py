@@ -149,8 +149,12 @@ def implied_volatility(*,
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
     dtype = dtype or strikes.dtype
 
-    forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
     expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')
+    forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
+    alpha = tf.convert_to_tensor(alpha, dtype=dtype, name='alpha')
+    beta = tf.convert_to_tensor(beta, dtype=dtype, name='beta')
+    rho = tf.convert_to_tensor(rho, dtype=dtype, name='rho')
+    nu = tf.convert_to_tensor(nu, dtype=dtype, name='nu')
 
     moneyness = forwards / strikes
     log_moneyness = tf.math.log(moneyness)
@@ -160,17 +164,10 @@ def implied_volatility(*,
     # adjusted alpha = alpha * K^(beta - 1)
     adj_alpha = alpha * tf.math.pow(strikes, beta - 1.0)
 
-    def _zeta_by_xhat_if_true():
-      # Zeta, as defined in (eq. A.69b in [1])
-      zeta = ((nu / adj_alpha) * sqrt_adj_moneyness * log_moneyness)
-
-      # x-hat, as defined in (eq. A.69b in [1])
-      x_hat = _x_hat(zeta, rho)
-
-      return zeta / x_hat
-
-    # When nu == 0, the limit of zeta / x_hat(zeta) reduces to 1.0
-    zeta_by_xhat = tf.cond(nu > 0.0, _zeta_by_xhat_if_true, lambda: 1.0)
+    # Zeta, as defined in (eq. A.69b in [1])
+    zeta = (nu / adj_alpha) * sqrt_adj_moneyness * log_moneyness
+    # Zeta / xhat(zeta), as defined in (eq. A.69b in [1])
+    zeta_by_xhat = _zeta_by_xhat(zeta, rho)
 
     # This is the denominator term occurring in the ((1 + ...) / (1 + ...)) of
     # (eq. A.69a) in [1].
@@ -206,10 +203,14 @@ def implied_volatility(*,
       raise ValueError('Invalid value of `volatility_type`')
 
 
-def _x_hat(zeta, rho):
-  return tf.math.log(
-      (tf.math.sqrt(1 - 2 * rho * zeta + zeta * zeta) - rho + zeta) /
-      (1.0 - rho))
+def _zeta_by_xhat(zeta, rho):
+  zbxh = tf.math.divide_no_nan(
+      zeta,
+      tf.math.log(
+          (tf.math.sqrt(1 - 2 * rho * zeta + zeta * zeta) - rho + zeta) /
+          (1.0 - rho)))
+  # When zeta -> 0, the limit of zeta / x_hat(zeta) reduces to 1.0
+  return tf.where(zeta != 0.0, zbxh, 1.0)
 
 
 def _denom(beta, log_f_by_k):
