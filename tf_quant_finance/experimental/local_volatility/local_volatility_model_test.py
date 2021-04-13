@@ -20,8 +20,10 @@ from absl.testing import parameterized
 import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
+from tf_quant_finance.experimental.local_volatility import local_volatility_model
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
+dupire_local_volatility = local_volatility_model._dupire_local_volatility
 implied_vol = tff.black_scholes.implied_vol
 LocalVolatilityModel = tff.experimental.local_volatility.LocalVolatilityModel
 volatility_surface = tff.experimental.pricing_platform.framework.market_data.volatility_surface
@@ -162,6 +164,74 @@ class LocalVolatilityTest(tf.test.TestCase, parameterized.TestCase):
               _get_implied_vol(expiry_times[d][i], strikes[d][i][j],
                                paths[:, i, d], spot[d], dtype))
           self.assertAllClose(sim_iv[0], iv[d][i][j], atol=0.005, rtol=0.005)
+
+  def test_dupire_local_volatility_1d(self):
+    """Tests dupire_local_volatility correctness when dim=1."""
+    dim = 1
+    dtype = tf.float64
+    val_date, expiries, expiry_times, strikes, iv, initial_spot = build_tensors(
+        dim)
+    vs = build_volatility_surface(
+        val_date, expiry_times, expiries, strikes, iv, dtype=dtype)
+    dividend_yield = [0.]
+    r = tf.convert_to_tensor([0.], dtype=dtype)
+    discount_factor_fn = lambda t: tf.math.exp(-r * t)
+
+    times = tf.convert_to_tensor([1., 2., 3.], dtype=dtype)
+    spots = tf.reshape(tf.convert_to_tensor([1., 2., 3.], dtype=dtype), [3, 1])
+    dupire_vols = dupire_local_volatility(times, spots, initial_spot,
+                                          vs.volatility, discount_factor_fn,
+                                          dividend_yield)
+    true_vols = [[0.07832986, 0.19060212, 0.13], [0.06652455, 0.20347438, 0.13],
+                 [0.05883018, 0.21936522, 0.13]]
+    for i in range(3):
+      self.assertAllClose(dupire_vols[:, i], true_vols[i])
+
+  def test_dupire_local_volatility_2d(self):
+    """Tests dupire_local_volatility correctness when dim=2."""
+    dim = 2
+    dtype = tf.float64
+    val_date, expiries, expiry_times, strikes, iv, initial_spot = build_tensors(
+        dim)
+    vs = build_volatility_surface(
+        val_date, expiry_times, expiries, strikes, iv, dtype=dtype)
+    dividend_yield = [0.]
+    r = tf.convert_to_tensor([0.], dtype=dtype)
+    discount_factor_fn = lambda t: tf.math.exp(-r * t)
+
+    times = tf.convert_to_tensor([1., 2.], dtype=dtype)
+    times = tf.broadcast_to(times, [2, 2])
+    spots = [[1., 1.5], [2., 2.5]]
+    spots = tf.convert_to_tensor(spots, dtype=dtype)
+    dupire_vols = dupire_local_volatility(times, spots, initial_spot,
+                                          vs.volatility, discount_factor_fn,
+                                          dividend_yield)
+    true_vols = [[0.07832986, 0.19060212], [0.29758043, 0.09320431]]
+    for i in range(2):
+      self.assertAllClose(dupire_vols[:, i], true_vols[i])
+
+  def test_dupire_with_flat_surface(self):
+    """Tests dupire_local_volatility with a flat vol surface."""
+    dim = 1
+    dtype = tf.float64
+    val_date, expiries, expiry_times, strikes, _, initial_spot = build_tensors(
+        dim)
+    iv = dim * [[[0.1, 0.1, 0.1, 0.1, 0.1], [0.1, 0.1, 0.1, 0.1, 0.1]]]
+    vs = build_volatility_surface(
+        val_date, expiry_times, expiries, strikes, iv, dtype=dtype)
+    dividend_yield = [0.]
+    r = tf.convert_to_tensor([0.], dtype=dtype)
+    discount_factor_fn = lambda t: tf.math.exp(-r * t)
+
+    times = tf.convert_to_tensor([1., 2., 3.], dtype=dtype)
+    spots = tf.reshape(tf.convert_to_tensor([1., 2., 3.], dtype=dtype), [3, 1])
+    dupire_vols = dupire_local_volatility(times, spots, initial_spot,
+                                          vs.volatility, discount_factor_fn,
+                                          dividend_yield)
+    true_vols = [0.1] * 3
+    for i in range(3):
+      self.assertAllClose(dupire_vols[:, i], true_vols)
+
 
 if __name__ == '__main__':
   tf.test.main()
