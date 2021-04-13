@@ -265,7 +265,10 @@ def least_square_mc(sample_paths,
           option_values=option_values,
           calibration_indices=calibration_indices)
 
-    loop_value = tf.while_loop(_lsm_loop_cond, loop_body, lsm_loop_vars)
+    # Number of iterations of the algorithm
+    num_iterations = tf.shape(sample_paths)[-2]
+    loop_value = tf.while_loop(_lsm_loop_cond, loop_body, lsm_loop_vars,
+                               maximum_iterations=num_iterations)
     present_values = _apply_discount(
         loop_value.cashflow + loop_value.values, discount_factors, 0)
     if num_calibration_samples is not None:
