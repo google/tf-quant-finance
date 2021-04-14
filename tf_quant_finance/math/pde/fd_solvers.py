@@ -91,8 +91,8 @@ def solve_backward(start_time,
   dtype = tf.float64
 
   # Build a log-uniform grid
-  s_min = 0.01
-  s_max = 300.
+  s_min = 0
+  s_max = 200
   grid = pde.grids.uniform_grid(minimums=[s_min],
                                 maximums=[s_max],
                                 sizes=[num_grid_points],
@@ -138,7 +138,7 @@ def solve_backward(start_time,
     return tf.squeeze(s_max - strike * tf.exp(-rate * (expiry - t)))
 
 
-  # Estimate European call option price
+  # Estimate European call option price:
   estimate = pde.fd_solvers.solve_backward(
     start_time=expiry,
     end_time=0,
@@ -152,9 +152,25 @@ def solve_backward(start_time,
     dtype=dtype)[0]
 
   # Extract estimates for some of the grid locations and compare to the
-  # true option price
+  # true option price:
   value_grid_first_option = estimate[0, :]
   value_grid_second_option = estimate[1, :]
+
+  # As an alternative, user can use a default BC for the lower bound by setting
+  # lower_boundary_fn to `None`, which corresponds to
+  # `V_t - r V_s - rV = 0`.
+  # Estimate European call option price using default BC for the lower bound:
+  estimate_with_default_bc = pde.fd_solvers.solve_backward(
+    start_time=expiry,
+    end_time=0,
+    coord_grid=grid,
+    values_grid=final_value_grid,
+    time_step=0.01,
+    boundary_conditions=[(None, upper_boundary_fn)],
+    second_order_coeff_fn=second_order_coeff_fn,
+    first_order_coeff_fn=first_order_coeff_fn,
+    zeroth_order_coeff_fn=zeroth_order_coeff_fn,
+    dtype=dtype)[0]
   ```
 
   See more examples in `pde_solvers.pdf`.
@@ -219,14 +235,16 @@ def solve_backward(start_time,
        damping is used for 1D problems, and Douglas ADI scheme with `theta=0.5`
        - for multidimensional problems.
     boundary_conditions: The boundary conditions. Only rectangular boundary
-      conditions are supported.
-      A list of tuples of size `n` (space dimension
-      of the PDE). Each tuple consists of two callables representing the
-      boundary conditions at the minimum and maximum values of the spatial
-      variable indexed by the position in the list. E.g. for `n=2`, the length
-      of `boundary_conditions` should be 2, `boundary_conditions[0][0]`
-      describes the boundary `(y_min, x)`, and `boundary_conditions[1][0]`- the
-      boundary `(y, x_min)`. The boundary conditions are accepted in the form
+      conditions are supported. A list of tuples of size `n` (space dimension
+      of the PDE). Each tuple consists of two callables or `None`s values
+      representing the boundary conditions at the minimum and maximum values of
+      the spatial variable indexed by the position in the list. E.g. for `n=2`,
+      the length of `boundary_conditions` should be 2,
+      `boundary_conditions[0][0]` describes the boundary `(y_min, x)`, and
+      `boundary_conditions[1][0]`- the boundary `(y, x_min)`. `None` values mean
+      that the second order term on the boundary is assumed to be zero, i.e.,
+      'dV/dt + b * d(B * V)/dx + c * V = 0'.
+      For not `None` values, the boundary conditions are accepted in the form
       `alpha(t, x) V + beta(t, x) V_n = gamma(t, x)`, where `V_n` is the
       derivative with respect to the exterior normal to the boundary.
       Each callable receives the current time `t` and the `coord_grid` at the
@@ -239,8 +257,10 @@ def solve_backward(start_time,
       `(b, nx)`. Similarly for `boundary_conditions[1][i]`, except the tensor
       shape should be `(b, ny)`. `alpha` and `beta` can also be `None` in case
       of Neumann and Dirichlet conditions, respectively.
-      Default value: None, which means Dirichlet conditions with zero value on
-      all boundaries are applied.
+      Default value: `None`. Unlike setting `None` to individual elements of
+      `boundary_conditions`, setting the entire `boundary_conditions` object to
+      `None` means Dirichlet conditions with zero value on all boundaries are
+      applied.
     values_transform_fn: An optional callable applied to transform the solution
       values at each time step. The callable is invoked after the time step has
       been performed. The callable should accept the time of the grid, the
@@ -449,14 +469,16 @@ def solve_forward(start_time,
        damping is used for 1D problems, and Douglas ADI scheme with `theta=0.5`
        - for multidimensional problems.
     boundary_conditions: The boundary conditions. Only rectangular boundary
-      conditions are supported.
-      A list of tuples of size `n` (space dimension
-      of the PDE). Each tuple consists of two callables representing the
-      boundary conditions at the minimum and maximum values of the spatial
-      variable indexed by the position in the list. E.g. for `n=2`, the length
-      of `boundary_conditions` should be 2, `boundary_conditions[0][0]`
-      describes the boundary `(y_min, x)`, and `boundary_conditions[1][0]`- the
-      boundary `(y, x_min)`. The boundary conditions are accepted in the form
+      conditions are supported. A list of tuples of size `n` (space dimension
+      of the PDE). Each tuple consists of two callables or `None`s values
+      representing the boundary conditions at the minimum and maximum values of
+      the spatial variable indexed by the position in the list. E.g. for `n=2`,
+      the length of `boundary_conditions` should be 2,
+      `boundary_conditions[0][0]` describes the boundary `(y_min, x)`, and
+      `boundary_conditions[1][0]`- the boundary `(y, x_min)`. `None` values mean
+      that the second order term on the boundary is assumed to be zero, i.e.,
+      'dV/dt + b * d(B * V)/dx + c * V = 0'.
+      For not `None` values, the boundary conditions are accepted in the form
       `alpha(t, x) V + beta(t, x) V_n = gamma(t, x)`, where `V_n` is the
       derivative with respect to the exterior normal to the boundary.
       Each callable receives the current time `t` and the `coord_grid` at the
@@ -469,8 +491,10 @@ def solve_forward(start_time,
       `(b, nx)`. Similarly for `boundary_conditions[1][i]`, except the tensor
       shape should be `(b, ny)`. `alpha` and `beta` can also be `None` in case
       of Neumann and Dirichlet conditions, respectively.
-      Default value: None, which means Dirichlet conditions with zero value on
-      all boundaries are applied.
+      Default value: `None`. Unlike setting `None` to individual elements of
+      `boundary_conditions`, setting the entire `boundary_conditions` object to
+      `None` means Dirichlet conditions with zero value on all boundaries are
+      applied.
     values_transform_fn: An optional callable applied to transform the solution
       values at each time step. The callable is invoked after the time step has
       been performed. The callable should accept the time of the grid, the
@@ -608,6 +632,12 @@ def _solve(
   if (num_steps is None) == (time_step is None):
     raise ValueError('Exactly one of num_steps or time_step'
                      ' should be supplied.')
+  # Default conditions are supported only in 1 dimensional case for now
+  if boundary_conditions is not None:
+    if len(boundary_conditions) > 1:
+      if any([None in bc_types for bc_types in boundary_conditions]):
+        raise ValueError('At the moment, `None` boundary conditions are only '
+                         'supported in 1-dimensional case.')
 
   coord_grid = [
       tf.convert_to_tensor(dim_grid, dtype=values_grid.dtype)

@@ -93,12 +93,12 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     @dirichlet
     def lower_boundary_fn(t, x):
       del x
-      return -tf.exp(t)
+      return -tf.math.exp(t)
 
     @dirichlet
     def upper_boundary_fn(t, x):
       del x
-      return tf.exp(t)
+      return tf.math.exp(t)
 
     grid = grids.uniform_grid(
         minimums=[-10.5 * math.pi],
@@ -135,7 +135,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     @neumann
     def lower_boundary_fn(t, x):
       del x
-      return -tf.exp(t)
+      return -tf.math.exp(t)
 
     @neumann
     def upper_boundary_fn(t, x):
@@ -175,12 +175,12 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     @neumann
     def lower_boundary_fn(t, x):
       del x
-      return -tf.exp(t)
+      return -tf.math.exp(t)
 
     @dirichlet
     def upper_boundary_fn(t, x):
       del x
-      return tf.exp(t)
+      return tf.math.exp(t)
 
     grid = grids.uniform_grid(minimums=[0], maximums=[10.5 * math.pi],
                               sizes=[1000], dtype=np.float32)
@@ -214,11 +214,11 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
 
     def lower_boundary_fn(t, x):
       del x
-      return 2, -1, tf.exp(t)
+      return 2, -1, tf.math.exp(t)
 
     def upper_boundary_fn(t, x):
       del x
-      return 2, 1, 2 * tf.exp(t)
+      return 2, 1, 2 * tf.math.exp(t)
 
     grid = grids.uniform_grid(minimums=[0], maximums=[4.5 * math.pi],
                               sizes=[1000], dtype=np.float64)
@@ -244,11 +244,11 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
 
     def lower_boundary_fn(t, x):
       del x
-      return 2, -1, tf.exp(t)
+      return 2, -1, tf.math.exp(t)
 
     def upper_boundary_fn(t, x):
       del x
-      return 2, 1, 2 * tf.exp(t)
+      return 2, 1, 2 * tf.math.exp(t)
 
     grid = grids.log_uniform_grid(
         minimums=[2 * math.pi],
@@ -282,11 +282,11 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
 
     def lower_boundary_fn(t, x):
       del x
-      return 2, -1, tf.exp(t)
+      return 2, -1, tf.math.exp(t)
 
     def upper_boundary_fn(t, x):
       del x
-      return 2, 1, 2 * tf.exp(t)
+      return 2, 1, 2 * tf.math.exp(t)
 
     x_min = 0
     x_max = 4.5 * math.pi
@@ -359,6 +359,62 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
         upper_boundary_fn=upper_boundary_fn,
         error_tolerance=1e-3)
 
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'DefaultBC',
+          'lower_bc_type': 'Default',
+          'upper_bc_type': 'Default',
+      }, {
+          'testcase_name': 'DefaultNeumanBC',
+          'lower_bc_type': 'Default',
+          'upper_bc_type': 'Neumann',
+      }, {
+          'testcase_name': 'NeumanDefaultBC',
+          'lower_bc_type': 'Neumann',
+          'upper_bc_type': 'Default',
+      })
+  def testHeatEquation_WithDefaultBoundaryCondtion(self,
+                                                   lower_bc_type,
+                                                   upper_bc_type):
+    """Test for Default boundary conditions.
+
+    Tests solving heat equation with the following boundary conditions involving
+    default boundary `u_xx(0, t) = 0` or `u_xx(5 pi, t) = 0`.
+
+    The exact solution `u(x, t=0) = e^t sin(x)`.
+    Args:
+      lower_bc_type: Lower boundary condition type.
+      upper_bc_type: Upper boundary condition type.
+    """
+
+    def final_cond_fn(x):
+      return math.e * math.sin(x)
+
+    def expected_result_fn(x):
+      return tf.sin(x)
+
+    @neumann
+    def boundary_fn(t, x):
+      del x
+      return -tf.exp(t)
+
+    lower_boundary_fn = boundary_fn if lower_bc_type == 'Neumann' else None
+    upper_boundary_fn = boundary_fn if upper_bc_type == 'Neumann' else None
+
+    grid = grids.uniform_grid(
+        minimums=[0.0], maximums=[5 * math.pi], sizes=[1000],
+        dtype=np.float32)
+    self._testHeatEquation(
+        grid,
+        final_t=1,
+        time_step=0.01,
+        final_cond_fn=final_cond_fn,
+        expected_result_fn=expected_result_fn,
+        one_step_fn=crank_nicolson_step(),
+        lower_boundary_fn=lower_boundary_fn,
+        upper_boundary_fn=upper_boundary_fn,
+        error_tolerance=1e-3)
+
   def _testHeatEquation(self,
                         grid,
                         final_t,
@@ -397,16 +453,24 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     expected = self.evaluate(expected_result_fn(xs))
     self.assertLess(np.max(np.abs(actual - expected)), error_tolerance)
 
-  def testDocStringExample(self):
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'DirichletBC',
+          'bc_type': 'Dirichlet',
+      }, {
+          'testcase_name': 'DefaultBC',
+          'bc_type': 'Default',
+      })
+  def testDocStringExample(self, bc_type):
     """Tests that the European Call option price is computed correctly."""
     num_equations = 2  # Number of PDE
     num_grid_points = 1024  # Number of grid points
     dtype = np.float64
-    # Build a log-uniform grid
-    s_max = 300.
-    grid = grids.log_uniform_grid(minimums=[0.01], maximums=[s_max],
-                                  sizes=[num_grid_points],
-                                  dtype=dtype)
+    # Build a uniform grid
+    s_max = 200.
+    grid = grids.uniform_grid(minimums=[0.01], maximums=[s_max],
+                              sizes=[num_grid_points],
+                              dtype=dtype)
     # Specify volatilities and interest rates for the options
     volatility = np.array([0.3, 0.15], dtype=dtype).reshape([-1, 1])
     rate = np.array([0.01, 0.03], dtype=dtype).reshape([-1, 1])
@@ -433,12 +497,16 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     @dirichlet
     def upper_boundary_fn(t, location_grid):
       return tf.squeeze(location_grid[0][-1]
-                        - strike * tf.exp(-rate * (expiry - t)))
+                        - strike * tf.math.exp(-rate * (expiry - t)))
 
     final_values = tf.nn.relu(grid[0] - strike)
     # Broadcast to the shape of value dimension, if necessary.
     final_values += tf.zeros([num_equations, num_grid_points],
                              dtype=dtype)
+    if bc_type == 'Default':
+      boundary_conditions = [(None, upper_boundary_fn)]
+    else:
+      boundary_conditions = [(lower_boundary_fn, upper_boundary_fn)]
     # Estimate European call option price
     estimate = fd_solvers.solve_backward(
         start_time=expiry,
@@ -447,9 +515,9 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
         values_grid=final_values,
         num_steps=None,
         start_step_count=0,
-        time_step=tf.constant(0.01, dtype=dtype),
+        time_step=0.001,
         one_step_fn=crank_nicolson_step(),
-        boundary_conditions=[(lower_boundary_fn, upper_boundary_fn)],
+        boundary_conditions=boundary_conditions,
         values_transform_fn=None,
         second_order_coeff_fn=second_order_coeff_fn,
         first_order_coeff_fn=first_order_coeff_fn,
@@ -462,10 +530,10 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     value_grid_second_option = estimate[1, :]
     # Get two grid locations (correspond to spot 51.9537332 and 106.25407758,
     # respectively).
-    loc_1 = 849
-    loc_2 = 920
+    loc_1 = 256
+    loc_2 = 512
     # True call option price (obtained using black_scholes_price function)
-    call_price = [7.35192484, 11.75642136]
+    call_price = [6.21215771, 7.54467629]
 
     self.assertAllClose(
         call_price, [value_grid_first_option[loc_1],
@@ -552,12 +620,12 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     @dirichlet
     def lower_boundary_fn(t, x):
       del x
-      return -tf.exp(-t)
+      return -tf.math.exp(-t)
 
     @dirichlet
     def upper_boundary_fn(t, x):
       del x
-      return tf.exp(-t)
+      return tf.math.exp(-t)
 
     grid = grids.uniform_grid(
         minimums=[-10.5 * math.pi],
@@ -654,8 +722,8 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
       del t, coord_grid
       return -1
 
-    initial = tf.exp(-xs) * _reference_pde_initial_cond(xs)
-    expected = tf.exp(-xs) * _reference_pde_solution(xs, final_t)
+    initial = tf.math.exp(-xs) * _reference_pde_initial_cond(xs)
+    expected = tf.math.exp(-xs) * _reference_pde_solution(xs, final_t)
 
     actual = fd_solvers.solve_forward(
         start_time=0,
@@ -687,15 +755,15 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     def second_order_coeff_fn(t, coord_grid):
       del t
       x = coord_grid[0]
-      return [[-tf.exp(-x)]]
+      return [[-tf.math.exp(-x)]]
 
     def inner_second_order_coeff_fn(t, coord_grid):
       del t
       x = coord_grid[0]
-      return [[tf.exp(x)]]
+      return [[tf.math.exp(x)]]
 
-    initial = tf.exp(-xs) * _reference_pde_initial_cond(xs)
-    expected = tf.exp(-xs) * _reference_pde_solution(xs, final_t)
+    initial = tf.math.exp(-xs) * _reference_pde_initial_cond(xs)
+    expected = tf.math.exp(-xs) * _reference_pde_solution(xs, final_t)
 
     actual = fd_solvers.solve_forward(
         start_time=0,
@@ -727,22 +795,22 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     def second_order_coeff_fn(t, coord_grid):
       del t
       x = coord_grid[0]
-      return [[-tf.exp(x)]]
+      return [[-tf.math.exp(x)]]
 
     def inner_second_order_coeff_fn(t, coord_grid):
       del t
       x = coord_grid[0]
-      return [[tf.exp(-x)]]
+      return [[tf.math.exp(-x)]]
 
     def first_order_coeff_fn(t, coord_grid):
       del t
       x = coord_grid[0]
-      return [-2 * tf.exp(x)]
+      return [-2 * tf.math.exp(x)]
 
     def inner_first_order_coeff_fn(t, coord_grid):
       del t
       x = coord_grid[0]
-      return [tf.exp(-x)]
+      return [tf.math.exp(-x)]
 
     def zeroth_order_coeff_fn(t, coord_grid):
       del t, coord_grid
@@ -826,6 +894,253 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
 
     self.assertAllClose(
         result_not_expanded, result_expanded, atol=1e-3, rtol=1e-3)
+
+  def testDefaultBoundaryConditions(self):
+    """Test for PDE with default boundary condition and no inner term.
+
+    Take equation `u_{t} - x u_{xx} + (x - 1) u_{x} = 0` with boundary
+    conditions `u_{t} + (x - 1) u_{x} = 0` at x = 0 and `u(t, 1) = exp(t + 1)`
+    with an initial condition `u(0, x) = exp(x)`.
+
+    Solve this equation and compare the result to `u(t, x) = exp(t + x)`.
+    """
+    @dirichlet
+    def upper_boundary_fn(t, x):
+      del x
+      return tf.math.exp(t + 1)
+
+    def second_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [[-x]]
+
+    def first_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [x - 1]
+
+    grid = self.evaluate(grids.uniform_grid(
+        minimums=[0],
+        maximums=[1],
+        sizes=[1000],
+        dtype=np.float64))
+
+    initial = tf.math.exp(grid[0])  # Initial condtion
+    time_step = 0.01
+    final_t = 0.5
+
+    est_values = fd_solvers.solve_forward(
+        start_time=0,
+        end_time=final_t,
+        coord_grid=grid,
+        values_grid=initial,
+        time_step=time_step,
+        one_step_fn=crank_nicolson_step(),
+        second_order_coeff_fn=second_order_coeff_fn,
+        first_order_coeff_fn=first_order_coeff_fn,
+        boundary_conditions=[(None, upper_boundary_fn)])[0]
+
+    true_values = tf.math.exp(final_t + grid[0])
+    print('est_values: ', est_values)
+    self.assertAllClose(
+        est_values, true_values, atol=1e-2, rtol=1e-2)
+
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'LeftDefault',
+          'default_bc': 'left',
+      }, {
+          'testcase_name': 'RightDefault',
+          'default_bc': 'right',
+      }, {
+          'testcase_name': 'BothDefault',
+          'default_bc': 'both',
+      })
+  def testDefaultBoundaryConditionsWithInnerTerm(self, default_bc):
+    """Test for PDE with default boundary condition with inner term.
+
+    Take equation
+    `u_{t} - (x - x**3)[u]_{xx} + (1 + x) * [(1 - x**2) u]_{x}
+     + (2 * x**2 - 1 + 2 *x - (1 - x**2))u = 0` with
+    boundary conditions `u_{t} + (x - 1) u_{x} = 0` at x = 0
+    and `u(t, 1) = exp(t + 1)`, and an initial condition `u(0, x) = exp(x)`.
+
+    Solve this equation and compare the result to `u(t, x) = exp(t + x)`.
+
+    Args:
+      default_bc: A string to indicate which boundary condition is 'default'.
+        Can be either 'left', 'right', or 'both'.
+    """
+    def second_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [[-(-x**3 + x)]]
+
+    def first_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [1 + x]
+
+    def inner_first_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [-x**2 + 1]
+
+    @dirichlet
+    def lower_boundary_fn(t, x):
+      del x
+      return tf.math.exp(t)
+
+    @dirichlet
+    def upper_boundary_fn(t, x):
+      del x
+      return tf.math.exp(1.0 + t)
+
+    def zeroth_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return 2 * x**2 - 1 + 2 *x - (1 - x**2)
+
+    grid = self.evaluate(grids.uniform_grid(
+        minimums=[0],
+        maximums=[1],
+        sizes=[100],
+        dtype=np.float64))
+
+    initial_values = tf.math.exp(grid[0])  # Initial condtion
+    time_step = 0.001
+    final_t = 0.1
+    if default_bc == 'left':
+      boundary_conditions = [(None, upper_boundary_fn)]
+    elif default_bc == 'right':
+      boundary_conditions = [(lower_boundary_fn, None)]
+    else:
+      boundary_conditions = [(None, None)]
+    est_values = fd_solvers.solve_forward(
+        start_time=0,
+        end_time=final_t,
+        coord_grid=grid,
+        values_grid=initial_values,
+        time_step=time_step,
+        boundary_conditions=boundary_conditions,
+        second_order_coeff_fn=second_order_coeff_fn,
+        first_order_coeff_fn=first_order_coeff_fn,
+        inner_first_order_coeff_fn=inner_first_order_coeff_fn,
+        zeroth_order_coeff_fn=zeroth_order_coeff_fn)[0]
+
+    true_values = tf.math.exp(final_t + grid[0])
+    self.assertAllClose(
+        est_values, true_values, atol=1e-2, rtol=1e-2)
+
+  def testDefaultBoundaryConditionsInnerTermNoOuterLower(self):
+    """Test for PDE with default boundary condition with inner term.
+
+    Take equation
+    `u_{t} - (x - x**3)[u]_{xx} + [(x - x**3) u]_{x} + (3 * x**2 - 2)u = 0` with
+    boundary conditions `u_{t} + (x - 1) u_{x} = 0` at x = 0
+    and `u(t, 1) = exp(t + 1)`, and an initial condition `u(0, x) = exp(x)`.
+
+    Solve this equation and compare the result to `u(t, x) = exp(t + x)`.
+    """
+    def second_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [[-(x - x**3)]]
+
+    def first_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [tf.ones_like(x)]
+
+    def inner_first_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [x - x**3]
+
+    @dirichlet
+    def upper_boundary_fn(t, x):
+      del x
+      return tf.math.exp(1 + t)
+
+    def zeroth_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return 3 * x**2 - 2
+
+    grid = self.evaluate(grids.uniform_grid(
+        minimums=[0],
+        maximums=[1],
+        sizes=[100],
+        dtype=np.float64))
+
+    initial_values = tf.math.exp(grid[0])  # Initial condtion
+    final_t = 0.1
+    time_step = 0.001
+
+    est_values = fd_solvers.solve_forward(
+        start_time=0,
+        end_time=final_t,
+        coord_grid=grid,
+        values_grid=initial_values,
+        time_step=time_step,
+        boundary_conditions=[(None, upper_boundary_fn)],
+        second_order_coeff_fn=second_order_coeff_fn,
+        first_order_coeff_fn=first_order_coeff_fn,
+        inner_first_order_coeff_fn=inner_first_order_coeff_fn,
+        zeroth_order_coeff_fn=zeroth_order_coeff_fn)[0]
+
+    true_values = tf.math.exp(final_t + grid[0])
+    self.assertAllClose(
+        est_values, true_values, atol=1e-2, rtol=1e-2)
+
+  def testDefaultBoundaryConditionsInnerTermNoOuterUpper(self):
+    """Test for PDE with default boundary condition with inner term.
+
+    Take equation
+    `u_{t} - (1 - x)[u]_{xx} + [(1 - x) u]_{x} = 0` with
+    boundary conditions `u_{t} + (x - 1) u_{x} = 0` at x = 0
+    and `u(t, 1) = exp(t + 1)`, and an initial condition `u(0, x) = exp(x)`.
+
+    Solve this equation and compare the result to `u(t, x) = exp(t + x)`.
+    """
+    def second_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [[-(1 - x)]]
+
+    def inner_first_order_coeff_fn(t, coord_grid):
+      del t
+      x = coord_grid[0]
+      return [1 - x]
+
+    @dirichlet
+    def lower_boundary_fn(t, x):
+      del x
+      return tf.math.exp(t)
+
+    grid = self.evaluate(grids.uniform_grid(
+        minimums=[0],
+        maximums=[1],
+        sizes=[100],
+        dtype=np.float64))
+
+    initial_values = tf.math.exp(grid[0])  # Initial condtion
+    final_t = 0.1
+    time_step = 0.001
+
+    est_values = fd_solvers.solve_forward(
+        start_time=0,
+        end_time=final_t,
+        coord_grid=grid,
+        values_grid=initial_values,
+        time_step=time_step,
+        boundary_conditions=[(lower_boundary_fn, None)],
+        second_order_coeff_fn=second_order_coeff_fn,
+        inner_first_order_coeff_fn=inner_first_order_coeff_fn)[0]
+
+    true_values = tf.math.exp(final_t + grid[0])
+    self.assertAllClose(
+        est_values, true_values, atol=1e-2, rtol=1e-2)
 
 
 def _reference_pde_initial_cond(xs):

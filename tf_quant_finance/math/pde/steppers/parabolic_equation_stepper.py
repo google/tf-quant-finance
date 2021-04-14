@@ -31,7 +31,7 @@ def parabolic_equation_step(
     time_marching_scheme,
     dtype=None,
     name=None):
-  """Performs one step of the parabolic PDE solver.
+  """Performs one step of the one dimensional parabolic PDE solver.
 
   Typically one doesn't need to call this function directly, unless they have
   a custom time marching scheme. A simple stepper function for one-dimensional
@@ -51,29 +51,32 @@ def parabolic_equation_step(
   Args:
     time: Real scalar `Tensor`. The time before the step.
     next_time: Real scalar `Tensor`. The time after the step.
-    coord_grid: List of `n` rank 1 real `Tensor`s. `n` is the dimension of the
-      domain. The i-th `Tensor` has shape, `[d_i]` where `d_i` is the size of
-      the grid along axis `i`. The coordinates of the grid points. Corresponds
-      to the spatial grid `G` above.
+    coord_grid: List of size 1 that contains a rank 1 real `Tensor` of
+      has shape `[d]`. `d` is the size of the grid. Represents the coordinates
+      of the grid points.
     value_grid: Real `Tensor` containing the function values at time
       `time` which have to be evolved to time `next_time`. The shape of the
-      `Tensor` must broadcast with `B + [d_1, d_2, ..., d_n]`. `B` is the batch
+      `Tensor` must broadcast with `B + [d]`. `B` is the batch
       dimensions (one or more), which allow multiple functions (with potentially
       different boundary/final conditions and PDE coefficients) to be evolved
       simultaneously.
-    boundary_conditions: The boundary conditions. Only rectangular boundary
-      conditions are supported. A list of tuples of size 1. The list element is
-      a tuple that consists of two callables representing the
-      boundary conditions at the minimum and maximum values of the spatial
+    boundary_conditions: The boundary conditions. Only rectangular
+      boundary conditions are supported. A list of tuples of size 1. The list
+      element is a tuple that consists of two callables or `None`s representing
+      the boundary conditions at the minimum and maximum values of the spatial
       variable indexed by the position in the list. `boundary_conditions[0][0]`
       describes the boundary at `x_min`, and `boundary_conditions[0][1]` the
-      boundary at `x_max`. The boundary conditions are accepted in the form
-      `alpha(t) V + beta(t) V_n = gamma(t)`, where `V_n` is the derivative
-      with respect to the exterior normal to the boundary.
-      Each callable receives the current time `t` and the `coord_grid` at the
-      current time, and should return a tuple of `alpha`, `beta`, and `gamma`.
-      Each can be a number, a zero-rank `Tensor` or a `Tensor` of the batch
-      shape.
+      boundary at `x_max`. `None` values mean that the second order term on the
+      boundary is assumed to be zero, i.e.,
+      'dV/dt + b * d(B * V)/dx + c * V = 0'. This condition is appropriate for
+      PDEs where the second order term disappears on the boundary. For not
+      `None` values, the boundary conditions are accepted in the form
+      `alpha(t) V + beta(t) V_n = gamma(t)`,
+      where `V_n` is the derivative with respect to the exterior normal to the
+      boundary. Each callable receives the current time `t` and the `coord_grid`
+      at the current time, and should return a tuple of `alpha`, `beta`, and
+      `gamma`. Each can be a number, a zero-rank `Tensor` or a `Tensor` of the
+      batch shape.
       For example, for a grid of shape `(b, n)`, where `b` is the batch size,
       `boundary_conditions[0][0]` should return a tuple of either numbers,
       zero-rank tensors or tensors of shape `(b, n)`.
@@ -156,12 +159,29 @@ def parabolic_equation_step(
     value_grid = tf.convert_to_tensor(value_grid, dtype=dtype,
                                       name='value_grid')
 
-    inner_grid_in = value_grid[..., 1:-1]
+    if boundary_conditions[0][0] is None:
+      # lower_index is used to build an inner grid on which boundary conditions
+      # are imposed. For the default BC, no need for the value grid truncation.
+      has_default_lower_boundary = True
+      lower_index = 0
+    else:
+      has_default_lower_boundary = False
+      lower_index = 1
+    if boundary_conditions[0][1] is None:
+      # For the default BC, no need for the the value grid truncation.
+      upper_index = None
+      has_default_upper_boundary = True
+    else:
+      upper_index = -1
+      has_default_upper_boundary = False
+    # Extract inner grid
+    inner_grid_in = value_grid[..., lower_index:upper_index]
     coord_grid_deltas = coord_grid[0][1:] - coord_grid[0][:-1]
 
     def equation_params_fn(t):
       return _construct_space_discretized_eqn_params(
           coord_grid, coord_grid_deltas, value_grid, boundary_conditions,
+          has_default_lower_boundary, has_default_upper_boundary,
           second_order_coeff_fn, first_order_coeff_fn, zeroth_order_coeff_fn,
           inner_second_order_coeff_fn, inner_first_order_coeff_fn, t)
 
@@ -173,12 +193,14 @@ def parabolic_equation_step(
 
     updated_value_grid = _apply_boundary_conditions_after_step(
         inner_grid_out, boundary_conditions,
+        has_default_lower_boundary, has_default_upper_boundary,
         coord_grid, coord_grid_deltas, next_time)
     return coord_grid, updated_value_grid
 
 
 def _construct_space_discretized_eqn_params(
-    coord_grid, coord_grid_deltas, value_grid, boundary_conditions,
+    coord_grid, coord_grid_deltas, value_grid,
+    boundary_conditions, has_default_lower_boundary, has_default_upper_boundary,
     second_order_coeff_fn, first_order_coeff_fn, zeroth_order_coeff_fn,
     inner_second_order_coeff_fn, inner_first_order_coeff_fn, t):
   """Constructs the tridiagonal matrix and the inhomogeneous term."""
@@ -269,15 +291,156 @@ def _construct_space_discretized_eqn_params(
   superdiag = superdiag_first_order + superdiag_second_order
   subdiag = subdiag_first_order + subdiag_second_order
   diag = diag_zeroth_order + diag_first_order + diag_second_order
+  # Apply default BC, if needed. This adds extra points to the diagonal terms
+  # coming from discretization of 'V_t + b * d(B * V)/dx + c * V = 0'.
+  [
+      subdiag, diag, superdiag
+  ] = _apply_default_boundary(subdiag, diag, superdiag,
+                              zeroth_order_coeff,
+                              inner_first_order_coeff,
+                              first_order_coeff,
+                              forward_deltas,
+                              backward_deltas,
+                              has_default_lower_boundary,
+                              has_default_upper_boundary)
+  # Apply Robin boundary conditions
+  return _apply_robin_boundary_conditions(
+      value_grid, boundary_conditions,
+      has_default_lower_boundary, has_default_upper_boundary,
+      coord_grid, coord_grid_deltas, diag, superdiag, subdiag, t)
 
-  return _apply_boundary_conditions_to_discretized_equation(
-      value_grid, boundary_conditions, coord_grid, coord_grid_deltas, diag,
-      superdiag, subdiag, t)
+
+def _apply_default_boundary(subdiag, diag, superdiag,
+                            zeroth_order_coeff,
+                            inner_first_order_coeff,
+                            first_order_coeff,
+                            forward_deltas,
+                            backward_deltas,
+                            has_default_lower_boundary,
+                            has_default_upper_boundary):
+  """Update discretization matrix for default boundary conditions."""
+  # For default BC, we need to add spatial discretizations of
+  # 'b * d(B * V)/dx + c * V' to the boundaries
+
+  # Extract batch shape
+  batch_shape = tf.shape(diag)[:-1]
+  # Set zero coeff if it is None
+  if zeroth_order_coeff is None:
+    zeroth_order_coeff = tf.zeros([1], dtype=diag.dtype)
+  # Updates for lower BC
+  if has_default_lower_boundary:
+    [
+        subdiag, diag, superdiag
+    ] = _apply_default_lower_boundary(subdiag, diag, superdiag,
+                                      zeroth_order_coeff,
+                                      inner_first_order_coeff,
+                                      first_order_coeff,
+                                      forward_deltas,
+                                      batch_shape)
+
+  # Updates for upper BC
+  if has_default_upper_boundary:
+    [
+        subdiag, diag, superdiag
+    ] = _apply_default_upper_boundary(subdiag, diag, superdiag,
+                                      zeroth_order_coeff,
+                                      inner_first_order_coeff,
+                                      first_order_coeff,
+                                      backward_deltas,
+                                      batch_shape)
+  return subdiag, diag, superdiag
 
 
-def _apply_boundary_conditions_to_discretized_equation(
-    value_grid, boundary_conditions,
-    coord_grid, coord_grid_deltas, diagonal, upper_diagonal, lower_diagonal, t):
+def _apply_default_lower_boundary(subdiag, diag, superdiag,
+                                  zeroth_order_coeff,
+                                  inner_first_order_coeff,
+                                  first_order_coeff,
+                                  forward_deltas,
+                                  batch_shape):
+  """Update discretization matrix for default lower boundary conditions."""
+  # TODO(b/185337444): Use second order discretization for the boundary points
+  # Here we append '-b(t, x_min) * (B(t, x_min) * V(t, x_min)) / delta' to
+  # diagonal and
+  # 'b(t, x_min) * (B(t, x_min + delta) * V(t, x_min + delta)) / delta' to
+  # superdiagonal
+  # Update superdiag
+  if inner_first_order_coeff is None:
+    # Set to ones, if inner coefficient is not supplied
+    inner_coeff = tf.constant([1, 1], dtype=diag.dtype)
+  else:
+    inner_coeff = inner_first_order_coeff
+  if first_order_coeff is None:
+    if inner_first_order_coeff is None:
+      # Corresponds to B(t, x_min)
+      extra_first_order_coeff = tf.zeros(batch_shape, dtype=diag.dtype)
+    else:
+      extra_first_order_coeff = tf.ones(batch_shape, dtype=diag.dtype)
+  else:
+    extra_first_order_coeff = first_order_coeff[..., 0]
+  extra_superdiag_coeff = (inner_coeff[1] * extra_first_order_coeff
+                           / forward_deltas[..., 0])
+  # Minus is due to moving to rhs.
+  superdiag = _append_first(-extra_superdiag_coeff, superdiag)
+  # Update diagonal
+  extra_diag_coeff = (-inner_coeff[..., 0] * extra_first_order_coeff
+                      / forward_deltas[..., 0]
+                      + zeroth_order_coeff[..., 0])
+  # Minus is due to moving to rhs.
+  diag = _append_first(-extra_diag_coeff, diag)
+  # Update subdiagonal
+  subdiag = _append_first(tf.zeros_like(extra_diag_coeff), subdiag)
+  return subdiag, diag, superdiag
+
+
+def _apply_default_upper_boundary(subdiag, diag, superdiag,
+                                  zeroth_order_coeff,
+                                  inner_first_order_coeff,
+                                  first_order_coeff,
+                                  backward_deltas,
+                                  batch_shape):
+  """Update discretization matrix for default upper boundary conditions."""
+  # TODO(b/185337444): Use second order discretization for the boundary points
+  # Here we append '-b(t, x_min) * (B(t, x_max) * V(t, x_max)) / delta' to
+  # diagonal and
+  # 'b(t, x_max) * (B(t, x_max - delta) * V(t, x_max - delta)) / delta' to
+  # subdiagonal
+  # Update diagonal
+  if inner_first_order_coeff is None:
+    inner_coeff = tf.constant([1, 1], dtype=diag.dtype)
+  else:
+    inner_coeff = inner_first_order_coeff
+  if first_order_coeff is None:
+    if inner_first_order_coeff is None:
+      # Corresponds to B(t, x_max)
+      extra_first_order_coeff = tf.zeros(batch_shape, dtype=diag.dtype)
+    else:
+      extra_first_order_coeff = tf.ones(batch_shape, dtype=diag.dtype)
+  else:
+    extra_first_order_coeff = first_order_coeff[..., -1]
+  extra_diag_coeff = (inner_coeff[..., -1] * extra_first_order_coeff
+                      / backward_deltas[..., -1]
+                      + zeroth_order_coeff[..., -1])
+  # Minus is due to moving to rhs.
+  diag = _append_last(diag, -extra_diag_coeff)
+  # Update subdiagonal
+  extra_sub_coeff = (-inner_coeff[..., -2] * extra_first_order_coeff
+                     / backward_deltas[..., -1])
+  # Minus is due to moving to rhs.
+  subdiag = _append_last(subdiag, -extra_sub_coeff)
+  # Update superdiag
+  superdiag = _append_last(superdiag, -tf.zeros_like(extra_diag_coeff))
+  return subdiag, diag, superdiag
+
+
+def _apply_robin_boundary_conditions(
+    value_grid,
+    boundary_conditions,
+    has_default_lower_boundary,
+    has_default_upper_boundary,
+    coord_grid, coord_grid_deltas,
+    diagonal,
+    upper_diagonal,
+    lower_diagonal, t):
   """Updates space-discretized equation according to boundary conditions."""
   # Without taking into account the boundary conditions, the space-discretized
   # PDE has the form dv/dt = A(t) v(t), where v(t) is V(t, x) discretized by
@@ -286,20 +449,44 @@ def _apply_boundary_conditions_to_discretized_equation(
   # the inhomogeneous term, so the equation becomes dv/dt = A'(t) v(t) + b(t),
   # where A' is the modified matrix, and b is a vector.
   # This function receives A and returns A' and b.
+  # We do not update the rows of A where the boundary condition is default
 
+  # If both boundareis are default, there is no need to update the
+  # space-discretization matrix
+  if (has_default_lower_boundary and
+      has_default_upper_boundary):
+    return (diagonal, upper_diagonal, lower_diagonal), tf.zeros_like(diagonal)
+
+  batch_shape = tf.shape(value_grid)[:-1]
   # Retrieve the boundary conditions in the form alpha V + beta V' = gamma.
-  alpha_l, beta_l, gamma_l = boundary_conditions[0][0](t, coord_grid)
-  alpha_u, beta_u, gamma_u = boundary_conditions[0][1](t, coord_grid)
+  if has_default_lower_boundary:
+    # No need for the BC as default BC was applied
+    alpha_l, beta_l, gamma_l = None, None, None
+  else:
+    alpha_l, beta_l, gamma_l = boundary_conditions[0][0](t, coord_grid)
+  if has_default_upper_boundary:
+    # No need for the BC as default BC was applied
+    alpha_u, beta_u, gamma_u = None, None, None
+  else:
+    alpha_u, beta_u, gamma_u = boundary_conditions[0][1](t, coord_grid)
 
   alpha_l, beta_l, gamma_l, alpha_u, beta_u, gamma_u = (
       _prepare_boundary_conditions(b, value_grid)
       for b in (alpha_l, beta_l, gamma_l, alpha_u, beta_u, gamma_u))
 
   if beta_l is None and beta_u is None:
-    # Dirichlet conditions on both boundaries. In this case there are no
-    # corrections to the tridiagonal matrix, so we can take a shortcut.
-    first_inhomog_element = lower_diagonal[..., 0] * gamma_l / alpha_l
-    last_inhomog_element = upper_diagonal[..., -1] * gamma_u / alpha_u
+    # Dirichlet or default conditions on both boundaries. In this case there are
+    # no corrections to the tridiagonal matrix, so we can take a shortcut.
+    if has_default_lower_boundary:
+      # Inhomgeneous term is zero for default BC
+      first_inhomog_element = tf.zeros(batch_shape, dtype=value_grid.dtype)
+    else:
+      first_inhomog_element = lower_diagonal[..., 0] * gamma_l / alpha_l
+    if has_default_upper_boundary:
+      # Inhomgeneous term is zero for default BC
+      last_inhomog_element = tf.zeros(batch_shape, dtype=value_grid.dtype)
+    else:
+      last_inhomog_element = upper_diagonal[..., -1] * gamma_u / alpha_u
     inhomog_term = _append_first_and_last(first_inhomog_element,
                                           tf.zeros_like(diagonal[..., 1:-1]),
                                           last_inhomog_element)
@@ -308,20 +495,37 @@ def _apply_boundary_conditions_to_discretized_equation(
   # Convert the boundary conditions into the form v0 = xi1 v1 + xi2 v2 + eta,
   # and calculate corrections to the tridiagonal matrix and the inhomogeneous
   # term.
-  xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[0],
-                                                  coord_grid_deltas[1],
-                                                  alpha_l,
-                                                  beta_l, gamma_l)
-  diag_first_correction = lower_diagonal[..., 0] * xi1
-  upper_diag_correction = lower_diagonal[..., 0] * xi2
-  first_inhomog_element = lower_diagonal[..., 0] * eta
-  xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[-1],
-                                                  coord_grid_deltas[-2],
-                                                  alpha_u,
-                                                  beta_u, gamma_u)
-  diag_last_correction = upper_diagonal[..., -1] * xi1
-  lower_diag_correction = upper_diagonal[..., -1] * xi2
-  last_inhomog_element = upper_diagonal[..., -1] * eta
+  if has_default_lower_boundary:
+    # No update for the default BC
+    first_inhomog_element = tf.zeros(batch_shape, dtype=value_grid.dtype)
+    diag_first_correction = 0
+    upper_diag_correction = 0
+  else:
+    # Robin BC case for the lower bound
+    xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[0],
+                                                    coord_grid_deltas[1],
+                                                    alpha_l,
+                                                    beta_l, gamma_l)
+    diag_first_correction = lower_diagonal[..., 0] * xi1
+    upper_diag_correction = lower_diagonal[..., 0] * xi2
+    first_inhomog_element = lower_diagonal[..., 0] * eta
+
+  if has_default_upper_boundary:
+    # No update for the default BC
+    last_inhomog_element = tf.zeros(batch_shape, dtype=value_grid.dtype)
+    diag_last_correction = 0
+    lower_diag_correction = 0
+  else:
+    # Robin BC case for the upper bound
+    xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[-1],
+                                                    coord_grid_deltas[-2],
+                                                    alpha_u,
+                                                    beta_u, gamma_u)
+    diag_last_correction = upper_diagonal[..., -1] * xi1
+    lower_diag_correction = upper_diagonal[..., -1] * xi2
+    last_inhomog_element = upper_diagonal[..., -1] * eta
+
+  # Update spatial discretization matrix, where appropriate
   diagonal = _append_first_and_last(diagonal[..., 0] + diag_first_correction,
                                     diagonal[..., 1:-1],
                                     diagonal[..., -1] + diag_last_correction)
@@ -337,35 +541,53 @@ def _apply_boundary_conditions_to_discretized_equation(
 
 
 def _apply_boundary_conditions_after_step(
-    inner_grid_out, boundary_conditions,
-    coord_grid, coord_grid_deltas, time_after_step):
+    inner_grid_out,
+    boundary_conditions,
+    has_default_lower_boundary,
+    has_default_upper_boundary,
+    coord_grid, coord_grid_deltas,
+    time_after_step):
   """Calculates and appends boundary values after making a step."""
   # After we've updated the values in the inner part of the grid according to
   # the PDE, we append the boundary values calculated using the boundary
   # conditions.
   # This is done using the discretized form of the boundary conditions,
   # v0 = xi1 v1 + xi2 v2 + eta.
+  # We do not change the rows of the spatial discretization matrix where the
+  # boundary condition is default
 
-  alpha, beta, gamma = boundary_conditions[0][0](time_after_step,
-                                                 coord_grid)
-  alpha, beta, gamma = (
-      _prepare_boundary_conditions(b, inner_grid_out)
-      for b in (alpha, beta, gamma))
-  xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[0],
-                                                  coord_grid_deltas[1],
-                                                  alpha, beta, gamma)
-  first_value = (
-      xi1 * inner_grid_out[..., 0] + xi2 * inner_grid_out[..., 1] + eta)
-  alpha, beta, gamma = boundary_conditions[0][1](time_after_step,
-                                                 coord_grid)
-  alpha, beta, gamma = (
-      _prepare_boundary_conditions(b, inner_grid_out)
-      for b in (alpha, beta, gamma))
-  xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[-1],
-                                                  coord_grid_deltas[-2],
-                                                  alpha, beta, gamma)
-  last_value = (
-      xi1 * inner_grid_out[..., -1] + xi2 * inner_grid_out[..., -2] + eta)
+  if has_default_lower_boundary:
+    # No update for the default BC
+    first_value = None
+  else:
+    # Robin BC case
+    alpha, beta, gamma = boundary_conditions[0][0](time_after_step,
+                                                   coord_grid)
+    alpha, beta, gamma = (
+        _prepare_boundary_conditions(b, inner_grid_out)
+        for b in (alpha, beta, gamma))
+    xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[0],
+                                                    coord_grid_deltas[1],
+                                                    alpha, beta, gamma)
+    first_value = (
+        xi1 * inner_grid_out[..., 0] + xi2 * inner_grid_out[..., 1] + eta)
+
+  if has_default_upper_boundary:
+    # No update for the default BC
+    last_value = None
+  else:
+    # Robin BC case
+    alpha, beta, gamma = boundary_conditions[0][1](time_after_step,
+                                                   coord_grid)
+    alpha, beta, gamma = (
+        _prepare_boundary_conditions(b, inner_grid_out)
+        for b in (alpha, beta, gamma))
+    xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[-1],
+                                                    coord_grid_deltas[-2],
+                                                    alpha, beta, gamma)
+    last_value = (
+        xi1 * inner_grid_out[..., -1] + xi2 * inner_grid_out[..., -2] + eta)
+
   return _append_first_and_last(first_value, inner_grid_out, last_value)
 
 
@@ -418,16 +640,25 @@ def _discretize_boundary_conditions(dx0, dx1, alpha, beta, gamma):
 
 
 def _append_first_and_last(first, inner, last):
-  return tf.concat((tf.expand_dims(first, -1), inner, tf.expand_dims(last, -1)),
-                   -1)
+  if first is None:
+    return _append_last(inner, last)
+  if last is None:
+    return _append_first(first, inner)
+  return tf.concat((tf.expand_dims(first, axis=-1),
+                    inner,
+                    tf.expand_dims(last, axis=-1)), axis=-1)
 
 
 def _append_first(first, rest):
-  return tf.concat((tf.expand_dims(first, -1), rest), -1)
+  if first is None:
+    return rest
+  return tf.concat((tf.expand_dims(first, axis=-1), rest), axis=-1)
 
 
 def _append_last(rest, last):
-  return tf.concat((rest, tf.expand_dims(last, -1)), -1)
+  if last is None:
+    return rest
+  return tf.concat((rest, tf.expand_dims(last, axis=-1)), axis=-1)
 
 
 __all__ = ['parabolic_equation_step']
