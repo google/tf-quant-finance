@@ -360,11 +360,17 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
         Default value: `sample_discount_curve_paths`.
 
     Returns:
-      A tuple containing two `Tensor`s. The first element is a `Tensor` of
-      shape [num_samples, num_curve_times, num_times] and contains the
-      simulated zero coupon bond curves `P(t, T)`. The second element is a
-      `Tensor` of shape [num_samples, num_times] and contains the simulated
-      discount factor paths.
+      A tuple containing three `Tensor`s.
+
+      * The first element is a `Tensor` of shape
+      `[num_samples, num_curve_times, num_times]` containing the simulated
+      zero coupon bond curves `P(t, T)`.
+      * The second element is a `Tensor` of
+      shape `[num_samples, num_times]` containing the simulated short rate
+      paths.
+      * The third element is a `Tensor` of shape
+      `[num_samples, num_times]` containing the simulated discount factor
+      paths.
 
     ### References:
       [1]: Leif B.G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling,
