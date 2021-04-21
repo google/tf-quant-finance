@@ -12,8 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 """Tests for vanilla_price."""
 
 import functools
@@ -63,8 +61,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
             is_normal_volatility=True))
 
     expected_prices = np.array(
-        [0.0, 0.0, 0.0039894228040143, 0.0019947114020072,
-         0.0216663094117537])
+        [0.0, 0.0, 0.0039894228040143, 0.0019947114020072, 0.0216663094117537])
     self.assertArrayNear(expected_prices, computed_prices, 1e-10)
 
   def test_price_zero_vol(self):
@@ -161,9 +158,11 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
       {
           'testcase_name': 'SinglePrecision',
           'dtype': np.float32
-      }, {
+      },
+      {
           'testcase_name': 'DoublePrecision',
-          'dtype': np.float64},
+          'dtype': np.float64
+      },
   )
   def test_option_prices_detailed_discount(self, dtype):
     """Tests the prices with discount_rates and cost_of_carries are."""
@@ -185,8 +184,8 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
             cost_of_carries=cost_of_carries,
             is_call_options=is_call_options,
             dtype=dtype))
-    expected_prices = np.array([0.03, 0.57, 3.42, 9.85, 18.62, 20.41, 11.25,
-                                4.40, 1.12, 0.18])
+    expected_prices = np.array(
+        [0.03, 0.57, 3.42, 9.85, 18.62, 20.41, 11.25, 4.40, 1.12, 0.18])
     self.assertArrayNear(expected_prices, computed_prices, 5e-3)
 
   def test_binary_prices(self):
@@ -353,6 +352,106 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     self.assertArrayNear(implied_binary_price, actual_binary_price, 1e-10)
     return (90.0, 105, 1.4653, False, False, False, 0)
 
+  def test_asset_or_nothing_prices(self):
+    """Tests that the BS asset-or-nothing option prices are correct."""
+    forwards = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    strikes = np.array([3.0, 3.0, 3.0, 3.0, 3.0])
+    volatilities = np.array([0.0001, 102.0, 2.0, 0.1, 0.4])
+    expiries = 1.0
+    computed_prices = self.evaluate(
+        tff.black_scholes.asset_or_nothing_price(
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
+            forwards=forwards))
+    expected_prices = np.array([0., 2., 2.52403424, 3.99315108, 4.65085383])
+
+    self.assertArrayNear(expected_prices, computed_prices, 1e-8)
+
+    is_call_options = True
+    vanilla_prices = self.evaluate(
+        tff.black_scholes.option_price(
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
+            forwards=forwards,
+            is_call_options=is_call_options,
+        ))
+    cash_or_nothing_prices = self.evaluate(strikes *
+                                           tff.black_scholes.binary_price(
+                                               volatilities=volatilities,
+                                               strikes=strikes,
+                                               expiries=expiries,
+                                               forwards=forwards,
+                                               is_call_options=is_call_options,
+                                           ))
+    asset_or_nothing_prices = self.evaluate(
+        tff.black_scholes.asset_or_nothing_price(
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
+            forwards=forwards,
+            is_call_options=is_call_options,
+        ))
+
+    self.assertArrayNear(vanilla_prices,
+                         asset_or_nothing_prices - cash_or_nothing_prices,
+                         1e-10)
+
+  def test_vanilla_and_binary_prices_consistency_bulk(self):
+    """Tests the consistency between vanilla and binary option prices.
+
+    A vanilla call is equivalent to the combination of a long asset-or-nothing
+    call and short {strike} units of cash-or-nothing calls.
+
+    A vanilla put is equivalent to the combination of a long {strike} units of
+    cash-or-nothing puts and an short asset-or-nothing put.
+
+    This tests confirms that the computed vanilla and binary option prices are
+    consistent with the above relations for a wide range of simulated settings.
+    """
+
+    np.random.seed(321)
+    num_examples = 1000
+    forwards = np.exp(np.random.normal(size=num_examples))
+    strikes = np.exp(np.random.normal(size=num_examples))
+    volatilities = np.exp(np.random.normal(size=num_examples))
+    expiries = np.random.gamma(shape=1.0, scale=1.0, size=num_examples)
+    call_options = np.random.binomial(n=1, p=0.5, size=num_examples)
+    discount_factors = np.random.beta(a=1.0, b=1.0, size=num_examples)
+    is_call_options = np.array(call_options, dtype=np.bool)
+
+    asset_or_nothing_prices = tff.black_scholes.asset_or_nothing_price(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        forwards=forwards,
+        is_call_options=is_call_options,
+        discount_factors=discount_factors)
+    cash_or_nothing_prices = tff.black_scholes.binary_price(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        forwards=forwards,
+        is_call_options=is_call_options,
+        discount_factors=discount_factors)
+    synthetic_vanilla_from_binary_prices = tf.where(
+        is_call_options,
+        asset_or_nothing_prices - strikes * cash_or_nothing_prices,
+        strikes * cash_or_nothing_prices - asset_or_nothing_prices)
+
+    directly_computed_vanilla_prices = tff.black_scholes.option_price(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        forwards=forwards,
+        is_call_options=is_call_options,
+        discount_factors=discount_factors)
+
+    self.assertArrayNear(
+        self.evaluate(synthetic_vanilla_from_binary_prices),
+        self.evaluate(directly_computed_vanilla_prices), 1e-10)
+
   @parameterized.product(
       (
           {
@@ -468,8 +567,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
           'is_knock_out': False,
           'is_call_options': False,
           'expected_price': 1.4653,
-      },
-      {
+      }, {
           'testcase_name': 'ScalarInputsUIP_Default_Values',
           'volatilities': 0.30,
           'strikes': 105.0,
@@ -483,9 +581,9 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
           'is_knock_out': True,
           'is_call_options': True,
           'expected_price': 9.2848,
-      },
-      {
-          'testcase_name': 'VectorInputs',
+      }, {
+          'testcase_name':
+              'VectorInputs',
           'volatilities': [.25, .25, .25, .25, .25, .25, .25, .25],
           'strikes': [90., 90., 90., 90., 90., 90., 90., 90.],
           'expiries': [.5, .5, .5, .5, .5, .5, .5, .5],
@@ -494,53 +592,34 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
           'continuous_dividends': [.04, .04, .04, .04, .04, .04, .04, .04],
           'barriers': [95., 95., 105., 105., 95., 105., 95., 105.],
           'rebates': [3., 3., 3., 3., 3., 3., 3., 3.],
-          'is_barrier_down': [
-              True, True, False, False, True, False, True, False],
-          'is_knock_out': [
-              True, False, True, False, True, True, False, False],
-          'is_call_options': [
-              True, True, True, True, False, False, False, False],
-          'expected_price': [
-              9.024, 7.7627, 2.6789, 14.1112, 2.2798, 3.7760, 2.95586, 1.4653],
-      },
-      {
-          'testcase_name': 'MatrixInputs',
+          'is_barrier_down':
+              [True, True, False, False, True, False, True, False],
+          'is_knock_out': [True, False, True, False, True, True, False, False],
+          'is_call_options':
+              [True, True, True, True, False, False, False, False],
+          'expected_price':
+              [9.024, 7.7627, 2.6789, 14.1112, 2.2798, 3.7760, 2.95586, 1.4653],
+      }, {
+          'testcase_name':
+              'MatrixInputs',
           'volatilities': [[.25, .25], [.25, .25], [.25, .25], [.25, .25]],
           'strikes': [[90., 90.], [90., 90.], [90., 90.], [90., 90.]],
           'expiries': [[.5, .5], [.5, .5], [.5, .5], [.5, .5]],
           'spots': [[100., 100.], [100., 100.], [100., 100.], [100., 100.]],
           'discount_rates': [[.08, .08], [.08, .08], [.08, .08], [.08, .08]],
-          'continuous_dividends': [
-              [.04, .04], [.04, .04], [.04, .04], [.04, .04]
-          ],
+          'continuous_dividends': [[.04, .04], [.04, .04], [.04, .04],
+                                   [.04, .04]],
           'barriers': [[95., 95.], [105., 105.], [95., 105.], [95., 105.]],
           'rebates': [[3., 3.], [3., 3.], [3., 3.], [3., 3.]],
-          'is_barrier_down': [
-              [True, True],
-              [False, False],
-              [True, False],
-              [True, False]
-          ],
-          'is_knock_out': [
-              [True, False],
-              [True, False],
-              [True, True],
-              [False, False]
-          ],
-          'is_call_options': [
-              [True, True],
-              [True, True],
-              [False, False],
-              [False, False]
-          ],
-          'expected_price': [
-              [9.024, 7.7627],
-              [2.6789, 14.1112],
-              [2.2798, 3.7760],
-              [2.95586, 1.4653]
-          ],
-      },
-      {
+          'is_barrier_down': [[True, True], [False, False], [True, False],
+                              [True, False]],
+          'is_knock_out': [[True, False], [True, False], [True, True],
+                           [False, False]],
+          'is_call_options': [[True, True], [True, True], [False, False],
+                              [False, False]],
+          'expected_price': [[9.024, 7.7627], [2.6789, 14.1112],
+                             [2.2798, 3.7760], [2.95586, 1.4653]],
+      }, {
           'testcase_name': 'cost_of_carries',
           'volatilities': 0.25,
           'strikes': 90.0,
@@ -555,7 +634,8 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
           'is_call_options': False,
           'expected_price': 1.4653,
       })
-  def test_barrier_option(self, *,
+  def test_barrier_option(self,
+                          *,
                           volatilities,
                           strikes,
                           expiries,
@@ -574,22 +654,28 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     # The Complete guide to Option Pricing Formulas, 2nd Edition, Page 154
     if cost_of_carries is not None:
       price = tff.black_scholes.barrier_price(
-          volatilities=volatilities, strikes=strikes,
-          expiries=expiries, spots=spots,
+          volatilities=volatilities,
+          strikes=strikes,
+          expiries=expiries,
+          spots=spots,
           discount_rates=discount_rates,
           cost_of_carries=cost_of_carries,
           continuous_dividends=continuous_dividends,
-          barriers=barriers, rebates=rebates,
+          barriers=barriers,
+          rebates=rebates,
           is_barrier_down=is_barrier_down,
           is_knock_out=is_knock_out,
           is_call_options=is_call_options)
     else:
       price = tff.black_scholes.barrier_price(
-          volatilities=volatilities, strikes=strikes,
-          expiries=expiries, spots=spots,
+          volatilities=volatilities,
+          strikes=strikes,
+          expiries=expiries,
+          spots=spots,
           discount_rates=discount_rates,
           continuous_dividends=continuous_dividends,
-          barriers=barriers, rebates=rebates,
+          barriers=barriers,
+          rebates=rebates,
           is_barrier_down=is_barrier_down,
           is_knock_out=is_knock_out,
           is_call_options=is_call_options)
@@ -618,11 +704,14 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     is_knock_out = True
     volatilities = 0.25
     price = tff.black_scholes.barrier_price(
-        volatilities=volatilities, strikes=strikes,
-        expiries=expiries, spots=spots,
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        spots=spots,
         discount_rates=discount_rates,
         cost_of_carries=cost_of_carries,
-        barriers=barriers, rebates=rebates,
+        barriers=barriers,
+        rebates=rebates,
         is_barrier_down=is_barrier_down,
         is_knock_out=is_knock_out,
         is_call_options=is_call_options,
@@ -645,22 +734,30 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     is_barrier_down = tf.convert_to_tensor(True)
     is_knock_out = tf.convert_to_tensor(True)
     volatilities = tf.convert_to_tensor(0.25, dtype=dtype)
+
     def price_barriers_option(samples):
       return tff.black_scholes.barrier_price(
-          volatilities=samples[0], strikes=samples[1],
-          expiries=samples[2], spots=samples[3],
-          discount_rates=samples[3], continuous_dividends=samples[4],
-          barriers=samples[5], rebates=samples[6],
-          is_barrier_down=samples[7], is_knock_out=samples[8],
+          volatilities=samples[0],
+          strikes=samples[1],
+          expiries=samples[2],
+          spots=samples[3],
+          discount_rates=samples[3],
+          continuous_dividends=samples[4],
+          barriers=samples[5],
+          rebates=samples[6],
+          is_barrier_down=samples[7],
+          is_knock_out=samples[8],
           is_call_options=samples[9])[0]
 
     @tf.function
     def xla_compiled_op(samples):
       return tf.xla.experimental.compile(price_barriers_option, samples)
-    price = xla_compiled_op([volatilities, strikes, expiries, spots,
-                             discount_rates, continuous_dividends,
-                             barriers, rebates, is_barrier_down,
-                             is_knock_out, is_call_options])
+
+    price = xla_compiled_op([
+        volatilities, strikes, expiries, spots, discount_rates,
+        continuous_dividends, barriers, rebates, is_barrier_down, is_knock_out,
+        is_call_options
+    ])
     self.assertAllClose(price, expected_price, 10e-3)
 
   @parameterized.named_parameters(
@@ -675,8 +772,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
           'volatilities': [1.0, 0.5],
           'expected_price': [0.34885593, 0.31643427],
       })
-  def test_swaption_price(self, is_normal_model, volatilities,
-                          expected_price):
+  def test_swaption_price(self, is_normal_model, volatilities, expected_price):
     """Function tests swaption pricing."""
     dtype = tf.float64
 
@@ -716,6 +812,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
             dtype=dtype))
 
     self.assertAllClose(price, expected_price, 1e-6)
+
 
 if __name__ == '__main__':
   tf.test.main()

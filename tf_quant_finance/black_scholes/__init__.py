@@ -27,6 +27,7 @@ from tf_quant_finance.black_scholes.implied_vol_utils import UnderlyingDistribut
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
+asset_or_nothing_price = vanilla_prices.asset_or_nothing_price
 binary_price = vanilla_prices.binary_price
 barrier_price = vanilla_prices.barrier_price
 brownian_bridge_single = brownian_bridge.brownian_bridge_single
@@ -37,19 +38,11 @@ swaption_price = vanilla_prices.swaption_price
 variance_swap_fair_strike = variance_swaps.fair_strike
 
 _allowed_symbols = [
-    'approximations',
-    'binary_price',
-    'brownian_bridge_single',
-    'brownian_bridge_double',
-    'implied_vol',
-    'implied_vol_approx',
-    'implied_vol_newton',
-    'option_price',
-    'option_price_binomial',
-    'ImpliedVolMethod',
-    'ImpliedVolUnderlyingDistribution',
-    'barrier_price',
-    'swaption_price',
+    'approximations', 'asset_or_nothing_price', 'binary_price',
+    'brownian_bridge_single', 'brownian_bridge_double', 'implied_vol',
+    'implied_vol_approx', 'implied_vol_newton', 'option_price',
+    'option_price_binomial', 'ImpliedVolMethod',
+    'ImpliedVolUnderlyingDistribution', 'barrier_price', 'swaption_price',
     'variance_swap_fair_strike'
 ]
 
