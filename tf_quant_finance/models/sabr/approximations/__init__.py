@@ -14,6 +14,7 @@
 # limitations under the License.
 """Approximate analytic solutions to the Sabr model."""
 
+from tf_quant_finance.models.sabr.approximations.calibration import calibration
 from tf_quant_finance.models.sabr.approximations.european_options import option_price as european_option_price
 from tf_quant_finance.models.sabr.approximations.implied_volatility import implied_volatility
 from tf_quant_finance.models.sabr.approximations.implied_volatility import SabrApproximationType
@@ -21,6 +22,7 @@ from tf_quant_finance.models.sabr.approximations.implied_volatility import SabrI
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
+    'calibration',
     'european_option_price',
     'implied_volatility',
     'SabrApproximationType',
