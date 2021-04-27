@@ -113,16 +113,26 @@ def douglas_adi_scheme(theta):
   Returns:
     A callable consumes the following arguments by keyword:
       1. inner_value_grid: Grid of solution values at the current time of
-        the same `dtype` as `value_grid` and shape of `value_grid[..., 1:-1]`.
+        the same `dtype` as `value_grid` and shape of
+        `batch_shape` + `[d_1 -2 , d_2 - 2, ..., d_n -2 ]`.
       2. t1: Time before the step.
       3. t2: Time after the step.
       4. equation_params_fn: A callable that takes a scalar `Tensor` argument
-        representing time, and constructs the tridiagonal matrix `A`
-        (a tuple of three `Tensor`s, main, upper, and lower diagonals)
-        and the inhomogeneous term `b`. All of the `Tensor`s are of the same
-        `dtype` as `inner_value_grid` and of the shape broadcastable with the
-        shape of `inner_value_grid`.
-      5. n_dims: A Python integer, the spatial dimension of the PDE.
+        representing time, and returns a tuple of two objects:
+          * First object is a nested list `L` such that `L[i][i]` is a tuple of
+          three `Tensor`s, main, upper, and lower diagonal of the tridiagonal
+          matrix `A` in a direction `i`. Each element `L[i][j]` corresponds
+          to the mixed terms and is either None (meaning there are no mixed
+          terms present) or a tuple of `Tensor`s representing contributions of
+          mixed terms in directions (i + 1, j + 1), (i + 1, j - 1),
+          (i - 1, j + 1), and (i - 1, j - 1).
+          * The second object is a tuple of inhomogeneous terms for each
+          dimension.
+        All of the `Tensor`s are of the same `dtype` as `inner_value_grid` and
+        of the shape broadcastable with the shape of `inner_value_grid`.
+      5. A callable that accepts a `Tensor` of shape `inner_value_grid` and
+        appends boundaries according to the boundary conditions.
+      6. n_dims: A Python integer, the spatial dimension of the PDE.
     The callable returns a `Tensor` of the same shape and `dtype` a
     `values_grid` and represents an approximate solution `u(t2)`.
   """
@@ -130,7 +140,8 @@ def douglas_adi_scheme(theta):
   if theta < 0 or theta > 1:
     raise ValueError('Theta should be in the interval [0, 1].')
 
-  def _marching_scheme(value_grid, t1, t2, equation_params_fn, n_dims):
+  def _marching_scheme(
+      value_grid, t1, t2, equation_params_fn, append_boundaries_fn, n_dims):
     """Constructs the Douglas ADI time marching scheme."""
     current_grid = value_grid
     matrix_params_t1, inhomog_terms_t1 = equation_params_fn(t1)
@@ -138,12 +149,13 @@ def douglas_adi_scheme(theta):
 
     # Explicit substep: Y_0 = (1 + A(t1) dt) U_{n-1} + b(t1) dt,
     # where dt = t2 - t1
+    value_grid_with_boundaries = append_boundaries_fn(value_grid)
     for i in range(n_dims - 1):
       for j in range(i + 1, n_dims):
         mixed_term = matrix_params_t1[i][j]
         if mixed_term is not None:
-          current_grid += _apply_mixed_term_explicitly(value_grid, mixed_term,
-                                                       t2 - t1, i, j, n_dims)
+          current_grid += _apply_mixed_term_explicitly(
+              value_grid_with_boundaries, mixed_term, t2 - t1, i, j, n_dims)
 
     # These are A_i(t1) * U_{n-1} * dt; caching them because they appear again
     # later in the correction substeps.
@@ -166,7 +178,7 @@ def douglas_adi_scheme(theta):
       return current_grid
 
     for i in range(n_dims):
-      inhomog_term_delta = (inhomog_terms_t2[i] - inhomog_terms_t2[i])
+      inhomog_term_delta = (inhomog_terms_t2[i] - inhomog_terms_t1[i])
       superdiag, diag, subdiag = (matrix_params_t2[i][i][d] for d in range(3))
       current_grid = _apply_correction(theta, current_grid,
                                        explicit_contributions[i],
@@ -177,23 +189,36 @@ def douglas_adi_scheme(theta):
   return _marching_scheme
 
 
-def _apply_mixed_term_explicitly(values, mixed_term, delta_t, dim1, dim2,
-                                 n_dims):
+def _apply_mixed_term_explicitly(
+    values_with_boundaries, mixed_term, delta_t, dim1, dim2, n_dims):
   """Applies mixed term explicitly."""
-  mixed_term_pp, mixed_term_pm, mixed_term_mp, mixed_term_mm = mixed_term
-  batch_rank = len(values.shape) - n_dims
-  dim1 += batch_rank
-  dim2 += batch_rank
-  shift_right = _shift(values, dim1, 1)
-  shift_right_down = _shift(shift_right, dim2, 1)
-  shift_right_up = _shift(shift_right, dim2, -1)
-  shift_left = _shift(values, dim1, -1)
-  shift_left_down = _shift(shift_left, dim2, 1)
-  shift_left_up = _shift(shift_left, dim2, -1)
-  return (mixed_term_mm * shift_right_down +
-          mixed_term_mp * shift_right_up +
-          mixed_term_pm * shift_left_down +
-          mixed_term_pp * shift_left_up) * delta_t
+  (
+      mixed_term_pp, mixed_term_pm, mixed_term_mp, mixed_term_mm
+  ) = mixed_term
+
+  def create_trimming_shifts(dim1_shift, dim2_shift):
+    # See _trim_boundaries. We need to apply shifts to dimensions dim1 and
+    # dim2.
+    shifts = [0] * n_dims
+    shifts[dim1] = dim1_shift
+    shifts[dim2] = dim2_shift
+    return shifts
+
+  batch_rank = len(values_with_boundaries.shape) - n_dims
+
+  values_pp = _trim_boundaries(values_with_boundaries, from_dim=batch_rank,
+                               shifts=create_trimming_shifts(1, 1))
+  values_mm = _trim_boundaries(values_with_boundaries, from_dim=batch_rank,
+                               shifts=create_trimming_shifts(-1, -1))
+  values_pm = _trim_boundaries(values_with_boundaries, from_dim=batch_rank,
+                               shifts=create_trimming_shifts(1, -1))
+  values_mp = _trim_boundaries(values_with_boundaries, from_dim=batch_rank,
+                               shifts=create_trimming_shifts(-1, 1))
+
+  return (mixed_term_mm * values_mm +
+          mixed_term_mp * values_mp +
+          mixed_term_pm * values_pm +
+          mixed_term_pp * values_pp) * delta_t
 
 
 def _apply_tridiag_matrix_explicitly(values, superdiag, diag, subdiag,
@@ -248,55 +273,6 @@ def _apply_correction(theta, values, explicit_contribution, superdiag, diag,
   return result
 
 
-def _shift(tensor, axis, delta):
-  """Shifts the given tensor, filling it with zeros on the other side.
-
-  Args:
-    tensor: `Tensor`.
-    axis: Axis to shift along.
-    delta: Shift size. May be negative: the sign determines the direction of the
-      shift.
-
-  Returns:
-    Shifted `Tensor`.
-
-  Example:
-  ```
-  t = [[1, 2, 3]
-       [4, 5, 6]
-       [7, 8, 9]]
-  _shift(t, 1, 2) = [[0, 0, 1]
-                     [0, 0, 4]
-                     [0, 0, 7]]
-  _shift(t, 0, -1) = [[4, 5, 6]
-                      [7, 8, 9]
-                      [0, 0, 0]]
-
-  TODO(b/144087751): implement this in C++. Perhaps we can add a parameter to
-  tf.roll, so that it fills "the other side" with zeros.
-  """
-  rank = len(tensor.shape)
-  zeros_shape = np.zeros(rank)
-  for d in range(rank):
-    if d == axis:
-      zeros_shape[d] = np.abs(delta)
-    else:
-      zeros_shape[d] = tf.compat.dimension_value(tensor.shape[d])
-
-  zeros = tf.zeros(zeros_shape, dtype=tensor.dtype)
-
-  slice_begin = np.zeros(rank, dtype=np.int32)
-  slice_size = -np.ones(rank, dtype=np.int32)
-  if delta > 0:
-    slice_size[axis] = tf.compat.dimension_value(tensor.shape[axis]) - delta
-    return tf.concat((zeros, tf.slice(tensor, slice_begin, slice_size)),
-                     axis=axis)
-  else:
-    slice_begin[axis] = -delta
-    return tf.concat((tf.slice(tensor, slice_begin, slice_size), zeros),
-                     axis=axis)
-
-
 def _get_permutation(tensor, n_dims, active_dim):
   """Returns the permutation that swaps the active and the last dimensions.
 
@@ -326,4 +302,29 @@ def _get_permutation(tensor, n_dims, active_dim):
   return perm
 
 
-__all__ = ['douglas_adi_step', 'douglas_adi_scheme']
+def _trim_boundaries(tensor, from_dim, shifts=None):
+  """Trims tensor boundaries starting from given dimension."""
+  # For example, if tensor has shape (a, b, c, d) and from_dim=1, then the
+  # output tensor has shape (a, b-2, c-2, d-2).
+  # For example _trim_boundaries_with_shifts(t, 1) with a rank-4
+  # tensor t yields t[:, 1:-1, 1:-1, 1:-1].
+  #
+  # If shifts is specified, the slices applied are shifted. shifts is an array
+  # of length rank(tensor) - from_dim, with values -1, 0, or 1, meaning slices
+  # [:-2], [-1, 1], and [2:], respectively.
+  # For example _trim_boundaries_with_shifts(t, 1, (1, 0, -1)) with a rank-4
+  #  tensor t yields t[:, 2:, 1:-1, :-2].
+  rank = len(tensor.shape.as_list())
+  slice_begin = np.zeros(rank, dtype=np.int32)
+  slice_size = np.zeros(rank, dtype=np.int32)
+  for i in range(from_dim):
+    slice_size[i] = tf.compat.dimension_value(tensor.shape.as_list()[i])
+  for i in range(from_dim, rank):
+    slice_begin[i] = 1
+    slice_size[i] = tf.compat.dimension_value(tensor.shape.as_list()[i]) - 2
+    if shifts is not None:
+      slice_begin[i] += shifts[i - from_dim]
+  return tf.slice(tensor, slice_begin, slice_size)
+
+
+_all__ = ['douglas_adi_step', 'douglas_adi_scheme']

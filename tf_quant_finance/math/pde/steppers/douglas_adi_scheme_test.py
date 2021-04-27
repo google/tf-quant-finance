@@ -43,9 +43,15 @@ class DouglasAdiSchemeTest(tf.test.TestCase):
               [_tfconst(by), _tfconst(bx)])
 
     scheme = douglas_adi_scheme(theta=theta)
+
+    def pad_fn(t):
+      paddings = tf.constant([[1, 1], [1, 1]])
+      return tf.pad(t, paddings)
+
     actual = self.evaluate(
         scheme(value_grid=tf.constant(u, dtype=tf.float32), t1=0, t2=1,
                equation_params_fn=equation_params_fn,
+               append_boundaries_fn=pad_fn,
                n_dims=2))
     expected = self._simplified_douglas_step_2d(u, dx, dy, dxy, bx, by,
                                                 0, 1, theta)
@@ -76,9 +82,15 @@ class DouglasAdiSchemeTest(tf.test.TestCase):
               [_tfconst(bz), _tfconst(by), _tfconst(bx)])
 
     scheme = douglas_adi_scheme(theta=theta)
+
+    def pad_fn(t):
+      paddings = tf.constant([[1, 1], [1, 1], [1, 1]])
+      return tf.pad(t, paddings)
+
     actual = self.evaluate(
         scheme(value_grid=tf.constant(u, dtype=tf.float32), t1=0, t2=1,
-               equation_params_fn=equation_params_fn, n_dims=3))
+               equation_params_fn=equation_params_fn,
+               append_boundaries_fn=pad_fn, n_dims=3))
     expected = self._simplified_douglas_step_3d(u, dx, dy, dz, dxy, dyz, dxz,
                                                 bx, by, bz, 0, 1, theta)
     self.assertLess(np.max(np.abs(expected - actual)), 0.01)
@@ -208,9 +220,15 @@ class DouglasAdiSchemeTest(tf.test.TestCase):
               [_tfconst(by), _tfconst(bx)])
 
     scheme = douglas_adi_scheme(theta=theta)
+
+    def pad_fn(t):
+      paddings = tf.constant([[0, 0], [1, 1], [1, 1]])
+      return tf.pad(t, paddings)
+
     actual = self.evaluate(
         scheme(value_grid=tf.constant(u, dtype=tf.float32), t1=0, t2=1,
-               equation_params_fn=equation_params_fn, n_dims=2))
+               equation_params_fn=equation_params_fn,
+               append_boundaries_fn=pad_fn, n_dims=2))
     expected = np.zeros_like(u)
     for i in range(4):
       expected[i] = self._simplified_douglas_step_2d(u[i], dx[:, i], dy[:, i],

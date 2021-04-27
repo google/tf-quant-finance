@@ -246,14 +246,20 @@ def multidim_parabolic_equation_step(
 
     inner_grid_in = _trim_boundaries(value_grid, batch_rank)
 
+    def _append_boundaries_fn(inner_value_grid):
+      return _append_boundaries(
+          value_grid, inner_value_grid, coord_grid, boundary_conditions,
+          batch_rank, time)
+
     inner_grid_out = time_marching_scheme(
         value_grid=inner_grid_in,
         t1=time,
         t2=next_time,
         equation_params_fn=equation_params_fn,
+        append_boundaries_fn=_append_boundaries_fn,
         n_dims=n_dims)
 
-    updated_value_grid = _apply_boundary_conditions_after_step(
+    updated_value_grid = _append_boundaries(
         value_grid, inner_grid_out, coord_grid, boundary_conditions, batch_rank,
         next_time)
 
@@ -412,9 +418,9 @@ def _construct_tridiagonal_matrix(value_grid, second_order_coeff,
   return superdiag, diag, subdiag
 
 
-def _construct_contribution_of_mixed_term(outer_coeff, inner_coeff, coord_grid,
-                                          value_grid, dim1, dim2, batch_rank,
-                                          n_dims):
+def _construct_contribution_of_mixed_term(
+    outer_coeff, inner_coeff, coord_grid, value_grid,
+    dim1, dim2, batch_rank, n_dims):
   """Constructs contribution of a mixed derivative term."""
   if outer_coeff is None and inner_coeff is None:
     return None
@@ -462,17 +468,12 @@ def _construct_contribution_of_mixed_term(outer_coeff, inner_coeff, coord_grid,
   return contrib_pp, contrib_pm, contrib_mp, contrib_mm
 
 
-def _apply_boundary_conditions_to_tridiagonal_and_inhomog_terms(
-    value_grid, dim, batch_rank, boundary_conditions, coord_grid, superdiag,
-    diag, subdiag, delta, t):
-  """Updates contributions according to boundary conditions."""
-  # This is analogous to _apply_boundary_conditions_to_discretized_equation in
-  # pde_kernels.py. The difference is that we work with the given spatial
-  # dimension. In particular, in all the tensor slices we have to slice
-  # into the dimension `batch_rank + dim` instead of the last dimension.
-
-  # Retrieve the boundary conditions in the form alpha V + beta V' = gamma.
-
+def _get_bound_coeff(coord_grid,
+                     value_grid,
+                     boundary_conditions,
+                     batch_rank,
+                     dim, t):
+  """Extracts boundary conditions in a form alpha V + beta V' = gamma."""
   alpha_l, beta_l, gamma_l = boundary_conditions[dim][0](t, coord_grid)
   alpha_u, beta_u, gamma_u = boundary_conditions[dim][1](t, coord_grid)
 
@@ -496,7 +497,23 @@ def _apply_boundary_conditions_to_tridiagonal_and_inhomog_terms(
 
   alpha_l, beta_l, gamma_l, alpha_u, beta_u, gamma_u = map(
       reshape_fn, (alpha_l, beta_l, gamma_l, alpha_u, beta_u, gamma_u))
+  return alpha_l, beta_l, gamma_l, alpha_u, beta_u, gamma_u
 
+
+def _apply_boundary_conditions_to_tridiagonal_and_inhomog_terms(
+    value_grid, dim, batch_rank, boundary_conditions, coord_grid, superdiag,
+    diag, subdiag, delta, t):
+  """Updates contributions according to boundary conditions."""
+  # This is analogous to _apply_boundary_conditions_to_discretized_equation in
+  # pde_kernels.py. The difference is that we work with the given spatial
+  # dimension. In particular, in all the tensor slices we have to slice
+  # into the dimension `batch_rank + dim` instead of the last dimension.
+
+  # Retrieve the boundary conditions in the form alpha V + beta V' = gamma.
+  (
+      alpha_l, beta_l, gamma_l, alpha_u, beta_u, gamma_u
+  ) = _get_bound_coeff(coord_grid, value_grid,
+                       boundary_conditions, batch_rank, dim, t)
   dim += batch_rank
   subdiag_first = _slice(subdiag, dim, 0, 1)
   superdiag_last = _slice(superdiag, dim, -1, 0)
@@ -507,9 +524,11 @@ def _apply_boundary_conditions_to_tridiagonal_and_inhomog_terms(
     # corrections to the tridiagonal matrix, so we can take a shortcut.
     first_inhomog_element = subdiag_first * gamma_l / alpha_l
     last_inhomog_element = superdiag_last * gamma_u / alpha_u
-    inhomog_term = tf.concat(
-        (first_inhomog_element, tf.zeros_like(diag_inner),
-         last_inhomog_element), dim)
+    inhomog_term = _append_first_and_last(
+        first_inhomog_element,
+        tf.zeros_like(diag_inner),
+        last_inhomog_element,
+        axis=dim)
     return (superdiag, diag, subdiag), inhomog_term
 
   # A few more slices we're going to need.
@@ -533,44 +552,47 @@ def _apply_boundary_conditions_to_tridiagonal_and_inhomog_terms(
   diag_last_correction = superdiag_last * xi1
   subdiag_correction = superdiag_last * xi2
   last_inhomog_element = superdiag_last * eta
-  diag = tf.concat((diag_first + diag_first_correction, diag_inner,
-                    diag_last + diag_last_correction), dim)
-  superdiag = tf.concat(
-      (superdiag_first + superdiag_correction, superdiag_except_first), dim)
-  subdiag = tf.concat(
-      (subdiag_except_last, subdiag_last + subdiag_correction), dim)
-  inhomog_term = tf.concat((first_inhomog_element, tf.zeros_like(diag_inner),
-                            last_inhomog_element), dim)
+  diag = _append_first_and_last(
+      diag_first + diag_first_correction,
+      diag_inner,
+      diag_last + diag_last_correction, axis=dim)
+  superdiag = _append_first(
+      superdiag_first + superdiag_correction, superdiag_except_first,
+      axis=dim)
+  subdiag = _append_last(
+      subdiag_except_last, subdiag_last + subdiag_correction, axis=dim)
+  inhomog_term = _append_first_and_last(
+      first_inhomog_element,
+      tf.zeros_like(diag_inner),
+      last_inhomog_element,
+      axis=dim)
   return (superdiag, diag, subdiag), inhomog_term
 
 
-def _apply_boundary_conditions_after_step(value_grid_in, inner_grid_out,
-                                          coord_grid, boundary_conditions,
-                                          batch_rank, t):
+def _append_boundaries(value_grid_in, inner_grid_out,
+                       coord_grid, boundary_conditions,
+                       batch_rank, t):
   """Calculates and appends boundary values after making a step."""
   # After we've updated the values in the inner part of the grid according to
   # the PDE, we append the boundary values calculated using the boundary
   # conditions.
   # This is done using the discretized form of the boundary conditions,
   # v0 = xi1 v1 + xi2 v2 + eta.
-  # This is analogous to _apply_boundary_conditions_after_step in
-  # pde_kernels.py, except we have to restore the boundaries in each
-  # dimension. For example, for n_dims=2, inner_grid_out has dimensions
-  # (b, ny-2, nx-2), which then becomes (b, ny, nx-2) and finally (b, ny, nx).
+  # This is analogous to _append_boundaries in pde_kernels.py, except we have to
+  # restore the boundaries in each dimension. For example, for n_dims=2,
+  # inner_grid_out has dimensions (b, ny-2, nx-2), which then becomes
+  # (b, ny, nx-2) and finally (b, ny, nx).
   grid = inner_grid_out
   for dim in range(len(coord_grid)):
-    grid = _apply_boundary_conditions_after_step_to_dim(dim, batch_rank,
-                                                        boundary_conditions,
-                                                        coord_grid,
-                                                        value_grid_in, grid, t)
-
+    grid = _append_boundary(dim, batch_rank,
+                            boundary_conditions,
+                            coord_grid,
+                            value_grid_in, grid, t)
   return grid
 
 
-def _apply_boundary_conditions_after_step_to_dim(dim, batch_rank,
-                                                 boundary_conditions,
-                                                 coord_grid, value_grid_in,
-                                                 current_value_grid_out, t):
+def _append_boundary(dim, batch_rank, boundary_conditions,
+                     coord_grid, value_grid_in, current_value_grid_out, t):
   """Calculates and appends boundaries orthogonal to `dim`."""
   # E.g. for n_dims = 3, and dim = 1, the expected input grid shape is
   # (b, nx, ny-2, nz-2), and the output shape is (b, nx, ny, nz-2).
@@ -610,8 +632,8 @@ def _apply_boundary_conditions_after_step_to_dim(dim, batch_rank,
   xi1, xi2, eta = _discretize_boundary_conditions(delta, delta, alpha_u,
                                                   beta_u, gamma_u)
   last_value = (xi1 * upper_value_first + xi2 * upper_value_second + eta)
-  return tf.concat((first_value, current_value_grid_out, last_value),
-                   batch_rank + dim)
+  return _append_first_and_last(first_value, current_value_grid_out, last_value,
+                                axis=batch_rank + dim)
 
 
 def _get_grid_delta(coord_grid, dim):
@@ -691,16 +713,12 @@ def _slice(tensor, dim, start, end):
   # _slice(t, 1, 3, 5) is same as t[:, 3:5].
   # For a slice unbounded to the right, set end=0: _slice(t, 1, -3, 0) is same
   # as t[:, -3:].
-  rank = len(tensor.shape.as_list())
-  if start < 0:
-    start += tf.compat.dimension_value(tensor.shape.as_list()[dim])
-  if end <= 0:
-    end += tf.compat.dimension_value(tensor.shape.as_list()[dim])
-  slice_begin = np.zeros(rank, dtype=np.int32)
-  slice_begin[dim] = start
-  slice_size = -np.ones(rank, dtype=np.int32)
-  slice_size[dim] = end - start
-  return tf.slice(tensor, slice_begin, slice_size)
+  rank = tensor.shape.rank
+  slices = rank * [slice(None)]
+  if end == 0:
+    end = None
+  slices[dim] = slice(start, end)
+  return tensor[slices]
 
 
 def _trim_boundaries(tensor, from_dim, shifts=None):
@@ -726,6 +744,26 @@ def _trim_boundaries(tensor, from_dim, shifts=None):
     if shifts is not None:
       slice_begin[i] += shifts[i - from_dim]
   return tf.slice(tensor, slice_begin, slice_size)
+
+
+def _append_first_and_last(first, inner, last, axis):
+  if first is None:
+    return _append_last(inner, last, axis=axis)
+  if last is None:
+    return _append_first(first, inner, axis=axis)
+  return tf.concat((first, inner, last), axis=axis)
+
+
+def _append_first(first, rest, axis):
+  if first is None:
+    return rest
+  return tf.concat((first, rest), axis=axis)
+
+
+def _append_last(rest, last, axis):
+  if last is None:
+    return rest
+  return tf.concat((rest, last), axis=axis)
 
 
 __all__ = ['multidim_parabolic_equation_step']
