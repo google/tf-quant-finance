@@ -20,11 +20,14 @@ import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
 
+from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+
 # Helper aliases.
 NORMAL = tff.models.sabr.approximations.SabrImpliedVolatilityType.NORMAL
 LOGNORMAL = tff.models.sabr.approximations.SabrImpliedVolatilityType.LOGNORMAL
 
 
+@test_util.run_all_in_graph_and_eager_modes
 class SabrApproximationEuropeanOptionsTest(parameterized.TestCase,
                                            tf.test.TestCase):
   """Tests for SABR approximations to implied volatility."""

@@ -75,7 +75,7 @@ py_test(
     timeout = "long",
     srcs = ["calibration_test.py"],
     python_version = "PY3",
-    shard_count = 6,
+    shard_count = 11,
     deps = [
         "//tf_quant_finance",
         # test util,

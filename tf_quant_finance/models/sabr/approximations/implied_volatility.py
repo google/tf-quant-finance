@@ -167,7 +167,7 @@ def implied_volatility(*,
     # Zeta, as defined in (eq. A.69b in [1])
     zeta = (nu / adj_alpha) * sqrt_adj_moneyness * log_moneyness
     # Zeta / xhat(zeta), as defined in (eq. A.69b in [1])
-    zeta_by_xhat = _zeta_by_xhat(zeta, rho)
+    zeta_by_xhat = _zeta_by_xhat(zeta, rho, dtype)
 
     # This is the denominator term occurring in the ((1 + ...) / (1 + ...)) of
     # (eq. A.69a) in [1].
@@ -203,14 +203,22 @@ def implied_volatility(*,
       raise ValueError('Invalid value of `volatility_type`')
 
 
-def _zeta_by_xhat(zeta, rho):
+def _epsilon(dtype):
+  dtype = tf.as_dtype(dtype).as_numpy_dtype
+  eps = 1e-6 if dtype == tf.float32.as_numpy_dtype else 1e-10
+  return eps
+
+
+def _zeta_by_xhat(zeta, rho, dtype):
   zbxh = tf.math.divide_no_nan(
       zeta,
       tf.math.log(
           (tf.math.sqrt(1 - 2 * rho * zeta + zeta * zeta) - rho + zeta) /
           (1.0 - rho)))
+  eps = _epsilon(dtype)
+
   # When zeta -> 0, the limit of zeta / x_hat(zeta) reduces to 1.0
-  return tf.where(zeta != 0.0, zbxh, 1.0)
+  return tf.where(tf.abs(zeta) > eps, zbxh, 1.0)
 
 
 def _denom(beta, log_f_by_k):

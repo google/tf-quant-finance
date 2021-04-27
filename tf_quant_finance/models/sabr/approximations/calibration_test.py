@@ -214,9 +214,9 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'noise_size': 0.0,
           'alpha_tol': (1e-2, 1e-3),
           'beta_tol': (1e-8, 1e-8),
-          'nu_tol': (1e-2, 1e-3),
+          'nu_tol': (5e-2, 1e-1),
           'rho_tol': (1e-2, 1e-3),
-          'price_tol': (1e-2, 1e-3)
+          'price_tol': (1e-1, 5e-3)
       },
       {
           'testcase_name': 'no_noise_lognormal_fixed_beta_extremes',
@@ -233,7 +233,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'beta_tol': (1e-8, 1e-8),
           'nu_tol': (1e-2, 1e-3),
           'rho_tol': (1e-2, 1e-3),
-          'price_tol': (1e-2, 1e-3)
+          'price_tol': (1e-1, 5e-3)
       },
       {
           'testcase_name': 'low_noise_lognormal_fixed_beta_0x5',
@@ -248,9 +248,9 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'noise_size': 0.01,
           'alpha_tol': (1e-1, 1e-1),
           'beta_tol': (1e-8, 1e-8),
-          'nu_tol': (1e-1, 1e-1),
+          'nu_tol': (1.0, 1.0),
           'rho_tol': (1e-1, 1e-1),
-          'price_tol': (1e-1, 1e-3)
+          'price_tol': (1e-1, 5e-3)
       },
       {
           'testcase_name': 'no_noise_lognormal_calib_beta',
@@ -264,10 +264,10 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'vol_type': LOGNORMAL,
           'noise_size': 0.0,
           'alpha_tol': (1.0, 1e-1),
-          'beta_tol': (0.1, 1e-1),
-          'nu_tol': (0.1, 1e-1),
-          'rho_tol': (0.1, 1e-1),
-          'price_tol': (1e-2, 1e-3)
+          'beta_tol': (1e-1, 1e-1),
+          'nu_tol': (1e-1, 1e-1),
+          'rho_tol': (1e-1, 1e-1),
+          'price_tol': (1e-1, 5e-3)
       },
       {
           'testcase_name': 'no_noise_normal_fixed_beta_0x5',
@@ -282,9 +282,9 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'noise_size': 0.0,
           'alpha_tol': (1e-2, 1e-3),
           'beta_tol': (1e-8, 1e-8),
-          'nu_tol': (1e-2, 1e-3),
-          'rho_tol': (1e-2, 1e-3),
-          'price_tol': (1e-1, 1e-3)
+          'nu_tol': (5e-2, 1e-1),
+          'rho_tol': (1e-1, 1e-1),
+          'price_tol': (1e-1, 5e-3)
       },
       {
           'testcase_name': 'no_noise_normal_fixed_beta_extremes',
@@ -301,7 +301,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'beta_tol': (1e-8, 1e-8),
           'nu_tol': (1e-2, 1e-3),
           'rho_tol': (1e-2, 1e-3),
-          'price_tol': (1e-2, 1e-3)
+          'price_tol': (1e-1, 5e-3)
       },
       {
           'testcase_name': 'low_noise_normal_fixed_beta_0x5',
@@ -317,8 +317,8 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'alpha_tol': (1e-1, 1e-1),
           'beta_tol': (1e-8, 1e-8),
           'nu_tol': (1e-1, 1e-1),
-          'rho_tol': (1e-1, 1e-1),
-          'price_tol': (1e-1, 1e-3)
+          'rho_tol': (1e-1, 5e-1),
+          'price_tol': (1e-1, 5e-3)
       },
       {
           'testcase_name': 'no_noise_normal_calib_beta',
@@ -328,14 +328,14 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': True,
           'max_iterations': 1000,
-          'tolerance': 1e-6,
+          'tolerance': 1e-5,
           'vol_type': NORMAL,
           'noise_size': 0.0,
           'alpha_tol': (1.0, 1e-1),
-          'beta_tol': (0.1, 1e-1),
-          'nu_tol': (0.1, 1e-1),
-          'rho_tol': (0.1, 1e-1),
-          'price_tol': (1e-2, 1e-3)
+          'beta_tol': (1e-1, 1e-1),
+          'nu_tol': (1e-1, 1e-1),
+          'rho_tol': (5e-2, 5e-1),
+          'price_tol': (1e-1, 5e-3)
       },
   )
   def test_calibration(self, true_alpha, true_beta, true_nu, true_rho,
@@ -345,8 +345,8 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
     dtype = np.float64
 
     # Construct some market conditions.
-    strikes = np.array([np.arange(70, 131.0, 5.0),
-                        np.arange(70, 131.0, 5.0)],
+    strikes = np.array([np.arange(90, 110.5, 0.5),
+                        np.arange(90, 110.5, 0.5)],
                        dtype=dtype)
     expiries = np.array([[0.5], [1.0]], dtype=dtype)
     is_call_options = np.array([[True], [False]])
@@ -412,6 +412,9 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
         rho=np.array(np.expand_dims(calibrated_rho, axis=1), dtype=dtype),
         volatility_type=vol_type,
         dtype=dtype)
+
+    calibrated_prices, denoised_prices = self.evaluate(
+        [calibrated_prices, denoised_prices])
 
     self.assertAllClose(
         calibrated_prices,

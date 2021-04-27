@@ -21,11 +21,14 @@ import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
 
+from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+
 # Helper aliases.
 NORMAL = tff.models.sabr.approximations.SabrImpliedVolatilityType.NORMAL
 LOGNORMAL = tff.models.sabr.approximations.SabrImpliedVolatilityType.LOGNORMAL
 
 
+@test_util.run_all_in_graph_and_eager_modes
 class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
                                              tf.test.TestCase):
   """Tests for the SABR approximations to implied volatility."""
@@ -125,85 +128,100 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
             ],
         ])
 
-  @parameterized.named_parameters(
-      {
-          'testcase_name': 'generic_example',
-          'strikes': 130.0,
-          'forwards': 110.0,
-          'expiries': 200.0 / 365.0,
-          'alpha': 0.31,
-          'beta': 0.5,
-          'nu': 2.8,
-          'rho': -0.02,
-          'expected_vol': 0.1805437461785543
-      }, {
-          'testcase_name': 'beta_zero',
-          'strikes': 130.0,
-          'forwards': 110.0,
-          'expiries': 200.0 / 365.0,
-          'alpha': 0.31,
-          'beta': 0.0,
-          'nu': 2.8,
-          'rho': 0.2,
-          'expected_vol': 0.10940855660611389
-      }, {
-          'testcase_name': 'beta_one',
-          'strikes': 130.0,
-          'forwards': 110.0,
-          'expiries': 200.0 / 365.0,
-          'alpha': 0.31,
-          'beta': 1.0,
-          'nu': 2.8,
-          'rho': 0.2,
-          'expected_vol': 0.5679836366288498
-      }, {
-          'testcase_name': 'nu_zero',
-          'strikes': 130.0,
-          'forwards': 110.0,
-          'expiries': 200.0 / 365.0,
-          'alpha': 0.31,
-          'beta': 0.55,
-          'nu': 0.0,
-          'rho': 0.2,
-          'expected_vol': 0.036000740359707344
-      }, {
-          'testcase_name': 't_ex_zero',
-          'strikes': 130.0,
-          'forwards': 110.0,
-          'expiries': 0.0,
-          'alpha': 0.31,
-          'beta': 0.55,
-          'nu': 2.5,
-          'rho': 0.2,
-          'expected_vol': 0.1400903903272142
-      }, {
-          'testcase_name': 'at_the_money',
-          'strikes': 130.0,
-          'forwards': 130.0,
-          'expiries': 0.5,
-          'alpha': 0.31,
-          'beta': 0.55,
-          'nu': 2.5,
-          'rho': 0.2,
-          'expected_vol': 0.043211700217443874
-      }, {
-          'testcase_name': 'tensor_inputs',
-          'strikes': np.array([11.0, 15.0]),
-          'forwards': np.array([10.0, 11.0]),
-          'expiries': np.array([0.5, 2.0]),
-          'alpha': 0.31,
-          'beta': 0.28,
-          'nu': 2.5,
-          'rho': 0.2,
-          'expected_vol': np.array([
-              0.14847284969337574,
-              0.46783426296790165,
-          ])
-      })
+  @parameterized.product(
+      (
+          # 'testcase_name': 'generic_example',
+          {
+              'strikes': 130.0,
+              'forwards': 110.0,
+              'expiries': 200.0 / 365.0,
+              'alpha': 0.31,
+              'beta': 0.5,
+              'nu': 2.8,
+              'rho': -0.02,
+              'expected_vol': 0.1805437461785543
+          },
+          # 'testcase_name': 'beta_zero',
+          {
+              'strikes': 130.0,
+              'forwards': 110.0,
+              'expiries': 200.0 / 365.0,
+              'alpha': 0.31,
+              'beta': 0.0,
+              'nu': 2.8,
+              'rho': 0.2,
+              'expected_vol': 0.10940855660611389
+          },
+          # 'testcase_name': 'beta_one',
+          {
+              'strikes': 130.0,
+              'forwards': 110.0,
+              'expiries': 200.0 / 365.0,
+              'alpha': 0.31,
+              'beta': 1.0,
+              'nu': 2.8,
+              'rho': 0.2,
+              'expected_vol': 0.5679836366288498
+          },
+          # 'testcase_name': 'nu_zero',
+          {
+              'strikes': 130.0,
+              'forwards': 110.0,
+              'expiries': 200.0 / 365.0,
+              'alpha': 0.31,
+              'beta': 0.55,
+              'nu': 0.0,
+              'rho': 0.2,
+              'expected_vol': 0.036000740359707344
+          },
+          # 'testcase_name': 't_ex_zero',
+          {
+              'strikes': 130.0,
+              'forwards': 110.0,
+              'expiries': 0.0,
+              'alpha': 0.31,
+              'beta': 0.55,
+              'nu': 2.5,
+              'rho': 0.2,
+              'expected_vol': 0.1400903903272142
+          },
+          # 'testcase_name': 'at_the_money',
+          {
+              'strikes': 130.0,
+              'forwards': 130.0,
+              'expiries': 0.5,
+              'alpha': 0.31,
+              'beta': 0.55,
+              'nu': 2.5,
+              'rho': 0.2,
+              'expected_vol': 0.043211700217443874
+          },
+          # 'testcase_name': 'tensor_inputs',
+          {
+              'strikes':
+                  np.array([11.0, 15.0]),
+              'forwards':
+                  np.array([10.0, 11.0]),
+              'expiries':
+                  np.array([0.5, 2.0]),
+              'alpha':
+                  0.31,
+              'beta':
+                  0.28,
+              'nu':
+                  2.5,
+              'rho':
+                  0.2,
+              'expected_vol':
+                  np.array([
+                      0.14847284969337574,
+                      0.46783426296790165,
+                  ])
+          }),
+      dtype=(tf.float32, tf.float64))
   def test_implied_volatility_lognormal_correctness(self, forwards, strikes,
                                                     expiries, alpha, beta, rho,
-                                                    nu, expected_vol):
-    dtype = tf.float64
+                                                    nu, expected_vol, dtype):
     equiv_vol = tff.models.sabr.approximations.implied_volatility(
         forwards=forwards,
         strikes=strikes,
@@ -214,74 +232,80 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
         nu=nu,
         dtype=dtype)
     equiv_vol = self.evaluate(equiv_vol)
-    self.assertAllClose(expected_vol, equiv_vol)
+    self.assertAllClose(expected_vol, equiv_vol, atol=2e-5, rtol=2e-4)
 
-  @parameterized.named_parameters(
-      {
-          'testcase_name': 'generic_example',
-          'strikes': 130.0,
-          'forwards': 110.0,
-          'expiries': 200.0 / 365.0,
-          'alpha': 0.31,
-          'beta': 0.12,
-          'nu': 2.8,
-          'rho': -0.02,
-          'expected_vol': 14.240742
-      }, {
-          'testcase_name': 'beta_zero',
-          'strikes': 130.0,
-          'forwards': 110.0,
-          'expiries': 200.0 / 365.0,
-          'alpha': 0.31,
-          'beta': 0.0,
-          'nu': 2.8,
-          'rho': 0.2,
-          'expected_vol': 13.098578
-      }, {
-          'testcase_name': 'beta_one',
-          'strikes': 130.0,
-          'forwards': 110.0,
-          'expiries': 200.0 / 365.0,
-          'alpha': 0.31,
-          'beta': 1.0,
-          'nu': 2.8,
-          'rho': 0.2,
-          'expected_vol': 67.89029
-      }, {
-          'testcase_name': 'nu_zero',
-          'strikes': 130.0,
-          'forwards': 110.0,
-          'expiries': 200.0 / 365.0,
-          'alpha': 0.31,
-          'beta': 0.55,
-          'nu': 0.0,
-          'rho': 0.2,
-          'expected_vol': 4.309942
-      }, {
-          'testcase_name': 't_ex_zero',
-          'strikes': 130.0,
-          'forwards': 110.0,
-          'expiries': 0.0,
-          'alpha': 0.31,
-          'beta': 0.55,
-          'nu': 2.5,
-          'rho': 0.2,
-          'expected_vol': 16.771861
-      }, {
-          'testcase_name': 'tensor_inputs',
-          'strikes': np.array([11.0, 15.0]),
-          'forwards': np.array([10.0, 11.0]),
-          'expiries': np.array([0.5, 2.0]),
-          'alpha': 0.31,
-          'beta': 0.28,
-          'nu': 2.5,
-          'rho': 0.2,
-          'expected_vol': np.array([1.557701, 6.032939])
-      })
+  @parameterized.product(
+      (
+          # 'testcase_name': 'generic_example',
+          {
+              'strikes': 130.0,
+              'forwards': 110.0,
+              'expiries': 200.0 / 365.0,
+              'alpha': 0.31,
+              'beta': 0.12,
+              'nu': 2.8,
+              'rho': -0.02,
+              'expected_vol': 14.240742
+          },
+          # 'testcase_name': 'beta_zero',
+          {
+              'strikes': 130.0,
+              'forwards': 110.0,
+              'expiries': 200.0 / 365.0,
+              'alpha': 0.31,
+              'beta': 0.0,
+              'nu': 2.8,
+              'rho': 0.2,
+              'expected_vol': 13.098578
+          },
+          # 'testcase_name': 'beta_one',
+          {
+              'strikes': 130.0,
+              'forwards': 110.0,
+              'expiries': 200.0 / 365.0,
+              'alpha': 0.31,
+              'beta': 1.0,
+              'nu': 2.8,
+              'rho': 0.2,
+              'expected_vol': 67.89029
+          },
+          # 'testcase_name': 'nu_zero',
+          {
+              'strikes': 130.0,
+              'forwards': 110.0,
+              'expiries': 200.0 / 365.0,
+              'alpha': 0.31,
+              'beta': 0.55,
+              'nu': 0.0,
+              'rho': 0.2,
+              'expected_vol': 4.309942
+          },
+          # 'testcase_name': 't_ex_zero',
+          {
+              'strikes': 130.0,
+              'forwards': 110.0,
+              'expiries': 0.0,
+              'alpha': 0.31,
+              'beta': 0.55,
+              'nu': 2.5,
+              'rho': 0.2,
+              'expected_vol': 16.771861
+          },
+          # 'testcase_name': 'tensor_inputs',
+          {
+              'strikes': np.array([11.0, 15.0]),
+              'forwards': np.array([10.0, 11.0]),
+              'expiries': np.array([0.5, 2.0]),
+              'alpha': 0.31,
+              'beta': 0.28,
+              'nu': 2.5,
+              'rho': 0.2,
+              'expected_vol': np.array([1.557701, 6.032939])
+          }),
+      dtype=(tf.float32, tf.float64))
   def test_implied_volatility_normal_correctness(self, forwards, strikes,
                                                  expiries, alpha, beta, rho, nu,
-                                                 expected_vol):
-    dtype = tf.float64
+                                                 expected_vol, dtype):
     equiv_vol = tff.models.sabr.approximations.implied_volatility(
         forwards=forwards,
         strikes=strikes,
@@ -293,7 +317,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
         dtype=dtype,
         volatility_type=NORMAL)
     equiv_vol = self.evaluate(equiv_vol)
-    self.assertAllClose(expected_vol, equiv_vol)
+    self.assertAllClose(expected_vol, equiv_vol, atol=5e-3, rtol=1e-3)
 
   @parameterized.product(
       (
@@ -371,11 +395,10 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'rho': [[0.001], [-0.001]],
           }),
       vol_type=(NORMAL, LOGNORMAL),
-  )
+      dtype=(tf.float32, tf.float64))
   def test_implied_volatility_differentiable(self, strikes, forwards, expiries,
-                                             alpha, beta, nu, rho, vol_type):
-    dtype = tf.float64
-
+                                             alpha, beta, nu, rho, vol_type,
+                                             dtype):
     forwards = tf.convert_to_tensor(forwards, dtype=dtype)
     strikes = tf.convert_to_tensor(strikes, dtype=dtype)
     expiries = tf.convert_to_tensor(expiries, dtype=dtype)
