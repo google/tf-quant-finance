@@ -13,6 +13,7 @@ py_library(
         ":ito_process",
         ":joined_ito_process",
         ":milstein_sampling",
+        ":realized_volatility",
         "//tf_quant_finance/models/geometric_brownian_motion",
         "//tf_quant_finance/models/heston",
         "//tf_quant_finance/models/hjm",
@@ -157,6 +158,30 @@ py_test(
     shard_count = 3,
     deps = [
         ":utils",
+        "//tf_quant_finance",
+        # test util,
+        # absl/testing:parameterized dep,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "realized_volatility",
+    srcs = ["realized_volatility.py"],
+    srcs_version = "PY3",
+    deps = [
+        "//tf_quant_finance/math:diff_ops",
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "realized_volatility_test",
+    size = "small",
+    srcs = ["realized_volatility_test.py"],
+    python_version = "PY3",
+    deps = [
         "//tf_quant_finance",
         # test util,
         # absl/testing:parameterized dep,
