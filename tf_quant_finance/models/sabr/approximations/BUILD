@@ -65,6 +65,8 @@ py_library(
     srcs = ["calibration.py"],
     deps = [
         ":european_options",
+        ":implied_volatility",
+        "//tf_quant_finance/black_scholes",
         "//tf_quant_finance/math:gradient",
         "//tf_quant_finance/math/optimizer",
     ],
@@ -75,7 +77,7 @@ py_test(
     timeout = "long",
     srcs = ["calibration_test.py"],
     python_version = "PY3",
-    shard_count = 11,
+    shard_count = 20,
     deps = [
         "//tf_quant_finance",
         # test util,

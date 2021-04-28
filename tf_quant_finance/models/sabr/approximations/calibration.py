@@ -16,9 +16,11 @@
 from dataclasses import dataclass
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import black_scholes
+from tf_quant_finance.black_scholes.implied_vol_utils import UnderlyingDistribution
 from tf_quant_finance.math import make_val_and_grad_fn
 from tf_quant_finance.math import optimizer
-from tf_quant_finance.models.sabr.approximations import european_options
+from tf_quant_finance.models.sabr import approximations
 from tf_quant_finance.models.sabr.approximations.implied_volatility import SabrApproximationType
 from tf_quant_finance.models.sabr.approximations.implied_volatility import SabrImpliedVolatilityType
 
@@ -54,6 +56,7 @@ def calibration(*,
                 rho,
                 volatility_type=SabrImpliedVolatilityType.LOGNORMAL,
                 approximation_type=SabrApproximationType.HAGAN,
+                volatility_based_calibration=True,
                 alpha=None,
                 alpha_lower_bound=None,
                 alpha_upper_bound=None,
@@ -89,10 +92,6 @@ def calibration(*,
   Given a set of European option prices, this function estimates the SABR model
   parameters which best describe the input data. Calibration is done using the
   closed-form approximations for European option pricing.
-
-  If volatility-based calibration is not selected, then the calibration is
-  performed by minimizing the mean-squared-loss of the *log1p* of the input
-  and estimated European options prices.
 
   #### Example
 
@@ -165,6 +164,13 @@ def calibration(*,
       Default value: `LOGNORMAL`
     approximation_type: Instance of `SabrApproxmationScheme`.
       Default value: `HAGAN`.
+    volatility_based_calibration: Boolean. If `True`, then the options prices
+      are first converted to implied volatilities, and the calibration is then
+      performed by minimizing the difference between input implied volatilities
+      and the model implied volatilities. Otherwise, the calibration is
+      performed by minimizing the mean-squared-loss of the *log1p* of the input
+      and estimated European options prices.
+      Default value: True
     alpha: Real `Tensor` of shape [batch_size], specifying the initial estimate
       of initial level of the volatility. Values must be strictly positive. If
       this is not provided, then an initial value will be estimated, along with
@@ -264,9 +270,6 @@ def calibration(*,
     if optimizer_fn is None:
       optimizer_fn = optimizer.conjugate_gradient_minimize
 
-    def _price_transform(x):
-      return tf.math.log1p(x)
-
     if alpha is None:
       # We set the initial value of alpha to be s.t. alpha * F^(beta - 1) is
       # on the order of 10%.
@@ -328,48 +331,42 @@ def calibration(*,
     else:
       initial_x = tf.concat([initial_alpha, initial_nu, initial_rho], axis=0)
 
-    def _get_alpha_nu_rho(packed_optimizer_params):
-      a = _to_constrained(
-          packed_optimizer_params[0 * batch_size:1 * batch_size],
-          alpha_lower_bound, alpha_upper_bound)
-      v = _to_constrained(
-          packed_optimizer_params[1 * batch_size:2 * batch_size],
-          nu_lower_bound, nu_upper_bound)
-      r = _to_constrained(
-          packed_optimizer_params[2 * batch_size:3 * batch_size],
-          rho_lower_bound, rho_upper_bound)
-      return (a, v, r)
+    optimizer_arg_handler = _OptimizerArgHandler(
+        batch_size=batch_size,
+        alpha_lower_bound=alpha_lower_bound,
+        alpha_upper_bound=alpha_upper_bound,
+        nu_lower_bound=nu_lower_bound,
+        nu_upper_bound=nu_upper_bound,
+        rho_lower_bound=rho_lower_bound,
+        rho_upper_bound=rho_upper_bound,
+        calibrate_beta=calibrate_beta,
+        beta=beta,
+        beta_lower_bound=beta_lower_bound,
+        beta_upper_bound=beta_upper_bound)
 
-    def _get_beta(packed_optimizer_params):
-      if calibrate_beta:
-        return _to_constrained(
-            packed_optimizer_params[3 * batch_size:4 * batch_size],
-            beta_lower_bound, beta_upper_bound)
-      else:
-        return beta
-
-    scaled_target_values = _price_transform(prices)
-
-    @make_val_and_grad_fn
-    def loss_function(x):
-      """Loss function for the optimization."""
-      a, v, r = _get_alpha_nu_rho(x)
-      b = _get_beta(x)
-      values = european_options.option_price(
+    if volatility_based_calibration:
+      loss_function = _get_loss_for_volatility_based_calibration(
+          prices=prices,
           strikes=strikes,
           expiries=expiries,
           forwards=forwards,
           is_call_options=is_call_options,
-          alpha=tf.expand_dims(a, axis=-1),
-          beta=tf.expand_dims(b, axis=-1),
-          nu=tf.expand_dims(v, axis=-1),
-          rho=tf.expand_dims(r, axis=-1),
           volatility_type=volatility_type,
           approximation_type=approximation_type,
-          dtype=dtype)
+          dtype=dtype,
+          optimizer_arg_handler=optimizer_arg_handler)
 
-      scaled_values = _price_transform(values)
-      return tf.math.reduce_mean((scaled_values - scaled_target_values)**2)
+    else:  # Price based calibration.
+      loss_function = _get_loss_for_price_based_calibration(
+          prices=prices,
+          strikes=strikes,
+          expiries=expiries,
+          forwards=forwards,
+          is_call_options=is_call_options,
+          volatility_type=volatility_type,
+          approximation_type=approximation_type,
+          dtype=dtype,
+          optimizer_arg_handler=optimizer_arg_handler)
 
     optimization_result = optimizer_fn(
         loss_function,
@@ -378,9 +375,10 @@ def calibration(*,
         max_iterations=maximum_iterations)
 
     calibration_parameters = optimization_result.position
-    calibrated_alpha, calibrated_nu, calibrated_rho = _get_alpha_nu_rho(
-        calibration_parameters)
-    calibrated_beta = _get_beta(calibration_parameters)
+    calibrated_alpha = optimizer_arg_handler.get_alpha(calibration_parameters)
+    calibrated_nu = optimizer_arg_handler.get_nu(calibration_parameters)
+    calibrated_rho = optimizer_arg_handler.get_rho(calibration_parameters)
+    calibrated_beta = optimizer_arg_handler.get_beta(calibration_parameters)
 
     return (CalibrationResult(
         alpha=calibrated_alpha,
@@ -388,6 +386,132 @@ def calibration(*,
         volvol=calibrated_nu,
         rho=calibrated_rho), optimization_result.converged,
             optimization_result.num_iterations)
+
+
+def _get_loss_for_volatility_based_calibration(*, prices, strikes, expiries,
+                                               forwards, is_call_options,
+                                               volatility_type,
+                                               approximation_type, dtype,
+                                               optimizer_arg_handler):
+  """Creates a loss function to be used in volatility-based calibration."""
+  if volatility_type == SabrImpliedVolatilityType.LOGNORMAL:
+    underlying_distribution = UnderlyingDistribution.LOG_NORMAL
+  elif volatility_type == SabrImpliedVolatilityType.NORMAL:
+    underlying_distribution = UnderlyingDistribution.NORMAL
+  else:
+    raise ValueError('Unsupported `volatility_type`!')
+  target_implied_vol = black_scholes.implied_vol(
+      prices=prices,
+      strikes=strikes,
+      expiries=expiries,
+      forwards=forwards,
+      is_call_options=is_call_options,
+      underlying_distribution=underlying_distribution)
+
+  @make_val_and_grad_fn
+  def loss_function(x):
+    """Loss function for vol-based optimization."""
+    candidate_alpha = optimizer_arg_handler.get_alpha(x)
+    candidate_nu = optimizer_arg_handler.get_nu(x)
+    candidate_rho = optimizer_arg_handler.get_rho(x)
+    candidate_beta = optimizer_arg_handler.get_beta(x)
+
+    implied_vol = approximations.implied_volatility(
+        strikes=strikes,
+        expiries=expiries,
+        forwards=forwards,
+        alpha=tf.expand_dims(candidate_alpha, axis=-1),
+        beta=tf.expand_dims(candidate_beta, axis=-1),
+        nu=tf.expand_dims(candidate_nu, axis=-1),
+        rho=tf.expand_dims(candidate_rho, axis=-1),
+        volatility_type=volatility_type,
+        approximation_type=approximation_type,
+        dtype=dtype)
+
+    return tf.math.reduce_mean((target_implied_vol - implied_vol)**2)
+
+  return loss_function
+
+
+def _get_loss_for_price_based_calibration(*, prices, strikes, expiries,
+                                          forwards, is_call_options,
+                                          volatility_type, approximation_type,
+                                          dtype, optimizer_arg_handler):
+  """Creates a loss function to be used in volatility-based calibration."""
+
+  def _price_transform(x):
+    return tf.math.log1p(x)
+
+  scaled_target_values = _price_transform(prices)
+
+  @make_val_and_grad_fn
+  def loss_function(x):
+    """Loss function for the price-based optimization."""
+    candidate_alpha = optimizer_arg_handler.get_alpha(x)
+    candidate_nu = optimizer_arg_handler.get_nu(x)
+    candidate_rho = optimizer_arg_handler.get_rho(x)
+    candidate_beta = optimizer_arg_handler.get_beta(x)
+
+    values = approximations.european_option_price(
+        strikes=strikes,
+        expiries=expiries,
+        forwards=forwards,
+        is_call_options=is_call_options,
+        alpha=tf.expand_dims(candidate_alpha, axis=-1),
+        beta=tf.expand_dims(candidate_beta, axis=-1),
+        nu=tf.expand_dims(candidate_nu, axis=-1),
+        rho=tf.expand_dims(candidate_rho, axis=-1),
+        volatility_type=volatility_type,
+        approximation_type=approximation_type,
+        dtype=dtype)
+
+    scaled_values = _price_transform(values)
+    return tf.math.reduce_mean((scaled_values - scaled_target_values)**2)
+
+  return loss_function
+
+
+@dataclass
+class _OptimizerArgHandler(object):
+  """Handles the packing/transformation of estimated parameters."""
+  batch_size: int
+  alpha_lower_bound: tf.Tensor
+  alpha_upper_bound: tf.Tensor
+  nu_lower_bound: tf.Tensor
+  nu_upper_bound: tf.Tensor
+  rho_lower_bound: tf.Tensor
+  rho_upper_bound: tf.Tensor
+  calibrate_beta: bool
+  beta: tf.Tensor
+  beta_lower_bound: tf.Tensor
+  beta_upper_bound: tf.Tensor
+
+  def get_alpha(self, packed_optimizer_args):
+    """Unpack and return the alpha parameter."""
+    return _to_constrained(
+        packed_optimizer_args[0 * self.batch_size:1 * self.batch_size],
+        self.alpha_lower_bound, self.alpha_upper_bound)
+
+  def get_nu(self, packed_optimizer_args):
+    """Unpack and return the volvol parameter."""
+    return _to_constrained(
+        packed_optimizer_args[1 * self.batch_size:2 * self.batch_size],
+        self.nu_lower_bound, self.nu_upper_bound)
+
+  def get_rho(self, packed_optimizer_args):
+    """Unpack and return the rho parameter."""
+    return _to_constrained(
+        packed_optimizer_args[2 * self.batch_size:3 * self.batch_size],
+        self.rho_lower_bound, self.rho_upper_bound)
+
+  def get_beta(self, packed_optimizer_args):
+    """Unpack and return the beta parameter."""
+    if self.calibrate_beta:
+      return _to_constrained(
+          packed_optimizer_args[3 * self.batch_size:4 * self.batch_size],
+          self.beta_lower_bound, self.beta_upper_bound)
+    else:
+      return self.beta
 
 
 def _scale(x, lb, ub):
