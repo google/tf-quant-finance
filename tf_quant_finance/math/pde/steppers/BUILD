@@ -66,7 +66,6 @@ py_test(
     deps = [
         "//tf_quant_finance",
         # test util,
-        # numpy dep,
         # tensorflow dep,
     ],
 )

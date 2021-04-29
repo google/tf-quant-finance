@@ -293,9 +293,9 @@ def _construct_space_discretized_eqn_params(
   diag = diag_zeroth_order + diag_first_order + diag_second_order
   # Apply default BC, if needed. This adds extra points to the diagonal terms
   # coming from discretization of 'V_t + b * d(B * V)/dx + c * V = 0'.
-  [
+  (
       subdiag, diag, superdiag
-  ] = _apply_default_boundary(subdiag, diag, superdiag,
+  ) = _apply_default_boundary(subdiag, diag, superdiag,
                               zeroth_order_coeff,
                               inner_first_order_coeff,
                               first_order_coeff,
@@ -329,9 +329,9 @@ def _apply_default_boundary(subdiag, diag, superdiag,
     zeroth_order_coeff = tf.zeros([1], dtype=diag.dtype)
   # Updates for lower BC
   if has_default_lower_boundary:
-    [
+    (
         subdiag, diag, superdiag
-    ] = _apply_default_lower_boundary(subdiag, diag, superdiag,
+    ) = _apply_default_lower_boundary(subdiag, diag, superdiag,
                                       zeroth_order_coeff,
                                       inner_first_order_coeff,
                                       first_order_coeff,
@@ -340,9 +340,9 @@ def _apply_default_boundary(subdiag, diag, superdiag,
 
   # Updates for upper BC
   if has_default_upper_boundary:
-    [
+    (
         subdiag, diag, superdiag
-    ] = _apply_default_upper_boundary(subdiag, diag, superdiag,
+    ) = _apply_default_upper_boundary(subdiag, diag, superdiag,
                                       zeroth_order_coeff,
                                       inner_first_order_coeff,
                                       first_order_coeff,
@@ -377,7 +377,7 @@ def _apply_default_lower_boundary(subdiag, diag, superdiag,
       extra_first_order_coeff = tf.ones(batch_shape, dtype=diag.dtype)
   else:
     extra_first_order_coeff = first_order_coeff[..., 0]
-  extra_superdiag_coeff = (inner_coeff[1] * extra_first_order_coeff
+  extra_superdiag_coeff = (inner_coeff[..., 1] * extra_first_order_coeff
                            / forward_deltas[..., 0])
   # Minus is due to moving to rhs.
   superdiag = _append_first(-extra_superdiag_coeff, superdiag)

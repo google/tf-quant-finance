@@ -1073,7 +1073,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
         sizes=[100],
         dtype=np.float64))
 
-    initial_values = tf.math.exp(grid[0])  # Initial condtion
+    initial_values = tf.expand_dims(tf.math.exp(grid[0]), axis=0)
     final_t = 0.1
     time_step = 0.001
 
@@ -1089,7 +1089,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
         inner_first_order_coeff_fn=inner_first_order_coeff_fn,
         zeroth_order_coeff_fn=zeroth_order_coeff_fn)[0]
 
-    true_values = tf.math.exp(final_t + grid[0])
+    true_values = tf.expand_dims(tf.math.exp(final_t + grid[0]), axis=0)
     self.assertAllClose(
         est_values, true_values, atol=1e-2, rtol=1e-2)
 
@@ -1124,7 +1124,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
         sizes=[100],
         dtype=np.float64))
 
-    initial_values = tf.math.exp(grid[0])  # Initial condtion
+    initial_values = tf.expand_dims(tf.math.exp(grid[0]), axis=0)
     final_t = 0.1
     time_step = 0.001
 
@@ -1138,7 +1138,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
         second_order_coeff_fn=second_order_coeff_fn,
         inner_first_order_coeff_fn=inner_first_order_coeff_fn)[0]
 
-    true_values = tf.math.exp(final_t + grid[0])
+    true_values = tf.expand_dims(tf.math.exp(final_t + grid[0]), axis=0)
     self.assertAllClose(
         est_values, true_values, atol=1e-2, rtol=1e-2)
 

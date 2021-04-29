@@ -44,8 +44,8 @@ def solve_backward(start_time,
   partial differential equation:
 
   ```None
-    dV/dt + Sum[a_ij d2(A_ij V)/dx_i dx_j, 1 <= i, j <=n] +
-       Sum[b_i d(B_i V)/dx_i, 1 <= i <= n] + c V = 0.
+    dV/dt + Sum[a_ij d2(A_ij V)/dx_i dx_j, 0 <= i, j <=n-1] +
+       Sum[b_i d(B_i V)/dx_i, 0 <= i <= n-1] + c V = 0.
   ```
   from time `t0` to time `t1<t0` (i.e. backwards in time). Here `a_ij`,
   `A_ij`, `b_i`, `B_i` and `c` are coefficients that may depend on spatial
@@ -236,14 +236,16 @@ def solve_backward(start_time,
        - for multidimensional problems.
     boundary_conditions: The boundary conditions. Only rectangular boundary
       conditions are supported. A list of tuples of size `n` (space dimension
-      of the PDE). Each tuple consists of two callables or `None`s values
-      representing the boundary conditions at the minimum and maximum values of
-      the spatial variable indexed by the position in the list. E.g. for `n=2`,
-      the length of `boundary_conditions` should be 2,
+      of the PDE). The elements of the Tuple can be either a Python Callable or
+      `None` representing the boundary conditions at the minimum and maximum
+      values of the spatial variable indexed by the position in the list. E.g.,
+      for `n=2`, the length of `boundary_conditions` should be 2,
       `boundary_conditions[0][0]` describes the boundary `(y_min, x)`, and
       `boundary_conditions[1][0]`- the boundary `(y, x_min)`. `None` values mean
-      that the second order term on the boundary is assumed to be zero, i.e.,
-      'dV/dt + b * d(B * V)/dx + c * V = 0'.
+      that the second order terms for that dimension on the boundary are assumed
+      to be zero, i.e., if `boundary_conditions[k][0]` is None,
+      'dV/dt + Sum[a_ij d2(A_ij V)/dx_i dx_j, 1 <= i, j <=n, i!=k+1, j!=k+1] +
+         Sum[b_i d(B_i V)/dx_i, 1 <= i <= n] + c V = 0.'
       For not `None` values, the boundary conditions are accepted in the form
       `alpha(t, x) V + beta(t, x) V_n = gamma(t, x)`, where `V_n` is the
       derivative with respect to the exterior normal to the boundary.
@@ -470,14 +472,16 @@ def solve_forward(start_time,
        - for multidimensional problems.
     boundary_conditions: The boundary conditions. Only rectangular boundary
       conditions are supported. A list of tuples of size `n` (space dimension
-      of the PDE). Each tuple consists of two callables or `None`s values
-      representing the boundary conditions at the minimum and maximum values of
-      the spatial variable indexed by the position in the list. E.g. for `n=2`,
-      the length of `boundary_conditions` should be 2,
+      of the PDE). The elements of the Tuple can be either a Python Callable or
+      `None` representing the boundary conditions at the minimum and maximum
+      values of the spatial variable indexed by the position in the list. E.g.,
+      for `n=2`, the length of `boundary_conditions` should be 2,
       `boundary_conditions[0][0]` describes the boundary `(y_min, x)`, and
       `boundary_conditions[1][0]`- the boundary `(y, x_min)`. `None` values mean
-      that the second order term on the boundary is assumed to be zero, i.e.,
-      'dV/dt + b * d(B * V)/dx + c * V = 0'.
+      that the second order terms for that dimension on the boundary are assumed
+      to be zero, i.e., if `boundary_conditions[k][0]` is None,
+      'dV/dt + Sum[a_ij d2(A_ij V)/dx_i dx_j, 1 <= i, j <=n, i!=k+1, j!=k+1] +
+         Sum[b_i d(B_i V)/dx_i, 1 <= i <= n] + c V = 0.'
       For not `None` values, the boundary conditions are accepted in the form
       `alpha(t, x) V + beta(t, x) V_n = gamma(t, x)`, where `V_n` is the
       derivative with respect to the exterior normal to the boundary.
@@ -632,13 +636,6 @@ def _solve(
   if (num_steps is None) == (time_step is None):
     raise ValueError('Exactly one of num_steps or time_step'
                      ' should be supplied.')
-  # Default conditions are supported only in 1 dimensional case for now
-  if boundary_conditions is not None:
-    if len(boundary_conditions) > 1:
-      if any([None in bc_types for bc_types in boundary_conditions]):
-        raise ValueError('At the moment, `None` boundary conditions are only '
-                         'supported in 1-dimensional case.')
-
   coord_grid = [
       tf.convert_to_tensor(dim_grid, dtype=values_grid.dtype)
       for dim_grid in coord_grid

@@ -52,7 +52,9 @@ class DouglasAdiSchemeTest(tf.test.TestCase):
         scheme(value_grid=tf.constant(u, dtype=tf.float32), t1=0, t2=1,
                equation_params_fn=equation_params_fn,
                append_boundaries_fn=pad_fn,
-               n_dims=2))
+               n_dims=2,
+               has_default_lower_boundary=[False, False],
+               has_default_upper_boundary=[False, False]))
     expected = self._simplified_douglas_step_2d(u, dx, dy, dxy, bx, by,
                                                 0, 1, theta)
     self.assertLess(np.max(np.abs(expected - actual)), 0.01)
@@ -84,13 +86,16 @@ class DouglasAdiSchemeTest(tf.test.TestCase):
     scheme = douglas_adi_scheme(theta=theta)
 
     def pad_fn(t):
-      paddings = tf.constant([[1, 1], [1, 1], [1, 1]])
+      paddings = tf.constant([[0, 1], [1, 0], [1, 0]])
       return tf.pad(t, paddings)
 
     actual = self.evaluate(
         scheme(value_grid=tf.constant(u, dtype=tf.float32), t1=0, t2=1,
                equation_params_fn=equation_params_fn,
-               append_boundaries_fn=pad_fn, n_dims=3))
+               append_boundaries_fn=pad_fn, n_dims=3,
+               # Tests default boundary as well
+               has_default_lower_boundary=[True, False, False],
+               has_default_upper_boundary=[False, True, True]))
     expected = self._simplified_douglas_step_3d(u, dx, dy, dz, dxy, dyz, dxz,
                                                 bx, by, bz, 0, 1, theta)
     self.assertLess(np.max(np.abs(expected - actual)), 0.01)
@@ -222,13 +227,16 @@ class DouglasAdiSchemeTest(tf.test.TestCase):
     scheme = douglas_adi_scheme(theta=theta)
 
     def pad_fn(t):
-      paddings = tf.constant([[0, 0], [1, 1], [1, 1]])
+      paddings = tf.constant([[0, 0], [0, 1], [1, 0]])
       return tf.pad(t, paddings)
 
     actual = self.evaluate(
         scheme(value_grid=tf.constant(u, dtype=tf.float32), t1=0, t2=1,
                equation_params_fn=equation_params_fn,
-               append_boundaries_fn=pad_fn, n_dims=2))
+               append_boundaries_fn=pad_fn, n_dims=2,
+               # Tests default boundary as well
+               has_default_lower_boundary=[True, False],
+               has_default_upper_boundary=[False, True]))
     expected = np.zeros_like(u)
     for i in range(4):
       expected[i] = self._simplified_douglas_step_2d(u[i], dx[:, i], dy[:, i],

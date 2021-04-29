@@ -14,6 +14,8 @@
 # limitations under the License.
 """Tests for multidimensional parabolic PDE solvers."""
 
+from absl.testing import parameterized
+
 import numpy as np
 import tensorflow.compat.v2 as tf
 
@@ -31,16 +33,26 @@ _SQRT2 = np.sqrt(2)
 
 
 @test_util.run_all_in_graph_and_eager_modes
-class MultidimParabolicEquationStepperTest(tf.test.TestCase):
+class MultidimParabolicEquationStepperTest(tf.test.TestCase,
+                                           parameterized.TestCase):
 
-  def testAnisotropicDiffusion(self):
-    """Tests solving 2d diffusion equation.
-
-    The equation is `u_{t} + Dx u_{xx} + Dy u_{yy} = 0`.
-    The final condition is a gaussian centered at (0, 0) with variance sigma.
-    The variance along each dimension should evolve as
-    `sigma + 2 Dx (t_final - t)` and `sigma + 2 Dy (t_final - t)`.
-    """
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'DefaultBC',
+          'boundary_condition': 'default',
+      }, {
+          'testcase_name': 'MixedBC',
+          'boundary_condition': 'mixed',
+      }, {
+          'testcase_name': 'DirichletBC',
+          'boundary_condition': 'dirichlet',
+      })
+  def testAnisotropicDiffusion(self, boundary_condition):
+    """Tests solving 2d diffusion equation."""
+    # The equation is `u_{t} + Dx u_{xx} + Dy u_{yy} = 0`.
+    # The final condition is a gaussian centered at (0, 0) with variance sigma.
+    # The variance along each dimension should evolve as
+    # `sigma + 2 Dx (t_final - t)` and `sigma + 2 Dy (t_final - t)`.
     grid = grids.uniform_grid(
         minimums=[-10, -20],
         maximums=[10, 20],
@@ -68,8 +80,15 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
                 _gaussian(ys, final_variance), _gaussian(xs, final_variance)),
             dtype=tf.float32),
         axis=0)
-    bound_cond = [(_zero_boundary, _zero_boundary),
-                  (_zero_boundary, _zero_boundary)]
+    if boundary_condition == 'default':
+      bound_cond = [(None, None),
+                    (None, None)]
+    elif boundary_condition == 'dirichlet':
+      bound_cond = [(_zero_boundary, _zero_boundary),
+                    (_zero_boundary, _zero_boundary)]
+    else:
+      bound_cond = [(_zero_boundary, None),
+                    (None, _zero_grad_boundary)]
     step_fn = douglas_adi_step(theta=0.5)
     result = fd_solvers.solve_backward(
         start_time=final_t,
@@ -80,13 +99,97 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
         one_step_fn=step_fn,
         boundary_conditions=bound_cond,
         second_order_coeff_fn=quadratic_coeff_fn,
-        dtype=grid[0].dtype)
+        dtype=grid[0].dtype)[0]
 
     variance_x = final_variance + 2 * diff_coeff_x * final_t
     variance_y = final_variance + 2 * diff_coeff_y * final_t
     expected = np.outer(_gaussian(ys, variance_y), _gaussian(xs, variance_x))
 
     self._assertClose(expected, result)
+
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'DefaultBC',
+          'boundary_condition': 'default',
+      }, {
+          'testcase_name': 'MixedBC',
+          'boundary_condition': 'mixed',
+      }, {
+          'testcase_name': 'DirichletBC',
+          'boundary_condition': 'dirichlet',
+      })
+  def testAnisotropicDiffusion3d(self, boundary_condition):
+    """Tests solving 3d diffusion equation."""
+    # The equation is `u_{t} + Dx u_{xx} + Dy u_{yy} + Dy u_{zy} = 0`.
+    # The final condition is a gaussian centered at (0, 0) with variance sigma.
+    # The variance along each dimension should evolve as
+    # `sigma + 2 Dx (t_final - t)` and `sigma + 2 Dy (t_final - t)`.
+    grid = grids.uniform_grid(
+        minimums=[-10, -20, -10],
+        maximums=[10, 20, 10],
+        sizes=[101, 111, 121],
+        dtype=tf.float32)
+
+    zs = self.evaluate(grid[0])
+    ys = self.evaluate(grid[1])
+    xs = self.evaluate(grid[2])
+
+    diff_coeff_x = 0.4  # Dx
+    diff_coeff_y = 0.25  # Dy
+    diff_coeff_z = 0.1  # Dz
+    time_step = 0.1
+    final_t = 1
+    final_variance = 1
+
+    def quadratic_coeff_fn(t, location_grid):
+      del t, location_grid
+      u_xx = diff_coeff_x
+      u_yy = diff_coeff_y
+      u_zz = diff_coeff_z
+      # Specify mixed derivatives explicitly to trigger mixed discretization
+      # matrix updater for the default boundary
+      u_xy = 0
+      u_zy = 0
+      u_zx = 0
+      return [[u_zz, u_zy, u_zx], [u_zy, u_yy, u_xy], [u_zx, u_xy, u_xx]]
+
+    final_values = tf.expand_dims(
+        tf.reshape(_gaussian(zs, final_variance), [-1, 1, 1])
+        * tf.reshape(_gaussian(ys, final_variance), [1, -1, 1])
+        * tf.reshape(_gaussian(xs, final_variance), [1, 1, -1]),
+        axis=0)
+    if boundary_condition == 'default':
+      bound_cond = [(None, None), (None, None), (None, None)]
+    elif boundary_condition == 'dirichlet':
+      bound_cond = [(_zero_boundary, _zero_boundary),
+                    (_zero_boundary, _zero_boundary),
+                    (_zero_boundary, _zero_boundary)]
+    else:
+      bound_cond = [(_zero_boundary, None),
+                    (None, _zero_grad_boundary),
+                    (_zero_boundary, _zero_grad_boundary)]
+    step_fn = douglas_adi_step(theta=0.5)
+    result = fd_solvers.solve_backward(
+        start_time=final_t,
+        end_time=0,
+        coord_grid=grid,
+        values_grid=final_values,
+        time_step=time_step,
+        one_step_fn=step_fn,
+        boundary_conditions=bound_cond,
+        second_order_coeff_fn=quadratic_coeff_fn,
+        dtype=grid[0].dtype)[0]
+
+    variance_x = final_variance + 2 * diff_coeff_x * final_t
+    variance_y = final_variance + 2 * diff_coeff_y * final_t
+    variance_z = final_variance + 2 * diff_coeff_z * final_t
+    expected = tf.expand_dims(
+        tf.reshape(_gaussian(zs, variance_z), [-1, 1, 1])
+        * tf.reshape(_gaussian(ys, variance_y), [1, -1, 1])
+        * tf.reshape(_gaussian(xs, variance_x), [1, 1, -1]),
+        axis=0)
+
+    self._assertClose(self.evaluate(expected), result)
 
   def testSimpleDrift(self):
     """Tests solving 2d drift equation.
@@ -163,8 +266,25 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
                                   dtype=tf.float32)
     self._testDiffusionInDiagonalDirection(pack_second_order_coeff_fn)
 
+  # Test for mixed term and default boundary
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'DefaultBC',
+          'boundary_condition': 'default',
+      }, {
+          'testcase_name': 'MixedBC',
+          'boundary_condition': 'mixed',
+      })
+  def testAnisotropicDiffusion_mixed_term_default_boundary(
+      self, boundary_condition):
+    def pack_second_order_coeff_fn(u_yy, u_xy, u_xx):
+      return [[u_yy, u_xy], [u_xy, u_xx]]
+    self._testDiffusionInDiagonalDirection(
+        pack_second_order_coeff_fn, boundary_condition=boundary_condition)
+
   # pylint: disable=g-doc-args
-  def _testDiffusionInDiagonalDirection(self, pack_second_order_coeff_fn):
+  def _testDiffusionInDiagonalDirection(self, pack_second_order_coeff_fn,
+                                        boundary_condition='dirichlet'):
     """Tests solving 2d diffusion equation involving mixed terms.
 
     The equation is `u_{t} + D u_{xx} / 2 +  D u_{yy} / 2 + D u_{xy} = 0`.
@@ -175,7 +295,7 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
 
     Thus variance should evolve as `sigma + 2D(t_final - t)` along z dimension
     and stay unchanged in the orthogonal dimension:
-    `u(x, y, t) = gaussian((x + y)/sqrt(2), sigma + 2D(t_final - t)) *
+    `u(x, y, t) = gaussian((x + y)/sqrt(2), sigma) + 2D * (t_final - t)) *
     gaussian((x - y)/sqrt(2), sigma)`.
     """
     dtype = tf.float32
@@ -209,8 +329,18 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
                 _gaussian(ys, final_variance), _gaussian(xs, final_variance)),
             dtype=dtype),
         axis=0)
-    bound_cond = [(_zero_boundary, _zero_boundary),
-                  (_zero_boundary, _zero_boundary)]
+    if boundary_condition == 'dirichlet':
+      bound_cond = [(_zero_boundary, _zero_boundary),
+                    (_zero_boundary, _zero_boundary)]
+    elif boundary_condition == 'mixed':
+      bound_cond = [(_zero_boundary, None),
+                    (None, _zero_grad_boundary)]
+    elif boundary_condition == 'default':
+      bound_cond = [(None, None),
+                    (None, None)]
+    else:
+      raise ValueError('`boundary_cond` should be either `dirichlet`, '
+                       '`mixed` or `default`.')
     step_fn = douglas_adi_step(theta=0.5)
     result = fd_solvers.solve_backward(
         start_time=final_t,
@@ -1001,7 +1131,15 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
     self.assertAllClose(
         result_not_expanded, result_expanded, atol=1e-3, rtol=1e-3)
 
-  def testMixedTermsWithMixedBoundary(self):
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'WithDefault',
+          'include_defualt_bc': True,
+      }, {
+          'testcase_name': 'WithoutDefault',
+          'include_defualt_bc': False,
+      })
+  def testMixedTermsWithMixedBoundary(self, include_defualt_bc):
     """Tests solving a batch of PDEs with mixed terms and mixed boundaries.
 
     The equation are
@@ -1015,8 +1153,8 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
     dtype = tf.float64
     grid = grids.uniform_grid(
         minimums=[0, 0, 0],
-        maximums=[3, 2.5, 2.75],
-        sizes=[101, 111, 121],
+        maximums=[3 * np.pi / 2, 2.5, 2.75],
+        sizes=[51, 61, 71],
         dtype=dtype)
     zs = grid[0]
     ys = grid[1]
@@ -1086,9 +1224,14 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
       return (-tf.math.exp(t) * tf.expand_dims(tf.math.sin(xs), 0)
               * tf.expand_dims(tf.math.cos(ys), -1) * tf.math.sin(zs[-1]))
 
-    bound_cond = [(lower_boundary_z_fn, upper_boundary_z_fn),
-                  (lower_boundary_y_fn, upper_boundary_y_fn),
-                  (lower_boundary_x_fn, upper_boundary_x_fn)]
+    if include_defualt_bc:
+      bound_cond = [(lower_boundary_z_fn, None),
+                    (lower_boundary_y_fn, upper_boundary_y_fn),
+                    (None, upper_boundary_x_fn)]
+    else:
+      bound_cond = [(lower_boundary_z_fn, upper_boundary_z_fn),
+                    (lower_boundary_y_fn, upper_boundary_y_fn),
+                    (lower_boundary_x_fn, upper_boundary_x_fn)]
 
     step_fn = douglas_adi_step(theta=0.5)
 
@@ -1111,7 +1254,7 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase):
                 + tf.zeros_like(result[0]))
     with self.subTest(name='CorrectShape'):
       self.assertAllEqual(result[0].shape.as_list(),
-                          [1, 101, 111, 121])
+                          [1, 51, 61, 71])
     with self.subTest(name='CorrectSolution'):
       self.assertAllClose(expected, result[0], atol=0.01, rtol=0.01)
 
@@ -1122,6 +1265,12 @@ def _gaussian(xs, variance):
 
 @dirichlet
 def _zero_boundary(t, locations):
+  del t, locations
+  return 0
+
+
+@neumann
+def _zero_grad_boundary(t, locations):
   del t, locations
   return 0
 
