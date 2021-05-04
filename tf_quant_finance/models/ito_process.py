@@ -307,6 +307,7 @@ class ItoProcess(object):
     """
     pass
 
+  @abc.abstractmethod
   def fd_solver_forward(self,
                         start_time,
                         end_time,
