@@ -109,6 +109,7 @@ class SabrModel(generic_ito_process.GenericItoProcess):
                beta,
                volvol,
                rho=0,
+               shift=0,
                enable_unbiased_sampling=False,
                psi_threshold=2,
                ncx2_cdf_truncation=10,
@@ -128,6 +129,10 @@ class SabrModel(generic_ito_process.GenericItoProcess):
         processes for the forward and the volatility. Either a scalar real
         tensor in (-1, 1), or a python callable accepting same parameters as
         beta callable. Default value: 0.
+      shift: Tensor holding a non-negative scalar, specifying the shift
+        parameter. In the shifted model, the process modeling the forward is
+        modified as: dF = sigma * (F + shift) ^ beta * dW.  With this
+          modification, negative forward rates are valid as long as F > -shift.
       enable_unbiased_sampling: bool. If True, use the sampling procedure
         described in ref [1]. Default value: False
       psi_threshold: The threshold of applicability of Andersen L. (2008)
@@ -162,6 +167,7 @@ class SabrModel(generic_ito_process.GenericItoProcess):
     self._psi_threshold = tf.convert_to_tensor(
         psi_threshold, dtype=self._dtype, name='psi_threshold')
     self._ncx2_cdf_truncation = ncx2_cdf_truncation
+    self._shift = tf.convert_to_tensor(shift, dtype=self._dtype, name='shift')
 
     drift_fn = lambda _, x: tf.zeros_like(x)
 
@@ -310,21 +316,28 @@ class SabrModel(generic_ito_process.GenericItoProcess):
                 tf.compat.v1.debugging.is_strictly_increasing(times), [times]))
 
       with tf.compat.v1.control_dependencies(self.control_dependencies):
+        initial_forward += self._shift
         if self._enable_unbiased_sampling and not (
             _is_callable(self._beta) or _is_callable(self._volvol) or
             _is_callable(self._rho) or self._beta == 1):
-          return self._sabr_sample_paths(initial_forward, initial_volatility,
-                                         times, time_step, num_samples,
-                                         random_type, seed, name,
-                                         precompute_normal_draws)
-        return super(SabrModel, self).sample_paths(
-            times,
-            num_samples, [initial_forward, initial_volatility],
-            random_type,
-            seed,
-            name=default_name,
-            time_step=time_step,
-            precompute_normal_draws=precompute_normal_draws)
+          paths = self._sabr_sample_paths(initial_forward, initial_volatility,
+                                          times, time_step, num_samples,
+                                          random_type, seed, name,
+                                          precompute_normal_draws)
+        else:
+          paths = super(SabrModel, self).sample_paths(
+              times,
+              num_samples, [initial_forward, initial_volatility],
+              random_type,
+              seed,
+              name=default_name,
+              time_step=time_step,
+              precompute_normal_draws=precompute_normal_draws)
+
+        forwards = tf.expand_dims(paths[:, :, 0] - self._shift, axis=-1)
+        volatilities = tf.expand_dims(paths[:, :, 1], axis=-1)
+
+        return tf.concat([forwards, volatilities], axis=-1)
 
   def _sabr_sample_paths(self, initial_forward, initial_volatility, times,
                          time_step, num_samples, random_type, seed, name,

@@ -305,6 +305,101 @@ class SabrModelTest(parameterized.TestCase, tf.test.TestCase):
     # for `test_seed` using STATELESS_ANTITHETIC random type.
     self.assertLessEqual(process_error, euler_error)
 
+  @parameterized.named_parameters(
+      ("zero_beta", 0.0, 2.0, 0.0, 0.1, 1.0, 0.1, True),
+      ("non_zero_beta", 0.5, 1.0, 0.0, 0.1, 1.0, 0.1, True),
+      ("one_beta", 1.0, 0.5, 0.0, 0.1, 1.0, 1.0, True),
+      ("correlated_process", 0.5, 1, 0.5, 0.1, 1.0, 0.0, True),
+      ("fallback_to_euler", lambda *args: tf.constant(0.5, dtype=tf.float64), 1,
+       0.5, 0.01, 1.0, 0.0, True),
+      ("nonzero_shift_unbiased_sampling_true", 0.5, 1.0, 0.0, 0.1, -2.0, 5.0,
+       True),
+      ("nonzero_shift_unbiased_sampling_false", 0.5, 1.0, 0.0, 0.1, -2.0, 5.0,
+       False),
+  )
+  def test_forward_obeys_lower_bound(self,
+                                     beta,
+                                     volvol,
+                                     rho,
+                                     time_step,
+                                     initial_forward,
+                                     shift,
+                                     enabled_unbiased_sampling,
+                                     initial_volatility=0.1):
+    """Tests that the forwards obey the lower bound."""
+    dtype = tf.float64
+    times = [0.1, 0.3, 0.5]
+    num_samples = 1000
+    test_seed = [123, 124]
+
+    process = SabrModel(
+        beta=beta,
+        volvol=volvol,
+        rho=rho,
+        dtype=dtype,
+        shift=shift,
+        enable_unbiased_sampling=enabled_unbiased_sampling)
+    paths = process.sample_paths(
+        initial_forward=initial_forward,
+        initial_volatility=initial_volatility,
+        times=times,
+        time_step=time_step,
+        num_samples=num_samples,
+        seed=test_seed,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC)
+
+    paths = self.evaluate(paths)
+    forwards_axis = 0
+
+    for i in range(len(times)):
+      forwards_slice = paths[:, i, forwards_axis]
+      self.assertTrue(np.all(forwards_slice >= -shift))
+
+  @parameterized.named_parameters(
+      ("nonzero_shift_unbiased_sampling_true", 0.5, 1.0, 0.0, 0.1, -1.0, 5.0,
+       True),
+      ("nonzero_shift_unbiased_sampling_false", 0.5, 1.0, 0.0, 0.1, -1.0, 5.0,
+       False),
+  )
+  def test_negative_forward_rates_okay(self,
+                                       beta,
+                                       volvol,
+                                       rho,
+                                       time_step,
+                                       initial_forward,
+                                       shift,
+                                       enabled_unbiased_sampling,
+                                       initial_volatility=0.1):
+    """Tests that the forwards can potentially be negative."""
+    dtype = tf.float64
+    times = [0.1, 0.3, 0.5]
+    num_samples = 1000
+    test_seed = [123, 124]
+
+    process = SabrModel(
+        beta=beta,
+        volvol=volvol,
+        rho=rho,
+        dtype=dtype,
+        shift=shift,
+        enable_unbiased_sampling=enabled_unbiased_sampling)
+    paths = process.sample_paths(
+        initial_forward=initial_forward,
+        initial_volatility=initial_volatility,
+        times=times,
+        time_step=time_step,
+        num_samples=num_samples,
+        seed=test_seed,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC)
+
+    paths = self.evaluate(paths)
+    forwards_axis = 0
+
+    # Though not strictly guaranteed, it's extremely unlikely that we won't
+    # encounter *any* negatively-valued forward rates.
+    forwards_slices = paths[:, :, forwards_axis]
+    self.assertTrue(np.any(forwards_slices < 0))
+
 
 if __name__ == "__main__":
   tf.test.main()
