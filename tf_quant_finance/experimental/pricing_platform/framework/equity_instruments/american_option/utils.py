@@ -79,11 +79,10 @@ def bs_lsm_price(
   dtype = dtype or tf.float64
   name = name or "bs_lsm_price"
   with tf.name_scope(name):
-
-    strikes = tf.convert_to_tensor(strikes, dtype=dtype,
-                                   name="strikes")
     spots = tf.convert_to_tensor(spots, dtype=dtype,
                                  name="spots")
+    strikes = tf.convert_to_tensor(strikes, dtype=dtype,
+                                   name="strikes")
     volatility = tf.convert_to_tensor(volatility, dtype=dtype,
                                       name="volatility")
     expiry_times = tf.convert_to_tensor(expiry_times, dtype=dtype,
@@ -94,6 +93,9 @@ def bs_lsm_price(
                                     name="discount_factors")
     call_put = tf.expand_dims(call_put, axis=-1)
     risk_free_rate = -tf.math.log(discount_factors) / expiry_times
+    # Scale spots and strikes by spot prices
+    ref_spots = tf.ones_like(spots, dtype=dtype, name="ref_spots")
+    strikes /= spots
     # Normalize expiry times
     scaled_expiries = volatility * tf.math.sqrt(expiry_times)
     expiry_times_reshape = tf.reshape(expiry_times, [-1, 1, 1, 1])
@@ -124,19 +126,21 @@ def bs_lsm_price(
     samples *= tf.math.exp(-times_expand * expiry_times_reshape
                            * volatility_expand**2 / 2)
     # Shape [batch_size, 1, 1, 1]
-    spots = tf.reshape(spots, [-1, 1, 1, 1])
+    ref_spots = tf.reshape(ref_spots, [-1, 1, 1, 1])
     # Shape [batch_size, 1, num_exercise_times, 1]
     rates_exp = tf.math.exp(tf.reshape(risk_free_rate, [-1, 1, 1, 1])
                             * times_expand * expiry_times_reshape)
     # Shape [batch_size, num_samples, num_exercise_times, dim]
     # Distributed as spot * exp((r -volatility**2 / 2) * t + volatility * W(t))
-    samples = spots * rates_exp * samples
+    samples = ref_spots * rates_exp * samples
     # Payoff function takes all the samples of shape
     # [batch_size, num_paths, num_times, dim] and returns a `Tensor` of
     # shape [num_paths, batch_size]. This corresponds to a
     # payoff at the present time.
-    def _payoff_fn(sample_paths, time_index):
-      current_samples = tf.squeeze(sample_paths, axis=-1)
+    def _payoff_fn(log_sample_paths, time_index):
+      # Use samples directly from GBM
+      del log_sample_paths
+      current_samples = tf.squeeze(samples, axis=-1)
       current_samples = tf.transpose(current_samples, [2, 0, 1])[time_index]
       # Shape [batch_size, num_samples]
       payoff = tf.expand_dims(strikes, -1) - current_samples
@@ -149,10 +153,12 @@ def bs_lsm_price(
 
     # Set up Longstaff-Schwartz algorithm
     def lsm_price(sample_paths):
+      # Compute log of samples for improved stability
+      log_sample_paths = tf.math.log(sample_paths)
       exercise_times = tf.range(tf.shape(times)[0])
       # This is Longstaff-Schwartz algorithm
       return longstaff_schwartz.least_square_mc(
-          sample_paths=sample_paths,
+          sample_paths=log_sample_paths,
           exercise_times=exercise_times,
           payoff_fn=_payoff_fn,
           basis_fn=basis_fn,
@@ -160,4 +166,5 @@ def bs_lsm_price(
               -tf.reshape(risk_free_rate, [1, -1, 1]) * times
               * tf.reshape(expiry_times, [1, -1, 1])),
           num_calibration_samples=num_calibration_samples)
-    return lsm_price(samples)
+    # Rescale the result by spots
+    return lsm_price(samples) * spots

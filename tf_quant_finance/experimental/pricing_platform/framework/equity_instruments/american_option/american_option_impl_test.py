@@ -148,7 +148,7 @@ class AmericanEquityOptionTest(tf.test.TestCase):
     """Creates ir swap from proto and tests pricing method."""
     market = market_data.MarketDataDict(self._market_data_dict)
     config = american_option.AmericanOptionConfig(
-        num_samples=100, num_exercise_times=10, seed=[1, 2])
+        num_samples=1000, num_exercise_times=10, seed=[1, 2])
     am_option = american_option.AmericanOption.from_protos(
         [self._american_option_1,
          self._american_option_2,
@@ -157,13 +157,13 @@ class AmericanEquityOptionTest(tf.test.TestCase):
     with self.subTest("Batching"):
       self.assertLen(am_option, 2)
     price1 = am_option[0].price(market)
-    expected1 = np.array([4851071.2698, 504899.2288])
+    expected1 = np.array([4855122.1403, 512094.7353])
     with self.subTest("PriceBatch"):
-      self.assertAllClose(price1, expected1, rtol=1e-4, atol=1e-4)
+      self.assertAllClose(price1, expected1, rtol=1e-2, atol=0)
     price2 = am_option[1].price(market)
-    expected2 = np.array([891813.4915])
+    expected2 = np.array([897927.1153])
     with self.subTest("PriceSingle"):
-      self.assertAllClose(price2, expected2, rtol=1e-4, atol=1e-4)
+      self.assertAllClose(price2, expected2, rtol=1e-2, atol=0)
 
   def test_default_config(self):
     """Creates ir swap from proto and tests pricing method."""
@@ -193,7 +193,7 @@ class AmericanEquityOptionTest(tf.test.TestCase):
     """Creates ir swap from proto and tests pricing method."""
     market = market_data.MarketDataDict(self._market_data_dict)
     config = american_option.AmericanOptionConfig(
-        num_samples=100, num_calibration_samples=50,
+        num_samples=1500, num_calibration_samples=500,
         num_exercise_times=10, seed=[1, 2])
     am_option = american_option.AmericanOption.from_protos(
         [self._american_option_1,
@@ -203,13 +203,13 @@ class AmericanEquityOptionTest(tf.test.TestCase):
     with self.subTest("Batching"):
       self.assertLen(am_option, 2)
     price1 = am_option[0].price(market)
-    expected1 = np.array([4943331.4747, 413834.5428])
+    expected1 = np.array([4850253.3942, 495803.5293])
     with self.subTest("PriceBatch"):
-      self.assertAllClose(price1, expected1, rtol=1e-4, atol=1e-4)
+      self.assertAllClose(price1, expected1, rtol=1e-2, atol=0)
     price2 = am_option[1].price(market)
-    expected2 = np.array([899082.1254])
+    expected2 = np.array([895160.0769])
     with self.subTest("PriceSingle"):
-      self.assertAllClose(price2, expected2, rtol=1e-4, atol=1e-4)
+      self.assertAllClose(price2, expected2, rtol=1e-2, atol=0)
 
   def test_create_constructor_args_price(self):
     """Creates and prices swap from a dictionary representation."""
