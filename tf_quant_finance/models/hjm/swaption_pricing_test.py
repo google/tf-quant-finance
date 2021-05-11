@@ -14,6 +14,8 @@
 # limitations under the License.
 """Tests for swaptions using HJM model."""
 
+from absl.testing import parameterized
+
 import numpy as np
 import tensorflow.compat.v2 as tf
 
@@ -22,7 +24,8 @@ import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
-class HJMSwaptionTest(tf.test.TestCase):
+@test_util.run_all_in_graph_and_eager_modes
+class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
 
   def test_correctness_1d(self):
     """Tests model with constant parameters in 1 dimension."""
@@ -114,8 +117,9 @@ class HJMSwaptionTest(tf.test.TestCase):
         jump_locations=[0.5], values=[0.01, 0.02], dtype=dtype)
 
     def piecewise_1d_volatility_fn(t, r_t):
+      del r_t
       vol = vol_piecewise_constant_fn([t])
-      return tf.fill(dims=[r_t.shape[0], 1], value=vol)
+      return vol
 
     price = tff.models.hjm.swaption_price(
         expiries=expiries,
@@ -296,20 +300,32 @@ class HJMSwaptionTest(tf.test.TestCase):
     price = self.evaluate(price)
     self.assertAllClose(price, [[0.802226]], rtol=error_tol, atol=error_tol)
 
-  def test_correctness_2_factor_hull_white_consistency(self):
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'monte_carlo',
+          'valuation_method': tff.models.ValuationMethod.MONTE_CARLO,
+          'error_tol': 1e-3,
+      }, {
+          'testcase_name': 'pde',
+          'valuation_method': tff.models.ValuationMethod.FINITE_DIFFERENCE,
+          'error_tol': 2e-3,
+      })
+  def test_correctness_2_factor_hull_white_consistency(
+      self, valuation_method, error_tol):
     """Test that under certain conditions HJM matches analytic HW results.
+
+    Args:
+      valuation_method: The valuation method used.
+      error_tol: Test error tolerance.
 
     For the two factor model, when both mean reversions are equivalent, then
     the HJM model matches that of a HW one-factor model with the same mean
     reversion, and effective volatility:
-
-      eff_vol = sqrt(vol1^2 + vol2^2 + 2 rho vol1 * vol2)
-
+    eff_vol = sqrt(vol1^2 + vol2^2 + 2 rho(vol1 * vol2)
     where rho is the cross correlation between the two factors. In this
     specific test, we assume rho = 0.0.
     """
     dtype = tf.float64
-    error_tol = 1e-3
 
     expiries = np.array([1.0])
     fixed_leg_payment_times = np.array([1.25, 1.5, 1.75, 2.0])
@@ -333,6 +349,9 @@ class HJMSwaptionTest(tf.test.TestCase):
         mean_reversion=[mu, mu],
         volatility=[vol1, vol2],
         num_samples=500000,
+        valuation_method=valuation_method,
+        time_step_finite_difference=0.05,
+        num_grid_points_finite_difference=251,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 2],
@@ -358,21 +377,20 @@ class HJMSwaptionTest(tf.test.TestCase):
 
     self.assertNear(hjm_price, hw_price, error_tol)
 
-  def test_correctness_2_factor_hull_white_consistency_with_corr(self):
-    """Test that under certain conditions HJM matches analytic HW results.
-
-    For the two factor model, when both mean reversions are equivalent, then
-    the HJM model matches that of a HW one-factor model with the same mean
-    reversion, and effective volatility:
-
-      eff_vol = sqrt(vol1^2 + vol2^2 + 2 rho vol1 * vol2)
-
-    where rho is the cross correlation between the two factors. In this
-    specific test, we assume rho = 0.0.
-    """
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'monte_carlo',
+          'valuation_method': tff.models.ValuationMethod.MONTE_CARLO,
+          'error_tol': 1e-3,
+      }, {
+          'testcase_name': 'pde',
+          'valuation_method': tff.models.ValuationMethod.FINITE_DIFFERENCE,
+          'error_tol': 4e-3,
+      })
+  def test_correctness_2_factor_hull_white_consistency_with_corr(
+      self, valuation_method, error_tol):
+    """Test that under certain conditions HJM matches analytic HW results."""
     dtype = tf.float64
-    error_tol = 1e-3
-
     expiries = np.array([1.0])
     fixed_leg_payment_times = np.array([1.25, 1.5, 1.75, 2.0])
     fixed_leg_daycount_fractions = 0.25 * np.ones_like(fixed_leg_payment_times)
@@ -396,6 +414,9 @@ class HJMSwaptionTest(tf.test.TestCase):
         mean_reversion=[mu, mu],
         volatility=[vol1, vol2],
         corr_matrix=[[1, rho], [rho, 1]],
+        valuation_method=valuation_method,
+        time_step_finite_difference=0.05,
+        num_grid_points_finite_difference=251,
         num_samples=500000,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
@@ -421,6 +442,134 @@ class HJMSwaptionTest(tf.test.TestCase):
     hw_price = self.evaluate(hw_price)
 
     self.assertNear(hjm_price, hw_price, error_tol)
+
+  def test_correctness_2_factor_fd(self):
+    """Tests finite difference valuation for 2-factor model."""
+    # 1y x 1y swaption with quarterly payments.
+    dtype = tf.float64
+    error_tol = 1e-3
+
+    expiries = np.array([1.002739726])
+    fixed_leg_payment_times = np.array(
+        [1.249315068, 1.498630137, 1.750684932, 2.002739726])
+    fixed_leg_daycount_fractions = np.array(
+        [0.2465753425, 0.2493150685, 0.2520547945, 0.2520547945])
+    fixed_leg_coupon = 0.011 * np.ones_like(fixed_leg_payment_times)
+    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+
+    mean_reversion = [0.03, 0.15]
+    volatility = [0.01, 0.015]
+
+    price = tff.models.hjm.swaption_price(
+        expiries=expiries,
+        fixed_leg_payment_times=fixed_leg_payment_times,
+        fixed_leg_daycount_fractions=fixed_leg_daycount_fractions,
+        fixed_leg_coupon=fixed_leg_coupon,
+        reference_rate_fn=zero_rate_fn,
+        notional=100.,
+        num_hjm_factors=2,
+        mean_reversion=mean_reversion,
+        volatility=volatility,
+        valuation_method=tff.models.ValuationMethod.FINITE_DIFFERENCE,
+        time_step_finite_difference=0.05,
+        num_grid_points_finite_difference=251,
+        time_step=0.1,
+        dtype=dtype)
+
+    quantlib_price = 0.5900860719515227
+    self.assertEqual(price.dtype, dtype)
+    self.assertAllEqual(price.shape, [1, 1])
+    price = self.evaluate(price)
+    self.assertAllClose(
+        price, [[quantlib_price]], rtol=error_tol, atol=error_tol)
+
+  def test_correctness_2_factor_batch_fd(self):
+    """Tests finite difference valuation for a batch."""
+    # 1y x 1y swaption with quarterly payments.
+    dtype = tf.float64
+    error_tol = 1e-3
+
+    expiries = np.array([1.002739726, 1.002739726])
+    fixed_leg_payment_times = np.array(
+        [[1.249315068, 1.498630137, 1.750684932, 2.002739726],
+         [1.249315068, 1.498630137, 1.750684932, 2.002739726]])
+    fixed_leg_daycount_fractions = np.array(
+        [[0.2465753425, 0.2493150685, 0.2520547945, 0.2520547945],
+         [0.2465753425, 0.2493150685, 0.2520547945, 0.2520547945]])
+    fixed_leg_coupon = 0.011 * np.ones_like(fixed_leg_payment_times)
+    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+
+    mean_reversion = [0.03, 0.15]
+    volatility = [0.01, 0.015]
+
+    price = tff.models.hjm.swaption_price(
+        expiries=expiries,
+        fixed_leg_payment_times=fixed_leg_payment_times,
+        fixed_leg_daycount_fractions=fixed_leg_daycount_fractions,
+        fixed_leg_coupon=fixed_leg_coupon,
+        reference_rate_fn=zero_rate_fn,
+        notional=100.,
+        num_hjm_factors=2,
+        mean_reversion=mean_reversion,
+        volatility=volatility,
+        valuation_method=tff.models.ValuationMethod.FINITE_DIFFERENCE,
+        time_step_finite_difference=0.05,
+        num_grid_points_finite_difference=251,
+        time_step=0.1,
+        dtype=dtype)
+
+    quantlib_price = 0.5900860719515227
+    self.assertEqual(price.dtype, dtype)
+    self.assertAllEqual(price.shape, [2, 1])
+    price = self.evaluate(price)
+    self.assertAllClose(
+        price, [[quantlib_price], [quantlib_price]],
+        rtol=error_tol,
+        atol=error_tol)
+
+  def test_correctness_3_factor_batch_fd(self):
+    """Tests finite difference valuation for a batch with 3 factor HJM."""
+    # 1y x 1y swaption with quarterly payments.
+    dtype = tf.float64
+    error_tol = 1e-3
+
+    expiries = np.array([1.002739726, 1.002739726])
+    fixed_leg_payment_times = np.array(
+        [[1.249315068, 1.498630137, 1.750684932, 2.002739726],
+         [1.249315068, 1.498630137, 1.750684932, 2.002739726]])
+    fixed_leg_daycount_fractions = np.array(
+        [[0.2465753425, 0.2493150685, 0.2520547945, 0.2520547945],
+         [0.2465753425, 0.2493150685, 0.2520547945, 0.2520547945]])
+    fixed_leg_coupon = 0.011 * np.ones_like(fixed_leg_payment_times)
+    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+
+    mean_reversion = [0.03, 0.15, 0.25]
+    volatility = [0.01, 0.015, 0.009]
+
+    price = tff.models.hjm.swaption_price(
+        expiries=expiries,
+        fixed_leg_payment_times=fixed_leg_payment_times,
+        fixed_leg_daycount_fractions=fixed_leg_daycount_fractions,
+        fixed_leg_coupon=fixed_leg_coupon,
+        reference_rate_fn=zero_rate_fn,
+        notional=100.,
+        num_hjm_factors=3,
+        mean_reversion=mean_reversion,
+        volatility=volatility,
+        valuation_method=tff.models.ValuationMethod.FINITE_DIFFERENCE,
+        time_step_finite_difference=0.05,
+        num_grid_points_finite_difference=51,
+        time_step=0.1,
+        dtype=dtype)
+
+    very_approximate_benchmark = 0.56020399
+    self.assertEqual(price.dtype, dtype)
+    self.assertAllEqual(price.shape, [2, 1])
+    price = self.evaluate(price)
+    self.assertAllClose(
+        price, [[very_approximate_benchmark], [very_approximate_benchmark]],
+        rtol=error_tol,
+        atol=error_tol)
 
 
 if __name__ == '__main__':

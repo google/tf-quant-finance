@@ -14,6 +14,7 @@ py_library(
         ":joined_ito_process",
         ":milstein_sampling",
         ":realized_volatility",
+        ":valuation_method",
         "//tf_quant_finance/models/geometric_brownian_motion",
         "//tf_quant_finance/models/heston",
         "//tf_quant_finance/models/hjm",
@@ -21,6 +22,12 @@ py_library(
         "//tf_quant_finance/models/longstaff_schwartz",
         "//tf_quant_finance/models/sabr",
     ],
+)
+
+py_library(
+    name = "valuation_method",
+    srcs = ["valuation_method.py"],
+    srcs_version = "PY3",
 )
 
 py_library(

@@ -150,8 +150,10 @@ py_library(
     name = "swaption_pricing",
     srcs = ["swaption_pricing.py"],
     deps = [
+        ":gaussian_hjm",
         ":quasi_gaussian_hjm",
         ":swaption_util",
+        "//tf_quant_finance/math",
         # tensorflow dep,
     ],
 )
@@ -161,7 +163,7 @@ py_test(
     timeout = "long",
     srcs = ["swaption_pricing_test.py"],
     python_version = "PY3",
-    shard_count = 8,
+    shard_count = 10,
     deps = [
         "//tf_quant_finance",
         # test util,
