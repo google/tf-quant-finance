@@ -85,7 +85,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
   def discount_fn(x):
     return 0.01 * tf.ones_like(x, dtype=dtype)
 
-  process = tff.experimental.hjm.QuasiGaussianHJM(
+  process = tff.models.hjm.QuasiGaussianHJM(
       dim=4,
       mean_reversion=[0.03, 0.01, 0.02, 0.005],  # constant mean-reversion
       volatility=[0.01, 0.011, 0.015, 0.008],  # constant volatility
