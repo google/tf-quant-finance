@@ -221,7 +221,8 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
   def sample_paths(self,
                    times,
                    num_samples,
-                   time_step,
+                   time_step=None,
+                   num_time_steps=None,
                    random_type=None,
                    seed=None,
                    skip=0,
@@ -237,6 +238,12 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
         draw.
       time_step: Scalar real `Tensor`. Maximal distance between time grid points
         in Euler scheme. Used only when Euler scheme is applied.
+        Default value: `None`.
+      num_time_steps: An optional Scalar integer `Tensor` - a total number of
+        time steps performed by the algorithm. The maximal distance betwen
+        points in grid is bounded by
+        `times[-1] / (num_time_steps - times.shape[0])`.
+        Either this or `time_step` should be supplied.
         Default value: `None`.
       random_type: Enum value of `RandomType`. The type of (quasi)-random
         number generator to use to generate the paths.
@@ -283,8 +290,8 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
       if times.shape.rank != 1:
         raise ValueError('`times` should be a rank 1 Tensor. '
                          'Rank is {} instead.'.format(times.shape.rank))
-      return self._sample_paths(times, time_step, num_samples, random_type,
-                                skip, seed)
+      return self._sample_paths(times, time_step, num_time_steps, num_samples,
+                                random_type, skip, seed)
 
   def state_y(self, t):
     """Computes the state variable `y(t)` for tha Gaussian HJM Model.
@@ -381,15 +388,23 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
           tf.shape(times)[0])
       return values[0][0]
 
-  def _sample_paths(self, times, time_step, num_samples, random_type, skip,
-                    seed):
+  def _sample_paths(self, times, time_step, num_time_steps, num_samples,
+                    random_type, skip, seed):
     """Returns a sample of paths from the process."""
     initial_state = tf.zeros((self._dim,), dtype=self._dtype)
     # Note that we need a finer simulation grid (determnied by `dt`) to compute
     # discount factors accurately. The `times` input might not be granular
     # enough for accurate calculations.
+    time_step_internal = time_step
+    if num_time_steps is not None:
+      num_time_steps = tf.convert_to_tensor(num_time_steps, dtype=tf.int32,
+                                            name='num_time_steps')
+      time_step_internal = times[-1] / tf.cast(
+          num_time_steps, dtype=self._dtype)
+
     times, _, time_indices = utils.prepare_grid(
-        times=times, time_step=time_step, dtype=self._dtype)
+        times=times, time_step=time_step_internal, dtype=self._dtype,
+        num_time_steps=num_time_steps)
     # Add zeros as a starting location
     dt = times[1:] - times[:-1]
 
@@ -399,6 +414,7 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
         self._drift_fn,
         self._volatility_fn,
         times,
+        num_time_steps=num_time_steps,
         num_samples=num_samples,
         initial_state=initial_state,
         random_type=random_type,

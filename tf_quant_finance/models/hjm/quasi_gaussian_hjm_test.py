@@ -83,33 +83,61 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
 
     super(HJMModelTest, self).setUp()
 
-  def test_mean_and_variance_1d(self):
+  @parameterized.named_parameters({
+      'testcase_name': 'no_xla_time_step',
+      'use_xla': False,
+      'time_step': 0.1,
+      'num_time_steps': None,
+  }, {
+      'testcase_name': 'xla',
+      'use_xla': True,
+      'time_step': 0.1,
+      'num_time_steps': None,
+  }, {
+      'testcase_name': 'no_xla_num_time_steps',
+      'use_xla': False,
+      'time_step': None,
+      'num_time_steps': 11,
+  }, {
+      'testcase_name': 'xla_num_time_steps',
+      'use_xla': True,
+      'time_step': None,
+      'num_time_steps': 11,
+  })
+  def test_mean_and_variance_1d(self, use_xla, time_step, num_time_steps):
     """Tests 1-Factor model with constant parameters."""
-    for dtype in [tf.float32, tf.float64]:
-      # exact discretization is not supported for time-dependent specification
-      # of mean reversion rate.
-      process = tff.models.hjm.QuasiGaussianHJM(
-          dim=1,
-          mean_reversion=self.mean_reversion_1_factor,
-          volatility=self.volatility_1_factor,
-          initial_discount_rate_fn=self.instant_forward_rate,
-          dtype=dtype)
+    dtype = tf.float64
+    # exact discretization is not supported for time-dependent specification
+    # of mean reversion rate.
+    process = tff.models.hjm.QuasiGaussianHJM(
+        dim=1,
+        mean_reversion=self.mean_reversion_1_factor,
+        volatility=self.volatility_1_factor,
+        initial_discount_rate_fn=self.instant_forward_rate,
+        dtype=dtype)
+
+    def _fn():
       paths, _, _, _ = process.sample_paths(
           [0.1, 0.5, 1.0],
           num_samples=10000,
-          time_step=0.1,
+          time_step=time_step,
+          num_time_steps=num_time_steps,
           random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
           seed=[1, 2],
           skip=1000000)
-      self.assertEqual(paths.dtype, dtype)
-      paths = self.evaluate(paths)
-      self.assertAllEqual(paths.shape, [10000, 3])
-      paths = paths[:, -1]  # Extract paths values for the terminal time
-      mean = np.mean(paths, axis=0)
-      variance = np.var(paths, axis=0)
-      self.assertAllClose(mean, self.true_mean(1.0)[0], rtol=1e-4, atol=1e-4)
-      self.assertAllClose(variance,
-                          self.true_var(1.0)[0], rtol=1e-4, atol=1e-4)
+      return paths
+
+    if use_xla:
+      paths = self.evaluate(tf.xla.experimental.compile(_fn))[0]
+    else:
+      paths = self.evaluate(_fn())
+    self.assertAllEqual(paths.shape, [10000, 3])
+    paths = paths[:, -1]  # Extract paths values for the terminal time
+    mean = np.mean(paths, axis=0)
+    variance = np.var(paths, axis=0)
+    self.assertAllClose(mean, self.true_mean(1.0)[0], rtol=1e-4, atol=1e-4)
+    self.assertAllClose(variance,
+                        self.true_var(1.0)[0], rtol=1e-4, atol=1e-4)
 
   def test_zcb_variance_1_factor(self):
     """Tests 1-Factor model with constant parameters."""

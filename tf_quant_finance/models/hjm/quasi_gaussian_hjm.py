@@ -256,6 +256,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
                    times,
                    num_samples,
                    time_step,
+                   num_time_steps=None,
                    random_type=None,
                    seed=None,
                    skip=0,
@@ -272,6 +273,12 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
         draw.
       time_step: Scalar real `Tensor`. Maximal distance between time grid points
         in Euler scheme. Used only when Euler scheme is applied.
+        Default value: `None`.
+      num_time_steps: An optional Scalar integer `Tensor` - a total number of
+        time steps performed by the algorithm. The maximal distance betwen
+        points in grid is bounded by
+        `times[-1] / (num_time_steps - times.shape[0])`.
+        Either this or `time_step` should be supplied.
         Default value: `None`.
       random_type: Enum value of `RandomType`. The type of (quasi)-random
         number generator to use to generate the paths.
@@ -319,13 +326,15 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
         raise ValueError('`times` should be a rank 1 Tensor. '
                          'Rank is {} instead.'.format(len(times.shape)))
       return self._sample_paths(
-          times, time_step, num_samples, random_type, skip, seed)
+          times, time_step, num_time_steps, num_samples, random_type, skip,
+          seed)
 
   def sample_discount_curve_paths(self,
                                   times,
                                   curve_times,
                                   num_samples,
                                   time_step,
+                                  num_time_steps=None,
                                   random_type=None,
                                   seed=None,
                                   skip=0,
@@ -340,6 +349,12 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       num_samples: Positive scalar `int`. The number of paths to draw.
       time_step: Scalar real `Tensor`. Maximal distance between time grid points
         in Euler scheme. Used only when Euler scheme is applied.
+        Default value: `None`.
+      num_time_steps: An optional Scalar integer `Tensor` - a total number of
+        time steps performed by the algorithm. The maximal distance betwen
+        points in grid is bounded by
+        `times[-1] / (num_time_steps - times.shape[0])`.
+        Either this or `time_step` should be supplied.
         Default value: `None`.
       random_type: Enum value of `RandomType`. The type of (quasi)-random
         number generator to use to generate the paths.
@@ -382,7 +397,8 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       num_times = tf.shape(times)[0]
       curve_times = tf.convert_to_tensor(curve_times, self._dtype)
       rate_paths, discount_factor_paths, x_t, y_t = self._sample_paths(
-          times, time_step, num_samples, random_type, skip, seed)
+          times, time_step, num_time_steps, num_samples, random_type, skip,
+          seed)
       # Reshape x_t to (num_samples, 1, num_times, nfactors)
       x_t = tf.expand_dims(x_t, axis=1)
       # Reshape y_t to (num_samples, 1, num_times, nfactors**2)
@@ -401,15 +417,23 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
                                         num_samples, num_times), rate_paths,
               discount_factor_paths)
 
-  def _sample_paths(self, times, time_step, num_samples, random_type, skip,
-                    seed):
+  def _sample_paths(self, times, time_step, num_time_steps, num_samples,
+                    random_type, skip, seed):
     """Returns a sample of paths from the process."""
     initial_state = tf.zeros((self._dim,), dtype=self._dtype)
     # Note that we need a finer simulation grid (determnied by `dt`) to compute
     # discount factors accurately. The `times` input might not be granular
     # enough for accurate calculations.
-    times, keep_mask, _ = utils.prepare_grid(
-        times=times, time_step=time_step, dtype=self._dtype)
+    time_step_internal = time_step
+    if num_time_steps is not None:
+      num_time_steps = tf.convert_to_tensor(num_time_steps, dtype=tf.int32,
+                                            name='num_time_steps')
+      time_step_internal = times[-1] / tf.cast(
+          num_time_steps, dtype=self._dtype)
+
+    times, _, time_indices = utils.prepare_grid(
+        times=times, time_step=time_step_internal, dtype=self._dtype,
+        num_time_steps=num_time_steps)
     # Add zeros as a starting location
     dt = times[1:] - times[:-1]
 
@@ -424,6 +448,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
         random_type=random_type,
         seed=seed,
         time_step=time_step,
+        num_time_steps=num_time_steps,
         skip=skip)
 
     x_paths = xy_paths[..., :self._factors]
@@ -433,17 +458,16 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
     rate_paths = tf.math.reduce_sum(
         x_paths, axis=-1) + f_0_t  # shape=(num_samples, num_times)
 
-    discount_factor_paths = tf.math.exp(-rate_paths[:, :-1] * dt)
-    discount_factor_paths = tf.concat(
-        [tf.ones((num_samples, 1), dtype=self._dtype), discount_factor_paths],
-        axis=1)  # shape=(num_samples, num_times)
-    discount_factor_paths = utils.cumprod_using_matvec(discount_factor_paths)
+    dt = tf.concat([tf.convert_to_tensor([0.0], dtype=self._dtype), dt],
+                   axis=0)
+    discount_factor_paths = tf.math.exp(-utils.cumsum_using_matvec(
+        rate_paths * dt))
 
     return (
-        tf.boolean_mask(rate_paths, keep_mask, axis=1),
-        tf.boolean_mask(discount_factor_paths, keep_mask, axis=1),
-        tf.boolean_mask(x_paths, keep_mask, axis=1),
-        tf.boolean_mask(y_paths, keep_mask, axis=1)
+        tf.gather(rate_paths, time_indices, axis=1),
+        tf.gather(discount_factor_paths, time_indices, axis=1),
+        tf.gather(x_paths, time_indices, axis=1),
+        tf.gather(y_paths, time_indices, axis=1)
         )
 
   def _bond_reconstitution(self,

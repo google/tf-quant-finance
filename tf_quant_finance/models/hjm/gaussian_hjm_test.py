@@ -70,6 +70,16 @@ class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
           'vol_values': None,
       },
       {
+          'testcase_name': '1f_constant_num_time_steps',
+          'dim': 1,
+          'mr': [0.03],
+          'vol': [0.01],
+          'corr': None,
+          'vol_jumps': None,
+          'vol_values': None,
+          'num_time_steps': 21,
+      },
+      {
           'testcase_name': '1f_time_dep',
           'dim': 1,
           'mr': [0.03],
@@ -107,12 +117,13 @@ class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
       }
       )
   def test_correctness_rate_df_sims(self, dim, mr, vol, corr, vol_jumps,
-                                    vol_values):
+                                    vol_values, num_time_steps=None):
     """Tests short rate and discount factor simulations."""
     dtype = np.float64
     if vol is None:
       vol = tff.math.piecewise.PiecewiseConstantFunc(vol_jumps, vol_values,
                                                      dtype=dtype)
+    time_step = None if num_time_steps else 0.1
     num_samples = 100000
     process = tff.models.hjm.GaussianHJM(
         dim=dim,
@@ -125,7 +136,8 @@ class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
     paths, df, _, _ = process.sample_paths(
         times,
         num_samples=num_samples,
-        time_step=0.1,
+        time_step=time_step,
+        num_time_steps=num_time_steps,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 2],
         skip=1000000)
