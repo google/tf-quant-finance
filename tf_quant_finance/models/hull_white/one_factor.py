@@ -63,10 +63,11 @@ class HullWhiteModel1F(vector_hull_white.VectorHullWhiteModel):
       jump_locations=[0.1, 2.],
       values=[0.1, 0.2, 0.1],
       dtype=dtype)
-  instant_forward_rate_fn = lambda *args: [0.01]
+  initial_discount_rate_fn = lambda *args: [0.01]
   process = tff.models.hull_white.HullWhiteModel1F(
       mean_reversion=mean_reversion,
-      volatility=volatility, instant_forward_rate_fn=instant_forward_rate_fn,
+      volatility=volatility,
+      initial_discount_rate_fn=initial_discount_rate_fn,
       dtype=dtype)
   # Sample 10000 paths using Sobol numbers as a random type.
   times = np.linspace(0., 1.0, 10)
@@ -74,11 +75,12 @@ class HullWhiteModel1F(vector_hull_white.VectorHullWhiteModel):
   paths = process.sample_paths(
       times,
       num_samples=num_samples,
-      initial_state=[0.1],
+      times_grid=times,
       random_type=tff.math.random.RandomType.SOBOL)
   # Compute mean for each Hull-White process at the terminal value
   tf.math.reduce_mean(paths[:, -1, 0], axis=0)
-  # Expected value: 0.10928
+  # Expected value: 0.02996
+
   ```
 
   #### References:
