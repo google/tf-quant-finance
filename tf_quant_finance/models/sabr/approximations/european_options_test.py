@@ -115,6 +115,39 @@ class SabrApproximationEuropeanOptionsTest(parameterized.TestCase,
     grad = self.evaluate(grad)
     self.assertTrue(all(np.all(np.isfinite(x)) for x in grad))
 
+  @parameterized.parameters([NORMAL, LOGNORMAL])
+  def test_european_option_shifted_sabr(self, volatility_type):
+    shift = np.array([1.0, 0.5])
+
+    actual_prices = tff.models.sabr.approximations.european_option_price(
+        forwards=np.array([-0.5, 0.0]),
+        strikes=np.array([1.0, 1.5]),
+        expiries=np.array([0.5, 1.0]),
+        is_call_options=np.array([True, False]),
+        alpha=3.2,
+        beta=0.2,
+        nu=1.4,
+        rho=0.0005,
+        shift=shift,
+        volatility_type=volatility_type,
+        dtype=tf.float64)
+
+    expected_prices = tff.models.sabr.approximations.european_option_price(
+        forwards=np.array([-0.5 + shift[0], 0.0 + shift[1]]),
+        strikes=np.array([1.0 + shift[0], 1.5 + shift[1]]),
+        expiries=np.array([0.5, 1.0]),
+        is_call_options=np.array([True, False]),
+        alpha=3.2,
+        beta=0.2,
+        nu=1.4,
+        rho=0.0005,
+        volatility_type=volatility_type,
+        dtype=tf.float64)
+
+    actual_prices, expected_prices = self.evaluate(
+        [actual_prices, expected_prices])
+    self.assertAllClose(actual_prices, expected_prices)
+
 
 if __name__ == '__main__':
   tf.test.main()

@@ -30,6 +30,7 @@ def option_price(*,
                  beta,
                  nu,
                  rho,
+                 shift=0.0,
                  volatility_type=SabrImpliedVolatilityType.LOGNORMAL,
                  approximation_type=SabrApproximationType.HAGAN,
                  dtype=None,
@@ -81,6 +82,12 @@ def option_price(*,
     rho: Real `Tensor` of shape compatible with that of `strikes`, specifying
       the correlation factors between the Wiener processes modeling the forward
       and the volatility. Values must satisfy -1 < `rho` < 1.
+    shift: Optional `Tensor` of shape compatible with that of `strkies`,
+      specifying the shift parameter(s). In the shifted model, the process
+      modeling the forward is modified as: dF = sigma * (F + shift) ^ beta * dW.
+      With this modification, negative forward rates are valid as long as
+      F > -shift.
+      Default value: 0.0
     volatility_type: Either SabrImpliedVolatility.NORMAL or LOGNORMAL.
       Default value: `LOGNORMAL`.
     approximation_type: Instance of `SabrApproxmationScheme`.
@@ -117,15 +124,16 @@ def option_price(*,
           beta=beta,
           nu=nu,
           rho=rho,
+          shift=shift,
           volatility_type=volatility_type,
           approximation_type=approximation_type,
           dtype=dtype)
 
       return vanilla_prices.option_price(
           volatilities=sigma_normal,
-          strikes=strikes,
+          strikes=strikes + shift,
           expiries=expiries,
-          forwards=forwards,
+          forwards=forwards + shift,
           is_call_options=is_call_options,
           is_normal_volatility=True)
 
@@ -138,14 +146,15 @@ def option_price(*,
           beta=beta,
           nu=nu,
           rho=rho,
+          shift=shift,
           volatility_type=volatility_type,
           approximation_type=approximation_type,
           dtype=dtype)
 
       return vanilla_prices.option_price(
           volatilities=sigma_black,
-          strikes=strikes,
+          strikes=strikes + shift,
           expiries=expiries,
-          forwards=forwards,
+          forwards=forwards + shift,
           is_call_options=is_call_options,
           is_normal_volatility=False)

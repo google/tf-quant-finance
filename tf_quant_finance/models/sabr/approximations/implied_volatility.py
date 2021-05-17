@@ -61,6 +61,7 @@ def implied_volatility(*,
                        beta,
                        nu,
                        rho,
+                       shift=0.0,
                        volatility_type=SabrImpliedVolatilityType.LOGNORMAL,
                        approximation_type=SabrApproximationType.HAGAN,
                        dtype=None,
@@ -127,6 +128,12 @@ def implied_volatility(*,
     rho: Real `Tensor` of shape compatible with that of `strikes`, specifying
       the correlation factors between the Wiener processes modeling the forward
       and the volatility. Values must satisfy -1 < `rho` < 1.
+    shift: Optional `Tensor` of shape compatible with that of `strkies`,
+      specifying the shift parameter(s). In the shifted model, the process
+      modeling the forward is modified as: dF = sigma * (F + shift) ^ beta * dW.
+      With this modification, negative forward rates are valid as long as
+      F > -shift.
+      Default value: 0.0
     volatility_type: Either SabrImpliedVolatility.NORMAL or LOGNORMAL.
       Default value: `LOGNORMAL`.
     approximation_type: Instance of `SabrApproxmationScheme`.
@@ -155,6 +162,10 @@ def implied_volatility(*,
     beta = tf.convert_to_tensor(beta, dtype=dtype, name='beta')
     rho = tf.convert_to_tensor(rho, dtype=dtype, name='rho')
     nu = tf.convert_to_tensor(nu, dtype=dtype, name='nu')
+
+    # Apply the shift.
+    strikes += shift
+    forwards += shift
 
     moneyness = forwards / strikes
     log_moneyness = tf.math.log(moneyness)

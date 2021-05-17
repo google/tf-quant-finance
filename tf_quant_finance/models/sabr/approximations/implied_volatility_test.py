@@ -426,6 +426,36 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
     grad = self.evaluate(grad)
     self.assertTrue(all(np.all(np.isfinite(x)) for x in grad))
 
+  @parameterized.parameters([NORMAL, LOGNORMAL])
+  def test_implied_volatility_shifted_model_example(self, volatility_type):
+    shift = np.array([1.0, 2.0])
+
+    actual_vol = tff.models.sabr.approximations.implied_volatility(
+        forwards=np.array([-0.5, 0.0]),
+        strikes=np.array([1.0, 2.0]),
+        expiries=np.array([17.0 / 365.0, 400.0 / 365.0]),
+        alpha=1.63,
+        beta=0.6,
+        rho=0.00002,
+        nu=3.3,
+        shift=shift,
+        dtype=tf.float64,
+        volatility_type=volatility_type)
+
+    expected_vol = tff.models.sabr.approximations.implied_volatility(
+        forwards=np.array([-0.5 + shift[0], 0.0 + shift[1]]),
+        strikes=np.array([1.0 + shift[0], 2.0 + shift[1]]),
+        expiries=np.array([17.0 / 365.0, 400.0 / 365.0]),
+        alpha=1.63,
+        beta=0.6,
+        rho=0.00002,
+        nu=3.3,
+        dtype=tf.float64,
+        volatility_type=volatility_type)
+
+    actual_vol, expected_vol = self.evaluate([actual_vol, expected_vol])
+    self.assertAllClose(actual_vol, expected_vol)
+
 
 if __name__ == '__main__':
   tf.test.main()
