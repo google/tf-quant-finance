@@ -560,7 +560,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
           'expiries': 0.5,
           'spots': 100.0,
           'discount_rates': 0.08,
-          'continuous_dividends': 0.04,
+          'dividend_rates': 0.04,
           'barriers': 105.0,
           'rebates': 3.0,
           'is_barrier_down': False,
@@ -574,7 +574,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
           'expiries': 10.0,
           'spots': 100.0,
           'discount_rates': None,
-          'continuous_dividends': None,
+          'dividend_rates': None,
           'barriers': 90.0,
           'rebates': None,
           'is_barrier_down': True,
@@ -589,7 +589,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
           'expiries': [.5, .5, .5, .5, .5, .5, .5, .5],
           'spots': [100., 100., 100., 100., 100., 100., 100., 100.],
           'discount_rates': [.08, .08, .08, .08, .08, .08, .08, .08],
-          'continuous_dividends': [.04, .04, .04, .04, .04, .04, .04, .04],
+          'dividend_rates': [.04, .04, .04, .04, .04, .04, .04, .04],
           'barriers': [95., 95., 105., 105., 95., 105., 95., 105.],
           'rebates': [3., 3., 3., 3., 3., 3., 3., 3.],
           'is_barrier_down':
@@ -607,7 +607,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
           'expiries': [[.5, .5], [.5, .5], [.5, .5], [.5, .5]],
           'spots': [[100., 100.], [100., 100.], [100., 100.], [100., 100.]],
           'discount_rates': [[.08, .08], [.08, .08], [.08, .08], [.08, .08]],
-          'continuous_dividends': [[.04, .04], [.04, .04], [.04, .04],
+          'dividend_rates': [[.04, .04], [.04, .04], [.04, .04],
                                    [.04, .04]],
           'barriers': [[95., 95.], [105., 105.], [95., 105.], [95., 105.]],
           'rebates': [[3., 3.], [3., 3.], [3., 3.], [3., 3.]],
@@ -647,7 +647,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
                           is_knock_out,
                           is_call_options,
                           expected_price,
-                          continuous_dividends=None,
+                          dividend_rates=None,
                           cost_of_carries=None):
     """Computes test barrier option prices for the parameterized inputs."""
     # The input values are from examples in the following textbook:
@@ -660,7 +660,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
           spots=spots,
           discount_rates=discount_rates,
           cost_of_carries=cost_of_carries,
-          continuous_dividends=continuous_dividends,
+          dividend_rates=dividend_rates,
           barriers=barriers,
           rebates=rebates,
           is_barrier_down=is_barrier_down,
@@ -673,7 +673,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
           expiries=expiries,
           spots=spots,
           discount_rates=discount_rates,
-          continuous_dividends=continuous_dividends,
+          dividend_rates=dividend_rates,
           barriers=barriers,
           rebates=rebates,
           is_barrier_down=is_barrier_down,
@@ -726,7 +726,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     rebates = tf.convert_to_tensor(3.0, dtype=dtype)
     expiries = tf.convert_to_tensor(0.5, dtype=dtype)
     discount_rates = tf.convert_to_tensor(0.08, dtype=dtype)
-    continuous_dividends = tf.convert_to_tensor(0.04, dtype=dtype)
+    dividend_rates = tf.convert_to_tensor(0.04, dtype=dtype)
     strikes = tf.convert_to_tensor(90.0, dtype=dtype)
     barriers = tf.convert_to_tensor(95.0, dtype=dtype)
     expected_price = tf.convert_to_tensor(9.0246, dtype=dtype)
@@ -742,7 +742,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
           expiries=samples[2],
           spots=samples[3],
           discount_rates=samples[3],
-          continuous_dividends=samples[4],
+          dividend_rates=samples[4],
           barriers=samples[5],
           rebates=samples[6],
           is_barrier_down=samples[7],
@@ -755,7 +755,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
 
     price = xla_compiled_op([
         volatilities, strikes, expiries, spots, discount_rates,
-        continuous_dividends, barriers, rebates, is_barrier_down, is_knock_out,
+        dividend_rates, barriers, rebates, is_barrier_down, is_knock_out,
         is_call_options
     ])
     self.assertAllClose(price, expected_price, 10e-3)

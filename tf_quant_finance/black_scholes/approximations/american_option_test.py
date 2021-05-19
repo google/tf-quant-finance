@@ -50,7 +50,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
         strikes=strikes,
         expiries=expiries,
         discount_rates=discount_rates,
-        continuous_dividends=dividends,
+        dividend_rates=dividends,
         is_call_options=is_call_options,
         spots=spots,
         dtype=tf.float64)
@@ -84,7 +84,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
         strikes=strikes,
         expiries=expiries,
         discount_rates=discount_rates,
-        continuous_dividends=dividends,
+        dividend_rates=dividends,
         spots=spots,
         is_call_options=is_call_options,
         dtype=tf.float64)
@@ -121,7 +121,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
         strikes=strikes,
         expiries=expiries,
         discount_rates=discount_rates,
-        continuous_dividends=dividends,
+        dividend_rates=dividends,
         forwards=forwards,
         is_call_options=is_call_options,
         dtype=tf.float64)
