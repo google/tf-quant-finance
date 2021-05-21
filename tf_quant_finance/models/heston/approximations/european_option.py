@@ -22,6 +22,7 @@ _PI_ = np.pi
 _COMPOSITE_SIMPSONS_RULE = integration.IntegrationMethod.COMPOSITE_SIMPSONS_RULE
 
 
+@deprecation.deprecated_args(None, "continuous_dividends is deprecated. Use dividend_rates instead", "continuous_dividends")
 def european_option_price(*,
                           strikes=None,
                           expiries=None,
@@ -35,6 +36,7 @@ def european_option_price(*,
                           forwards=None,
                           discount_rates=None,
                           continuous_dividends=None,
+                          dividend_rates=None,
                           cost_of_carries=None,
                           discount_factors=None,
                           integration_method=None,
@@ -124,12 +126,14 @@ def european_option_price(*,
       discount_rates and discount_factors can be supplied.
       Default value: `None`, equivalent to r = 0 and discount factors = 1 when
       discount_factors also not given.
-    continuous_dividends: An optional real `Tensor` of same dtype as the
+    dividend_rates: An optional real `Tensor` of same dtype as the
       `strikes` and of the shape that broadcasts with `strikes`.
       If not `None`, `cost_of_carries` is calculated as r - q,
-      where r are the `discount_rates` and q is `continuous_dividends`. Either
+      where r are the `discount_rates` and q is `dividend_rates`. Either
       this or `cost_of_carries` can be given.
       Default value: `None`, equivalent to q = 0.
+    continuous_dividends: `Tensor` equivalent to `dividend_rates`, to be            
+      deprecated.
     cost_of_carries: An optional real `Tensor` of same dtype as the
       `strikes` and of the shape that broadcasts with `strikes`.
       Cost of storing a physical commodity, the cost of interest paid when
@@ -137,7 +141,7 @@ def european_option_price(*,
       If not `None`, and `spots` is supplied, used to calculate forwards from
       `spots`: F = e^(bT) * S, where F is the forwards price, b is the cost of
       carries, T is expiries and S is the spot price. If `None`, value assumed
-      to be equal to the `discount_rate` - `continuous_dividends`
+      to be equal to the `discount_rate` - `dividend_rates`
       Default value: `None`, equivalent to b = r.
     discount_factors: An optional real `Tensor` of same dtype as the
       `strikes`. If not `None`, these are the discount factors to expiry
@@ -164,13 +168,14 @@ def european_option_price(*,
     A `Tensor` of the same shape as the input data which is the price of
     European options under the Heston model.
   """
+  dividend_rates = deprecation.deprecated_argument_lookup("dividend_rates", dividend_rates, "continuous_dividends", continuous_dividends)
   if (spots is None) == (forwards is None):
     raise ValueError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
     raise ValueError('At most one of discount_rates and discount_factors may '
                      'be supplied')
-  if (continuous_dividends is not None) and (cost_of_carries is not None):
-    raise ValueError('At most one of continuous_dividends and cost_of_carries '
+  if (dividend_rates is not None) and (cost_of_carries is not None):
+    raise ValueError('At most one of dividend_rates and cost_of_carries '
                      'may be supplied')
 
   with tf.compat.v1.name_scope(name, default_name='eu_option_price'):
@@ -196,15 +201,15 @@ def european_option_price(*,
       discount_rates = tf.convert_to_tensor(
           0.0, dtype=dtype, name='discount_rates')
 
-    if continuous_dividends is None:
-      continuous_dividends = tf.convert_to_tensor(
-          0.0, dtype=dtype, name='continuous_dividends')
+    if dividend_rates is None:
+      dividend_rates = tf.convert_to_tensor(
+          0.0, dtype=dtype, name='dividend_rates')
 
     if cost_of_carries is not None:
       cost_of_carries = tf.convert_to_tensor(
           cost_of_carries, dtype=dtype, name='cost_of_carries')
     else:
-      cost_of_carries = discount_rates - continuous_dividends
+      cost_of_carries = discount_rates - dividend_rates
 
     if discount_factors is None:
       discount_factors = tf.exp(-discount_rates * expiries)  # pylint: disable=invalid-unary-operand-type

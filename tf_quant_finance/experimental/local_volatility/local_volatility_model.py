@@ -75,7 +75,7 @@ def _dupire_local_volatility(time, spot_price, initial_spot_price,
         strikes=strike,
         expiries=expiry_time,
         spots=initial_spot_price,
-        continuous_dividends=dividend_yield,
+        dividend_rates=dividend_yield,
         discount_factors=discount_factors,
         dtype=dtype)
     return c_k_t

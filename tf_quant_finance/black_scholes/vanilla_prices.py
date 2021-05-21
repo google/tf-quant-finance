@@ -88,6 +88,8 @@ def option_price(*,
       where r are the `discount_rates` and q is `dividend_rates`. Either
       this or `cost_of_carries` can be given.
       Default value: `None`, equivalent to q = 0.
+    continuous_dividends: `Tensor` equivalent to `dividend_rates`, to be
+      deprecated.
     cost_of_carries: An optional real `Tensor` of same dtype as the
       `volatilities` and of the shape that broadcasts with `volatilities`.
       Cost of storing a physical commodity, the cost of interest paid when
@@ -290,6 +292,8 @@ def barrier_price(*,
       continuous dividend rate paid by the underlier. If `None`, then
       defaults to zero dividends.
       Default value: `None`, equivalent to zero dividends.
+    continuous_dividends: `Tensor` equivalent to `dividend_rates`, to be            
+      deprecated.
     cost_of_carries: A optional real `Tensor` of same dtype as the
       `volatilities` and of the shape that broadcasts with `volatilities`.
       Cost of storing a physical commodity, the cost of interest paid when
@@ -679,6 +683,8 @@ def asset_or_nothing_price(*,
       `discount_rates` and q is `dividend_rates`. Either this or
       `cost_of_carries` can be given.
       Default value: `None`, equivalent to q = 0.
+    continuous_dividends: `Tensor` equivalent to `dividend_rates`, to be            
+      deprecated.
     cost_of_carries: An optional real `Tensor` of same dtype as the
       `volatilities` and of the shape that broadcasts with `volatilities`. Cost
       of storing a physical commodity, the cost of interest paid when long, or

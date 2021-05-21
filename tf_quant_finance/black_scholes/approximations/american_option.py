@@ -90,6 +90,8 @@ def adesi_whaley(*,
       `volatilities`. The continuous dividend rate on the underliers. May be
       negative (to indicate costs of holding the underlier).
       Default value: `None`, equivalent to zero dividends.
+    continuous_dividends: `Tensor` equivalent to `dividend_rates`, to be            
+      deprecated.
     discount_factors: An optional real `Tensor` of same dtype as the
       `volatilities`. If not `None`, these are the discount factors to expiry
       (i.e. e^(-rT)). Mutually exclusive with discount_rate.
