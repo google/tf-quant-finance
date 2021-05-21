@@ -133,7 +133,7 @@ def parabolic_equation_step(
           representing time, and constructs the tridiagonal matrix `A`
           (a tuple of three `Tensor`s, main, upper, and lower diagonals)
           and the inhomogeneous term `b`. All of the `Tensor`s are of the same
-          `dtype` as `values_inner_value_gridgrid` and of the shape
+          `dtype` as `values_inner_value_grid` and of the shape
           broadcastable with the shape of `inner_value_grid`.
       The callable should return a `Tensor` of the same shape and `dtype` a
       `value_grid` and represents an approximate solution of the PDE after one
@@ -451,7 +451,7 @@ def _apply_robin_boundary_conditions(
   # This function receives A and returns A' and b.
   # We do not update the rows of A where the boundary condition is default
 
-  # If both boundareis are default, there is no need to update the
+  # If both boundaries are default, there is no need to update the
   # space-discretization matrix
   if (has_default_lower_boundary and
       has_default_upper_boundary):
@@ -478,12 +478,12 @@ def _apply_robin_boundary_conditions(
     # Dirichlet or default conditions on both boundaries. In this case there are
     # no corrections to the tridiagonal matrix, so we can take a shortcut.
     if has_default_lower_boundary:
-      # Inhomgeneous term is zero for default BC
+      # Inhomogeneous term is zero for default BC
       first_inhomog_element = tf.zeros(batch_shape, dtype=value_grid.dtype)
     else:
       first_inhomog_element = lower_diagonal[..., 0] * gamma_l / alpha_l
     if has_default_upper_boundary:
-      # Inhomgeneous term is zero for default BC
+      # Inhomogeneous term is zero for default BC
       last_inhomog_element = tf.zeros(batch_shape, dtype=value_grid.dtype)
     else:
       last_inhomog_element = upper_diagonal[..., -1] * gamma_u / alpha_u

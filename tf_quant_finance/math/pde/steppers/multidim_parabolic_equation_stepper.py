@@ -96,10 +96,12 @@ def multidim_parabolic_equation_step(
     time_marching_scheme: A callable which represents the time marching scheme
       for solving the PDE equation. If `u(t)` is space-discretized vector of the
       solution of a PDE, a time marching scheme approximately solves the
-      equation `du/dt = A(t) u(t) + b(t)` for `u(t2)` given `u(t1)`, or vice
-      versa if going backwards in time. Here `A` is a banded matrix containing
-      contributions from the current and neighboring points in space, `b` is an
-      arbitrary vector (inhomogeneous term).
+      equation `du_inner/dt = A(t) u_inner(t) + A_mixed(t) u(t) + b(t)` for
+      `u(t2)` given `u(t1)`, or vice versa if going backwards in time.
+      Here `A` is a banded matrix containing contributions from the current and
+      neighboring points in space, `A_mixed` are contributions of mixed terms,
+      `b` is an arbitrary vector (inhomogeneous term), and `u_inner` is `u` with
+      boundaries with Robin conditions trimmed.
       Multidimensional time marching schemes are usually based on the idea of
       ADI (alternating direction implicit) method: the time step is split into
       substeps, and in each substep only one dimension is treated "implicitly",
@@ -153,7 +155,17 @@ def multidim_parabolic_equation_step(
           All the elements `a_...` may be different for each point in the grid,
           so they are `Tensors` of shape `(B, ny, nx)`. `b_y` and `b_x` are also
           `Tensors` of that shape.
-        5. n_dims: A Python integer, the spatial dimension of the PDE.
+        5. A callable that accepts a `Tensor` of shape `inner_value_grid` and
+          appends boundaries according to the boundary conditions, i.e.
+          transforms`u_inner` to `u`.
+        6. n_dims: A Python integer, the spatial dimension of the PDE.
+        7. has_default_lower_boundary: A Python list of booleans of length
+          `n_dims`. List indices enumerate the dimensions with `True` values
+          marking default lower boundary condition along corresponding
+          dimensions, and `False` values indicating Robin boundary conditions.
+        8. has_default_upper_boundary: Similar to has_default_lower_boundary,
+          but for upper boundaries.
+
       The callable should return a `Tensor` of the same shape and `dtype` as
       `values_grid` that represents an approximate solution of the
       space-discretized PDE.
@@ -653,7 +665,9 @@ def _apply_default_boundary(subdiag, diag, superdiag,
                             dim):
   """Update discretization matrix for default boundary conditions."""
   # For default BC, we need to add spatial discretizations of
-  # 'b * d(B * V)/dx + c * V' to the boundaries
+  # 'b * d(B * V)/dx' to the boundaries. Note that the zero-order term 'c * V'
+  # is added elsewhere, and the second-order terms involving derivative w.r.t.
+  # `dim` are assumed to be zero.
 
   # Updates for lower BC
   if has_default_lower_boundary[dim]:

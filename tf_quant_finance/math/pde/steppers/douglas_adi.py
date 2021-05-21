@@ -75,20 +75,22 @@ def douglas_adi_scheme(theta):
   """Applies Douglas time marching scheme (see [1] and Eq. 3.1 in [2]).
 
   Time marching schemes solve the space-discretized equation
-  `du/dt = A(t) u(t) + b(t)` where `u` and `b` are vectors and `A` is a matrix;
-  see more details in multidim_parabolic_equation_stepper.py.
+  `du_inner/dt = A(t) u_inner(t) + A_mixed u(t) + b(t)`,
+  where `u`, `u_inner` and `b` are vectors and `A`, `A_mixed` are matrices.
+  `u_inner` is `u` with all boundaries having Robin boundary conditions
+  trimmed and `A_mixed` are contributions of mixed derivative terms.
+  See more details in multidim_parabolic_equation_stepper.py.
 
   In Douglas scheme (as well as other ADI schemes), the matrix `A` is
-  represented as sum `A = sum_i A_i + A_mixed`. `A_i` is the contribution of
-  terms with partial derivatives w.r.t. dimension `i`, and `A_mixed` is the
-  contribution of all the mixed-derivative terms. The shift term is split evenly
-  between `A_i`. Similarly, inhomogeneous term is represented as sum `b = sum_i
-  b_i`, where `b_i` comes from boundary conditions on boundary orthogonal to
-  dimension `i`.
+  represented as sum `A = sum_i A_i`. `A_i` is the contribution of
+  terms with partial derivatives w.r.t. dimension `i`. The shift term is split
+  evenly between `A_i`. Similarly, inhomogeneous term is represented as sum
+  `b = sum_i b_i`, where `b_i` comes from boundary conditions on boundary
+  orthogonal to dimension `i`.
 
   Given the current values vector u(t1), the step is defined as follows
   (using the notation of Eq. 3.1 in [2]):
-  `Y_0 = (1 + A(t1) dt) U_{n-1} + b(t1) dt`,
+  `Y_0 = (1 + (A(t1) + A_mixed(t1)) dt) U_{n-1} + b(t1) dt`,
   `Y_j = Y_{j-1} + theta dt (A_j(t2) Y_j - A_j(t1) U_{n-1} + b_j(t2) - b_j(t1))`
   for each spatial dimension `j`, and
   `U_n = Y_{n_dims-1}`.
@@ -134,16 +136,15 @@ def douglas_adi_scheme(theta):
         All of the `Tensor`s are of the same `dtype` as `inner_value_grid` and
         of the shape broadcastable with the shape of `inner_value_grid`.
       5. A callable that accepts a `Tensor` of shape `inner_value_grid` and
-        appends boundaries according to the boundary conditions.
+        appends boundaries according to the boundary conditions, i.e. transforms
+        `u_inner` to `u`.
       6. n_dims: A Python integer, the spatial dimension of the PDE.
       7. has_default_lower_boundary: A Python list of booleans of length
         `n_dims`. List indices enumerate the dimensions with `True` values
         marking default lower boundary condition along corresponding dimensions,
         and  `False` values indicating Robin boundary conditions.
-      8. has_default_upper_boundary: A Python list of booleans of length
-        `n_dims`. List indices enumerate the dimensions with `True` values
-        marking default upper boundary condition along corresponding dimensions,
-        and  `False` values indicating Robin boundary conditions.
+      8. has_default_upper_boundary: Similar to has_default_lower_boundary, but
+        for upper boundaries.
     The callable returns a `Tensor` of the same shape and `dtype` a
     `values_grid` and represents an approximate solution `u(t2)`.
   """
@@ -210,10 +211,19 @@ def _apply_mixed_term_explicitly(
       mixed_term_pp, mixed_term_pm, mixed_term_mp, mixed_term_mm
   ) = mixed_term
 
-  # For default boundaries append zeros to that boundary. This is done for
-  # easier computation of the mixed term contributions.
   batch_rank = values_with_boundaries.shape.rank - n_dims
 
+  # Below we multiply the mixed terms by inner value grid "shifted" diagonally.
+  # With Robin boundary conditions, this shift is done by restoring the
+  # boundaries (values_with_boundaries already have them restored) and then
+  # slicing. E.g. in 2D, values_inner = values_with_boundaries[1:-1, 1:-1],
+  # and an example of a diagonally-shifted slice is
+  # values_with_boundaries[:-2, 2:], which gets multiplied by mixed_term_mp.
+  # However, with default boundaries, there's no boundary to restore, and the
+  # diagonal shift go out of bounds. Since the mixed terms on the default
+  # boundaries are zero, the "out-of-bounds" values are irrelevant. However, to
+  # avoid going out of bounds and get the shapes right, we need to pad these
+  # boundaries.
   paddings = batch_rank * [[0, 0]]
   for dim in range(n_dims):
     lower = 1 if has_default_lower_boundary[dim] else 0

@@ -410,7 +410,8 @@ The coordinate grid and the temporal grid cannot be batched.
 
 ## Boundary conditions
 
-The solver supports boundary conditions in Robin form:
+The solver supports two types of boundary conditions. The first type is Robin
+boundary conditions:
 
 \begin{equation}
 \alpha(\b x_b, t) V(\b x_b, t) + \beta(\b x_b, t)\frac{\d V}{\d \b n}(\b x_b, t)
@@ -421,9 +422,26 @@ where $\b x_b$ is a point on the boundary, $\d V/\d n$ is the derivative
 with respect to the outer normal to the boundary. The functions
 $\alpha, \beta, \gamma$ can be arbitrary.
 
+The other type is "default" boundary conditions: the differential equation is
+satisfied on the boundary, except that the second-order terms involving
+derivatives in the direction of that boundary vanish:
+
+\begin{equation}
+    \frac{\d V}{\d t} +
+    \sum\limits_{i,j=1, i,j \neq k}^N a_{ij}(\b x_b, t)
+        \frac{\d^2}{\d x_i \d x_j}
+    \left[A_{ij}(\b x_b, t) V(\b x_b, t)\right] +
+    \sum\limits_{i=1}^N b_i(\b x_b, t) \frac{\d}{\d x_i}
+    \left[B_{i}(\b x_b, t) V(\b x_b, t)\right] +
+     c(\b x_b, t) V = 0,
+\end{equation}
+
+where $k$ is the direction orthogonal to the boundary (note that in 1D this
+simplifies to just "second order term vanished").
+
 The boundary conditions are specified by callables returning
-$\alpha, \beta, \gamma$ as Tensors or scalars. For example, a boundary
-condition
+$\alpha, \beta, \gamma$ as Tensors or scalars, or returning `None` in case of
+default boundary conditions. For example, a boundary condition
 
 \begin{equation}
 V + 2 \frac{\d V}{\d \b n} = 3 
@@ -659,14 +677,17 @@ with boundary conditions
 \begin{split}
 &\varphi(0, v, r, t) = 0, \\
 &\frac{\d\varphi}{\d s}(s_{max}, v, r, t) = 1, \\
-&\varphi(s, 0, r, t) = 0, \\
+&\left(\frac{\d\varphi}{\d t} + rs \frac{\d\varphi}{ds} +
+ \kappa\eta\frac{\d\varphi}{dv} + a(bt-r)\frac{\d\varphi}{dr} - ru\right)
+ \bigg\rvert_{v=0} = 0, \\
 &\varphi(s, v_{max}, r, t) = s, \\
 &\frac{\d\varphi}{\d r}(s, v, r_{min}, t) = 0, \\
 &\frac{\d\varphi}{\d r}(s, v, r_{max}, t) = 0. \\
 \end{split}
 \end{equation}
 
-
+The boundary condition at $v = 0$ is obtained by plugging $v = 0$ into the PDE,
+resulting in a "default" boundary condition.
 ```python
 def second_order_coeff_fn(t, grid):
   s, v, r = grid
@@ -702,9 +723,8 @@ def boundary_s_min(t, grid):
 def boundary_s_max(t, grid):
   return 1
 
-@pde.boundary_conditions.dirichlet
 def boundary_v_min(t, grid):
-  return 0
+  return None
 
 @pde.boundary_conditions.dirichlet
 def boundary_v_max(t, grid):
@@ -772,11 +792,11 @@ $V(\b x_i, t),$ where $\b x_i$ are grid points. The resulting system of
 equations has the form
 
 \begin{equation}
-\frac{d\b V}{dt} = \hat L(t)\b V + \b b(t),\label{space_discretized}
+\frac{d\b V}{dt} = L(t)\b V + \b b(t),\label{space_discretized}
 \end{equation}
 
-where $\b b$ is a vector, and $\hat L$ is a sparse matrix describing the
-influence of adjacent grid points on each other. $\hat L(t)$ and $\b b(t)$
+where $\b b$ is a vector, and $L$ is a sparse matrix describing the
+influence of adjacent grid points on each other. $L(t)$ and $\b b(t)$
 are defined by both PDE coefficients and the boundary conditions, evaluated at
 time $t$.
 
@@ -845,7 +865,7 @@ and
 
 Thus, space discretization a 1D homogeneous parabolic PDE yields
 Eq.\eqref{space_discretized} with $\b b = 0$, and a tridiagonal matrix
-$\hat L$.
+$L$.
 
 In multidimensional case the discretization is done similarly, but we
 additionally need to take care of mixed second derivatives. Since only uniform
@@ -861,13 +881,13 @@ where $x_\pm = x_0 \pm \Delta_x, y_\pm = y_0 \pm \Delta_y$ are adjacent grid
 points.
 
 Considering that $\b V$ in Eq.\eqref{space_discretized} is a vector, i.e. a
-flattened multidimensional value grid, the matrix $\hat L$ is now banded,
+flattened multidimensional value grid, the matrix $L$ is now banded,
 with contributions coming from adjacent points in every dimension.
 
-### Boundary conditions
+### Boundary conditions in 1D PDEs
 
-The most general form of boundary conditions we support is the Robin boundary
-conditions, see Eq. \eqref{boundcond}. When discretizing Eq. \eqref{boundcond},
+Consider first the Robin boundary conditions, Eq. \eqref{boundcond}, for a
+one-dimensional PDE. When discretizing Eq. \eqref{boundcond},
 we approximate the derivative to the second order of accuracy, just like we did
 with the PDE terms. The central approximation, Eq. \eqref{deriv_approx_central},
 is however not applicable, because it uses the values at adjacent points on both
@@ -942,7 +962,7 @@ Substituting Eqs. \eqref{lower_bound_discr}, \eqref{upper_bound_discr}, we obtai
 for the inner part $\b V_{inner} = [V_1, ... V_{n-1}]^T$:
 
 \begin{equation}
-\frac {d \b V_{inner}}{dt} = \hat{\tilde L} \b V_{inner} + \b b,
+\frac {d \b V_{inner}}{dt} = {\tilde L} \b V_{inner} + \b b,
 \label {dVdt_with_boundary}
 \end{equation}
 
@@ -958,9 +978,9 @@ n-2.\label{bound_corr_last}
 
 Note that in case of Dirichlet conditions ($\alpha = 1, \beta = 0$) this
 simplifies greatly: $\xi_{1,2} = 0$ (so there are no corrections to
-$\hat L$), and $\eta = \gamma$.
+$L$), and $\eta = \gamma$.
 
-Thus to take into account the boundary conditions we
+Thus to take into account the Robin boundary conditions we
 
 *   apply the corrections to the time evolution equation given by Eqs.
     \eqref{bound_corr_first}-\eqref{bound_corr_last},
@@ -971,35 +991,74 @@ Thus to take into account the boundary conditions we
     \eqref{upper_bound_discr} at time $t + \delta t$, and append them to
     $\b V_{inner}(t_{i+1})$ to get the resulting vector $\b V(t_{i+1})$.
 
-This approach generalizes straightforwardly to the multidimensional case:
-$\b V_{inner}$ would be the value grid with all the boundaries "trimmed", and
-Eqs. \eqref{bound_corr_first}-\eqref{bound_corr_last} would similarly apply to the
-items next to the boundary.
+With "default" boundary conditions this approach isn't applicable: they involve
+a time derivative, so $V_0$ or $V_n$ cannot be eliminated from
+the system of equations like above. Instead, we space-discretize the boundary
+condition as usual (except that the finite differences are non-central), and
+include them in Eq. \eqref {dVdt_with_boundary}. Thus, $V_{inner}$ in
+Eq. \eqref {dVdt_with_boundary} excludes boundaries with Robin conditions, but
+includes the ones with "default" conditions. 
+
+### Boundary conditions in multidimensional PDEs
+
+The described approach generalizes in most aspects to the
+multidimensional case:
+$\b V_{inner}$ would be the value grid with all boundaries with Robin conditions
+"trimmed", and Eqs. \eqref{bound_corr_first}-\eqref{bound_corr_last} would
+similarly apply to the items next to the boundary.
+
+However, the mixed derivative terms need special care. Consider a point
+$V_{i, 1}$ near a boundary $(i, j=0)$ with a Robin boundary condition. In
+presence of a mixed term, this point gets "influenced" by three points on the
+boundary: $(i-1, 0), (i, 0), (i+1, 0).$ The approach outlined above would
+require eliminating all of $V_{i-1, 0}, V_{i, 0}, V_{i+1, 0}$. In the corners,
+we'd have to eliminate 5 variables instead of 3. This is quite cumbersome, and
+may degrade performance.
+
+Instead, we use the fact that the commonly used multidimensional time-marching
+schemes apply the mixed term explicitly (See [1], page 7, and notice that
+$A_0$, representing contributions of mixed terms, always gets multiplied by an
+already known vector). This allows us to reformulate the space-discretized
+problem as
+
+\begin{equation}
+\frac {d \b V_{inner}}{dt} = {\tilde L} \b V_{inner} + 
+{L}_{mixed} \b V  +\b b,
+\label {dVdt_with_boundary_multidim}
+\end{equation}
+
+where ${L}_{mixed}$ contains the contributions of mixed terms. When applying
+a time marching scheme (e.g. Douglas scheme, see below), $\b V(t)$ is restored
+from $\b V_{inner}(t)$ using Eqs. \eqref{lower_bound_discr},
+\eqref{upper_bound_discr}. Note that this is only possible when
+${L}_{mixed}$ is treated explicitly, otherwise $\b V_{inner}(t)$ is
+unknown.
+
 
 ## Time marching schemes
 
 Time marching schemes are algorithms for numerically solving the equation
 
 \begin{equation}
-\frac{d\b V}{dt} = \hat L(t)\b V + \b b(t),\label{space_discretized2}
+\frac{d\b V}{dt} = L(t)\b V + \b b(t),\label{space_discretized2}
 \end{equation}
 
 for $\b V(t + \delta t)$ given $\b V(t),$ with a small $\delta t$.
 
-Note that in case of constant parameters $\hat L$ and $\b b$ this equation
-has an exact solution involving the matrix exponent of $\hat L$. Calculating
+Note that in case of constant parameters $L$ and $\b b$ this equation
+has an exact solution involving the matrix exponent of $L$. Calculating
 the matrix exponent is however infeasible in practice, primarily due to memory
-constraints. The matrix $\hat L$ is never explicitly constructed in the first
-place. Recall that in 1D the matrix $\hat L$ is tridiagonal, and in
+constraints. The matrix $L$ is never explicitly constructed in the first
+place. Recall that in 1D the matrix $L$ is tridiagonal, and in
 multidimensional case it is banded. Only the non-zero diagonals are constructed,
-and the time marching schemes make use of the sparseness of $\hat L.$
+and the time marching schemes make use of the sparseness of $L.$
 
 ### Explicit Scheme
 
 The simplest scheme is the explicit scheme:
 
 \begin{equation}
-\frac{\b V_1 - \b V_0}{\delta t} = \hat L_0 \b V_0 + \b b_0.
+\frac{\b V_1 - \b V_0}{\delta t} = L_0 \b V_0 + \b b_0.
 \end{equation}
 
 Here and below we use the notation $X_\alpha = X(t + \alpha \delta t)$ where
@@ -1008,7 +1067,7 @@ $X$ is any function of time and $\alpha$ is a number between 0 and 1.
 From there we obtain
 
 \begin{equation}
-\b V_1 = (1 + \delta t\hat L_0) \b V_0 + \delta t \b b_0.
+\b V_1 = (1 + \delta tL_0) \b V_0 + \delta t \b b_0.
 \end{equation}
 
 The calculation boils down to multiplying a tridiagonal matrix by a vector.
@@ -1017,10 +1076,10 @@ Tensorflow has the
 Op, which can efficiently parallelize the multiplication on the GPU.
 
 Unfortunately, the explicit scheme is applicable only with small time steps.
-For a well-defined PDE, the matrix $\delta t \hat L$ has negative eigenvalues
+For a well-defined PDE, the matrix $\delta t L$ has negative eigenvalues
 (This statement includes PDEs solved both in forward and backward directions,
 i.e. $\delta t$ can be both positive and negative). When an eigenvalue
-of $1 + \delta t \hat L_0$ becomes less than $-1$, the contribution to
+of $1 + \delta t L_0$ becomes less than $-1$, the contribution to
 $\b V$ of the corresponding eigenvector grows exponentially with time. This
 does not happen to the exact solution, so the error of the approximate solution
 grows exponentially, i.e. the method is unstable. The stability requirements
@@ -1033,16 +1092,16 @@ of a PDE. This can constrain $\delta t$ to unacceptably small values.
 The implicit scheme approximates the right hand side with its value at
 $t + \delta t:$
 \begin{equation}
-\frac{\b V_1 - \b V_0}{\delta t} = \hat L_1 \b V_1 + \b b_1,
+\frac{\b V_1 - \b V_0}{\delta t} = L_1 \b V_1 + \b b_1,
 \end{equation}
 
 yielding
 \begin{equation}
-\b V_1 = (1 - \delta t\hat L_0)^{-1} (\b V_0 + \delta t \b b_1).
+\b V_1 = (1 - \delta t L_0)^{-1} (\b V_0 + \delta t \b b_1).
 \end{equation}
 
 This takes care of the stability problem, because the eigenvalues of
-$(1 - \delta t\hat L_0)^{-1}$ are between 0 and 1. However, we now need to
+$(1 - \delta tL_0)^{-1}$ are between 0 and 1. However, we now need to
 solve a tridiagonal system of equation.
 
 Tensorflow has the
@@ -1058,23 +1117,23 @@ Weighted Implicit-Explicit Scheme is a combination of implicit and explicit
 schemes:
 
 \begin{equation}
-\frac{\b V_1 - \b V_0}{\delta t} = \theta(\hat L_0 \b V_0 + \b b_0) +
-(1-\theta)(\hat L_1 \b V_1 + \b b_1),
+\frac{\b V_1 - \b V_0}{\delta t} = \theta(L_0 \b V_0 + \b b_0) +
+(1-\theta)(L_1 \b V_1 + \b b_1),
 \end{equation}
 
 where $\theta$ is a number between 0 and 1.
 
 This yields
 \begin{equation}
-\b V_1 = (1 - (1-\theta)\delta t\hat L_0)^{-1} [
-(1+\theta \delta_t \hat L_1)\b V_0 + \theta\delta t \b b_0 +
+\b V_1 = (1 - (1-\theta)\delta t L_0)^{-1} [
+(1+\theta \delta_t L_1)\b V_0 + \theta\delta t \b b_0 +
 (1-\theta)\delta t \b b_1].
 \end{equation}
 
 The special case of $\theta = 1/2$ is the Crank-Nicolson (CN) scheme:
 \begin{equation}
-\b V_1 = (1 - \delta t\hat L_0 / 2)^{-1} [
-(1+\Delta_t \hat L_1 / 2)\b V_0 + \delta t (\b b_0 + \b b_1) / 2].
+\b V_1 = (1 - \delta tL_0 / 2)^{-1} [
+(1+\Delta_t L_1 / 2)\b V_0 + \delta t (\b b_0 + \b b_1) / 2].
 \label{cn}
 \end{equation}
 
@@ -1083,12 +1142,12 @@ unlike schemes with any other value of $\theta$, is second-order accurate in
 $\delta t.$
 
 One can verify (by comparing the Taylor expansions) that replacing
-$\hat L_{0,1}, \b b_{0,1}$ with $\hat L_{1/2}, \b b_{1/2}$ in the right-hand
+$L_{0,1}, \b b_{0,1}$ with $L_{1/2}, \b b_{1/2}$ in the right-hand
 side of Eq.\eqref{space_discretized} retains the second order accuracy, while
 saving some computation. Thus the final expression is
 \begin{equation}
-\b V_1 = (1 - \delta t\hat L_{1/2} / 2)^{-1} [
-(1+\delta t \hat L_{1/2} / 2)\b V_0 + \delta t \b b_{1 / 2}].
+\b V_1 = (1 - \delta t L_{1/2} / 2)^{-1} [
+(1+\delta t L_{1/2} / 2)\b V_0 + \delta t \b b_{1 / 2}].
 \end{equation}
 
 
@@ -1105,11 +1164,11 @@ evolution of high-wavenumber components of the initial/final condition
 function.
 
 For the sake of discussion, assume $\delta t > 0$, $\b b(t) = 0$ and
-$\hat L(t) = -\hat A$ (note that $\hat A$ has positive eigenvalues in this
+$L(t) = -A$ (note that $A$ has positive eigenvalues in this
 case). The exact solution of Eq. \eqref{space_discretized2} is then
 
 \begin{equation}
-\mathbf V(t + \delta t) = \exp(-\hat A \delta t) \mathbf V(t).
+\mathbf V(t + \delta t) = \exp(-A \delta t) \mathbf V(t).
 \end{equation}
 
 Various time marching schemes can be viewed as approximations to the exponent.
@@ -1120,7 +1179,7 @@ Crank-Nicolson scheme corresponds to the approximation
 \end{equation}
 
 Here $y=\lambda \delta t$ and $\lambda$ is an
-eigenvalue of $\hat A$. This approximation, while being second order accurate
+eigenvalue of $A$. This approximation, while being second order accurate
 for $y \ll 1$, is clearly inaccurate for $y \gtrsim 1$, and because it is
 negative there, the oscillations arise.
 
@@ -1175,7 +1234,7 @@ The implementation of this can be found in
 
 ### Multiple spatial dimensions, ADI
 
-In case of multiple spatial dimensions, the matrix $\hat L$ is banded, making
+In case of multiple spatial dimensions, the matrix $L$ is banded, making
 it much more difficult to do the matrix inversion in the Crank-Nicolson scheme.
 
 The common workaround is the ADI (alternating direction explicit) method.
@@ -1185,17 +1244,17 @@ idea. An overview of them can be found, for example, on pages 6-9 of [1]. Here
 we summarize the simplest of them, the Douglas scheme, in our notations:
 
 \begin{eqnarray}
-\b Y_0 &=& (1 + \hat L_0 \delta t) \b V_0 + \delta t \b b_0, \\
-\b Y_j &=& \b Y_{j-1} + \theta \delta t (\hat L^{(j)}_1 \b Y_j -
-\hat L^{(j)}_0 \b V_0 + \b b^{(j)}_1 - \b b^{(j)}_0), \qquad j = 1\ldots dim, \\
+\b Y_0 &=& (1 + L_0 \delta t) \b V_0 + \delta t \b b_0, \\
+\b Y_j &=& \b Y_{j-1} + \theta \delta t (L^{(j)}_1 \b Y_j -
+L^{(j)}_0 \b V_0 + \b b^{(j)}_1 - \b b^{(j)}_0), \qquad j = 1\ldots dim, \\
 \b V_1 &=& \b Y_{dim}.
 \end{eqnarray}
 
-Here $\hat L^{(j)}$ contains contributions to $\hat L$ coming from derivatives
-with respect to j-th dimension. Each $\hat L^{(j)}$ thus have only three
+Here $L^{(j)}$ contains contributions to $L$ coming from derivatives
+with respect to j-th dimension. Each $L^{(j)}$ thus have only three
 nonzero diagonals. The contribution of the zeroth-order term
-is split evenly between $\hat L^{(j)}$. The contributions of mixed
-second-order terms are not included in any $\hat L^{(j)}$, and thus take part
+is split evenly between $L^{(j)}$. The contributions of mixed
+second-order terms are not included in any $L^{(j)}$, and thus take part
 only in the first substep, which lacks any matrix inversion.
 $\b b^{(j)}$ are contributions from boundary conditions along the j-th axis
 (boundary conditions are assumed to be the only source of $\b b$).
@@ -1213,7 +1272,7 @@ recall that in implementation, $\b V$ is not a vector, but a Tensor of shape
 implicitly, we should treat all the other dimensions as batch dimensions.
 
 For example, consider a 3D case where the shape is
-`batch_shape + (z_size, y_size, x_size)`. When making the substep with respect
+`batch_shape + (z_size, y_size, x_size)`. When making the substep
 that treats `y` implicitly, we transpose the value grid to the shape
 `batch_shape + (z_size, x_size, y_size)`, and send it to
 `tf.linalg.tridiagonal_solve`. From the point of view of the latter, the batch
