@@ -15,15 +15,19 @@
 
 import numpy as np
 import tensorflow.compat.v2 as tf
+from tensorflow.python.util import deprecation  # pylint: disable=g-direct-tensorflow-import
 
 
-def option_price(*,
-                 volatilities,
+@deprecation.deprecated_args(
+    None, 'continuous_dividends is deprecated. Use dividend_rates instead',
+    'continuous_dividends')
+def option_price(volatilities,
                  strikes,
                  expiries,
                  spots=None,
                  forwards=None,
                  discount_rates=None,
+                 dividend_rates=None,
                  continuous_dividends=None,
                  cost_of_carries=None,
                  discount_factors=None,
@@ -79,12 +83,14 @@ def option_price(*,
       discount_rates and discount_factors can be supplied.
       Default value: `None`, equivalent to r = 0 and discount factors = 1 when
       discount_factors also not given.
-    continuous_dividends: An optional real `Tensor` of same dtype as the
+    dividend_rates: An optional real `Tensor` of same dtype as the
       `volatilities` and of the shape that broadcasts with `volatilities`.
       If not `None`, `cost_of_carries` is calculated as r - q,
-      where r are the `discount_rates` and q is `continuous_dividends`. Either
+      where r are the `discount_rates` and q is `dividend_rates`. Either
       this or `cost_of_carries` can be given.
       Default value: `None`, equivalent to q = 0.
+    continuous_dividends: `Tensor` equivalent to `dividend_rates`, to be
+      deprecated.
     cost_of_carries: An optional real `Tensor` of same dtype as the
       `volatilities` and of the shape that broadcasts with `volatilities`.
       Cost of storing a physical commodity, the cost of interest paid when
@@ -92,7 +98,7 @@ def option_price(*,
       If not `None`, and `spots` is supplied, used to calculate forwards from
       `spots`: F = e^(bT) * S, where F is the forwards price, b is the cost of
       carries, T is expiries and S is the spot price. If `None`, value assumed
-      to be equal to the `discount_rate` - `continuous_dividends`
+      to be equal to the `discount_rate` - `dividend_rates`
       Default value: `None`, equivalent to b = r.
     discount_factors: An optional real `Tensor` of same dtype as the
       `volatilities`. If not `None`, these are the discount factors to expiry
@@ -125,16 +131,19 @@ def option_price(*,
     ValueError: If both `forwards` and `spots` are supplied or if neither is
       supplied.
     ValueError: If both `discount_rates` and `discount_factors` is supplied.
-    ValueError: If both `continuous_dividends` and `cost_of_carries` is
+    ValueError: If both `dividend_rates` and `cost_of_carries` is
       supplied.
   """
+  dividend_rates = deprecation.deprecated_argument_lookup(
+      'dividend_rates', dividend_rates,
+      'continuous_dividends', continuous_dividends)
   if (spots is None) == (forwards is None):
     raise ValueError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
     raise ValueError('At most one of discount_rates and discount_factors may '
                      'be supplied')
-  if (continuous_dividends is not None) and (cost_of_carries is not None):
-    raise ValueError('At most one of continuous_dividends and cost_of_carries '
+  if (dividend_rates is not None) and (cost_of_carries is not None):
+    raise ValueError('At most one of dividend_rates and cost_of_carries '
                      'may be supplied')
 
   with tf.name_scope(name or 'option_price'):
@@ -158,15 +167,15 @@ def option_price(*,
       discount_factors = tf.convert_to_tensor(
           1.0, dtype=dtype, name='discount_factors')
 
-    if continuous_dividends is None:
-      continuous_dividends = tf.convert_to_tensor(
-          0.0, dtype=dtype, name='continuous_dividends')
+    if dividend_rates is None:
+      dividend_rates = tf.convert_to_tensor(
+          0.0, dtype=dtype, name='dividend_rates')
 
     if cost_of_carries is not None:
       cost_of_carries = tf.convert_to_tensor(
           cost_of_carries, dtype=dtype, name='cost_of_carries')
     else:
-      cost_of_carries = discount_rates - continuous_dividends
+      cost_of_carries = discount_rates - dividend_rates
 
     if forwards is not None:
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
@@ -198,14 +207,17 @@ def option_price(*,
                                        undiscounted_puts)
 
 
-def barrier_price(*,
-                  volatilities,
+@deprecation.deprecated_args(
+    None, 'continuous_dividends is deprecated. Use dividend_rates instead',
+    'continuous_dividends')
+def barrier_price(volatilities,
                   strikes,
                   expiries,
                   spots,
                   barriers,
                   rebates=None,
                   discount_rates=None,
+                  dividend_rates=None,
                   continuous_dividends=None,
                   cost_of_carries=None,
                   is_barrier_down=None,
@@ -227,7 +239,7 @@ def barrier_price(*,
 
   dtype = np.float32
   discount_rates = np.array([.08, .08])
-  continuous_dividends = np.array([.04, .04])
+  dividend_rates = np.array([.04, .04])
   spots = np.array([100., 100.])
   strikes = np.array([90., 90.])
   barriers = np.array([95. 95.])
@@ -240,7 +252,7 @@ def barrier_price(*,
   is_call_option = np.array([True, True])
 
   price = tff.black_scholes.barrier_price(
-    discount_rates, continuous_dividends, spots, strikes,
+    discount_rates, dividend_rates, spots, strikes,
     barriers, rebates, volatilities,
     expiries, is_barrier_down, is_knock_out, is_call_options)
 
@@ -279,16 +291,18 @@ def barrier_price(*,
       `volatilities` and of the shape that broadcasts with `volatilities`.
       Discount rates, or risk free rates.
       Default value: `None`, equivalent to discount_rate = 0.
-    continuous_dividends: A real `Tensor` of same dtype as the
+    dividend_rates: A real `Tensor` of same dtype as the
       `volatilities` and of the shape that broadcasts with `volatilities`. A
       continuous dividend rate paid by the underlier. If `None`, then
       defaults to zero dividends.
       Default value: `None`, equivalent to zero dividends.
+    continuous_dividends: `Tensor` equivalent to `dividend_rates`, to be
+      deprecated.
     cost_of_carries: A optional real `Tensor` of same dtype as the
       `volatilities` and of the shape that broadcasts with `volatilities`.
       Cost of storing a physical commodity, the cost of interest paid when
       long, or the opportunity cost, or the cost of paying dividends when short.
-      If not `None`, `continuous_dividends` is calculated as r - c,
+      If not `None`, `dividend_rates` is calculated as r - c,
       where r are the `discount_rates` and c is `cost_of_carries`.
     is_barrier_down: A real `Tensor` of `boolean` values and of the shape
       that broadcasts with `volatilities`. True if barrier is below asset
@@ -318,8 +332,11 @@ def barrier_price(*,
   # appropriate terms for calculating the integral. Then a dot product of each
   # row in the matricies coupled with the masks work to calculate the prices of
   # the barriers option.
-  if (continuous_dividends is not None) and (cost_of_carries is not None):
-    raise ValueError('At most one of continuous_dividends and cost of carries '
+  dividend_rates = deprecation.deprecated_argument_lookup(
+      'dividend_rates', dividend_rates,
+      'continuous_dividends', continuous_dividends)
+  if (dividend_rates is not None) and (cost_of_carries is not None):
+    raise ValueError('At most one of dividend_rates and cost of carries '
                      'may be supplied')
   with tf.name_scope(name or 'barrier_price'):
     spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
@@ -342,15 +359,15 @@ def barrier_price(*,
       discount_rates = tf.convert_to_tensor(
           0.0, dtype=dtype, name='discount_rates')
 
-    if continuous_dividends is None:
-      continuous_dividends = tf.convert_to_tensor(
-          0.0, dtype=dtype, name='continuous_dividends')
+    if dividend_rates is None:
+      dividend_rates = tf.convert_to_tensor(
+          0.0, dtype=dtype, name='dividend_rates')
 
     if cost_of_carries is not None:
       cost_of_carries = tf.convert_to_tensor(
           cost_of_carries, dtype=dtype, name='cost_of_carries')
     else:
-      cost_of_carries = discount_rates - continuous_dividends
+      cost_of_carries = discount_rates - dividend_rates
 
     if is_barrier_down is None:
       is_barrier_down = tf.constant(1, name='is_barrier_down')
@@ -429,10 +446,10 @@ def barrier_price(*,
     a = mu / (volatilities**2)
 
     # Other params used for integrals
-    discount_rates_exponent = tf.math.exp(-discount_rates * expiries,
+    discount_rates_exponent = tf.math.exp(-discount_rates * expiries,  # pylint: disable=invalid-unary-operand-type
                                           name='discount_rates_exponent')
     continuous_dividends_exponent = tf.math.exp(
-        (cost_of_carries-discount_rates) * expiries,
+        (cost_of_carries - discount_rates) * expiries,
         name='continuous_dividends_exponent')
     barriers_ratio = tf.math.divide(barriers, spots, name='barriers_ratio')
     spots_term = call_or_put * spots * continuous_dividends_exponent
@@ -451,7 +468,7 @@ def barrier_price(*,
          spots_term * (barriers_ratio**(2 * lamda)),
          -strikes_term * (barriers_ratio**((2 * lamda) - 2)),
          rebates * discount_rates_exponent,
-         -rebates * discount_rates_exponent * (
+         -rebates * discount_rates_exponent * (  # pylint: disable=invalid-unary-operand-type
              barriers_ratio**((2 * lamda) - 2)),
          rebates * (barriers_ratio**(a + b)),
          rebates * (barriers_ratio**(a - b))),
@@ -600,13 +617,16 @@ def binary_price(*,
                                        undiscounted_puts)
 
 
-def asset_or_nothing_price(*,
-                           volatilities,
+@deprecation.deprecated_args(
+    None, 'continuous_dividends is deprecated. Use dividend_rates instead',
+    'continuous_dividends')
+def asset_or_nothing_price(volatilities,
                            strikes,
                            expiries,
                            spots=None,
                            forwards=None,
                            discount_rates=None,
+                           dividend_rates=None,
                            continuous_dividends=None,
                            cost_of_carries=None,
                            discount_factors=None,
@@ -664,12 +684,14 @@ def asset_or_nothing_price(*,
       discount_factors can be supplied.
       Default value: `None`, equivalent to r = 0 and discount factors = 1 when
         discount_factors also not given.
-    continuous_dividends: An optional real `Tensor` of same dtype as the
+    dividend_rates: An optional real `Tensor` of same dtype as the
       `volatilities` and of the shape that broadcasts with `volatilities`. If
       not `None`, `cost_of_carries` is calculated as r - q, where r are the
-      `discount_rates` and q is `continuous_dividends`. Either this or
+      `discount_rates` and q is `dividend_rates`. Either this or
       `cost_of_carries` can be given.
       Default value: `None`, equivalent to q = 0.
+    continuous_dividends: `Tensor` equivalent to `dividend_rates`, to be
+      deprecated.
     cost_of_carries: An optional real `Tensor` of same dtype as the
       `volatilities` and of the shape that broadcasts with `volatilities`. Cost
       of storing a physical commodity, the cost of interest paid when long, or
@@ -677,7 +699,7 @@ def asset_or_nothing_price(*,
       `None`, and `spots` is supplied, used to calculate forwards from
       `spots`: F = e^(bT) * S, where F is the forwards price, b is the cost of
         carries, T is expiries and S is the spot price. If `None`, value assumed
-        to be equal to the `discount_rate` - `continuous_dividends`
+        to be equal to the `discount_rate` - `dividend_rates`
       Default value: `None`, equivalent to b = r.
     discount_factors: An optional real `Tensor` of same dtype as the
       `volatilities`. If not `None`, these are the discount factors to expiry
@@ -711,16 +733,19 @@ def asset_or_nothing_price(*,
     ValueError: If both `forwards` and `spots` are supplied or if neither is
       supplied.
     ValueError: If both `discount_rates` and `discount_factors` is supplied.
-    ValueError: If both `continuous_dividends` and `cost_of_carries` is
+    ValueError: If both `dividend_rates` and `cost_of_carries` is
       supplied.
   """
+  dividend_rates = deprecation.deprecated_argument_lookup(
+      'dividend_rates', dividend_rates,
+      'continuous_dividends', continuous_dividends)
   if (spots is None) == (forwards is None):
     raise ValueError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
     raise ValueError('At most one of discount_rates and discount_factors may '
                      'be supplied')
-  if (continuous_dividends is not None) and (cost_of_carries is not None):
-    raise ValueError('At most one of continuous_dividends and cost_of_carries '
+  if (dividend_rates is not None) and (cost_of_carries is not None):
+    raise ValueError('At most one of dividend_rates and cost_of_carries '
                      'may be supplied')
 
   with tf.name_scope(name or 'asset_or_nothing_price'):
@@ -744,15 +769,15 @@ def asset_or_nothing_price(*,
       discount_factors = tf.convert_to_tensor(
           1.0, dtype=dtype, name='discount_factors')
 
-    if continuous_dividends is None:
-      continuous_dividends = tf.convert_to_tensor(
-          0.0, dtype=dtype, name='continuous_dividends')
+    if dividend_rates is None:
+      dividend_rates = tf.convert_to_tensor(
+          0.0, dtype=dtype, name='dividend_rates')
 
     if cost_of_carries is not None:
       cost_of_carries = tf.convert_to_tensor(
           cost_of_carries, dtype=dtype, name='cost_of_carries')
     else:
-      cost_of_carries = discount_rates - continuous_dividends
+      cost_of_carries = discount_rates - dividend_rates
 
     if forwards is not None:
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')

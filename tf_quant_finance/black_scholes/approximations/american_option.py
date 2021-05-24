@@ -20,15 +20,19 @@ import tensorflow.compat.v2 as tf
 from tf_quant_finance.black_scholes import vanilla_prices
 from tf_quant_finance.math import gradient
 from tf_quant_finance.math.root_search import newton as root_finder_newton
+from tensorflow.python.util import deprecation  # pylint: disable=g-direct-tensorflow-import
 
 
-def adesi_whaley(*,
-                 volatilities,
+@deprecation.deprecated_args(
+    None, 'continuous_dividends is deprecated. Use dividend_rates instead',
+    'continuous_dividends')
+def adesi_whaley(volatilities,
                  strikes,
                  expiries,
                  spots=None,
                  forwards=None,
                  discount_rates=None,
+                 dividend_rates=None,
                  continuous_dividends=None,
                  discount_factors=None,
                  is_call_options=None,
@@ -52,7 +56,7 @@ def adesi_whaley(*,
       strikes=strikes,
       expiries=expiries,
       discount_rates=discount_rates,
-      continuous_dividends=continuous_dividends,
+      dividend_rates=dividends,
       spots=spots,
       dtype=tf.float64)
   # Expected print output of computed prices:
@@ -83,10 +87,12 @@ def adesi_whaley(*,
       where r are the discount rates, or risk free rates.
       Default value: `None`, equivalent to r = 0 and discount factors = 1 when
       discount_factors also not given.
-    continuous_dividends: An optional real `Tensor` of same dtype as the
+    dividend_rates: An optional real `Tensor` of same dtype as the
       `volatilities`. The continuous dividend rate on the underliers. May be
       negative (to indicate costs of holding the underlier).
       Default value: `None`, equivalent to zero dividends.
+    continuous_dividends: `Tensor` equivalent to `dividend_rates`, to be
+      deprecated.
     discount_factors: An optional real `Tensor` of same dtype as the
       `volatilities`. If not `None`, these are the discount factors to expiry
       (i.e. e^(-rT)). Mutually exclusive with discount_rate.
@@ -137,46 +143,49 @@ def adesi_whaley(*,
     ValueError:
       (a) If both `forwards` and `spots` are supplied or if neither is supplied.
   """
+  dividend_rates = deprecation.deprecated_argument_lookup(
+      'dividend_rates', dividend_rates,
+      'continuous_dividends', continuous_dividends)
   if (spots is None) == (forwards is None):
-    raise ValueError("Either spots or forwards must be supplied but not both.")
+    raise ValueError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
-    raise ValueError("At most one of discount_rates and discount_factors may "
-                     "be supplied")
-  with tf.name_scope(name or "adesi_whaley"):
+    raise ValueError('At most one of discount_rates and discount_factors may '
+                     'be supplied')
+  with tf.name_scope(name or 'adesi_whaley'):
     volatilities = tf.convert_to_tensor(volatilities, dtype=dtype,
-                                        name="volatilities")
+                                        name='volatilities')
     dtype = volatilities.dtype  # This dtype should be common for all inputs
-    strikes = tf.convert_to_tensor(strikes, dtype=dtype, name="strikes")
-    expiries = tf.convert_to_tensor(expiries, dtype=dtype, name="expiries")
+    strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
+    expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')
     if discount_rates is not None:
       discount_rates = tf.convert_to_tensor(discount_rates, dtype=dtype,
-                                            name="discount_rates")
+                                            name='discount_rates')
     elif discount_factors is not None:
       discount_factors = tf.convert_to_tensor(discount_factors, dtype=dtype,
-                                              name="discount_factors")
+                                              name='discount_factors')
       discount_rates = -tf.math.log(discount_factors) / expiries
     else:
-      discount_rates = tf.constant(0.0, dtype=dtype, name="discount_rates")
+      discount_rates = tf.constant(0.0, dtype=dtype, name='discount_rates')
 
-    if continuous_dividends is not None:
-      continuous_dividends = tf.convert_to_tensor(
-          continuous_dividends, dtype=dtype, name="continuous_dividends")
+    if dividend_rates is not None:
+      dividend_rates = tf.convert_to_tensor(
+          dividend_rates, dtype=dtype, name='dividend_rates')
     else:
-      continuous_dividends = 0
+      dividend_rates = 0
     # Set forwards and spots
     if forwards is not None:
       spots = tf.convert_to_tensor(
           forwards *
-          tf.exp(-(discount_rates - continuous_dividends) * expiries),
+          tf.exp(-(discount_rates - dividend_rates) * expiries),
           dtype=dtype,
-          name="spots")
+          name='spots')
     else:
-      spots = tf.convert_to_tensor(spots, dtype=dtype, name="spots")
+      spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
     if is_call_options is not None:
       is_call_options = tf.convert_to_tensor(is_call_options, dtype=tf.bool,
-                                             name="is_call_options")
+                                             name='is_call_options')
     else:
-      is_call_options = tf.constant(True, name="is_call_options")
+      is_call_options = tf.constant(True, name='is_call_options')
 
     am_prices, converged, failed = _adesi_whaley(
         sigma=volatilities,
@@ -184,7 +193,7 @@ def adesi_whaley(*,
         t=expiries,
         s=spots,
         r=discount_rates,
-        d=continuous_dividends,
+        d=dividend_rates,
         is_call_options=is_call_options,
         dtype=dtype,
         max_iterations=max_iterations,
@@ -202,10 +211,10 @@ def adesi_whaley(*,
         expiries=expiries,
         spots=spots,
         discount_rates=discount_rates,
-        continuous_dividends=continuous_dividends,
+        dividend_rates=dividend_rates,
         dtype=dtype,
         name=name)
-    calculate_eu = is_call_options & (continuous_dividends <= 0)
+    calculate_eu = is_call_options & (dividend_rates <= 0)
     converged = tf.where(calculate_eu, True, converged)
     failed = tf.where(calculate_eu, False, failed)
     return tf.where(calculate_eu, eu_prices, am_prices), converged, failed
@@ -242,7 +251,7 @@ def _adesi_whaley(*, sigma, x, t, r, d, s, is_call_options, max_iterations,
       expiries=t,
       spots=s,
       discount_rates=r,
-      continuous_dividends=d,
+      dividend_rates=d,
       is_call_options=is_call_options,
       dtype=dtype)
 
@@ -287,7 +296,7 @@ def _adesi_whaley_critical_values(*,
         expiries=t,
         spots=s_crit,
         discount_rates=r,
-        continuous_dividends=d,
+        dividend_rates=d,
         is_call_options=is_call_options,
         dtype=dtype) + sign *
             (1 - tf.math.exp(-d * t) *
