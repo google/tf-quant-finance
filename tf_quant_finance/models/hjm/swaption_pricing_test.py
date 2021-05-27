@@ -27,7 +27,24 @@ from tensorflow.python.framework import test_util  # pylint: disable=g-direct-te
 @test_util.run_all_in_graph_and_eager_modes
 class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
 
-  def test_correctness_1d(self):
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'time_step',
+          'time_step': 0.1,
+          'num_time_steps': None,
+          'use_xla': False,
+      }, {
+          'testcase_name': 'num_time_steps',
+          'time_step': None,
+          'num_time_steps': 11,
+          'use_xla': False,
+      }, {
+          'testcase_name': 'num_time_steps_xla',
+          'time_step': None,
+          'num_time_steps': 11,
+          'use_xla': True,
+      })
+  def test_correctness_1d(self, time_step, num_time_steps, use_xla):
     """Tests model with constant parameters in 1 dimension."""
     dtype = tf.float64
     error_tol = 1e-3
@@ -41,24 +58,35 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     mean_reversion = [0.03]
     volatility = [0.02]
 
-    price = tff.models.hjm.swaption_price(
-        expiries=expiries,
-        fixed_leg_payment_times=fixed_leg_payment_times,
-        fixed_leg_daycount_fractions=fixed_leg_daycount_fractions,
-        fixed_leg_coupon=fixed_leg_coupon,
-        reference_rate_fn=zero_rate_fn,
-        notional=100.,
-        num_hjm_factors=1,
-        mean_reversion=mean_reversion,
-        volatility=volatility,
-        num_samples=500000,
-        time_step=0.1,
-        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
-        seed=[1, 2])
+    if use_xla:
+      curve_times = np.array(fixed_leg_payment_times - expiries)
+    else:
+      curve_times = None
 
-    self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [1, 1])
-    price = self.evaluate(price)
+    def _fn():
+      price = tff.models.hjm.swaption_price(
+          expiries=expiries,
+          fixed_leg_payment_times=fixed_leg_payment_times,
+          fixed_leg_daycount_fractions=fixed_leg_daycount_fractions,
+          fixed_leg_coupon=fixed_leg_coupon,
+          reference_rate_fn=zero_rate_fn,
+          notional=100.,
+          num_hjm_factors=1,
+          mean_reversion=mean_reversion,
+          volatility=volatility,
+          num_samples=500000,
+          time_step=time_step,
+          num_time_steps=num_time_steps,
+          curve_times=curve_times,
+          random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+          seed=[1, 2],
+          dtype=dtype)
+      return price
+
+    if use_xla:
+      price = self.evaluate(tf.xla.experimental.compile(_fn))[0]
+    else:
+      price = self.evaluate(_fn())
     self.assertAllClose(
         price, [[0.7163243383624043]], rtol=error_tol, atol=error_tol)
 
@@ -348,10 +376,10 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         num_hjm_factors=2,
         mean_reversion=[mu, mu],
         volatility=[vol1, vol2],
-        num_samples=500000,
+        num_samples=1000000,
         valuation_method=valuation_method,
         time_step_finite_difference=0.05,
-        num_grid_points_finite_difference=251,
+        num_grid_points_finite_difference=501,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 2],
@@ -381,7 +409,7 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
       {
           'testcase_name': 'monte_carlo',
           'valuation_method': tff.models.ValuationMethod.MONTE_CARLO,
-          'error_tol': 1e-3,
+          'error_tol': 1.2e-3,
       }, {
           'testcase_name': 'pde',
           'valuation_method': tff.models.ValuationMethod.FINITE_DIFFERENCE,
@@ -417,7 +445,7 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         valuation_method=valuation_method,
         time_step_finite_difference=0.05,
         num_grid_points_finite_difference=251,
-        num_samples=500000,
+        num_samples=1000000,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 2],
@@ -443,7 +471,19 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
 
     self.assertNear(hjm_price, hw_price, error_tol)
 
-  def test_correctness_2_factor_fd(self):
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'time_step',
+          'time_step': 0.05,
+          'num_time_steps': None,
+          'use_xla': False,
+      }, {
+          'testcase_name': 'num_time_steps',
+          'time_step': None,
+          'num_time_steps': 21,
+          'use_xla': False,
+      })
+  def test_correctness_2_factor_fd(self, time_step, num_time_steps, use_xla):
     """Tests finite difference valuation for 2-factor model."""
     # 1y x 1y swaption with quarterly payments.
     dtype = tf.float64
@@ -460,26 +500,30 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     mean_reversion = [0.03, 0.15]
     volatility = [0.01, 0.015]
 
-    price = tff.models.hjm.swaption_price(
-        expiries=expiries,
-        fixed_leg_payment_times=fixed_leg_payment_times,
-        fixed_leg_daycount_fractions=fixed_leg_daycount_fractions,
-        fixed_leg_coupon=fixed_leg_coupon,
-        reference_rate_fn=zero_rate_fn,
-        notional=100.,
-        num_hjm_factors=2,
-        mean_reversion=mean_reversion,
-        volatility=volatility,
-        valuation_method=tff.models.ValuationMethod.FINITE_DIFFERENCE,
-        time_step_finite_difference=0.05,
-        num_grid_points_finite_difference=251,
-        time_step=0.1,
-        dtype=dtype)
+    def _fn():
+      price = tff.models.hjm.swaption_price(
+          expiries=expiries,
+          fixed_leg_payment_times=fixed_leg_payment_times,
+          fixed_leg_daycount_fractions=fixed_leg_daycount_fractions,
+          fixed_leg_coupon=fixed_leg_coupon,
+          reference_rate_fn=zero_rate_fn,
+          notional=100.,
+          num_hjm_factors=2,
+          mean_reversion=mean_reversion,
+          volatility=volatility,
+          valuation_method=tff.models.ValuationMethod.FINITE_DIFFERENCE,
+          time_step_finite_difference=time_step,
+          num_time_steps_finite_difference=num_time_steps,
+          num_grid_points_finite_difference=251,
+          time_step=0.1,
+          dtype=dtype)
+      return price
 
+    if use_xla:
+      price = self.evaluate(tf.xla.experimental.compile(_fn))[0]
+    else:
+      price = self.evaluate(_fn())
     quantlib_price = 0.5900860719515227
-    self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [1, 1])
-    price = self.evaluate(price)
     self.assertAllClose(
         price, [[quantlib_price]], rtol=error_tol, atol=error_tol)
 

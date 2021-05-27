@@ -527,8 +527,8 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       # Reshape all `Tensor`s so that they have the dimensions same as (or
       # broadcastable to) the output shape
       # ([num_smaples,num_curve_times,num_sim_times,dim]).
-      num_curve_nodes = curve_times.shape.as_list()[0]  # m
-      num_sim_steps = times.shape.as_list()[0]  # k
+      num_curve_nodes = tf.shape(curve_times)[0]  # m
+      num_sim_steps = tf.shape(times)[0]  # k
       times = tf.reshape(
           tf.repeat(tf.expand_dims(times, axis=-1), self._dim, axis=-1),
           (1, 1, num_sim_steps, self._dim))
@@ -603,7 +603,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                     validate_args=False):
     """Returns a sample of paths from the process."""
     # Note: all the notations below are the same as in [1].
-    num_requested_times = times.shape[0]
+    num_requested_times = tf.shape(times)[0]
     params = [self._mean_reversion, self._volatility]
     if self._corr_matrix is not None:
       params = params + [self._corr_matrix]
@@ -807,7 +807,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         tf.gather(vn, time_index, batch_dims=1), t, sigma_t, mr_t, c)
     exp_x_t = exp_x_t + tf.gather(ex_at_vol_knots, time_index, batch_dims=1)
     exp_x_t = (exp_x_t[:, 1:] - exp_x_t[:, :-1]) * tf.math.exp(
-        -tf.broadcast_to(mr_t, t.shape)[:, 1:] * t[:, 1:])
+        -tf.broadcast_to(mr_t, tf.shape(t))[:, 1:] * t[:, 1:])
     return exp_x_t
 
   def _y_integral(self, t0, t, vol, k):
@@ -849,7 +849,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
     var_x_t = var_x_t + tf.gather(varx_at_vol_knots, time_index, batch_dims=1)
 
     var_x_t = (var_x_t[:, 1:] - var_x_t[:, :-1]) * tf.math.exp(
-        -2 * tf.broadcast_to(mr_t, t.shape)[:, 1:] * t[:, 1:])
+        -2 * tf.broadcast_to(mr_t, tf.shape(t))[:, 1:] * t[:, 1:])
     return var_x_t
 
   def _variance_int(self, t0, t, vol, k):
@@ -926,12 +926,10 @@ def _prepare_grid(times, times_grid, *params):
         time_indices,
         tf.nn.relu(time_indices - 1))
   # Create a boolean mask to identify the iterations that have to be recorded.
-  mask_sparse = tf.sparse.SparseTensor(
-      indices=tf.expand_dims(
-          tf.cast(time_indices, dtype=tf.int64), axis=1),
-      values=tf.fill(tf.shape(times), True),
-      dense_shape=tf.shape(all_times, out_type=tf.int64))
-  mask = tf.sparse.to_dense(mask_sparse)
+  mask = tf.scatter_nd(
+      indices=tf.expand_dims(tf.cast(time_indices, dtype=tf.int64), axis=1),
+      updates=tf.fill(tf.shape(times), True),
+      shape=tf.shape(all_times, out_type=tf.int64))
   return all_times, mask
 
 

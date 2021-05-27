@@ -700,13 +700,24 @@ def swaption_price(*,
         dtype=dtype)
 
     def _sample_discount_curve_path_fn(times, curve_times, num_samples):
-      return model.sample_discount_curve_paths(
+      p_t_tau, r_t = model.sample_discount_curve_paths(
           times=times,
           curve_times=curve_times,
           num_samples=num_samples,
           random_type=random_type,
           seed=seed,
           skip=skip)
+      return p_t_tau, r_t, None
+
+    # `sim_times` are times at which we request short rate and spot discount
+    # curve simulations. Ideally, we need the simulations only at `expiries`
+    # but here we request simulations at a finer time grid because we will be
+    # computing path discount factors numerically.
+    sim_times, _ = tf.unique(tf.reshape(expiries, shape=[-1]))
+    longest_expiry = tf.reduce_max(sim_times)
+    sim_times = tf.concat(
+        [sim_times, tf.range(time_step, longest_expiry, time_step)], axis=0)
+    sim_times = tf.sort(sim_times, name='sort_sim_times')
 
     payoff_discount_factors, payoff_bond_price = (
         swaption_util.discount_factors_and_bond_prices_from_samples(
@@ -714,7 +725,7 @@ def swaption_price(*,
             payment_times=fixed_leg_payment_times,
             sample_discount_curve_paths_fn=_sample_discount_curve_path_fn,
             num_samples=num_samples,
-            time_step=time_step,
+            times=sim_times,
             dtype=dtype))
 
     # Add an axis corresponding to `dim`

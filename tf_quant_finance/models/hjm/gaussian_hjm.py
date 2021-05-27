@@ -216,7 +216,7 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
 
       self._exact_discretization_setup(dim)
       super(quasi_gaussian_hjm.QuasiGaussianHJM,
-            self).__init__(dim, _drift_fn, _vol_fn, dtype, name)
+            self).__init__(dim, _drift_fn, _vol_fn, dtype, self._name)
 
   def sample_paths(self,
                    times,

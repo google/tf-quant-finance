@@ -23,7 +23,8 @@ def discount_factors_and_bond_prices_from_samples(
     payment_times,
     sample_discount_curve_paths_fn,
     num_samples,
-    time_step,
+    times=None,
+    curve_times=None,
     dtype=None):
   """Utility function to compute the discount factors and the bond prices.
 
@@ -52,8 +53,12 @@ def discount_factors_and_bond_prices_from_samples(
         is the size of `times`, and d is the dimensionality of the paths.
     num_samples: Positive scalar `int32` `Tensor`. The number of simulation
       paths during Monte-Carlo valuation.
-    time_step: Scalar real `Tensor`. Maximal distance between time grid points
-      in Euler scheme. Relevant when Euler scheme is used for simulation.
+    times: An optional rank 1 `Tensor` of increasing positive real values. The
+      times at which Monte Carlo simulations are performed.
+      Default value: `None`.
+    curve_times: An optional rank 1 `Tensor` of positive real values. The
+      maturities at which spot discount curve is computed during simulations.
+      Default value: `None`.
     dtype: The default dtype to use when converting values to `Tensor`s.
       Default value: `None` which means that default dtypes inferred by
         TensorFlow are used.
@@ -64,58 +69,38 @@ def discount_factors_and_bond_prices_from_samples(
     of each path (e.g for a Hull-White with two models, dim==2; while for HJM
     dim==1 always.)
   """
-  sim_times, _ = tf.unique(tf.reshape(expiries, shape=[-1]))
-  longest_expiry = tf.reduce_max(sim_times)
-  sim_times, _ = tf.unique(
-      tf.concat(
-          [sim_times, tf.range(time_step, longest_expiry, time_step)], axis=0))
-  sim_times = tf.sort(sim_times, name='sort_sim_times')
+  if times is not None:
+    sim_times = tf.convert_to_tensor(times, dtype=dtype)
+  else:
+    sim_times = tf.reshape(expiries, shape=[-1])
+    sim_times = tf.sort(sim_times, name='sort_sim_times')
 
-  swaptionlet_shape = payment_times.shape
+  swaptionlet_shape = tf.shape(payment_times)
   tau = payment_times - expiries
 
-  curve_times_builder, _ = tf.unique(tf.reshape(tau, shape=[-1]))
-  curve_times = tf.sort(curve_times_builder, name='sort_curve_times')
+  if curve_times is not None:
+    curve_times = tf.convert_to_tensor(curve_times, dtype=dtype)
+  else:
+    curve_times = tf.reshape(tau, shape=[-1])
+    curve_times, _ = tf.unique(curve_times)
+    curve_times = tf.sort(curve_times, name='sort_curve_times')
 
-  p_t_tau, r_t = sample_discount_curve_paths_fn(
+  p_t_tau, r_t, discount_factors = sample_discount_curve_paths_fn(
       times=sim_times, curve_times=curve_times, num_samples=num_samples)
-  dim = p_t_tau.shape[-1]
+  dim = tf.shape(p_t_tau)[-1]
 
-  dt = tf.concat(
-      axis=0,
-      values=[
-          tf.convert_to_tensor([0.0], dtype=dtype),
-          sim_times[1:] - sim_times[:-1]
-      ])
-  dt = tf.expand_dims(tf.expand_dims(dt, axis=-1), axis=0)
+  if discount_factors is None:
+    dt = tf.concat(axis=0, values=[[0.0], sim_times[1:] - sim_times[:-1]])
+    dt = tf.expand_dims(tf.expand_dims(dt, axis=-1), axis=0)
 
-  # Compute the discount factors. We do this by performing the following:
-  #
-  # 1. We compute the implied discount factors. These are the factors:
-  #    P(t1) = exp(-r1 * t1),
-  #    P(t1, t2) = exp(-r2 (t2 - t1))
-  #    P(t2, t3) = exp(-r3 (t3 - t2))
-  #    ...
-  # 2. We compute the cumulative products to get P(t2), P(t3), etc.:
-  #    P(t2) = P(t1) * P(t1, t2)
-  #    P(t3) = P(t1) * P(t1, t2) * P(t2, t3)
-  #    ...
-  # We perform the cumulative product by taking the cumulative sum over
-  # log P's, and then exponentiating the sum. However, since each P is itself
-  # an exponential, this effectively amounts to taking a cumsum over the
-  # exponents themselves, and exponentiating in the end:
-  #
-  # P(t1) = exp(-r1 * t1)
-  # P(t2) = exp(-r1 * t1 - r2 * (t2 - t1))
-  # P(t3) = exp(-r1 * t1 - r2 * (t2 - t1) - r3 * (t3 - t2))
-  # P(tk) = exp(-r1 * t1 - r2 * (t2 - t1) ... - r_k * (t_k - t_k-1))
-
-  # Transpose before (and after) because we want the cumprod along axis=1
-  # but `cumsum_using_matvec` operates on the last axis.
-  cumul_rdt = tf.transpose(
-      utils.cumsum_using_matvec(tf.transpose(r_t * dt, perm=[0, 2, 1])),
-      perm=[0, 2, 1])
-  discount_factors = tf.math.exp(-cumul_rdt)
+    # Transpose before (and after) because we want the cumprod along axis=1
+    # but `cumsum_using_matvec` operates on the last axis. Also we use cumsum
+    # and then exponentiate instead of taking cumprod of exponents for
+    # efficiency.
+    cumul_rdt = tf.transpose(
+        utils.cumsum_using_matvec(tf.transpose(r_t * dt, perm=[0, 2, 1])),
+        perm=[0, 2, 1])
+    discount_factors = tf.math.exp(-cumul_rdt)
 
   # Make discount factors the same shape as `p_t_tau`. This involves adding
   # an extra dimenstion (corresponding to `curve_times`).
@@ -138,12 +123,13 @@ def discount_factors_and_bond_prices_from_samples(
   payoff_discount_factors_builder = tf.gather_nd(discount_factors_simulated,
                                                  gather_index)
   # Reshape to `[num_samples] + swaptionlet.shape + [dim]`
-  payoff_discount_factors = tf.reshape(payoff_discount_factors_builder,
-                                       [num_samples] + swaptionlet_shape +
-                                       [dim])
+  payoff_discount_factors = tf.reshape(
+      payoff_discount_factors_builder,
+      tf.concat([[num_samples], swaptionlet_shape, [dim]], axis=0))
   payoff_bond_price_builder = tf.gather_nd(p_t_tau, gather_index)
-  payoff_bond_price = tf.reshape(payoff_bond_price_builder,
-                                 [num_samples] + swaptionlet_shape + [dim])
+  payoff_bond_price = tf.reshape(
+      payoff_bond_price_builder,
+      tf.concat([[num_samples], swaptionlet_shape, [dim]], axis=0))
 
   return payoff_discount_factors, payoff_bond_price
 

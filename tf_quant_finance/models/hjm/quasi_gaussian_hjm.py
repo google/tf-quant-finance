@@ -249,8 +249,8 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       drift = tf.concat([drift_x, drift_y], axis=-1)
       return drift
 
-    super(QuasiGaussianHJM, self).__init__(
-        self._dim, _drift_fn, _vol_fn, dtype, name)
+    super(QuasiGaussianHJM, self).__init__(self._dim, _drift_fn, _vol_fn, dtype,
+                                           self._name)
 
   def sample_paths(self,
                    times,

@@ -25,7 +25,7 @@ import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
-# @test_util.run_all_in_graph_and_eager_modes
+# TODO(b/189459394): Split swaption based and cap based tests into two files.
 class HullWhiteCalibrationSwaptionTest(parameterized.TestCase,
                                        tf.test.TestCase):
 
@@ -122,7 +122,7 @@ class HullWhiteCalibrationSwaptionTest(parameterized.TestCase,
           'optimizer_fn': None,
           'noise_size': 0.0,
           'use_analytic_pricing': False,
-          'expected_mr': [0.03683715],
+          'expected_mr': [0.0325036],
           'expected_vol': [0.01037683],
           'vol_based_calib': False,
       }, {
@@ -176,7 +176,7 @@ class HullWhiteCalibrationSwaptionTest(parameterized.TestCase,
           'optimizer_fn': None,
           'noise_size': 0.0,
           'use_analytic_pricing': False,
-          'expected_mr': [0.032912],
+          'expected_mr': [0.03342537],
           'expected_vol': [0.01025818],
           'vol_based_calib': True,
       })
@@ -226,7 +226,7 @@ class HullWhiteCalibrationSwaptionTest(parameterized.TestCase,
         num_samples=2000,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[0, 0],
-        time_step=0.25,
+        time_step=0.1,
         maximum_iterations=50,
         dtype=dtype)
     self.assertEqual(prices.dtype, dtype)

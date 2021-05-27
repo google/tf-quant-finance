@@ -201,7 +201,7 @@ def prepare_grid(*, times, time_step, dtype, num_time_steps=None,
       `time_step` and `num_time_steps`.
 
   Returns:
-    Tuple `(all_times, mask, time_points)`.
+    Tuple `(all_times, mask, time_indices)`.
     `all_times` is a 1-D real `Tensor`. If `num_time_steps` is supplied the
       shape of the output is `max(num_time_steps, len(times))`. Otherwise
       consists of all points from 'times` and the uniform grid of points between
@@ -230,12 +230,11 @@ def prepare_grid(*, times, time_step, dtype, num_time_steps=None,
         time_indices,
         tf.nn.relu(time_indices - 1))
   # Create a boolean mask to identify the iterations that have to be recorded.
-  mask_sparse = tf.sparse.SparseTensor(
-      indices=tf.expand_dims(
-          tf.cast(time_indices, dtype=tf.int64), axis=1),
-      values=tf.fill(tf.shape(times), True),
-      dense_shape=tf.shape(all_times, out_type=tf.int64))
-  mask = tf.sparse.to_dense(mask_sparse)
+  # Use `tf.scatter_nd`because it handles duplicates.
+  mask = tf.scatter_nd(
+      indices=tf.expand_dims(tf.cast(time_indices, dtype=tf.int64), axis=1),
+      updates=tf.fill(tf.shape(times), True),
+      shape=tf.shape(all_times, out_type=tf.int64))
 
   return all_times, mask, time_indices
 

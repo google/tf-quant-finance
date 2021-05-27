@@ -16,6 +16,7 @@
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.math import pde
+from tf_quant_finance.models import utils
 from tf_quant_finance.models import valuation_method as vm
 from tf_quant_finance.models.hjm import gaussian_hjm
 from tf_quant_finance.models.hjm import quasi_gaussian_hjm
@@ -35,7 +36,10 @@ def price(*,
           num_hjm_factors,
           mean_reversion,
           volatility,
+          times=None,
           time_step=None,
+          num_time_steps=None,
+          curve_times=None,
           corr_matrix=None,
           notional=None,
           is_payer_swaption=None,
@@ -45,6 +49,7 @@ def price(*,
           seed=None,
           skip=0,
           time_step_finite_difference=None,
+          num_time_steps_finite_difference=None,
           num_grid_points_finite_difference=101,
           dtype=None,
           name=None):
@@ -139,10 +144,28 @@ def price(*,
         constant instantaneous volatility  and the  model is effectively a
         Gaussian HJM model. Corresponds to the instantaneous volatility of each
         factor.
+    times: An optional rank 1 `Tensor` of increasing positive real values. The
+      times at which Monte Carlo simulations are performed. Relevant when
+      swaption valuation is done using Monte Calro simulations.
+      Default value: `None` in which case simulation times are computed based
+      on either `time_step` or `num_time_steps` inputs.
     time_step: Optional scalar real `Tensor`. Maximal distance between time
       grid points in Euler scheme. Relevant when Euler scheme is used for
-      simulation. This input is required when valuation method is Monte Carlo.
+      simulation. This input or `num_time_steps` are required when valuation
+      method is Monte Carlo.
       Default Value: `None`.
+    num_time_steps: An optional scalar integer `Tensor` - a total number of
+      time steps during Monte Carlo simulations. The maximal distance betwen
+      points in grid is bounded by
+      `times[-1] / (num_time_steps - times.shape[0])`.
+      Either this or `time_step` should be supplied when the valuation method
+      is Monte Carlo.
+      Default value: `None`.
+    curve_times: An optional rank 1 `Tensor` of positive ans increasing real
+      values. The maturities at which spot discount curve is computed during
+      simulations.
+      Default value: `None` in which case `curve_times` is computed based on
+      swaption expiries and `fixed_leg_payments_times` inputs.
     corr_matrix: A `Tensor` of shape `[num_hjm_factors, num_hjm_factors]` and
       the same `dtype` as `mean_reversion`. Specifies the correlation between
       HJM factors.
@@ -185,8 +208,14 @@ def price(*,
     time_step_finite_difference: Optional scalar real `Tensor`. Spacing between
       time grid points in finite difference discretization. This input is only
       relevant for valuation using finite difference.
-      Default value: `None`, in which case a `time_step` corresponding to 100
-      discretization steps is used.
+      Default value: `None`. If `num_time_steps_finite_difference` is also
+      unspecified then a `time_step` corresponding to 100 discretization steps
+      is used.
+    num_time_steps_finite_difference: Optional scalar real `Tensor`. Number of
+      time grid points in finite difference discretization. This input is only
+      relevant for valuation using finite difference.
+      Default value: `None`. If `time_step_finite_difference` is also
+      unspecified, then 100 time steps are used.
     num_grid_points_finite_difference: Optional scalar real `Tensor`. Number of
       spatial grid points per dimension. Currently, we construct an uniform grid
       for spatial discretization. This input is only relevant for valuation
@@ -267,6 +296,7 @@ def price(*,
           notional,
           is_payer_swaption,
           time_step_finite_difference,
+          num_time_steps_finite_difference,
           num_grid_points_finite_difference,
           name + '_fd',
           dtype)
@@ -280,12 +310,11 @@ def price(*,
           corr_matrix=corr_matrix,
           dtype=dtype)
 
-      return _european_swaption_mc(output_shape, model, expiries,
-                                   fixed_leg_payment_times,
-                                   fixed_leg_daycount_fractions,
-                                   fixed_leg_coupon, notional,
-                                   is_payer_swaption, time_step, num_samples,
-                                   random_type, skip, seed, dtype, name + '_mc')
+      return _european_swaption_mc(
+          output_shape, model, expiries, fixed_leg_payment_times,
+          fixed_leg_daycount_fractions, fixed_leg_coupon, notional,
+          is_payer_swaption, times, time_step, num_time_steps, curve_times,
+          num_samples, random_type, skip, seed, dtype, name + '_mc')
     else:
       raise ValueError('Swaption Valuation using {} is not supported'.format(
           str(valuation_method)))
@@ -293,27 +322,30 @@ def price(*,
 
 def _european_swaption_mc(output_shape, model, expiries,
                           fixed_leg_payment_times, fixed_leg_daycount_fractions,
-                          fixed_leg_coupon, notional, is_payer_swaption,
-                          time_step, num_samples, random_type, skip, seed,
-                          dtype, name):
+                          fixed_leg_coupon, notional, is_payer_swaption, times,
+                          time_step, num_time_steps, curve_times, num_samples,
+                          random_type, skip, seed, dtype, name):
   """Price European swaptions using Monte-Carlo."""
   with tf.name_scope(name):
-    if time_step is None:
-      raise ValueError('`time_step` must be provided for simulation based '
-                       'swaption valuation.')
+    if (times is None) and (time_step is None) and (num_time_steps is None):
+      raise ValueError(
+          'One of `times`, `time_step` or `num_time_steps` must be '
+          'provided for simulation based swaption valuation.')
 
     def _sample_discount_curve_path_fn(times, curve_times, num_samples):
-      p_t_tau, r_t, _ = model.sample_discount_curve_paths(
+      p_t_tau, r_t, df = model.sample_discount_curve_paths(
           times=times,
           curve_times=curve_times,
           num_samples=num_samples,
           random_type=random_type,
           time_step=time_step,
+          num_time_steps=num_time_steps,
           seed=seed,
           skip=skip)
       p_t_tau = tf.expand_dims(p_t_tau, axis=-1)
       r_t = tf.expand_dims(r_t, axis=-1)
-      return p_t_tau, r_t
+      df = tf.expand_dims(df, axis=-1)
+      return p_t_tau, r_t, df
 
     payoff_discount_factors, payoff_bond_price = (
         swaption_util.discount_factors_and_bond_prices_from_samples(
@@ -321,7 +353,8 @@ def _european_swaption_mc(output_shape, model, expiries,
             payment_times=fixed_leg_payment_times,
             sample_discount_curve_paths_fn=_sample_discount_curve_path_fn,
             num_samples=num_samples,
-            time_step=time_step,
+            times=times,
+            curve_times=curve_times,
             dtype=dtype))
 
     # Add an axis corresponding to `dim`
@@ -348,7 +381,8 @@ def _european_swaption_mc(output_shape, model, expiries,
 def _bermudan_swaption_fd(batch_shape, model, exercise_times,
                           fixed_leg_payment_times, fixed_leg_daycount_fractions,
                           fixed_leg_coupon, notional, is_payer_swaption,
-                          time_step_fd, num_grid_points_fd, name, dtype):
+                          time_step_fd, num_time_steps_fd, num_grid_points_fd,
+                          name, dtype):
   """Price Bermudan swaptions using finite difference."""
   with tf.name_scope(name):
     dim = model.dim()
@@ -363,9 +397,9 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
 
     # TODO(b/186876306): Remove dynamic shapes.
     pde_time_grid, pde_time_grid_dt = _create_pde_time_grid(
-        exercise_times, time_step_fd, dtype)
+        exercise_times, time_step_fd, num_time_steps_fd, dtype)
     maturities, unique_maturities, maturities_shape = (
-        _create_termstructure_maturities(fixed_leg_payment_times))
+        _create_term_structure_maturities(fixed_leg_payment_times))
 
     num_exercise_times = tf.shape(pde_time_grid)[-1]
     num_maturities = tf.shape(unique_maturities)[-1]
@@ -426,8 +460,17 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
                                   -payoff_at_exercise)
 
     unrepeated_exercise_times = exercise_times[..., -1]
+    # pde_time_grid may have repeated values and we want the index of the
+    # right-most value (upper bound). The reason is when we step backward
+    # during pde solution, for repeated time points in the grid we use the
+    # rightmost time and skip all else.
     exercise_times_index = tf.searchsorted(
-        pde_time_grid, tf.reshape(unrepeated_exercise_times, [-1]))
+        pde_time_grid,
+        tf.reshape(unrepeated_exercise_times, [-1]),
+        side='right') - 1
+
+    # exercise_times_index = tf.searchsorted(
+    #     pde_time_grid, tf.reshape(unrepeated_exercise_times, [-1]))
 
     # payoff_swap.shape = (num_grid_points, batch_shape, num_exercise_times)
     _, payoff_swap = _map_payoff_to_sim_times(
@@ -463,11 +506,9 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
       v_star = tf.where(index > -1, tf.nn.relu(payoff_swap[index]), 0.0)
       return grid, tf.maximum(value_grid, v_star)
 
-    # TODO(b/186876306): Use piecewise constant func here.
     def _pde_time_step(t):
       index = _get_index(t, pde_time_grid)
-      dt = pde_time_grid_dt[index]
-      return dt
+      return pde_time_grid_dt[index]
 
     # Use default boundary conditions, d^2V/dx_i^2 = 0
     boundary_conditions = [(None, None) for i in range(dim)]
@@ -585,37 +626,39 @@ def _coord_grid_to_mesh_grid(coord_grid):
   return tf.transpose(x_meshgrid, perm=perm)
 
 
-def _create_pde_time_grid(exercise_times, time_step_fd, dtype):
+def _create_pde_time_grid(exercise_times, time_step_fd, num_time_steps_fd,
+                          dtype):
   """Create PDE time grid."""
-  unique_exercise_times, _ = tf.unique(tf.reshape(exercise_times, shape=[-1]))
-  longest_exercise_time = unique_exercise_times[-1]
-  if time_step_fd is None:
-    time_step_fd = longest_exercise_time / 100.0
+  with tf.name_scope('create_pde_time_grid'):
+    exercise_times = tf.reshape(exercise_times, shape=[-1])
+    if num_time_steps_fd is not None:
+      num_time_steps_fd = tf.convert_to_tensor(
+          num_time_steps_fd, dtype=tf.int32, name='num_time_steps_fd')
+      time_step_fd = tf.math.reduce_max(exercise_times) / tf.cast(
+          num_time_steps_fd, dtype=dtype)
+    if time_step_fd is None and num_time_steps_fd is None:
+      num_time_steps_fd = 100
+    pde_time_grid, _, _ = utils.prepare_grid(
+        times=exercise_times,
+        time_step=time_step_fd,
+        dtype=dtype,
+        num_time_steps=num_time_steps_fd)
+    pde_time_grid_dt = pde_time_grid[1:] - pde_time_grid[:-1]
+    pde_time_grid_dt = tf.concat([[100.0], pde_time_grid_dt], axis=-1)
 
-  pde_time_grid = tf.concat([
-      unique_exercise_times,
-      tf.range(0.0, longest_exercise_time, time_step_fd, dtype=dtype)
-  ],
-                            axis=0)
-  # This time grid is now sorted and contains the Bermudan exercise times
-  pde_time_grid = tf.sort(pde_time_grid, name='sort_pde_time_grid')
-  pde_time_grid_dt = pde_time_grid[1:] - pde_time_grid[:-1]
-  pde_time_grid_dt = tf.concat([[100.0], pde_time_grid_dt], axis=-1)
-  # Remove duplicates.
-  mask = tf.math.greater(pde_time_grid_dt, _PDE_TIME_GRID_TOL)
-  pde_time_grid = tf.boolean_mask(pde_time_grid, mask)
-  pde_time_grid_dt = tf.boolean_mask(pde_time_grid_dt, mask)
-
-  return pde_time_grid, pde_time_grid_dt
+    return pde_time_grid, pde_time_grid_dt
 
 
-def _create_termstructure_maturities(fixed_leg_payment_times):
+def _create_term_structure_maturities(fixed_leg_payment_times):
   """Create maturities needed for termstructure simulations."""
 
-  maturities = fixed_leg_payment_times
-  maturities_shape = tf.shape(maturities)
+  with tf.name_scope('create_termstructure_maturities'):
+    maturities = fixed_leg_payment_times
+    maturities_shape = tf.shape(maturities)
 
-  unique_maturities, _ = tf.unique(tf.reshape(maturities, shape=[-1]))
-  unique_maturities = tf.sort(unique_maturities, name='sort_maturities')
+    # We should eventually remove tf.unique, but keeping it for now because
+    # PDE solvers are not xla compatible in TFF currently.
+    unique_maturities, _ = tf.unique(tf.reshape(maturities, shape=[-1]))
+    unique_maturities = tf.sort(unique_maturities, name='sort_maturities')
 
-  return maturities, unique_maturities, maturities_shape
+    return maturities, unique_maturities, maturities_shape
