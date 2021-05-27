@@ -161,7 +161,7 @@ def price(*,
       Either this or `time_step` should be supplied when the valuation method
       is Monte Carlo.
       Default value: `None`.
-    curve_times: An optional rank 1 `Tensor` of positive ans increasing real
+    curve_times: An optional rank 1 `Tensor` of positive and increasing real
       values. The maturities at which spot discount curve is computed during
       simulations.
       Default value: `None` in which case `curve_times` is computed based on
@@ -401,89 +401,50 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
     maturities, unique_maturities, maturities_shape = (
         _create_term_structure_maturities(fixed_leg_payment_times))
 
-    num_exercise_times = tf.shape(pde_time_grid)[-1]
     num_maturities = tf.shape(unique_maturities)[-1]
-
     x_meshgrid = _coord_grid_to_mesh_grid(grid)
     meshgrid_shape = tf.shape(x_meshgrid)
-    state_x = tf.reshape(x_meshgrid, tf.concat([meshgrid_shape, [1, 1]],
-                                               axis=0))
-    broadcasted_exercise_times = tf.reshape(
-        pde_time_grid,
-        tf.concat([[1] * dim, tf.shape(pde_time_grid), [1]], axis=0))
-    broadcasted_maturities = tf.reshape(
-        unique_maturities,
-        tf.concat([[1] * dim, [1], tf.shape(unique_maturities)], axis=0))
+    broadcasted_maturities = tf.expand_dims(unique_maturities, axis=0)
 
-    # Reshape `state_x`, `exercise_times` and `maturities` to
-    # (num_grid_points, num_exercise_times, num_maturities)
     num_grid_points = tf.math.reduce_prod(meshgrid_shape[1:])
-    shape_to_broadcast = tf.concat(
-        [meshgrid_shape, [num_exercise_times, num_maturities]], axis=0)
+    shape_to_broadcast = tf.concat([meshgrid_shape, [num_maturities]], axis=0)
+
+    # Reshape `state_x`, `maturities` to (num_grid_points, num_maturities)
+    state_x = tf.expand_dims(x_meshgrid, axis=-1)
     state_x = tf.broadcast_to(state_x, shape_to_broadcast)
-    broadcasted_exercise_times = tf.broadcast_to(broadcasted_exercise_times,
-                                                 shape_to_broadcast[1:])
     broadcasted_maturities = tf.broadcast_to(broadcasted_maturities,
                                              shape_to_broadcast[1:])
 
-    # Zero-coupon bond curve
-    zcb_curve = model.discount_bond_price(
-        tf.transpose(
-            tf.reshape(
-                state_x,
-                [dim, num_grid_points * num_exercise_times * num_maturities])),
-        tf.reshape(broadcasted_exercise_times, [-1]),
-        tf.reshape(broadcasted_maturities, [-1]))
-    zcb_curve = tf.reshape(
-        zcb_curve, [num_grid_points, num_exercise_times, num_maturities])
+    def _get_swap_payoff(payoff_time):
+      broadcasted_exercise_times = tf.broadcast_to(payoff_time,
+                                                   shape_to_broadcast[1:])
 
-    exercise_times_index = tf.searchsorted(pde_time_grid,
-                                           tf.reshape(exercise_times, [-1]))
-    maturities_index = tf.searchsorted(unique_maturities,
-                                       tf.reshape(maturities, [-1]))
+      # Zero-coupon bond curve
+      zcb_curve = model.discount_bond_price(
+          tf.transpose(
+              tf.reshape(state_x, [dim, num_grid_points * num_maturities])),
+          tf.reshape(broadcasted_exercise_times, [-1]),
+          tf.reshape(broadcasted_maturities, [-1]))
+      zcb_curve = tf.reshape(zcb_curve, [num_grid_points, num_maturities])
 
-    # gather_index.shape = (num_grid_points * np.cumprod(maturities_shape), 3)
-    gather_index = _prepare_indices_ijj(
-        tf.range(0, num_grid_points), exercise_times_index, maturities_index)
-    zcb_curve = tf.gather_nd(zcb_curve, gather_index)
-    # zcb_curve.shape = [num_grid_points] + [maturities_shape]
-    zcb_curve = tf.reshape(
-        zcb_curve, tf.concat([[num_grid_points], maturities_shape], axis=0))
+      maturities_index = tf.searchsorted(unique_maturities,
+                                         tf.reshape(maturities, [-1]))
 
-    # Shape after reduce_sum =
-    # (num_grid_points, batch_shape, num_exercise_times)
-    fixed_leg = tf.math.reduce_sum(
-        fixed_leg_coupon * fixed_leg_daycount_fractions * zcb_curve, axis=-1)
-    float_leg = 1.0 - zcb_curve[..., -1]
-    payoff_at_exercise = float_leg - fixed_leg
-    payoff_at_exercise = tf.where(is_payer_swaption, payoff_at_exercise,
-                                  -payoff_at_exercise)
+      zcb_curve = tf.gather(zcb_curve, maturities_index, axis=-1)
+      # zcb_curve.shape = [num_grid_points] + [maturities_shape]
+      zcb_curve = tf.reshape(
+          zcb_curve, tf.concat([[num_grid_points], maturities_shape], axis=0))
 
-    unrepeated_exercise_times = exercise_times[..., -1]
-    # pde_time_grid may have repeated values and we want the index of the
-    # right-most value (upper bound). The reason is when we step backward
-    # during pde solution, for repeated time points in the grid we use the
-    # rightmost time and skip all else.
-    exercise_times_index = tf.searchsorted(
-        pde_time_grid,
-        tf.reshape(unrepeated_exercise_times, [-1]),
-        side='right') - 1
-
-    # exercise_times_index = tf.searchsorted(
-    #     pde_time_grid, tf.reshape(unrepeated_exercise_times, [-1]))
-
-    # payoff_swap.shape = (num_grid_points, batch_shape, num_exercise_times)
-    _, payoff_swap = _map_payoff_to_sim_times(
-        tf.reshape(exercise_times_index, unrepeated_exercise_times.shape),
-        payoff_at_exercise, num_grid_points)
-
-    # payoff_swap.shape = (num_grid_points, batch_shape, num_exercise_times)
-    # Transpose so that the [num_grid_points] is the last dimension; this is
-    # needed for broadcasting inside the PDE solver.
-    payoff_swap = tf.reshape(
-        tf.transpose(payoff_swap),
-        tf.concat([[num_exercise_times], batch_shape, meshgrid_shape[1:]],
-                  axis=0))
+      # Shape after reduce_sum =
+      # (num_grid_points, batch_shape)
+      fixed_leg = tf.math.reduce_sum(
+          fixed_leg_coupon * fixed_leg_daycount_fractions * zcb_curve, axis=-1)
+      float_leg = 1.0 - zcb_curve[..., -1]
+      payoff_swap = float_leg - fixed_leg
+      payoff_swap = tf.where(is_payer_swaption, payoff_swap, -payoff_swap)
+      return tf.reshape(
+          tf.transpose(payoff_swap),
+          tf.concat([batch_shape, meshgrid_shape[1:]], axis=0))
 
     def _get_index(t, tensor_to_search):
       t = tf.expand_dims(t, axis=-1)
@@ -493,17 +454,39 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
 
     sum_x_meshgrid = tf.math.reduce_sum(x_meshgrid, axis=0)
 
+    def _is_exercise_time(t):
+      return tf.reduce_any(
+          tf.where(
+              tf.math.abs(exercise_times[..., -1] - t) < _PDE_TIME_GRID_TOL,
+              True, False),
+          axis=-1)
+
     def _discounting_fn(t, grid):
       del grid
       f_0_t = (model._instant_forward_rate_fn(t))  # pylint: disable=protected-access
       return sum_x_meshgrid + f_0_t
 
     def _final_value():
-      return tf.nn.relu(payoff_swap[-1])
+      t = pde_time_grid[-1]
+      payoff_swap = tf.nn.relu(_get_swap_payoff(t))
+      is_ex_time = _is_exercise_time(t)
+      return tf.where(
+          tf.reshape(is_ex_time, tf.concat([batch_shape, [1] * dim], axis=0)),
+          payoff_swap, 0.0)
 
     def _values_transform_fn(t, grid, value_grid):
-      index = _get_index(t, pde_time_grid)
-      v_star = tf.where(index > -1, tf.nn.relu(payoff_swap[index]), 0.0)
+      zero = tf.zeros_like(value_grid)
+      is_ex_time = _is_exercise_time(t)
+
+      def _at_least_one_swaption_pays():
+        payoff_swap = tf.nn.relu(_get_swap_payoff(t))
+        return tf.where(
+            tf.reshape(is_ex_time, tf.concat([batch_shape, [1] * dim], axis=0)),
+            payoff_swap, zero)
+
+      v_star = tf.cond(
+          tf.math.reduce_any(is_ex_time), _at_least_one_swaption_pays,
+          lambda: zero)
       return grid, tf.maximum(value_grid, v_star)
 
     def _pde_time_step(t):
@@ -530,92 +513,15 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
         tf.expand_dims(tf.convert_to_tensor([0.0] * dim, dtype=dtype), axis=-1))
     # idx.shape = (dim, 1)
     idx = tf.squeeze(idx) if dim > 1 else tf.expand_dims(idx, axis=-1)
-    # shape=(batch_shape, [1] * dim)
-    option_value = tf.transpose(
-        tf.gather_nd(tf.transpose(res[0]), tf.transpose(idx)))
+    slices = [slice(None)] + [slice(i, i + 1) for i in tf.unstack(idx)]
+    # shape = batch_shape + [1] * dim
+    option_value = res[0][slices]
+    # shape = batch_shape
+    option_value = tf.squeeze(option_value, axis=list(range(-dim, 0)))
+
     # output_shape = batch_shape + [1]
     return notional * tf.expand_dims(
         tf.reshape(option_value, batch_shape), axis=-1)
-
-
-def _prepare_indices_ijj(idx0, idx1, idx2):
-  """Prepares indices to get x[i, j, j]."""
-  # For a 3-D `Tensor` x, creates indices for tf.gather_nd to retrieve
-  # x[i, j, j].
-  len0 = tf.shape(idx0)[0]
-  len1 = tf.shape(idx1)[0]
-  idx0 = tf.repeat(idx0, len1)
-  idx1 = tf.tile(idx1, [len0])
-  idx2 = tf.tile(idx2, [len0])
-
-  # shape of return value: (idx0.shape[0] * idx1.shape[0] * idx2.shape[0], 3)
-  return tf.stack([idx0, idx1, idx2], axis=-1)
-
-
-def _map_payoff_to_sim_times(indices, payoff, num_samples):
-  """Maps the swaption payoffs to short rate simulation times.
-
-  Swaption payoffs are calculated on bermudan swaption's expiries. However, for
-  the LSM/PDE algorithms, we need quantities such as short rate simulations
-  and/or swaption payoffs at the union of all exercise times in the batch of
-  swaptions. This function takes the payoff of individual swaption at their
-  respective exercise times and maps it to all simulation times. This is done
-  by setting the payoff to -1 whenever the simulation time is not equal to the
-  swaption exercise time.
-
-  Args:
-    indices: A `Tensor` of shape `batch_shape + num_exercise_times` containing
-      the index of exercise time in the vector of simulation times.
-    payoff: A real tensor of shape `[num_samples] + batch_shape +
-      num_exercise_times` containing the exercise value of the underlying swap
-      on each exercise time.
-    num_samples: A scalar `Tensor` specifying the number of samples on which
-      swaption payoff is computed.
-
-  Returns:
-    A tuple of `Tensors`. The first tensor is a integer `Tensor` of shape
-    `[num_samples] + batch_shape + [num_simulation_times]` and contains `1`
-    if the corresponding simulation time is one of the exercise times for the
-    swaption. The second `Tensor` is a real `Tensor` of same shape and contains
-    the exercise value of the swaption if the corresponding simulation time is
-    an exercise time for the swaption or -1 otherwise.
-  """
-  indices = tf.expand_dims(indices, axis=0)
-  indices = tf.repeat(indices, num_samples, axis=0)
-  index_list = []
-  tensor_shape = tf.shape(indices)
-  tensor_rank = indices.shape.rank
-  output_shape = tf.concat(
-      [tf.shape(indices)[:-1], [tf.math.reduce_max(indices) + 1]], axis=0)
-  num_elements = tf.size(indices)
-  # Construct `index_list` which contains the indicies at which swaption
-  # payoff would be needed.
-  for dim in range(tensor_rank - 1):
-    idx = tf.range(0, tensor_shape[dim], dtype=indices.dtype)
-    idx = tf.tile(
-        tf.repeat(idx, tf.math.reduce_prod(tensor_shape[dim + 1:])),
-        [tf.math.reduce_prod(tensor_shape[:dim])])
-    index_list.append(idx)
-
-  index_list.append(tf.reshape(indices, [-1]))
-  # We need to transform `payoff` from the initial shape of
-  # [num_samples, batch_shape, num_exercise_times] to a new `Tensor` with
-  # shape = [num_samples, batch_shape, num_exercise_times] such that
-  # payoff_new[..., indices] = payoff
-  # We achieve this by first creating a `payoff_new` as a SparseTensor with
-  # nonzero values at appropriate indices based on the payoff_new.shape and
-  # then converting the sparse tensor to dense tensor.
-  sparse_indices = tf.cast(tf.stack(index_list, axis=-1), dtype=tf.int64)
-  is_exercise_time = tf.sparse.to_dense(
-      tf.sparse.SparseTensor(sparse_indices,
-                             tf.ones(shape=num_elements, dtype=tf.int64),
-                             tf.cast(output_shape, dtype=tf.int64)),
-      validate_indices=False)
-  payoff = tf.sparse.to_dense(
-      tf.sparse.SparseTensor(sparse_indices, tf.reshape(payoff, [-1]),
-                             tf.cast(output_shape, dtype=tf.int64)),
-      validate_indices=False)
-  return is_exercise_time, payoff
 
 
 def _coord_grid_to_mesh_grid(coord_grid):
@@ -630,7 +536,7 @@ def _create_pde_time_grid(exercise_times, time_step_fd, num_time_steps_fd,
                           dtype):
   """Create PDE time grid."""
   with tf.name_scope('create_pde_time_grid'):
-    exercise_times = tf.reshape(exercise_times, shape=[-1])
+    exercise_times, _ = tf.unique(tf.reshape(exercise_times, shape=[-1]))
     if num_time_steps_fd is not None:
       num_time_steps_fd = tf.convert_to_tensor(
           num_time_steps_fd, dtype=tf.int32, name='num_time_steps_fd')
@@ -638,6 +544,7 @@ def _create_pde_time_grid(exercise_times, time_step_fd, num_time_steps_fd,
           num_time_steps_fd, dtype=dtype)
     if time_step_fd is None and num_time_steps_fd is None:
       num_time_steps_fd = 100
+
     pde_time_grid, _, _ = utils.prepare_grid(
         times=exercise_times,
         time_step=time_step_fd,

@@ -533,10 +533,10 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     dtype = tf.float64
     error_tol = 1e-3
 
-    expiries = np.array([1.002739726, 1.002739726])
+    expiries = np.array([1.002739726, 2.002739726])
     fixed_leg_payment_times = np.array(
         [[1.249315068, 1.498630137, 1.750684932, 2.002739726],
-         [1.249315068, 1.498630137, 1.750684932, 2.002739726]])
+         [2.249315068, 2.498630137, 2.750684932, 3.002739726]])
     fixed_leg_daycount_fractions = np.array(
         [[0.2465753425, 0.2493150685, 0.2520547945, 0.2520547945],
          [0.2465753425, 0.2493150685, 0.2520547945, 0.2520547945]])
@@ -562,12 +562,12 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         time_step=0.1,
         dtype=dtype)
 
-    quantlib_price = 0.5900860719515227
+    quantlib_price = [0.5900860719515227, 0.8029012153434956]
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [2, 1])
     price = self.evaluate(price)
     self.assertAllClose(
-        price, [[quantlib_price], [quantlib_price]],
+        price, [[quantlib_price[0]], [quantlib_price[1]]],
         rtol=error_tol,
         atol=error_tol)
 
