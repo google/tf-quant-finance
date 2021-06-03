@@ -1,0 +1,4 @@
+# Typing module
+
+Contains useful type definitions to be used for type annotations across the
+library.
