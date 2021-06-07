@@ -75,28 +75,49 @@ class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'optimizer_fn': None,
           'vol_based_calib': False,
           'num_hjm_factors': 2,
+          'time_step': 0.25,
+          'num_time_steps': None,
+          'num_instruments': 14,
+          'max_iter': 10,
       }, {
           'testcase_name': 'two_factor_vol',
           'optimizer_fn': None,
           'vol_based_calib': True,
           'num_hjm_factors': 2,
+          'time_step': 0.25,
+          'num_time_steps': None,
+          'num_instruments': 14,
+          'max_iter': 10,
       }, {
           'testcase_name': 'two_factor_bfgs',
           'optimizer_fn': tfp.optimizer.bfgs_minimize,
           'vol_based_calib': False,
           'num_hjm_factors': 2,
+          'time_step': 0.25,
+          'num_time_steps': None,
+          'num_instruments': 14,
+          'max_iter': 10,
       }, {
           'testcase_name': 'three_factor_price',
           'optimizer_fn': None,
           'vol_based_calib': False,
           'num_hjm_factors': 3,
+          'time_step': 0.25,
+          'num_time_steps': None,
+          'num_instruments': 14,
+          'max_iter': 10,
       }, {
           'testcase_name': 'three_factor_vol',
           'optimizer_fn': None,
           'vol_based_calib': True,
           'num_hjm_factors': 3,
+          'time_step': 0.25,
+          'num_time_steps': None,
+          'num_instruments': 14,
+          'max_iter': 10,
       })
-  def test_calibration(self, optimizer_fn, vol_based_calib, num_hjm_factors):
+  def test_calibration(self, optimizer_fn, vol_based_calib, num_hjm_factors,
+                       time_step, num_time_steps, num_instruments, max_iter):
     """Tests calibration with constant parameters."""
     dtype = tf.float64
     mr0 = [0.01, 0.05]
@@ -109,49 +130,81 @@ class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
 
     zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
 
-    _, calib_mr, calib_vol, calib_corr, _, _ = (
-        tff.models.hjm.calibration_from_swaptions(
-            prices=self.prices,
-            expiries=self.expiries,
-            floating_leg_start_times=self.float_leg_start_times,
-            floating_leg_end_times=self.float_leg_end_times,
-            fixed_leg_payment_times=self.fixed_leg_payment_times,
-            floating_leg_daycount_fractions=self.float_leg_daycount_fractions,
-            fixed_leg_daycount_fractions=self.fixed_leg_daycount_fractions,
-            fixed_leg_coupon=self.fixed_leg_coupon,
-            reference_rate_fn=zero_rate_fn,
-            notional=100.,
-            num_hjm_factors=num_hjm_factors,
-            mean_reversion=mr0,
-            volatility=vol0,
-            optimizer_fn=optimizer_fn,
-            volatility_based_calibration=vol_based_calib,
-            num_samples=2000,
-            random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
-            seed=[0, 0],
-            time_step=0.25,
-            maximum_iterations=20,
-            dtype=dtype))
+    times = np.unique(np.reshape(self.expiries[:num_instruments], [-1]))
+    curve_times = None
+    random_type = tff.math.random.RandomType.STATELESS_ANTITHETIC
+    seed = [0, 0]
+    num_samples = 2000
+
+    valuation_method = tff.models.ValuationMethod.MONTE_CARLO
+    def _fn():
+      _, calib_mr, calib_vol, calib_corr, _, _ = (
+          tff.models.hjm.calibration_from_swaptions(
+              prices=self.prices[:num_instruments],
+              expiries=self.expiries[:num_instruments],
+              floating_leg_start_times=self
+              .float_leg_start_times[:num_instruments, :],
+              floating_leg_end_times=self
+              .float_leg_end_times[:num_instruments, :],
+              fixed_leg_payment_times=self
+              .fixed_leg_payment_times[:num_instruments, :],
+              floating_leg_daycount_fractions=self
+              .float_leg_daycount_fractions[:num_instruments, :],
+              fixed_leg_daycount_fractions=self
+              .fixed_leg_daycount_fractions[:num_instruments, :],
+              fixed_leg_coupon=self
+              .fixed_leg_coupon[:num_instruments, :],
+              reference_rate_fn=zero_rate_fn,
+              notional=100.,
+              num_hjm_factors=num_hjm_factors,
+              mean_reversion=mr0,
+              volatility=vol0,
+              optimizer_fn=optimizer_fn,
+              volatility_based_calibration=vol_based_calib,
+              swaption_valuation_method=valuation_method,
+              num_samples=num_samples,
+              random_type=random_type,
+              seed=seed,
+              time_step=time_step,
+              num_time_steps=num_time_steps,
+              times=times,
+              curve_times=curve_times,
+              time_step_finite_difference=time_step,
+              num_grid_points_finite_difference=41,
+              maximum_iterations=max_iter,
+              dtype=dtype))
+      return calib_mr, calib_vol, calib_corr
+
+    calib_mr, calib_vol, calib_corr = self.evaluate(_fn())
 
     prices = tff.models.hjm.swaption_price(
-        expiries=self.expiries,
-        fixed_leg_payment_times=self.fixed_leg_payment_times,
-        fixed_leg_daycount_fractions=self.fixed_leg_daycount_fractions,
-        fixed_leg_coupon=self.fixed_leg_coupon,
+        expiries=self.expiries[:num_instruments],
+        fixed_leg_payment_times=self
+        .fixed_leg_payment_times[:num_instruments, :],
+        fixed_leg_daycount_fractions=self
+        .fixed_leg_daycount_fractions[:num_instruments, :],
+        fixed_leg_coupon=self.fixed_leg_coupon[:num_instruments, :],
         reference_rate_fn=zero_rate_fn,
         num_hjm_factors=num_hjm_factors,
         notional=100.,
         mean_reversion=calib_mr,
         volatility=calib_vol,
         corr_matrix=calib_corr,
-        num_samples=2000,
-        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
-        seed=[0, 0],
-        time_step=0.25,
+        num_samples=num_samples,
+        random_type=random_type,
+        seed=seed,
+        time_step=time_step,
+        num_time_steps=num_time_steps,
+        times=times,
+        curve_times=curve_times,
+        time_step_finite_difference=time_step,
+        num_grid_points_finite_difference=101,
+        valuation_method=valuation_method,
         dtype=dtype)
 
-    self.assertEqual(prices.dtype, dtype)
-    self.assertAllClose(prices[:, 0], self.prices, rtol=0.1, atol=0.1)
+    prices = self.evaluate(prices)
+    self.assertAllClose(
+        prices[:, 0], self.prices[:num_instruments], rtol=0.1, atol=0.1)
 
 
 if __name__ == '__main__':

@@ -512,7 +512,7 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
         tf.convert_to_tensor(grid),
         tf.expand_dims(tf.convert_to_tensor([0.0] * dim, dtype=dtype), axis=-1))
     # idx.shape = (dim, 1)
-    idx = tf.squeeze(idx) if dim > 1 else tf.expand_dims(idx, axis=-1)
+    idx = tf.squeeze(idx) if dim > 1 else tf.reshape(idx, shape=[1])
     slices = [slice(None)] + [slice(i, i + 1) for i in tf.unstack(idx)]
     # shape = batch_shape + [1] * dim
     option_value = res[0][slices]

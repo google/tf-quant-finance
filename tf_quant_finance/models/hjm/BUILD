@@ -195,8 +195,21 @@ py_test(
     timeout = "long",
     srcs = ["calibration_test.py"],
     python_version = "PY3",
-    shard_count = 10,
-    tags = ["nofastbuild"],
+    shard_count = 12,
+    deps = [
+        "//tf_quant_finance",
+        # test util,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "calibration_xla_test",
+    timeout = "long",
+    srcs = ["calibration_xla_test.py"],
+    python_version = "PY3",
+    shard_count = 1,
     deps = [
         "//tf_quant_finance",
         # test util,

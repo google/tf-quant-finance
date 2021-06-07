@@ -14,7 +14,6 @@
 """Calibration methods for the HJM model."""
 
 import numpy as np
-
 import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
 
@@ -22,6 +21,7 @@ from tf_quant_finance.black_scholes import implied_vol
 from tf_quant_finance.black_scholes.implied_vol_utils import UnderlyingDistribution
 from tf_quant_finance.math import make_val_and_grad_fn
 from tf_quant_finance.math import optimizer
+from tf_quant_finance.models import valuation_method as vm
 from tf_quant_finance.models.hjm.quasi_gaussian_hjm import QuasiGaussianHJM
 from tf_quant_finance.models.hjm.swaption_pricing import price as swaption_price
 from tf_quant_finance.rates.analytics import swap
@@ -92,12 +92,17 @@ def calibration_from_swaptions(*,
                                volatility,
                                notional=None,
                                is_payer_swaption=None,
-                               use_analytic_pricing=True,
+                               swaption_valuation_method=None,
                                num_samples=1,
                                random_type=None,
                                seed=None,
                                skip=0,
+                               times=None,
                                time_step=None,
+                               num_time_steps=None,
+                               curve_times=None,
+                               time_step_finite_difference=None,
+                               num_grid_points_finite_difference=101,
                                volatility_based_calibration=True,
                                calibrate_correlation=True,
                                optimizer_fn=None,
@@ -186,7 +191,6 @@ def calibration_from_swaptions(*,
       volatility=[0.005, 0.004],  # Initial guess for volatility
       volatility_based_calibration=True,
       calibrate_correlation=True,
-      use_analytic_pricing=False,
       num_samples=2000,
       time_step=0.1,
       random_type=random.RandomType.STATELESS_ANTITHETIC,
@@ -246,11 +250,15 @@ def calibration_from_swaptions(*,
     is_payer_swaption: A boolean `Tensor` of a shape compatible with `expiries`.
       Indicates whether the prices correspond to payer (if True) or receiver (if
       False) swaption. If not supplied, payer swaptions are assumed.
-    use_analytic_pricing: A Python boolean specifying if swaption pricing is
-      done analytically during calibration. This input is reserved for future
-      use and currently swaption pricing is only supported using Monte-Carlo
-      simulations for the HJM model.
-      Default value: The default value is `False`.
+    swaption_valuation_method: An enum of type
+      `valuation_method.ValuationMethod` specifying the method to be used for
+      swaption valuation during calibration. Currently the valuation is
+      supported using `MONTE_CARLO` and `FINITE_DIFFERENCE` methods. Valuation
+      using finite difference is only supported for Gaussian HJM models, i.e.
+      for models with constant mean-reversion rate and time-dependent
+      volatility.
+      Default value: `valuation_method.ValuationMethod.MONTE_CARLO`, in which
+      case swaption valuation is done using Monte Carlo simulations.
     num_samples: Positive scalar `int32` `Tensor`. The number of simulation
       paths during Monte-Carlo valuation of swaptions. This input is ignored
       during analytic valuation.
@@ -271,10 +279,35 @@ def calibration_from_swaptions(*,
       Halton sequence to skip. Used only when `random_type` is 'SOBOL',
       'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
       Default value: `0`.
+    times: An optional rank 1 `Tensor` of increasing positive real values. The
+      times at which Monte Carlo simulations are performed. Relevant when
+      swaption valuation is done using Monte Calro simulations.
+      Default value: `None` in which case simulation times are computed based
+      on either `time_step` or `num_time_steps` inputs.
     time_step: Scalar real `Tensor`. Maximal distance between time grid points
       in Euler scheme. Relevant when Euler scheme is used for simulation. This
       input is ignored during analytic valuation.
       Default value: `None`.
+    num_time_steps: An optional scalar integer `Tensor` - a total number of
+      time steps during Monte Carlo simulations. The maximal distance betwen
+      points in grid is bounded by
+      `times[-1] / (num_time_steps - times.shape[0])`.
+      Either this or `time_step` should be supplied when the valuation method
+      is Monte Carlo.
+      Default value: `None`.
+    curve_times: An optional rank 1 `Tensor` of positive real values. The
+      maturities at which spot discount curve is computed during simulations.
+      Default value: `None` in which case `curve_times` is computed based on
+      swaption expities and `fixed_leg_payments_times` inputs.
+    time_step_finite_difference: Scalar real `Tensor`. Spacing between time
+      grid points in finite difference discretization. This input is only
+      relevant for valuation using finite difference.
+      Default value: `None`, in which case a `time_step` corresponding to 100
+      discrete steps is used.
+    num_grid_points_finite_difference: Scalar real `Tensor`. Number of spatial
+      grid points for discretization. This input is only relevant for valuation
+      using finite difference.
+      Default value: 100.
     volatility_based_calibration: An optional Python boolean specifying whether
       calibration is performed using swaption implied volatilities. If the input
       is `True`, then the swaption prices are first converted to normal implied
@@ -340,7 +373,7 @@ def calibration_from_swaptions(*,
     algorithm succeeded in finding the optimal point based on the specified
     convergance criteria) and the number of iterations performed.
   """
-  del floating_leg_daycount_fractions, use_analytic_pricing
+  del floating_leg_daycount_fractions
   name = name or 'hjm_swaption_calibration'
   with tf.name_scope(name):
     prices = tf.convert_to_tensor(prices, dtype=dtype, name='prices')
@@ -358,6 +391,20 @@ def calibration_from_swaptions(*,
         name='fixed_leg_daycount_fractions')
     fixed_leg_coupon = tf.convert_to_tensor(
         fixed_leg_coupon, dtype=dtype, name='fixed_leg_coupon')
+
+    if times is None:
+      times, _ = tf.unique(tf.reshape(expiries, [-1]))
+      times = tf.sort(times, name='sort_times')
+    else:
+      times = tf.convert_to_tensor(times, dtype=dtype)
+
+    if curve_times is None:
+      tau = fixed_leg_payment_times - tf.expand_dims(expiries, axis=-1)
+      curve_times, _ = tf.unique(tf.reshape(tau, [-1]))
+      curve_times = tf.sort(curve_times)
+    else:
+      curve_times = tf.convert_to_tensor(curve_times, dtype=dtype)
+
     notional = tf.convert_to_tensor(notional, dtype=dtype, name='notional')
     vol_lb = tf.convert_to_tensor(volatility_lower_bound, dtype=dtype)
     vol_ub = tf.convert_to_tensor(volatility_upper_bound, dtype=dtype)
@@ -368,6 +415,9 @@ def calibration_from_swaptions(*,
 
     mean_reversion = tf.convert_to_tensor(mean_reversion, dtype=dtype)
     volatility = tf.convert_to_tensor(volatility, dtype=dtype)
+
+    swaption_valuation_method = (
+        swaption_valuation_method or vm.ValuationMethod.MONTE_CARLO)
 
     if optimizer_fn is None:
       optimizer_fn = optimizer.conjugate_gradient_minimize
@@ -439,6 +489,7 @@ def calibration_from_swaptions(*,
         x_corr = None
 
       volatility_param = _make_hjm_volatility_fn(x_vol, dtype)
+
       # TODO(b/182663434): Use precomputed random draws.
       model_values = swaption_price(
           expiries=expiries,
@@ -452,11 +503,17 @@ def calibration_from_swaptions(*,
           corr_matrix=x_corr,
           notional=notional,
           is_payer_swaption=is_payer_swaption,
+          valuation_method=swaption_valuation_method,
           num_samples=num_samples,
           random_type=random_type,
           seed=seed,
           skip=skip,
+          times=times,
           time_step=time_step,
+          num_time_steps=num_time_steps,
+          curve_times=curve_times,
+          time_step_finite_difference=time_step_finite_difference,
+          num_grid_points_finite_difference=num_grid_points_finite_difference,
           dtype=dtype)[:, 0]
 
       if volatility_based_calibration:

@@ -224,17 +224,21 @@ def prepare_grid(*, times, time_step, dtype, num_time_steps=None,
     time_indices = tf.searchsorted(times_grid, times)
     # Adjust indices to bring `times` closer to `times_grid`.
     times_diff_1 = tf.gather(times_grid, time_indices) - times
-    times_diff_2 = tf.gather(times_grid, tf.nn.relu(time_indices-1)) - times
+    times_diff_2 = tf.gather(
+        times_grid, tf.math.maximum(time_indices-1, 0)) - times
     time_indices = tf.where(
         tf.math.abs(times_diff_2) > tf.math.abs(times_diff_1),
         time_indices,
-        tf.nn.relu(time_indices - 1))
+        tf.math.maximum(time_indices - 1, 0))
   # Create a boolean mask to identify the iterations that have to be recorded.
-  # Use `tf.scatter_nd`because it handles duplicates.
+  # Use `tf.scatter_nd` because it handles duplicates. Also we first create
+  # an int64 Tensor and then create a boolean mask becase scatter_nd with
+  # booleans is currently not supported on GPUs.
   mask = tf.scatter_nd(
       indices=tf.expand_dims(tf.cast(time_indices, dtype=tf.int64), axis=1),
-      updates=tf.fill(tf.shape(times), True),
+      updates=tf.fill(tf.shape(times), 1),
       shape=tf.shape(all_times, out_type=tf.int64))
+  mask = tf.where(mask > 0, True, False)
 
   return all_times, mask, time_indices
 
@@ -266,7 +270,7 @@ def _grid_from_num_times(*, times, time_step, num_time_steps):
   # max(0, num_time_steps - tf.shape(times)[0])
   uniform_grid = tf.linspace(
       time_step, times[-1] - time_step,
-      tf.nn.relu(num_time_steps - tf.shape(times)[0]))
+      tf.math.maximum(num_time_steps - tf.shape(times)[0], 0))
   grid = tf.sort(tf.concat([uniform_grid, times], 0))
   # Add zero to the time grid
   all_times = tf.concat([[0], grid], 0)
