@@ -93,7 +93,7 @@ py_library(
 py_test(
     name = "cap_floor_test",
     size = "medium",
-    timeout = "moderate",
+    timeout = "long",
     srcs = ["cap_floor_test.py"],
     python_version = "PY3",
     shard_count = 6,
@@ -170,7 +170,7 @@ py_test(
 py_test(
     name = "calibration_test",
     size = "medium",
-    timeout = "moderate",
+    timeout = "long",
     srcs = ["calibration_test.py"],
     python_version = "PY3",
     shard_count = 12,
