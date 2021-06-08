@@ -16,6 +16,7 @@ py_library(
         "//tf_quant_finance/experimental/local_volatility",
         "//tf_quant_finance/experimental/lsm_algorithm",
         "//tf_quant_finance/experimental/pricing_platform",
+        "//tf_quant_finance/experimental/svi",
     ],
 )
 
