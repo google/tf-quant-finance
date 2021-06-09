@@ -108,7 +108,7 @@ ValueAndGradient = collections.namedtuple(
 
 
 @attr.s
-class ConjugateGradientParams(object):
+class ConjugateGradientParams:
   """Adjustable parameters of conjugate gradient algorithm."""
   # Real number. Sufficient decrease parameter for Wolfe conditions.
   # Corresponds to `delta` in [HZ2006].

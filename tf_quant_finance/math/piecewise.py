@@ -17,7 +17,7 @@
 import tensorflow.compat.v2 as tf
 
 
-class PiecewiseConstantFunc(object):
+class PiecewiseConstantFunc:
   """Creates a piecewise constant function."""
 
   def __init__(self, jump_locations, values, dtype=None, name=None):

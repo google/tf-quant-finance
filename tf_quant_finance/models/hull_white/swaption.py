@@ -209,7 +209,7 @@ def _map_payoff_to_sim_times(indices, payoff, num_samples):
   """
   indices = tf.expand_dims(indices, axis=0)
   indices = tf.repeat(indices, num_samples, axis=0)
-  index_list = list()
+  index_list = []
   tensor_shape = np.array(indices.shape.as_list())
   output_shape = indices.shape.as_list()[:-1] + [
       tf.math.reduce_max(indices) + 1
@@ -272,7 +272,7 @@ def _analytic_valuation(expiries, floating_leg_start_times,
         name=name + '_jamshidian_decomposition')
 
     bond_strike_rank = breakeven_bond_option_strikes.shape.rank
-    perm = [bond_strike_rank-1] + [x for x in range(0, bond_strike_rank - 1)]
+    perm = [bond_strike_rank-1] + list(range(0, bond_strike_rank - 1))
     breakeven_bond_option_strikes = tf.transpose(
         breakeven_bond_option_strikes, perm=perm)
     bond_option_prices = zcb.bond_option_price(

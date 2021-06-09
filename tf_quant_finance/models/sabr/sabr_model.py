@@ -531,7 +531,7 @@ def _is_callable(var_or_fn):
   """Returns whether an object is callable or not."""
   # Python 2.7 as well as Python 3.x with x > 2 support 'callable'.
   # In between, callable was removed hence we need to do a more expansive check
-  if hasattr(var_or_fn, '__call__'):
+  if callable(var_or_fn):
     return True
   try:
     return callable(var_or_fn)

@@ -41,7 +41,7 @@ from tf_quant_finance.math import random_ops
 
 
 @six.add_metaclass(abc.ABCMeta)
-class ItoProcess(object):
+class ItoProcess:
   """Base class for Ito processes.
 
     Represents a general Ito process:

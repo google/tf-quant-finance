@@ -37,12 +37,11 @@ class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
         var = 0.0
         for j in range(len(intervals) - 1):
           if tt >= intervals[j] and tt < intervals[j + 1]:
-            var = var + vol[j]**2 / 2 / k * (
-                np.exp(2 * k * tt) - np.exp(2 * k * intervals[j]))
-            break
-          else:
-            var = var + vol[j]**2 / 2 / k * (
-                np.exp(2 * k * intervals[j + 1]) - np.exp(2 * k * intervals[j]))
+              var = var + vol[j]**2 / 2 / k * (
+                  np.exp(2 * k * tt) - np.exp(2 * k * intervals[j]))
+              break
+          var = var + vol[j]**2 / 2 / k * (
+              np.exp(2 * k * intervals[j + 1]) - np.exp(2 * k * intervals[j]))
         else:
           var = var + vol[-1]**2/2/k *(np.exp(2*k*tt)-np.exp(2*k*intervals[-1]))
         res[i] = np.exp(-k*tt) * np.sqrt(var)
