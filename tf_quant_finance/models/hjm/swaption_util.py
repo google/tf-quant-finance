@@ -115,35 +115,55 @@ def discount_factors_and_bond_prices_from_samples(
   sim_time_index = tf.searchsorted(sim_times, tf.reshape(expiries, [-1]))
   curve_time_index = tf.searchsorted(curve_times, tf.reshape(tau, [-1]))
 
-  gather_index = _prepare_indices_ijjk(
-      tf.range(0, num_samples), curve_time_index, sim_time_index,
-      tf.range(0, dim))
-
-  # The shape after `gather_nd` will be `(num_samples*num_swaptionlets*dim,)`
-  payoff_discount_factors_builder = tf.gather_nd(discount_factors_simulated,
-                                                 gather_index)
-  # Reshape to `[num_samples] + swaptionlet.shape + [dim]`
+  gather_index = tf.stack([curve_time_index, sim_time_index], axis=1)
+  # shape=[num_samples, len(sim_times_index), dim]
+  discount_factors_simulated = _gather_tensor_at_swaption_payoff(
+      discount_factors_simulated, gather_index)
   payoff_discount_factors = tf.reshape(
-      payoff_discount_factors_builder,
+      discount_factors_simulated,
       tf.concat([[num_samples], swaptionlet_shape, [dim]], axis=0))
-  payoff_bond_price_builder = tf.gather_nd(p_t_tau, gather_index)
+
+  # shape=[num_samples, len(sim_times_index), dim]
+  p_t_tau = _gather_tensor_at_swaption_payoff(p_t_tau, gather_index)
   payoff_bond_price = tf.reshape(
-      payoff_bond_price_builder,
+      p_t_tau,
       tf.concat([[num_samples], swaptionlet_shape, [dim]], axis=0))
 
   return payoff_discount_factors, payoff_bond_price
 
 
-def _prepare_indices_ijjk(idx0, idx1, idx2, idx3):
-  """Prepares indices to get x[i, j, j, k]."""
-  # For a 4-D `Tensor` x, creates indices for tf.gather_nd to retrieve
-  # x[i, j, j, k].
-  len0 = tf.shape(idx0)[0]
-  len1 = tf.shape(idx1)[0]
-  len3 = tf.shape(idx3)[0]
-  idx0 = tf.repeat(idx0, len1 * len3)
-  idx1 = tf.tile(tf.repeat(idx1, len3), [len0])
-  idx2 = tf.tile(tf.repeat(idx2, len3), [len0])
-  idx3 = tf.tile(idx3, [len0 * len1])
+def _gather_tensor_at_swaption_payoff(param, indices):
+  """Returns the values of the input `Tensor` at Swaption payoff times.
 
-  return tf.stack([idx0, idx1, idx2, idx3], axis=-1)
+  `Tensor`s such as simulated path discount factors and spot discount curves
+  have shape `[batch_shape, num_samples, curve_times, sim_times, dim]`. In
+  order to compute swaption payoffs at exercise times, we need to gather their
+  values at `[batch_shape, num_samples, curve_times_idx, sim_times_idx, dim]`
+  where `curve_times_idx` are the relevant indices corresponding to times at
+  which spot discount curves are sampled and `sim_times_idx` are the relevant
+  indices corresponding to simulation times.
+
+  To achieve this task we first transpose the tensor to shape
+  `[curve_times, sim_times, dim, batch_shape, num_samples]` and then use
+  `tf.gather_nd` along the leading 2 dimensions.
+
+  Args:
+    param: The `Tensor` from which values will be extracted. The shape of the
+      `Tensor` is `[batch_shape, num_samples, curve_times, sim_times, dim]`.
+    indices: A 2-D `Tensor` of shape `[num_indices, 2]`. The first column
+      contains the indices along the `curve_times` axis and the second column
+      contains the indices along the `sim_times` axis.
+
+  Returns:
+    A `Tensor` of same dtype as `param` and shape
+    `[batch_shape, num_samples, num_indices, dim]`.
+  """
+  batch_rank = param.shape[:-4].rank
+  perm = [batch_rank + 1, batch_rank + 2, batch_rank + 3] + list(
+      range(batch_rank + 1))
+  param = tf.transpose(param, perm=perm)
+  param = tf.gather_nd(param, indices)
+  perm = list(range(2, 3 + batch_rank)) + [0, 1]
+  param = tf.transpose(param, perm=perm)
+
+  return param
