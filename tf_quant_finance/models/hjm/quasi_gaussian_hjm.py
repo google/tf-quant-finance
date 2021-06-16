@@ -135,7 +135,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
         Corresponds to the instantaneous volatility of each factor.
       initial_discount_rate_fn: A Python callable that accepts expiry time as
         a real `Tensor` of the same `dtype` as `mean_reversion` and returns a
-        `Tensor` of shape `input_shape + dim`.
+        `Tensor` of shape `input_shape`.
         Corresponds to the zero coupon bond yield at the present time for the
         input expiry time.
       corr_matrix: A `Tensor` of shape `[dim, dim]` and the same `dtype` as
@@ -162,8 +162,10 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       def _instant_forward_rate_fn(t):
         t = tf.convert_to_tensor(t, dtype=self._dtype)
         def _log_zero_coupon_bond(x):
+          # Shape `x.shape`
           r = tf.convert_to_tensor(
               initial_discount_rate_fn(x), dtype=self._dtype)
+          # Shape `x.shape`
           return -r * x
 
         rate = -gradient.fwd_gradient(
@@ -409,8 +411,8 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       # ([num_smaples,num_curve_times,num_sim_times]).
       num_curve_nodes = tf.shape(curve_times)[0]
       num_sim_steps = tf.shape(times)[0]
-      times = tf.reshape(times, (1, 1, num_sim_steps, 1))
-      curve_times = tf.reshape(curve_times, (1, num_curve_nodes, 1, 1))
+      times = tf.reshape(times, (1, 1, num_sim_steps))
+      curve_times = tf.reshape(curve_times, (1, num_curve_nodes, 1))
 
       return (self._bond_reconstitution(times, times + curve_times,
                                         self._mean_reversion, x_t, y_t,
@@ -454,15 +456,16 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
     x_paths = xy_paths[..., :self._factors]
     y_paths = xy_paths[..., self._factors:]
 
-    f_0_t = self._instant_forward_rate_fn(times)  # shape=(num_times,)
+    # Shape (num_times,)
+    f_0_t = self._instant_forward_rate_fn(times)
+    # Shape (num_samples, num_times)
     rate_paths = tf.math.reduce_sum(
-        x_paths, axis=-1) + f_0_t  # shape=(num_samples, num_times)
+        x_paths, axis=-1) + f_0_t
 
     dt = tf.concat([tf.convert_to_tensor([0.0], dtype=self._dtype), dt],
                    axis=0)
     discount_factor_paths = tf.math.exp(-utils.cumsum_using_matvec(
         rate_paths * dt))
-
     return (
         tf.gather(rate_paths, time_indices, axis=1),
         tf.gather(discount_factor_paths, time_indices, axis=1),
@@ -479,15 +482,17 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
                            num_samples,
                            num_times):
     """Computes discount bond prices using Eq. 10.18 in Ref [2]."""
-    # p_0_t.shape = (1, 1, num_sim_steps, 1)
+    times_expand = tf.expand_dims(times, axis=-1)
+    maturities_expand = tf.expand_dims(maturities, axis=-1)
+    # p_0_t.shape = (1, 1, num_sim_steps)
     p_0_t = tf.math.exp(-self._initial_discount_rate_fn(times) * times)
-    # p_0_t_tau.shape = (1, num_curve_times, num_sim_steps, 1)
+    # p_0_t_tau.shape = (1, num_curve_times, num_sim_steps)
     p_0_t_tau = tf.math.exp(
         -self._initial_discount_rate_fn(maturities) *
-        (maturities)) / p_0_t
-    # g_t_tau.shape = (1, num_curve_times, num_sim_steps, dim)
+        maturities) / p_0_t
+    # g_t_tau.shape = (1, num_curve_times, num_sim_steps, 1)
     g_t_tau = (1. - tf.math.exp(
-        -mean_reversion * (maturities - times))) / mean_reversion
+        -mean_reversion * (maturities_expand - times_expand))) / mean_reversion
     # term1.shape = (num_samples, num_curve_times, num_sim_steps)
     term1 = tf.math.reduce_sum(x_t * g_t_tau, axis=-1)
     # y_t: (num_samples, 1, num_times, nfactors**2) ->
@@ -498,8 +503,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
     # term2.shape = (num_samples, num_curve_times, num_sim_steps)
     term2 = tf.math.reduce_sum(
         g_t_tau * tf.linalg.matvec(y_t, g_t_tau), axis=-1)
-
-    p_t_tau = p_0_t_tau[..., 0] * tf.math.exp(-term1 - 0.5 * term2)
+    p_t_tau = p_0_t_tau * tf.math.exp(-term1 - 0.5 * term2)
     # p_t_tau.shape=(num_samples, num_curve_times, num_sim_steps)
     return p_t_tau
 

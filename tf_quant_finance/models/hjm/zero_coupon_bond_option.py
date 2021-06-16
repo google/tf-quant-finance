@@ -83,7 +83,7 @@ def bond_option_price(*,
     maturities: A real `Tensor` of the same dtype and compatible shape as
       `strikes`.  The time to maturity of the underlying zero coupon bonds.
     discount_rate_fn: A Python callable that accepts expiry time as a real
-      `Tensor` and returns a `Tensor` of shape `input_shape + dim`. Computes the
+      `Tensor` and returns a `Tensor` of shape `input_shape`. Computes the
       zero coupon bond yield at the present time for the input expiry time.
     dim: A Python scalar which corresponds to the number of factors within a
       single HJM model.

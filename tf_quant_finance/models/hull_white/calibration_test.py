@@ -186,7 +186,7 @@ class HullWhiteCalibrationSwaptionTest(parameterized.TestCase,
     """Tests calibration with constant parameters."""
     dtype = tf.float64
 
-    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+    zero_rate_fn = lambda x: 0.01 * tf.expand_dims(tf.ones_like(x), axis=-1)
     prices = tff.models.hull_white.swaption_price(
         expiries=self.expiries,
         floating_leg_start_times=self.float_leg_start_times,
@@ -289,7 +289,7 @@ class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
     expected_mr = [0.4]
     expected_vol = [0.01]
 
-    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x)
     prices = tff.models.hull_white.cap_floor_price(
         strikes=strikes,
         expiries=expiries,
@@ -421,7 +421,7 @@ class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
     dtype = tf.float64
 
     # Setup - generate some observed prices using the model.
-    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+    zero_rate_fn = lambda x: 0.01 * tf.expand_dims(tf.ones_like(x), axis=-1)
     prices = tff.models.hull_white.cap_floor_price(
         strikes=self.strikes,
         expiries=self.expiries,
@@ -486,7 +486,7 @@ class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
         jump_locations=[0.5, 2.0], values=[0.01, 0.015, 0.02], dtype=dtype)
 
     # Setup - generate some observed prices using the model.
-    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+    zero_rate_fn = lambda x: 0.01 * tf.expand_dims(tf.ones_like(x), axis=-1)
     prices = tff.models.hull_white.cap_floor_price(
         strikes=self.strikes,
         expiries=self.expiries,

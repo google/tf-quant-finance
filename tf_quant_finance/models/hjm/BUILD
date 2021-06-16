@@ -160,10 +160,10 @@ py_library(
 
 py_test(
     name = "swaption_pricing_test",
-    timeout = "long",
+    timeout = "moderate",
     srcs = ["swaption_pricing_test.py"],
     python_version = "PY3",
-    shard_count = 10,
+    shard_count = 5,
     deps = [
         "//tf_quant_finance",
         # test util,

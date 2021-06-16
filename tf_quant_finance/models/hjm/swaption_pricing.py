@@ -126,8 +126,8 @@ def price(*,
       `fixed_leg_payment_times`. The fixed rate for each payment in the fixed
       leg.
     reference_rate_fn: A Python callable that accepts expiry time as a real
-      `Tensor` and returns a `Tensor` of shape `input_shape +
-      [num_hjm_factors]`. Returns the continuously compounded zero rate at the
+      `Tensor` and returns a `Tensor` of shape `input_shape`. Returns the
+      continuously compounded zero rate at the
       present time for the input expiry time.
     num_hjm_factors: A Python scalar which corresponds to the number of factors
       in the HJM model to be used for pricing.
@@ -394,7 +394,6 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
         maximums=[x_max] * dim,
         sizes=[num_grid_points_fd] * dim,
         dtype=dtype)
-
     # TODO(b/186876306): Remove dynamic shapes.
     pde_time_grid, pde_time_grid_dt = _create_pde_time_grid(
         exercise_times, time_step_fd, num_time_steps_fd, dtype)
@@ -434,7 +433,6 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
       # zcb_curve.shape = [num_grid_points] + [maturities_shape]
       zcb_curve = tf.reshape(
           zcb_curve, tf.concat([[num_grid_points], maturities_shape], axis=0))
-
       # Shape after reduce_sum =
       # (num_grid_points, batch_shape)
       fixed_leg = tf.math.reduce_sum(

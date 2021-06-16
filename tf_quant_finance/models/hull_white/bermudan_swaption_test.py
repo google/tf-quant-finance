@@ -76,7 +76,8 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         self.float_leg_end_times) - np.array(self.float_leg_start_times)
     self.fixed_leg_daycount_fractions = self.float_leg_daycount_fractions
     self.fixed_leg_coupon = 0.011 * np.ones_like(self.fixed_leg_payment_times)
-    self.zero_rate_fn = lambda x: 0.01 * tf.ones_like(x)
+    zero_rate_fn = lambda x: 0.01 * tf.expand_dims(tf.ones_like(x), axis=-1)
+    self.zero_rate_fn = zero_rate_fn
 
     super(HullWhiteBermudanSwaptionTest, self).setUp()
 

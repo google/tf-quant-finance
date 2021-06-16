@@ -79,6 +79,14 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     self.fixed_leg_coupon_2d = 0.011 * np.ones_like(
         self.fixed_leg_payment_times_2d)
 
+    def zero_rate_1d_fn(t):
+      return 0.01 * tf.ones_like(t)
+    self.zero_rate_1d_fn = zero_rate_1d_fn
+
+    def zero_rate_2d_fn(t):
+      return 0.01 * tf.ones(t.shape.as_list() + [2], dtype=t.dtype)
+    self.zero_rate_2d_fn = zero_rate_2d_fn
+
     super(HullWhiteSwaptionTest, self).setUp()
 
   @parameterized.named_parameters(
@@ -95,8 +103,6 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     """Tests model with constant parameters in 1 dimension."""
     # 1y x 1y swaption with quarterly payments.
     dtype = tf.float64
-
-    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
     price = tff.models.hull_white.swaption_price(
         expiries=self.expiries,
         floating_leg_start_times=self.float_leg_start_times,
@@ -105,7 +111,7 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         floating_leg_daycount_fractions=self.float_leg_daycount_fractions,
         fixed_leg_daycount_fractions=self.fixed_leg_daycount_fractions,
         fixed_leg_coupon=self.fixed_leg_coupon,
-        reference_rate_fn=zero_rate_fn,
+        reference_rate_fn=self.zero_rate_1d_fn,
         notional=100.,
         dim=1,
         mean_reversion=self.mean_reversion_1d,
@@ -136,8 +142,6 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     """Tests model with constant parameters in 1 dimension."""
     # 1y x 1y receiver swaption with quarterly payments.
     dtype = tf.float64
-
-    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
     price = tff.models.hull_white.swaption_price(
         expiries=self.expiries,
         floating_leg_start_times=self.float_leg_start_times,
@@ -146,7 +150,7 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         floating_leg_daycount_fractions=self.float_leg_daycount_fractions,
         fixed_leg_daycount_fractions=self.fixed_leg_daycount_fractions,
         fixed_leg_coupon=self.fixed_leg_coupon,
-        reference_rate_fn=zero_rate_fn,
+        reference_rate_fn=self.zero_rate_1d_fn,
         notional=100.,
         dim=1,
         mean_reversion=self.mean_reversion_1d,
@@ -178,8 +182,6 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     """Tests model with time-dependent parameters in 1 dimension."""
     # 1y x 1y swaption with quarterly payments.
     dtype = tf.float64
-
-    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
     volatility = tff.math.piecewise.PiecewiseConstantFunc(
         jump_locations=[0.5], values=self.volatility_time_dep_1d,
         dtype=dtype)
@@ -191,7 +193,7 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         floating_leg_daycount_fractions=self.float_leg_daycount_fractions,
         fixed_leg_daycount_fractions=self.fixed_leg_daycount_fractions,
         fixed_leg_coupon=self.fixed_leg_coupon,
-        reference_rate_fn=zero_rate_fn,
+        reference_rate_fn=self.zero_rate_1d_fn,
         notional=100.,
         dim=1,
         mean_reversion=self.mean_reversion_1d,
@@ -222,8 +224,6 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     """Tests 1-d batch."""
     dtype = tf.float64
 
-    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
-
     price = tff.models.hull_white.swaption_price(
         expiries=self.expiries_1d,
         floating_leg_start_times=self.float_leg_start_times_1d,
@@ -232,7 +232,7 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         floating_leg_daycount_fractions=self.float_leg_daycount_fractions_1d,
         fixed_leg_daycount_fractions=self.fixed_leg_daycount_fractions_1d,
         fixed_leg_coupon=self.fixed_leg_coupon_1d,
-        reference_rate_fn=zero_rate_fn,
+        reference_rate_fn=self.zero_rate_1d_fn,
         notional=100.,
         dim=1,
         mean_reversion=self.mean_reversion_1d,
@@ -264,8 +264,6 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     """Tests 1-d batch with different notionals."""
     dtype = tf.float64
 
-    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
-
     price = tff.models.hull_white.swaption_price(
         expiries=self.expiries_1d,
         floating_leg_start_times=self.float_leg_start_times_1d,
@@ -274,7 +272,7 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         floating_leg_daycount_fractions=self.float_leg_daycount_fractions_1d,
         fixed_leg_daycount_fractions=self.fixed_leg_daycount_fractions_1d,
         fixed_leg_coupon=self.fixed_leg_coupon_1d,
-        reference_rate_fn=zero_rate_fn,
+        reference_rate_fn=self.zero_rate_1d_fn,
         notional=[100., 200.],
         dim=1,
         mean_reversion=self.mean_reversion_1d,
@@ -306,8 +304,6 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     """Tests 2-d batch."""
     dtype = tf.float64
 
-    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
-
     price = tff.models.hull_white.swaption_price(
         expiries=self.expiries_2d,
         floating_leg_start_times=self.float_leg_start_times_2d,
@@ -316,7 +312,7 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         floating_leg_daycount_fractions=self.float_leg_daycount_fractions_2d,
         fixed_leg_daycount_fractions=self.fixed_leg_daycount_fractions_2d,
         fixed_leg_coupon=self.fixed_leg_coupon_2d,
-        reference_rate_fn=zero_rate_fn,
+        reference_rate_fn=self.zero_rate_1d_fn,
         notional=100.,
         dim=1,
         mean_reversion=self.mean_reversion_1d,
@@ -352,7 +348,6 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     # 1y x 1y swaption with quarterly payments.
     dtype = tf.float64
 
-    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
     price = tff.models.hull_white.swaption_price(
         expiries=self.expiries,
         floating_leg_start_times=self.float_leg_start_times,
@@ -361,7 +356,7 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         floating_leg_daycount_fractions=self.float_leg_daycount_fractions,
         fixed_leg_daycount_fractions=self.fixed_leg_daycount_fractions,
         fixed_leg_coupon=self.fixed_leg_coupon,
-        reference_rate_fn=zero_rate_fn,
+        reference_rate_fn=self.zero_rate_2d_fn,
         notional=100.,
         dim=2,
         mean_reversion=self.mean_reversion_2d,
@@ -392,8 +387,6 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     """Tests 1-d batch."""
     dtype = tf.float64
 
-    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
-
     price = tff.models.hull_white.swaption_price(
         expiries=self.expiries_1d,
         floating_leg_start_times=self.float_leg_start_times_1d,
@@ -402,7 +395,7 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         floating_leg_daycount_fractions=self.float_leg_daycount_fractions_1d,
         fixed_leg_daycount_fractions=self.fixed_leg_daycount_fractions_1d,
         fixed_leg_coupon=self.fixed_leg_coupon_1d,
-        reference_rate_fn=zero_rate_fn,
+        reference_rate_fn=self.zero_rate_2d_fn,
         notional=100.,
         dim=2,
         mean_reversion=self.mean_reversion_2d,
@@ -434,8 +427,6 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     """Tests 2-d batch."""
     dtype = tf.float64
 
-    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
-
     price = tff.models.hull_white.swaption_price(
         expiries=self.expiries_2d,
         floating_leg_start_times=self.float_leg_start_times_2d,
@@ -444,7 +435,7 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         floating_leg_daycount_fractions=self.float_leg_daycount_fractions_2d,
         fixed_leg_daycount_fractions=self.fixed_leg_daycount_fractions_2d,
         fixed_leg_coupon=self.fixed_leg_coupon_2d,
-        reference_rate_fn=zero_rate_fn,
+        reference_rate_fn=self.zero_rate_2d_fn,
         notional=100.,
         dim=2,
         mean_reversion=self.mean_reversion_2d,

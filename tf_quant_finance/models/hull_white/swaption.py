@@ -30,435 +30,6 @@ __all__ = ['swaption_price', 'bermudan_swaption_price']
 _PDE_TIME_GRID_TOL = 1e-7
 
 
-def _jamshidian_decomposition(hw_model,
-                              expiries,
-                              maturities,
-                              coefficients,
-                              dtype,
-                              name=None):
-  """Jamshidian decomposition for European swaption valuation.
-
-  Jamshidian decomposition is a widely used technique for the valuation of
-  European swaptions (and options on coupon bearing bonds) when the underlying
-  models for the term structure are short rate models (such as Hull-White
-  model). The method transforms the swaption valuation to the valuation of a
-  portfolio of call (put) options on zero-coupon bonds.
-
-  Consider the following swaption payoff(assuming unit notional) at the
-  exipration time (under a single curve valuation):
-
-  ```None
-  payoff = max(1 - P(T0, TN, r(T0)) - sum_1^N tau_i * X_i * P(T0, Ti, r(T0)), 0)
-         = max(1 - sum_0^N alpha_i * P(T0, Ti, r(T0)), 0)
-  ```
-
-  where `T0` denotes the swaption expiry, P(T0, Ti, r(T0)) denotes the price
-  of the zero coupon bond at `T0` with maturity `Ti` and `r(T0)` is the short
-  rate at time `T0`. If `r*` (or breakeven short rate) is the solution of the
-  following equation:
-
-  ```None
-  1 - sum_0^N alpha_i * P(T0, Ti, r*) = 0            (1)
-  ```
-
-  Then the swaption payoff can be expressed as the following (Ref. [1]):
-
-  ```None
-  payoff = sum_1^N alpha_i max(P(T0, Ti, r*) - P(T0, Ti), 0)
-  ```
-  where in the above formulation the swaption payoff is the same as that of
-  a portfolio of bond options with strikes `P(T0, Ti, r*)`.
-
-  The function accepts relevant inputs for the above computation and returns
-  the strikes of the bond options computed using the Jamshidian decomposition.
-
-  #### References:
-    [1]: Leif B. G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling.
-    Volume II: Term Structure Models. Chapter 10.
-
-
-  Args:
-    hw_model: An instance of `VectorHullWhiteModel`. The model used for the
-      valuation.
-    expiries: A real `Tensor` of any shape and dtype. The the time to
-      expiration of the swaptions.
-    maturities: A real `Tensor` of same shape and dtype as `expiries`. The
-      payment times for fixed payments of the underlying swaptions.
-    coefficients: A real `Tensor` of shape `expiries.shape + [n]` where `n`
-      denotes the number of payments in the fixed leg of the underlying swaps.
-    dtype: The default dtype to use when converting values to `Tensor`s.
-    name: Python string. The name to give to the ops created by this function.
-      Default value: `None` which maps to the default name
-      `jamshidian_decomposition`.
-
-  Returns:
-    A real `Tensor` of shape expiries.shape + [dim] containing the forward
-    bond prices computed at the breakeven short rate using the Jamshidian
-    decomposition. `dim` stands for the dimensionality of the Hull-White
-    process.
-  """
-
-  name = name or 'jamshidian_decomposition'
-  with tf.name_scope(name):
-    dim = hw_model.dim()
-    coefficients = tf.expand_dims(coefficients, axis=-1)
-
-    def _zero_fun(x):
-      # Get P(t0, t, r(t0)).
-      p_t0_t = hw_model.discount_bond_price(x, expiries, maturities)
-      # return_value.shape = batch_shape + [1] + [dim]
-      return_value = tf.reduce_sum(
-          coefficients * p_t0_t, axis=-2, keepdims=True) + [1.0]
-      return return_value
-
-    swap_shape = expiries.shape.as_list()[:-1] + [1] + [dim]
-    lower_bound = -1 * tf.ones(swap_shape, dtype=dtype)
-    upper_bound = 1 * tf.ones(swap_shape, dtype=dtype)
-    # Solve Eq.(1)
-    brent_results = brent.brentq(_zero_fun, lower_bound, upper_bound)
-    breakeven_short_rate = brent_results.estimated_root
-    return hw_model.discount_bond_price(breakeven_short_rate, expiries,
-                                        maturities)
-
-
-def _prepare_swaption_indices(tensor_shape):
-  """Indices for `gather_nd` for analytic valuation.
-
-  For a `Tensor` x of shape `tensor_shape` = [n] + batch_shape + [n], this
-  function returns indices for tf.gather_nd to get `x[i,...,i]`
-
-  Args:
-    tensor_shape: A list of length `k` representing shape of the `Tensor`.
-
-  Returns:
-    A `Tensor` of shape (num_elements, k) where num_elements= n * batch_size
-    of dtype tf.int64.
-  """
-
-  tensor_shape = np.array(tensor_shape, dtype=np.int64)
-  batch_shape = tensor_shape[1:-1]
-  batch_size = np.prod(batch_shape)
-  index_list = []
-  for i in range(len(tensor_shape)):
-    index = np.arange(0, tensor_shape[i], dtype=np.int64)
-    if i == 0 or i == len(tensor_shape) - 1:
-      index = tf.tile(index, [batch_size])
-    else:
-      index = np.tile(
-          np.repeat(index, np.prod(tensor_shape[i+1:])),
-          [np.prod(tensor_shape[1:i])])
-    index_list.append(index)
-
-  return tf.stack(index_list, axis=-1)
-
-
-def _prepare_indices_ijjk(idx0, idx1, idx2, idx3):
-  """Prepares indices to get x[i, j, j, k]."""
-  # For a 4-D `Tensor` x, creates indices for tf.gather_nd to retrieve
-  # x[i, j, j, k].
-  len0 = tf.shape(idx0)[0]
-  len1 = tf.shape(idx1)[0]
-  len3 = tf.shape(idx3)[0]
-  idx0 = tf.repeat(idx0, len1 * len3)
-  idx1 = tf.tile(tf.repeat(idx1, len3), [len0])
-  idx2 = tf.tile(tf.repeat(idx2, len3), [len0])
-  idx3 = tf.tile(idx3, [len0 * len1])
-
-  return tf.stack([idx0, idx1, idx2, idx3], axis=-1)
-
-
-def _prepare_indices_ijj(idx0, idx1, idx2):
-  """Prepares indices to get x[i, j, j]."""
-  # For a 3-D `Tensor` x, creates indices for tf.gather_nd to retrieve
-  # x[i, j, j].
-  len0 = tf.shape(idx0)[0]
-  len1 = tf.shape(idx1)[0]
-  idx0 = tf.repeat(idx0, len1)
-  idx1 = tf.tile(idx1, [len0])
-  idx2 = tf.tile(idx2, [len0])
-
-  return tf.stack([idx0, idx1, idx2], axis=-1)
-
-
-def _map_payoff_to_sim_times(indices, payoff, num_samples):
-  """Maps the swaption payoffs to short rate simulation times.
-
-  Swaption payoffs are calculated on bermudan swaption's expiries. However, for
-  the LSM algorithm, we need short rate simulations and swaption payoffs at
-  the union of all exercise times in the batch of swaptions. This function
-  takes the payoff of individual swaption at their respective exercise times
-  and maps it to all simulation times. This is done by setting the payoff to
-  -1 whenever the simulation time is not equal to the swaption exercise time.
-
-  Args:
-    indices: A `Tensor` of shape `batch_shape + num_exercise_times` containing
-      the index of exercise time in the vector of simulation times.
-    payoff: A real tensor of shape
-      `[num_samples] + batch_shape + num_exercise_times` containing the
-      exercise value of the underlying swap on each exercise time.
-    num_samples: A scalar `Tensor` specifying the number of samples on which
-      swaption payoff is computed.
-
-  Returns:
-    A tuple of `Tensors`. The first tensor is a integer `Tensor` of shape
-    `[num_samples] + batch_shape + [num_simulation_times]` and contains `1`
-    if the corresponding simulation time is one of the exercise times for the
-    swaption. The second `Tensor` is a real `Tensor` of same shape and contains
-    the exercise value of the swaption if the corresponding simulation time is
-    an exercise time for the swaption or -1 otherwise.
-  """
-  indices = tf.expand_dims(indices, axis=0)
-  indices = tf.repeat(indices, num_samples, axis=0)
-  index_list = list()
-  tensor_shape = np.array(indices.shape.as_list())
-  output_shape = indices.shape.as_list()[:-1] + [
-      tf.math.reduce_max(indices) + 1
-  ]
-  num_elements = np.prod(tensor_shape)
-  for dim, _ in enumerate(tensor_shape[:-1]):
-    idx = tf.range(0, tensor_shape[dim], dtype=indices.dtype)
-    idx = tf.tile(tf.repeat(idx, np.prod(tensor_shape[dim + 1:])),
-                  [np.prod(tensor_shape[:dim])])
-    index_list.append(idx)
-
-  index_list.append(tf.reshape(indices, [-1]))
-  # We need to transform `payoff` from the initial shape of
-  # [num_samples, batch_shape, num_exercise_times] to a new `Tensor` with
-  # shape = [num_samples, batch_shape, num_exercise_times] such that
-  # payoff_new[..., indices] = payoff
-  # We achieve this by first creating a `payoff_new` as a SparseTensor with
-  # nonzero values at appropriate indices based on the payoff_new.shape and
-  # then converting the sparse tenson to dense tensor.
-  sparse_indices = tf.cast(tf.stack(index_list, axis=-1), dtype=np.int64)
-  is_exercise_time = tf.sparse.to_dense(
-      tf.sparse.SparseTensor(sparse_indices, tf.ones(shape=num_elements),
-                             output_shape),
-      validate_indices=False)
-  payoff = tf.sparse.to_dense(
-      tf.sparse.SparseTensor(sparse_indices, tf.reshape(payoff, [-1]),
-                             output_shape),
-      validate_indices=False)
-  return is_exercise_time, payoff
-
-
-def _analytic_valuation(expiries, floating_leg_start_times,
-                        floating_leg_end_times, fixed_leg_payment_times,
-                        fixed_leg_daycount_fractions, fixed_leg_coupon,
-                        reference_rate_fn, dim, mean_reversion, volatility,
-                        notional, is_payer_swaption, output_shape,
-                        dtype, name):
-  """Helper function for analytic valuation."""
-  # The below inputs are needed for midcurve swaptions
-  del floating_leg_start_times, floating_leg_end_times
-  with tf.name_scope(name):
-    is_call_options = tf.where(is_payer_swaption,
-                               tf.convert_to_tensor(False, dtype=tf.bool),
-                               tf.convert_to_tensor(True, dtype=tf.bool))
-
-    model = vector_hull_white.VectorHullWhiteModel(
-        dim,
-        mean_reversion,
-        volatility,
-        initial_discount_rate_fn=reference_rate_fn,
-        dtype=dtype)
-    coefficients = fixed_leg_daycount_fractions * fixed_leg_coupon
-    jamshidian_coefficients = tf.concat([
-        -coefficients[..., :-1],
-        tf.expand_dims(-1.0 - coefficients[..., -1], axis=-1)], axis=-1)
-
-    breakeven_bond_option_strikes = _jamshidian_decomposition(
-        model, expiries,
-        fixed_leg_payment_times, jamshidian_coefficients, dtype,
-        name=name + '_jamshidian_decomposition')
-
-    bond_strike_rank = breakeven_bond_option_strikes.shape.rank
-    perm = [bond_strike_rank-1] + [x for x in range(0, bond_strike_rank - 1)]
-    breakeven_bond_option_strikes = tf.transpose(
-        breakeven_bond_option_strikes, perm=perm)
-    bond_option_prices = zcb.bond_option_price(
-        strikes=breakeven_bond_option_strikes,
-        expiries=expiries,
-        maturities=fixed_leg_payment_times,
-        discount_rate_fn=reference_rate_fn,
-        dim=dim,
-        mean_reversion=mean_reversion,
-        volatility=volatility,
-        is_call_options=is_call_options,
-        use_analytic_pricing=True,
-        dtype=dtype,
-        name=name + '_bond_option')
-
-    # Now compute P(T0, TN) + sum_i (c_i * tau_i * P(T0, Ti))
-    # bond_option_prices.shape = [dim] + batch_shape + [m] + [dim], where `m`
-    # denotes the number of fixed payments for the underlying swaps.
-    swaption_values = (
-        tf.reduce_sum(
-            bond_option_prices * tf.expand_dims(coefficients, axis=-1),
-            axis=-2) + bond_option_prices[..., -1, :])
-    swaption_shape = swaption_values.shape
-    gather_index = _prepare_swaption_indices(swaption_shape.as_list())
-    swaption_values = tf.reshape(
-        tf.gather_nd(swaption_values, gather_index), output_shape)
-    return notional * swaption_values
-
-
-def _bermudan_swaption_fd(batch_shape, model, exercise_times,
-                          unique_exercise_times, fixed_leg_payment_times,
-                          fixed_leg_daycount_fractions, fixed_leg_coupon,
-                          notional, is_payer_swaption, time_step_fd,
-                          num_grid_points_fd, name, dtype):
-  """Price Bermudan swaptions using finite difference."""
-  with tf.name_scope(name):
-    longest_exercise_time = unique_exercise_times[-1]
-    if time_step_fd is None:
-      time_step_fd = longest_exercise_time / 100.0
-    short_rate_min = -0.2
-    short_rate_max = 0.2
-    # grid.shape=(num_grid_points,2)
-    grid = pde.grids.uniform_grid(
-        minimums=[short_rate_min],
-        maximums=[short_rate_max],
-        sizes=[num_grid_points_fd],
-        dtype=dtype)
-
-    pde_time_grid = tf.concat([unique_exercise_times, tf.range(
-        0.0, longest_exercise_time, time_step_fd, dtype=dtype)], axis=0)
-    # This time grid is now sorted and contains the Bermudan exercise times
-    pde_time_grid = tf.sort(pde_time_grid, name='sort_pde_time_grid')
-    pde_time_grid_dt = pde_time_grid[1:] - pde_time_grid[:-1]
-    pde_time_grid_dt = tf.concat([[100.0], pde_time_grid_dt], axis=-1)
-    # Remove duplicates.
-    mask = tf.math.greater(pde_time_grid_dt, _PDE_TIME_GRID_TOL)
-    pde_time_grid = tf.boolean_mask(pde_time_grid, mask)
-    pde_time_grid_dt = tf.boolean_mask(pde_time_grid_dt, mask)
-
-    maturities = fixed_leg_payment_times
-    maturities_shape = maturities.shape
-
-    unique_maturities, _ = tf.unique(tf.reshape(maturities, shape=[-1]))
-    unique_maturities = tf.sort(unique_maturities, name='sort_maturities')
-
-    num_exercise_times = tf.shape(pde_time_grid)[-1]
-    num_maturities = tf.shape(unique_maturities)[-1]
-
-    short_rates = tf.reshape(grid[0], grid[0].shape + [1, 1])
-    broadcasted_exercise_times = tf.reshape(
-        pde_time_grid, [1] + pde_time_grid.shape + [1])
-    broadcasted_maturities = tf.reshape(
-        unique_maturities, [1, 1] + unique_maturities.shape)
-
-    # Reshape `short_rate`, `exercise_times` and `maturities` to
-    # (num_grid_points, num_exercise_times, num_maturities)
-    short_rates = tf.broadcast_to(
-        short_rates, grid[0].shape + [num_exercise_times, num_maturities])
-    broadcasted_exercise_times = tf.broadcast_to(
-        broadcasted_exercise_times,
-        grid[0].shape + [num_exercise_times, num_maturities])
-    broadcasted_maturities = tf.broadcast_to(
-        broadcasted_maturities,
-        grid[0].shape + [num_exercise_times, num_maturities])
-
-    # Zero-coupon bond curve
-    zcb_curve = model.discount_bond_price(
-        tf.expand_dims(short_rates, axis=-1),
-        broadcasted_exercise_times, broadcasted_maturities)[..., 0]
-
-    exercise_times_index = tf.searchsorted(
-        pde_time_grid, tf.reshape(exercise_times, [-1]))
-    maturities_index = tf.searchsorted(
-        unique_maturities, tf.reshape(maturities, [-1]))
-
-    # gather_index.shape = (num_grid_points*np.cumprod(maturities_shape), 3)
-    gather_index = _prepare_indices_ijj(
-        tf.range(0, num_grid_points_fd), exercise_times_index,
-        maturities_index)
-    zcb_curve = tf.gather_nd(zcb_curve, gather_index)
-    # zcb_curve.shape = [num_grid_points_fd] + [maturities_shape]
-    zcb_curve = tf.reshape(zcb_curve, [num_grid_points_fd] + maturities_shape)
-    # Shape after reduce_sum=(num_grid_points, batch_shape, num_exercise_times)
-    fixed_leg = tf.math.reduce_sum(
-        fixed_leg_coupon * fixed_leg_daycount_fractions * zcb_curve, axis=-1)
-    float_leg = 1.0 - zcb_curve[..., -1]
-    payoff_at_exercise = float_leg - fixed_leg
-    payoff_at_exercise = tf.where(is_payer_swaption, payoff_at_exercise,
-                                  -payoff_at_exercise)
-
-    unrepeated_exercise_times = exercise_times[..., -1]
-    exercise_times_index = tf.searchsorted(
-        pde_time_grid, tf.reshape(unrepeated_exercise_times, [-1]))
-    _, payoff_swap = _map_payoff_to_sim_times(
-        tf.reshape(exercise_times_index, unrepeated_exercise_times.shape),
-        payoff_at_exercise, num_grid_points_fd)
-
-    # payoff_swap.shape=(num_grid_points_fd, batch_shape, num_exercise_times).
-    # Transpose so that the [num_grid_points_fd] is the last dimension; this is
-    # needed for broadcasting inside the PDE solver.
-    payoff_swap = tf.transpose(payoff_swap)
-
-    def _get_index(t, tensor_to_search):
-      t = tf.expand_dims(t, axis=-1)
-      index = tf.searchsorted(tensor_to_search, t - _PDE_TIME_GRID_TOL, 'right')
-      y = tf.gather(tensor_to_search, index)
-      return tf.where(tf.math.abs(t - y) < _PDE_TIME_GRID_TOL, index, -1)[0]
-
-    def _second_order_coeff_fn(t, grid):
-      del grid
-      return [[model.volatility(t)**2 / 2]]
-
-    def _first_order_coeff_fn(t, grid):
-      s = grid[0]
-      return [model.drift_fn()(t, s)]
-
-    def _zeroth_order_coeff_fn(t, grid):
-      del t
-      return -grid[0]
-
-    @pde.boundary_conditions.dirichlet
-    def _lower_boundary_fn(t, grid):
-      del grid
-      index = _get_index(t, pde_time_grid)
-      result = tf.where(index > -1, payoff_swap[index, ..., 0], 0.0)
-      return tf.where(is_payer_swaption, 0.0, result)
-
-    @pde.boundary_conditions.dirichlet
-    def _upper_boundary_fn(t, grid):
-      del grid
-      index = _get_index(t, pde_time_grid)
-      result = tf.where(index > -1, payoff_swap[index, ..., 0], 0.0)
-      return tf.where(is_payer_swaption, result, 0.0)
-
-    def _final_value():
-      return tf.nn.relu(payoff_swap[-1])
-
-    def _values_transform_fn(t, grid, value_grid):
-      index = _get_index(t, pde_time_grid)
-      v_star = tf.where(
-          index > -1, tf.nn.relu(payoff_swap[index]), 0.0)
-      return grid, tf.maximum(value_grid, v_star)
-
-    def _pde_time_step(t):
-      index = _get_index(t, pde_time_grid)
-      dt = pde_time_grid_dt[index]
-      return dt
-
-    res = pde.fd_solvers.solve_backward(
-        longest_exercise_time,
-        0.0,
-        grid,
-        values_grid=_final_value(),
-        time_step=_pde_time_step,
-        boundary_conditions=[(_lower_boundary_fn, _upper_boundary_fn)],
-        values_transform_fn=_values_transform_fn,
-        second_order_coeff_fn=_second_order_coeff_fn,
-        first_order_coeff_fn=_first_order_coeff_fn,
-        zeroth_order_coeff_fn=_zeroth_order_coeff_fn,
-        dtype=dtype)
-
-    r0 = model.instant_forward_rate(0.0)
-    option_value = linear.interpolate(r0, res[1], res[0])
-    return tf.reshape(notional * tf.transpose(option_value), batch_shape)
-
-
 def swaption_price(*,
                    expiries,
                    floating_leg_start_times,
@@ -566,9 +137,9 @@ def swaption_price(*,
       as `fixed_leg_payment_times`. The fixed rate for each payment in the
       fixed leg.
     reference_rate_fn: A Python callable that accepts expiry time as a real
-      `Tensor` and returns a `Tensor` of shape `input_shape + [dim]`. Returns
-      the continuously compounded zero rate at the present time for the input
-      expiry time.
+      `Tensor` and returns a `Tensor` of either shape `input_shape` or
+      `input_shape + [dim]`. Returns the continuously compounded zero rate at
+      the present time for the input expiry time.
     dim: A Python scalar which corresponds to the number of Hull-White Models
       to be used for pricing.
     mean_reversion: A real positive `Tensor` of shape `[dim]` or a Python
@@ -891,9 +462,9 @@ def bermudan_swaption_price(*,
       as `fixed_leg_payment_times`. The fixed rate for each payment in the
       fixed leg.
     reference_rate_fn: A Python callable that accepts expiry time as a real
-      `Tensor` and returns a `Tensor` of shape `input_shape + [dim]`. Returns
-      the continuously compounded zero rate at the present time for the input
-      expiry time.
+      `Tensor` and returns a `Tensor` of either shape `input_shape` or
+      `input_shape + [dim]`. Returns the continuously compounded zero rate at
+      the present time for the input expiry time.
     dim: A Python scalar which corresponds to the number of Hull-White Models
       to be used for pricing.
     mean_reversion: A real positive `Tensor` of shape `[dim]` or a Python
@@ -1157,3 +728,431 @@ def bermudan_swaption_price(*,
         dtype=dtype)
 
     return notional * option_value
+
+
+def _jamshidian_decomposition(hw_model,
+                              expiries,
+                              maturities,
+                              coefficients,
+                              dtype,
+                              name=None):
+  """Jamshidian decomposition for European swaption valuation.
+
+  Jamshidian decomposition is a widely used technique for the valuation of
+  European swaptions (and options on coupon bearing bonds) when the underlying
+  models for the term structure are short rate models (such as Hull-White
+  model). The method transforms the swaption valuation to the valuation of a
+  portfolio of call (put) options on zero-coupon bonds.
+
+  Consider the following swaption payoff(assuming unit notional) at the
+  exipration time (under a single curve valuation):
+
+  ```None
+  payoff = max(1 - P(T0, TN, r(T0)) - sum_1^N tau_i * X_i * P(T0, Ti, r(T0)), 0)
+         = max(1 - sum_0^N alpha_i * P(T0, Ti, r(T0)), 0)
+  ```
+
+  where `T0` denotes the swaption expiry, P(T0, Ti, r(T0)) denotes the price
+  of the zero coupon bond at `T0` with maturity `Ti` and `r(T0)` is the short
+  rate at time `T0`. If `r*` (or breakeven short rate) is the solution of the
+  following equation:
+
+  ```None
+  1 - sum_0^N alpha_i * P(T0, Ti, r*) = 0            (1)
+  ```
+
+  Then the swaption payoff can be expressed as the following (Ref. [1]):
+
+  ```None
+  payoff = sum_1^N alpha_i max(P(T0, Ti, r*) - P(T0, Ti), 0)
+  ```
+  where in the above formulation the swaption payoff is the same as that of
+  a portfolio of bond options with strikes `P(T0, Ti, r*)`.
+
+  The function accepts relevant inputs for the above computation and returns
+  the strikes of the bond options computed using the Jamshidian decomposition.
+
+  #### References:
+    [1]: Leif B. G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling.
+    Volume II: Term Structure Models. Chapter 10.
+
+
+  Args:
+    hw_model: An instance of `VectorHullWhiteModel`. The model used for the
+      valuation.
+    expiries: A real `Tensor` of any shape and dtype. The time to expiration of
+      the swaptions.
+    maturities: A real `Tensor` of same shape and dtype as `expiries`. The
+      payment times for fixed payments of the underlying swaptions.
+    coefficients: A real `Tensor` of shape `expiries.shape + [n]` where `n`
+      denotes the number of payments in the fixed leg of the underlying swaps.
+    dtype: The default dtype to use when converting values to `Tensor`s.
+    name: Python string. The name to give to the ops created by this function.
+      Default value: `None` which maps to the default name
+      `jamshidian_decomposition`.
+
+  Returns:
+    A real `Tensor` of shape expiries.shape + [dim] containing the forward
+    bond prices computed at the breakeven short rate using the Jamshidian
+    decomposition. `dim` stands for the dimensionality of the Hull-White
+    process.
+  """
+
+  name = name or 'jamshidian_decomposition'
+  with tf.name_scope(name):
+    dim = hw_model.dim()
+    coefficients = tf.expand_dims(coefficients, axis=-1)
+
+    def _zero_fun(x):
+      # Get P(t0, t, r(t0)).
+      p_t0_t = hw_model.discount_bond_price(x, expiries, maturities)
+      # return_value.shape = batch_shape + [1] + [dim]
+      return_value = tf.reduce_sum(
+          coefficients * p_t0_t, axis=-2, keepdims=True) + [1.0]
+      return return_value
+
+    swap_shape = expiries.shape.as_list()[:-1] + [1] + [dim]
+    lower_bound = -1 * tf.ones(swap_shape, dtype=dtype)
+    upper_bound = 1 * tf.ones(swap_shape, dtype=dtype)
+    # Solve Eq.(1)
+    brent_results = brent.brentq(_zero_fun, lower_bound, upper_bound)
+    breakeven_short_rate = brent_results.estimated_root
+    return hw_model.discount_bond_price(breakeven_short_rate, expiries,
+                                        maturities)
+
+
+def _prepare_swaption_indices(tensor_shape):
+  """Indices for `gather_nd` for analytic valuation.
+
+  For a `Tensor` x of shape `tensor_shape` = [n] + batch_shape + [n], this
+  function returns indices for tf.gather_nd to get `x[i,...,i]`
+
+  Args:
+    tensor_shape: A list of length `k` representing shape of the `Tensor`.
+
+  Returns:
+    A `Tensor` of shape (num_elements, k) where num_elements= n * batch_size
+    of dtype tf.int64.
+  """
+
+  tensor_shape = np.array(tensor_shape, dtype=np.int64)
+  batch_shape = tensor_shape[1:-1]
+  batch_size = np.prod(batch_shape)
+  index_list = []
+  for i in range(len(tensor_shape)):
+    index = np.arange(0, tensor_shape[i], dtype=np.int64)
+    if i == 0 or i == len(tensor_shape) - 1:
+      index = tf.tile(index, [batch_size])
+    else:
+      index = np.tile(
+          np.repeat(index, np.prod(tensor_shape[i+1:])),
+          [np.prod(tensor_shape[1:i])])
+    index_list.append(index)
+
+  return tf.stack(index_list, axis=-1)
+
+
+def _prepare_indices_ijjk(idx0, idx1, idx2, idx3):
+  """Prepares indices to get x[i, j, j, k]."""
+  # For a 4-D `Tensor` x, creates indices for tf.gather_nd to retrieve
+  # x[i, j, j, k].
+  len0 = tf.shape(idx0)[0]
+  len1 = tf.shape(idx1)[0]
+  len3 = tf.shape(idx3)[0]
+  idx0 = tf.repeat(idx0, len1 * len3)
+  idx1 = tf.tile(tf.repeat(idx1, len3), [len0])
+  idx2 = tf.tile(tf.repeat(idx2, len3), [len0])
+  idx3 = tf.tile(idx3, [len0 * len1])
+
+  return tf.stack([idx0, idx1, idx2, idx3], axis=-1)
+
+
+def _prepare_indices_ijj(idx0, idx1, idx2):
+  """Prepares indices to get x[i, j, j]."""
+  # For a 3-D `Tensor` x, creates indices for tf.gather_nd to retrieve
+  # x[i, j, j].
+  len0 = tf.shape(idx0)[0]
+  len1 = tf.shape(idx1)[0]
+  idx0 = tf.repeat(idx0, len1)
+  idx1 = tf.tile(idx1, [len0])
+  idx2 = tf.tile(idx2, [len0])
+
+  return tf.stack([idx0, idx1, idx2], axis=-1)
+
+
+def _map_payoff_to_sim_times(indices, payoff, num_samples):
+  """Maps the swaption payoffs to short rate simulation times.
+
+  Swaption payoffs are calculated on bermudan swaption's expiries. However, for
+  the LSM algorithm, we need short rate simulations and swaption payoffs at
+  the union of all exercise times in the batch of swaptions. This function
+  takes the payoff of individual swaption at their respective exercise times
+  and maps it to all simulation times. This is done by setting the payoff to
+  -1 whenever the simulation time is not equal to the swaption exercise time.
+
+  Args:
+    indices: A `Tensor` of shape `batch_shape + num_exercise_times` containing
+      the index of exercise time in the vector of simulation times.
+    payoff: A real tensor of shape
+      `[num_samples] + batch_shape + num_exercise_times` containing the
+      exercise value of the underlying swap on each exercise time.
+    num_samples: A scalar `Tensor` specifying the number of samples on which
+      swaption payoff is computed.
+
+  Returns:
+    A tuple of `Tensors`. The first tensor is a integer `Tensor` of shape
+    `[num_samples] + batch_shape + [num_simulation_times]` and contains `1`
+    if the corresponding simulation time is one of the exercise times for the
+    swaption. The second `Tensor` is a real `Tensor` of same shape and contains
+    the exercise value of the swaption if the corresponding simulation time is
+    an exercise time for the swaption or -1 otherwise.
+  """
+  indices = tf.expand_dims(indices, axis=0)
+  indices = tf.repeat(indices, num_samples, axis=0)
+  index_list = list()
+  tensor_shape = np.array(indices.shape.as_list())
+  output_shape = indices.shape.as_list()[:-1] + [
+      tf.math.reduce_max(indices) + 1
+  ]
+  num_elements = np.prod(tensor_shape)
+  for dim, _ in enumerate(tensor_shape[:-1]):
+    idx = tf.range(0, tensor_shape[dim], dtype=indices.dtype)
+    idx = tf.tile(tf.repeat(idx, np.prod(tensor_shape[dim + 1:])),
+                  [np.prod(tensor_shape[:dim])])
+    index_list.append(idx)
+
+  index_list.append(tf.reshape(indices, [-1]))
+  # We need to transform `payoff` from the initial shape of
+  # [num_samples, batch_shape, num_exercise_times] to a new `Tensor` with
+  # shape = [num_samples, batch_shape, num_exercise_times] such that
+  # payoff_new[..., indices] = payoff
+  # We achieve this by first creating a `payoff_new` as a SparseTensor with
+  # nonzero values at appropriate indices based on the payoff_new.shape and
+  # then converting the sparse tenson to dense tensor.
+  sparse_indices = tf.cast(tf.stack(index_list, axis=-1), dtype=np.int64)
+  is_exercise_time = tf.sparse.to_dense(
+      tf.sparse.SparseTensor(sparse_indices, tf.ones(shape=num_elements),
+                             output_shape),
+      validate_indices=False)
+  payoff = tf.sparse.to_dense(
+      tf.sparse.SparseTensor(sparse_indices, tf.reshape(payoff, [-1]),
+                             output_shape),
+      validate_indices=False)
+  return is_exercise_time, payoff
+
+
+def _analytic_valuation(expiries, floating_leg_start_times,
+                        floating_leg_end_times, fixed_leg_payment_times,
+                        fixed_leg_daycount_fractions, fixed_leg_coupon,
+                        reference_rate_fn, dim, mean_reversion, volatility,
+                        notional, is_payer_swaption, output_shape,
+                        dtype, name):
+  """Helper function for analytic valuation."""
+  # The below inputs are needed for midcurve swaptions
+  del floating_leg_start_times, floating_leg_end_times
+  with tf.name_scope(name):
+    is_call_options = tf.where(is_payer_swaption,
+                               tf.convert_to_tensor(False, dtype=tf.bool),
+                               tf.convert_to_tensor(True, dtype=tf.bool))
+
+    model = vector_hull_white.VectorHullWhiteModel(
+        dim,
+        mean_reversion,
+        volatility,
+        initial_discount_rate_fn=reference_rate_fn,
+        dtype=dtype)
+    coefficients = fixed_leg_daycount_fractions * fixed_leg_coupon
+    # Shape `expiries.shape + [num_payments]`
+    jamshidian_coefficients = tf.concat([
+        -coefficients[..., :-1],
+        tf.expand_dims(-1.0 - coefficients[..., -1], axis=-1)], axis=-1)
+    breakeven_bond_option_strikes = _jamshidian_decomposition(
+        model, expiries,
+        fixed_leg_payment_times, jamshidian_coefficients, dtype,
+        name=name + '_jamshidian_decomposition')
+    bond_strike_rank = breakeven_bond_option_strikes.shape.rank
+    perm = [bond_strike_rank-1] + list(range(0, bond_strike_rank - 1))
+    breakeven_bond_option_strikes = tf.transpose(
+        breakeven_bond_option_strikes, perm=perm)
+    bond_option_prices = zcb.bond_option_price(
+        strikes=breakeven_bond_option_strikes,
+        expiries=expiries,
+        maturities=fixed_leg_payment_times,
+        discount_rate_fn=reference_rate_fn,
+        dim=dim,
+        mean_reversion=mean_reversion,
+        volatility=volatility,
+        is_call_options=is_call_options,
+        use_analytic_pricing=True,
+        dtype=dtype,
+        name=name + '_bond_option')
+
+    # Now compute P(T0, TN) + sum_i (c_i * tau_i * P(T0, Ti))
+    # bond_option_prices.shape = [dim] + batch_shape + [m] + [dim], where `m`
+    # denotes the number of fixed payments for the underlying swaps.
+    swaption_values = (
+        tf.reduce_sum(
+            bond_option_prices * tf.expand_dims(coefficients, axis=-1),
+            axis=-2) + bond_option_prices[..., -1, :])
+    swaption_shape = swaption_values.shape
+    gather_index = _prepare_swaption_indices(swaption_shape.as_list())
+    swaption_values = tf.reshape(
+        tf.gather_nd(swaption_values, gather_index), output_shape)
+    return notional * swaption_values
+
+
+def _bermudan_swaption_fd(batch_shape, model, exercise_times,
+                          unique_exercise_times, fixed_leg_payment_times,
+                          fixed_leg_daycount_fractions, fixed_leg_coupon,
+                          notional, is_payer_swaption, time_step_fd,
+                          num_grid_points_fd, name, dtype):
+  """Price Bermudan swaptions using finite difference."""
+  with tf.name_scope(name):
+    longest_exercise_time = unique_exercise_times[-1]
+    if time_step_fd is None:
+      time_step_fd = longest_exercise_time / 100.0
+    short_rate_min = -0.2
+    short_rate_max = 0.2
+    # grid.shape=(num_grid_points,2)
+    grid = pde.grids.uniform_grid(
+        minimums=[short_rate_min],
+        maximums=[short_rate_max],
+        sizes=[num_grid_points_fd],
+        dtype=dtype)
+
+    pde_time_grid = tf.concat([unique_exercise_times, tf.range(
+        0.0, longest_exercise_time, time_step_fd, dtype=dtype)], axis=0)
+    # This time grid is now sorted and contains the Bermudan exercise times
+    pde_time_grid = tf.sort(pde_time_grid, name='sort_pde_time_grid')
+    pde_time_grid_dt = pde_time_grid[1:] - pde_time_grid[:-1]
+    pde_time_grid_dt = tf.concat([[100.0], pde_time_grid_dt], axis=-1)
+    # Remove duplicates.
+    mask = tf.math.greater(pde_time_grid_dt, _PDE_TIME_GRID_TOL)
+    pde_time_grid = tf.boolean_mask(pde_time_grid, mask)
+    pde_time_grid_dt = tf.boolean_mask(pde_time_grid_dt, mask)
+
+    maturities = fixed_leg_payment_times
+    maturities_shape = maturities.shape
+
+    unique_maturities, _ = tf.unique(tf.reshape(maturities, shape=[-1]))
+    unique_maturities = tf.sort(unique_maturities, name='sort_maturities')
+
+    num_exercise_times = tf.shape(pde_time_grid)[-1]
+    num_maturities = tf.shape(unique_maturities)[-1]
+
+    short_rates = tf.reshape(grid[0], grid[0].shape + [1, 1])
+    broadcasted_exercise_times = tf.reshape(
+        pde_time_grid, [1] + pde_time_grid.shape + [1])
+    broadcasted_maturities = tf.reshape(
+        unique_maturities, [1, 1] + unique_maturities.shape)
+
+    # Reshape `short_rate`, `exercise_times` and `maturities` to
+    # (num_grid_points, num_exercise_times, num_maturities)
+    short_rates = tf.broadcast_to(
+        short_rates, grid[0].shape + [num_exercise_times, num_maturities])
+    broadcasted_exercise_times = tf.broadcast_to(
+        broadcasted_exercise_times,
+        grid[0].shape + [num_exercise_times, num_maturities])
+    broadcasted_maturities = tf.broadcast_to(
+        broadcasted_maturities,
+        grid[0].shape + [num_exercise_times, num_maturities])
+
+    # Zero-coupon bond curve
+    zcb_curve = model.discount_bond_price(
+        tf.expand_dims(short_rates, axis=-1),
+        broadcasted_exercise_times, broadcasted_maturities)[..., 0]
+
+    exercise_times_index = tf.searchsorted(
+        pde_time_grid, tf.reshape(exercise_times, [-1]))
+    maturities_index = tf.searchsorted(
+        unique_maturities, tf.reshape(maturities, [-1]))
+
+    # gather_index.shape = (num_grid_points*np.cumprod(maturities_shape), 3)
+    gather_index = _prepare_indices_ijj(
+        tf.range(0, num_grid_points_fd), exercise_times_index,
+        maturities_index)
+    zcb_curve = tf.gather_nd(zcb_curve, gather_index)
+    # zcb_curve.shape = [num_grid_points_fd] + [maturities_shape]
+    zcb_curve = tf.reshape(zcb_curve, [num_grid_points_fd] + maturities_shape)
+    # Shape after reduce_sum=(num_grid_points, batch_shape, num_exercise_times)
+    fixed_leg = tf.math.reduce_sum(
+        fixed_leg_coupon * fixed_leg_daycount_fractions * zcb_curve, axis=-1)
+    float_leg = 1.0 - zcb_curve[..., -1]
+    payoff_at_exercise = float_leg - fixed_leg
+    payoff_at_exercise = tf.where(is_payer_swaption, payoff_at_exercise,
+                                  -payoff_at_exercise)
+
+    unrepeated_exercise_times = exercise_times[..., -1]
+    exercise_times_index = tf.searchsorted(
+        pde_time_grid, tf.reshape(unrepeated_exercise_times, [-1]))
+    _, payoff_swap = _map_payoff_to_sim_times(
+        tf.reshape(exercise_times_index, unrepeated_exercise_times.shape),
+        payoff_at_exercise, num_grid_points_fd)
+
+    # payoff_swap.shape=(num_grid_points_fd, batch_shape, num_exercise_times).
+    # Transpose so that the [num_grid_points_fd] is the last dimension; this is
+    # needed for broadcasting inside the PDE solver.
+    payoff_swap = tf.transpose(payoff_swap)
+
+    def _get_index(t, tensor_to_search):
+      t = tf.expand_dims(t, axis=-1)
+      index = tf.searchsorted(tensor_to_search, t - _PDE_TIME_GRID_TOL, 'right')
+      y = tf.gather(tensor_to_search, index)
+      return tf.where(tf.math.abs(t - y) < _PDE_TIME_GRID_TOL, index, -1)[0]
+
+    def _second_order_coeff_fn(t, grid):
+      del grid
+      return [[model.volatility(t)**2 / 2]]
+
+    def _first_order_coeff_fn(t, grid):
+      s = grid[0]
+      return [model.drift_fn()(t, s)]
+
+    def _zeroth_order_coeff_fn(t, grid):
+      del t
+      return -grid[0]
+
+    @pde.boundary_conditions.dirichlet
+    def _lower_boundary_fn(t, grid):
+      del grid
+      index = _get_index(t, pde_time_grid)
+      result = tf.where(index > -1, payoff_swap[index, ..., 0], 0.0)
+      return tf.where(is_payer_swaption, 0.0, result)
+
+    @pde.boundary_conditions.dirichlet
+    def _upper_boundary_fn(t, grid):
+      del grid
+      index = _get_index(t, pde_time_grid)
+      result = tf.where(index > -1, payoff_swap[index, ..., 0], 0.0)
+      return tf.where(is_payer_swaption, result, 0.0)
+
+    def _final_value():
+      return tf.nn.relu(payoff_swap[-1])
+
+    def _values_transform_fn(t, grid, value_grid):
+      index = _get_index(t, pde_time_grid)
+      v_star = tf.where(
+          index > -1, tf.nn.relu(payoff_swap[index]), 0.0)
+      return grid, tf.maximum(value_grid, v_star)
+
+    def _pde_time_step(t):
+      index = _get_index(t, pde_time_grid)
+      dt = pde_time_grid_dt[index]
+      return dt
+
+    res = pde.fd_solvers.solve_backward(
+        longest_exercise_time,
+        0.0,
+        grid,
+        values_grid=_final_value(),
+        time_step=_pde_time_step,
+        boundary_conditions=[(_lower_boundary_fn, _upper_boundary_fn)],
+        values_transform_fn=_values_transform_fn,
+        second_order_coeff_fn=_second_order_coeff_fn,
+        first_order_coeff_fn=_first_order_coeff_fn,
+        zeroth_order_coeff_fn=_zeroth_order_coeff_fn,
+        dtype=dtype)
+
+    r0 = model.instant_forward_rate(0.0)
+    option_value = linear.interpolate(r0, res[1], res[0])
+    return tf.reshape(notional * tf.transpose(option_value), batch_shape)

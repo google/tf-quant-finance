@@ -121,7 +121,7 @@ def cap_floor_price(*,
       as `strikes`. The daycount fractions associated with the underlying
       forward rates.
     reference_rate_fn: A Python callable that accepts expiry time as a real
-      `Tensor` and returns a `Tensor` of shape `input_shape + dim`. Returns the
+      `Tensor` and returns a `Tensor` of shape `input_shape`. Returns the
       continuously compounded zero rate at the present time for the input expiry
       time.
     dim: A Python scalar which corresponds to the number of factors within a

@@ -113,8 +113,8 @@ class HullWhiteModel1F(vector_hull_white.VectorHullWhiteModel):
         `mean_reversion` or a callable with the same specs as above.
         Corresponds to the lond run price variance.
       initial_discount_rate_fn: A Python callable that accepts expiry time as a
-        real `Tensor` of the same `dtype` as `mean_reversion` and returns a
-        `Tensor` of same shape as the output.
+        real `Tensor` of the same `dtype` as `mean_reversion` and returns
+        a `Tensor` of either shape `input_shape` or `input_shape + [1]`.
         Corresponds to the initial discount rates at time `t=0` such that
         P(0,t) = exp(-y(t) * t) where P(0,t) denotes the initial discount bond
         prices.

@@ -160,8 +160,8 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         `mean_reversion` or a callable with the same specs as above.
         Corresponds to the lond run price variance.
       initial_discount_rate_fn: A Python callable that accepts expiry time as
-        a real `Tensor` of the same `dtype` as `mean_reversion` and returns a
-        `Tensor` of shape `input_shape + dim`.
+        a real `Tensor` of the same `dtype` as `mean_reversion` and returns
+        a `Tensor` of either shape `input_shape` or `input_shape + [dim]`.
         Corresponds to the zero coupon bond yield at the present time for the
         input expiry time.
       corr_matrix: A `Tensor` of shape `[dim, dim]` and the same `dtype` as
@@ -202,7 +202,13 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         def _log_zero_coupon_bond(x):
           r = tf.convert_to_tensor(
               initial_discount_rate_fn(x), dtype=self._dtype)
-          return -r * x
+          # If initial_discount_rate_fn returns a Tensor of the same input,
+          # expand the output dimension to `input_shape + [1]`. Otherwise,
+          # it is expected that `r` is of shape `input_shape + [dim]`.
+          if r.shape.rank == x.shape.rank:
+            r = tf.expand_dims(r, axis=-1)
+          # Shape `x.shape + [dim]`
+          return -r * tf.expand_dims(x, axis=-1)
 
         rate = -gradient.fwd_gradient(
             _log_zero_coupon_bond, t, use_gradient_tape=True,
@@ -210,8 +216,14 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         return rate
 
       def _initial_discount_rate_fn(t):
-        return tf.convert_to_tensor(
+        r = tf.convert_to_tensor(
             initial_discount_rate_fn(t), dtype=self._dtype)
+        # If initial_discount_rate_fn returns a Tensor of the same input,
+        # expand the output dimension to `input_shape + [1]`. Otherwise,
+        # it is expected that `r` is of shape `input_shape + [dim]`.
+        if r.shape.rank == t.shape.rank:
+          r = tf.expand_dims(r, axis=-1)
+        return r
 
       self._instant_forward_rate_fn = _instant_forward_rate_fn
       self._initial_discount_rate_fn = _initial_discount_rate_fn
@@ -511,7 +523,9 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                                           name='times_grid')
       mean_reversion = self._mean_reversion(times)
       volatility = self._volatility(times)
+      # Shape [dim, num_sim_times]
       y_t = self._compute_yt(times, mean_reversion, volatility)
+      # Shape [num_samples, num_sim_times, dim]
       rate_paths = self.sample_paths(
           times=times,
           num_samples=num_samples,
@@ -526,14 +540,12 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
 
       # Reshape all `Tensor`s so that they have the dimensions same as (or
       # broadcastable to) the output shape
-      # ([num_smaples,num_curve_times,num_sim_times,dim]).
+      # [num_samples, num_curve_times, num_sim_times, dim].
       num_curve_nodes = tf.shape(curve_times)[0]  # m
       num_sim_steps = tf.shape(times)[0]  # k
-      times = tf.reshape(
-          tf.repeat(tf.expand_dims(times, axis=-1), self._dim, axis=-1),
-          (1, 1, num_sim_steps, self._dim))
-      curve_times = tf.reshape(curve_times, (1, num_curve_nodes, 1, 1))
-      curve_times = tf.repeat(curve_times, self._dim, axis=-1)
+      times = tf.reshape(times, (1, 1, num_sim_steps))
+      curve_times = tf.reshape(curve_times, (1, num_curve_nodes, 1))
+      # curve_times = tf.repeat(curve_times, self._dim, axis=-1)
 
       mean_reversion = tf.reshape(
           mean_reversion, (1, 1, self._dim, num_sim_steps))
@@ -543,7 +555,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       # Calculate the variable `y(t)` (described in [1], section 10.1.6.1)
       # so that we have the full Markovian state to compute the P(t,T).
       y_t = tf.reshape(tf.transpose(y_t), (1, 1, num_sim_steps, self._dim))
-
+      # Shape [num_samples, num_curve_times, num_sim_steps, dim]
       return self._bond_reconstitution(times, times + curve_times,
                                        mean_reversion, short_rate,
                                        y_t), rate_paths
@@ -573,14 +585,12 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       # Flatten it because `PiecewiseConstantFunction` expects the first
       # dimension to be broadcastable to [dim]
       input_shape_times = times.shape.as_list()
-      times = tf.reshape(times, shape=[-1])
+      times_flat = tf.reshape(times, shape=[-1])
       # The shape of `mean_reversion` will be (dim,n) where `n` is the number
       # of elements in `times`.
-      mean_reversion = self._mean_reversion(times)
-      volatility = self._volatility(times)
-      y_t = self._compute_yt(times, mean_reversion, volatility)
-      times = tf.reshape(times, input_shape_times + [1])
-      maturities = tf.reshape(maturities, input_shape_times + [1])
+      mean_reversion = self._mean_reversion(times_flat)
+      volatility = self._volatility(times_flat)
+      y_t = self._compute_yt(times_flat, mean_reversion, volatility)
       mean_reversion = tf.reshape(tf.transpose(mean_reversion),
                                   input_shape_times + [self._dim])
       y_t = tf.reshape(tf.transpose(y_t), input_shape_times + [self._dim])
@@ -724,17 +734,30 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                            short_rate,
                            y_t):
     """Compute discount bond prices using Eq. 10.18 in Ref [2]."""
+
+    # Shape `times.shape + [dim]`
     f_0_t = self._instant_forward_rate_fn(times)
+    # Shape `short_rate.shape`
     x_t = short_rate - f_0_t
-    p_0_t = tf.math.exp(-self._initial_discount_rate_fn(times) * times)
+    discount_rates_times = self._initial_discount_rate_fn(times)
+    times_expand = tf.expand_dims(times, axis=-1)
+    # Shape `times.shape + [dim]`
+    p_0_t = tf.math.exp(-discount_rates_times * times_expand)
+    # Shape `times.shape + [dim]`
+    discount_rates_maturities = self._initial_discount_rate_fn(maturities)
+    maturities_expand = tf.expand_dims(maturities, axis=-1)
+    # Shape `times.shape + [dim]`
     p_0_t_tau = tf.math.exp(
-        -self._initial_discount_rate_fn(maturities) *
-        (maturities)) / p_0_t
+        -discount_rates_maturities * maturities_expand) / p_0_t
+    # Shape `times.shape + [dim]`
     g_t_tau = (1. - tf.math.exp(
-        -mean_reversion * (maturities - times))) / mean_reversion
+        -mean_reversion * (maturities_expand - times_expand))) / mean_reversion
+    # Shape `x_t.shape`
     term1 = x_t * g_t_tau
     term2 = y_t * g_t_tau**2
+    # Shape `short_rate.shape`
     p_t_tau = p_0_t_tau * tf.math.exp(-term1 - 0.5 * term2)
+    # Shape `short_rate.shape`
     return p_t_tau
 
   def _exact_discretization_setup(self, dim):

@@ -176,9 +176,9 @@ def calibration_from_swaptions(*,
       as `fixed_leg_payment_times`. The fixed rate for each payment in the
       fixed leg.
     reference_rate_fn: A Python callable that accepts expiry time as a real
-      `Tensor` and returns a `Tensor` of shape `input_shape + [dim]`. Returns
-      the continuously compounded zero rate at the present time for the input
-      expiry time.
+      `Tensor` and returns a `Tensor` of shape either `input_shape` or
+      `input_shape + [1]`. Returns the continuously compounded zero rate at the
+      present time for the input expiry time.
     mean_reversion: A real positive scalar `Tensor` or an Python callable. The
       callable should satisfy the following:
       (a) A left-continuous piecewise constant object (e.g.,
@@ -325,9 +325,14 @@ def calibration_from_swaptions(*,
       optimizer_fn = optimizer.conjugate_gradient_minimize
 
     if volatility_based_calibration:
+      def reference_rate_squeeze_fn(t):
+        r = reference_rate_fn(t)
+        if r.shape.as_list()[-1] == 1:
+          r = tf.squeeze(r, axis=-1)
+        return r
       swap_rate, annuity = swap.ir_swap_par_rate_and_annuity(
           float_leg_start_times, float_leg_end_times, fixed_leg_payment_times,
-          fixed_leg_daycount_fractions, reference_rate_fn)
+          fixed_leg_daycount_fractions, reference_rate_squeeze_fn)
       target_values = implied_vol(
           prices=prices / annuity / notional,
           strikes=fixed_leg_coupon[..., 0],

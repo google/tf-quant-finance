@@ -47,7 +47,7 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
   def test_correctness_1d(self, time_step, num_time_steps, use_xla):
     """Tests model with constant parameters in 1 dimension."""
     dtype = tf.float64
-    error_tol = 1e-3
+    error_tol = 1e-2
 
     # 1y x 1y swaption with quarterly payments.
     expiries = np.array([1.0])
@@ -74,7 +74,7 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
           num_hjm_factors=1,
           mean_reversion=mean_reversion,
           volatility=volatility,
-          num_samples=500000,
+          num_samples=50_000,
           time_step=time_step,
           num_time_steps=num_time_steps,
           curve_times=curve_times,
@@ -115,7 +115,7 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         mean_reversion=mean_reversion,
         volatility=volatility,
         is_payer_swaption=False,
-        num_samples=500000,
+        num_samples=50_000,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 2],
@@ -159,7 +159,7 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         num_hjm_factors=1,
         mean_reversion=mean_reversion,
         volatility=piecewise_1d_volatility_fn,
-        num_samples=1000000,
+        num_samples=50_000,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 2],
@@ -174,7 +174,7 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
   def test_1d_batch_1d(self):
     """Tests 1-d batch."""
     dtype = tf.float64
-    error_tol = 1e-3
+    error_tol = 1e-2
 
     # 1y x 1y swaption with quarterly payments.
     expiries = np.array([1.0, 1.0])
@@ -197,7 +197,7 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         num_hjm_factors=1,
         mean_reversion=mean_reversion,
         volatility=volatility,
-        num_samples=500000,
+        num_samples=50_000,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 2],
@@ -214,7 +214,7 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
   def test_1d_batch_1d_notional(self):
     """Tests 1-d batch with different notionals."""
     dtype = tf.float64
-    error_tol = 1e-3
+    error_tol = 1e-2
 
     # 1y x 1y swaption with quarterly payments.
     expiries = np.array([1.0, 1.0])
@@ -236,7 +236,7 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         num_hjm_factors=1,
         mean_reversion=mean_reversion,
         volatility=volatility,
-        num_samples=500000,
+        num_samples=50_000,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 2],
@@ -253,7 +253,7 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
   def test_2d_batch_1d(self):
     """Tests 2-d batch."""
     dtype = tf.float64
-    error_tol = 1e-3
+    error_tol = 1e-2
 
     zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
     expiries_2d = np.array([[1.0, 1.0], [1.0, 1.0]])
@@ -277,7 +277,7 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         num_hjm_factors=1,
         mean_reversion=mean_reversion,
         volatility=volatility,
-        num_samples=500000,
+        num_samples=50_000,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 2],
@@ -297,7 +297,7 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     """Tests model with constant parameters in 2 dimensions."""
     # 1y x 1y swaption with quarterly payments.
     dtype = tf.float64
-    error_tol = 1e-3
+    error_tol = 1e-2
 
     expiries = np.array([1.0])
     fixed_leg_payment_times = np.array([1.25, 1.5, 1.75, 2.0])
@@ -317,7 +317,7 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         num_hjm_factors=2,
         mean_reversion=mean_reversion,
         volatility=volatility,
-        num_samples=500000,
+        num_samples=25_000,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 2],
@@ -332,7 +332,7 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
       {
           'testcase_name': 'monte_carlo',
           'valuation_method': tff.models.ValuationMethod.MONTE_CARLO,
-          'error_tol': 1e-3,
+          'error_tol': 5e-3,
       }, {
           'testcase_name': 'pde',
           'valuation_method': tff.models.ValuationMethod.FINITE_DIFFERENCE,
@@ -376,10 +376,10 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         num_hjm_factors=2,
         mean_reversion=[mu, mu],
         volatility=[vol1, vol2],
-        num_samples=1000000,
+        num_samples=25_000,
         valuation_method=valuation_method,
         time_step_finite_difference=0.05,
-        num_grid_points_finite_difference=501,
+        num_grid_points_finite_difference=251,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 2],
@@ -445,7 +445,7 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         valuation_method=valuation_method,
         time_step_finite_difference=0.05,
         num_grid_points_finite_difference=251,
-        num_samples=1000000,
+        num_samples=50_000,
         time_step=0.1,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 2],

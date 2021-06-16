@@ -32,8 +32,12 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
     self.mean_reversion = [0.1, 0.05]
     self.volatility = [0.01, 0.02]
     self.volatility_time_dep_1d = [0.01, 0.02, 0.01]
-    self.instant_forward_rate_1d_fn = lambda *args: [0.01]
-    self.instant_forward_rate_2d_fn = lambda *args: [0.01, 0.01]
+    def instant_forward_rate_1d_fn(t):
+      return 0.01 * tf.expand_dims(tf.ones_like(t), axis=-1)
+    self.instant_forward_rate_1d_fn = instant_forward_rate_1d_fn
+    def instant_forward_rate_2d_fn(t):
+      return 0.01 * tf.ones(t.shape.as_list() + [2], dtype=t.dtype)
+    self.instant_forward_rate_2d_fn = instant_forward_rate_2d_fn
     self.initial_state = [0.01, 0.01]
     # See D. Brigo, F. Mercurio. Interest Rate Models. 2007.
     def _true_mean(t):
@@ -41,10 +45,10 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
       a = dtype(self.mean_reversion)
       sigma = dtype(self.volatility)
       initial_state = dtype(self.initial_state)
-      return (dtype(self.instant_forward_rate_2d_fn(t))
+      return (0.01
               + (sigma * sigma / 2 / a**2)
               * (1.0 - np.exp(-a * t))**2
-              - self.instant_forward_rate_2d_fn(0) * np.exp(-a * t)
+              - 0.01 * np.exp(-a * t)
               + initial_state *  np.exp(-a * t))
     self.true_mean = _true_mean
     def _true_var(t):
@@ -134,37 +138,37 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
       })
   def test_variance_zcb_1d(self, random_type, seed):
     """Tests discount bond variance in 1 dimension."""
-    for dtype in [tf.float64, tf.float64]:
-      def discount_fn(x):
-        return 0.01 * tf.ones_like(x, dtype=dtype)  # pylint: disable=cell-var-from-loop
-      mr = 0.03
-      vol = 0.015
-      mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
-          [], values=[mr], dtype=dtype)
-      volatility = tff.math.piecewise.PiecewiseConstantFunc(
-          [0.1, 2.0], values=3 * [vol], dtype=dtype)
-      process = tff.models.hull_white.HullWhiteModel1F(
-          mean_reversion=mean_reversion,
-          volatility=volatility,
-          initial_discount_rate_fn=discount_fn,
-          dtype=dtype)
-      curve_times = np.array([0.0, 1.0, 2.0, 3.0])
-      paths, _ = process.sample_discount_curve_paths(
-          [0.1, 1.0, 2.0],
-          curve_times,
-          num_samples=500000,
-          random_type=random_type,
-          seed=seed,
-          skip=1000000)
-      with self.subTest('Dtype'):
-        self.assertEqual(paths.dtype, dtype)
-      with self.subTest('Shape'):
-        self.assertAllEqual(paths.shape, [500000, 4, 3, 1])
-      paths = self.evaluate(tf.math.log(paths))
-      std_zcb = np.std(paths, axis=0)[:, 2, 0]
-      expected_std = self.true_zcb_std(2.0, 2.0 + curve_times, vol, mr)
-      with self.subTest('VarianceAbsTol'):
-        self.assertAllClose(std_zcb, expected_std, rtol=1e-4, atol=1e-4)
+    dtype = tf.float64
+    def discount_fn(x):
+      return 0.01 * tf.expand_dims(tf.ones_like(x), axis=-1)
+    mr = 0.03
+    vol = 0.015
+    mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
+        [], values=[mr], dtype=dtype)
+    volatility = tff.math.piecewise.PiecewiseConstantFunc(
+        [0.1, 2.0], values=3 * [vol], dtype=dtype)
+    process = tff.models.hull_white.HullWhiteModel1F(
+        mean_reversion=mean_reversion,
+        volatility=volatility,
+        initial_discount_rate_fn=discount_fn,
+        dtype=dtype)
+    curve_times = np.array([0.0, 1.0, 2.0, 3.0])
+    paths, _ = process.sample_discount_curve_paths(
+        [0.1, 1.0, 2.0],
+        curve_times,
+        num_samples=500000,
+        random_type=random_type,
+        seed=seed,
+        skip=1000000)
+    with self.subTest('Dtype'):
+      self.assertEqual(paths.dtype, dtype)
+    with self.subTest('Shape'):
+      self.assertAllEqual(paths.shape, [500000, 4, 3, 1])
+    paths = self.evaluate(tf.math.log(paths))
+    std_zcb = np.std(paths, axis=0)[:, 2, 0]
+    expected_std = self.true_zcb_std(2.0, 2.0 + curve_times, vol, mr)
+    with self.subTest('VarianceAbsTol'):
+      self.assertAllClose(std_zcb, expected_std, rtol=1e-4, atol=1e-4)
 
   @parameterized.named_parameters(
       {

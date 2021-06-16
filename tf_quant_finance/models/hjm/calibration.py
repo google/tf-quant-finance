@@ -233,7 +233,7 @@ def calibration_from_swaptions(*,
       `fixed_leg_payment_times`. The fixed rate for each payment in the fixed
       leg.
     reference_rate_fn: A Python callable that accepts expiry time as a real
-      `Tensor` and returns a `Tensor` of shape `input_shape + [dim]`. Returns
+      `Tensor` and returns a `Tensor` of shape `input_shape`. Returns
       the continuously compounded zero rate at the present time for the input
       expiry time.
     num_hjm_factors: A Python scalar which corresponds to the number of factors

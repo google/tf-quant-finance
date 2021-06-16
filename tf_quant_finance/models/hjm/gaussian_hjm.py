@@ -141,8 +141,8 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
           factor.
       initial_discount_rate_fn: A Python callable that accepts expiry time as a
         real `Tensor` of the same `dtype` as `mean_reversion` and returns a
-        `Tensor` of shape `input_shape + dim`. Corresponds to the zero coupon
-        bond yield at the present time for the input expiry time.
+        `Tensor` of shape `input_shape`. Corresponds to the zero coupon bond
+        yield at the present time for the input expiry time.
       corr_matrix: A `Tensor` of shape `[dim, dim]` and the same `dtype` as
         `mean_reversion`. Corresponds to the correlation matrix `Rho`.
       dtype: The default dtype to use when converting values to `Tensor`s.
@@ -370,20 +370,14 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
       # Flatten it because `PiecewiseConstantFunction` expects the first
       # dimension to be broadcastable to [dim]
       input_shape_times = tf.shape(times)
-      # The shape of `mean_reversion` will be (dim,n) where `n` is the number
-      # of elements in `times`.
+      # The shape of `mean_reversion` will is `[dim]`
       mean_reversion = self._mean_reversion
       y_t = self.state_y(times)
 
-      times = tf.expand_dims(times, axis=-1)
-      maturities = tf.expand_dims(maturities, axis=-1)
       y_t = tf.reshape(tf.transpose(y_t), tf.concat(
           [input_shape_times, [self._dim, self._dim]], axis=0))
-
-      # note that by making `times` and `maturities` of the same shape, we
-      # ensure that the shape of the output is `(1, 1, num_times)` instead of
-      # `(1, num_maturities, num_times)`
-      values = self._bond_reconstitution(  # shape=(1, 1, num_times)
+      # Shape=(1, 1, num_times)
+      values = self._bond_reconstitution(
           times, maturities, mean_reversion, x_t, y_t, 1,
           tf.shape(times)[0])
       return values[0][0]

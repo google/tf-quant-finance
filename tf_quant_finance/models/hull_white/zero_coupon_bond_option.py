@@ -95,8 +95,9 @@ def bond_option_price(*,
     maturities: A real `Tensor` of the same dtype and compatible shape as
       `strikes`.  The time to maturity of the underlying zero coupon bonds.
     discount_rate_fn: A Python callable that accepts expiry time as a real
-      `Tensor` and returns a `Tensor` of shape `input_shape + dim`. Computes
-      the zero coupon bond yield at the present time for the input expiry time.
+      `Tensor` and returns `Tensor` of either shape `input_shape` or
+      `input_shape + [dim]`. Computes the zero coupon bond yield at the present
+      time for the input expiry time.
     dim: A Python scalar which corresponds to the number of Hull-White Models
       to be used for pricing.
     mean_reversion: A real positive `Tensor` of shape `[dim]` or a Python
@@ -204,47 +205,61 @@ def bond_option_price(*,
 def _analytic_valuation(discount_rate_fn, model, strikes, expiries, maturities,
                         dim, is_call_options):
   """Performs analytic valuation."""
-
-  discount_factor_expiry = tf.math.exp(
-      -discount_rate_fn(expiries) * expiries)
+  def _discount_rate_fn(t):
+    r = tf.convert_to_tensor(discount_rate_fn(t), dtype=strikes.dtype,
+                             name='discount_rate_fn')
+    if r.shape.rank == t.shape.rank:
+      r = tf.expand_dims(r, axis=-1)
+    return r
+  # Shape `expiry.shape + [dim]`
+  discount_rates_expiries = _discount_rate_fn(expiries)
+  # Move last dimension (corresponding to dim) to the front
+  expiries_expand = tf.expand_dims(expiries, axis=-1)
+  discount_rates_expiries = tf.math.exp(
+      -discount_rates_expiries * expiries_expand)
   input_shape = expiries.shape
   variance = _bond_option_variance(
-      model, tf.reshape(expiries, shape=[-1]), tf.reshape(maturities, [-1]),
-      dim)
+      model, tf.reshape(expiries, shape=[-1]), tf.reshape(maturities, [-1]))
   variance = tf.reshape(variance, [dim] + input_shape)
-  discount_factor_maturity = tf.math.exp(-discount_rate_fn(maturities) *
-                                         maturities)
-  forward_bond_price = discount_factor_maturity / discount_factor_expiry
+  # Make `dim` as the last dimension and return.
+  # Shape `expiries.shape + [dim]`
+  variance = tf.transpose(
+      variance,
+      perm=list(range(1, variance.shape.rank)) + [0])
+  # Move last dimension (corresponding to dim) to the front
+  discount_rates_maturities = _discount_rate_fn(maturities)
+  maturities_expand = tf.expand_dims(maturities, axis=-1)
+  # Shape `expiries.shape + [dim]`
+  discount_factor_maturity = tf.math.exp(-discount_rates_maturities
+                                         * maturities_expand)
+  forward_bond_price = discount_factor_maturity / discount_rates_expiries
+
   sqrt_variance = tf.math.sqrt(variance)
-  log_moneyness = tf.expand_dims(tf.math.log(forward_bond_price / strikes),
-                                 axis=0)
+  strikes_expand = tf.expand_dims(strikes, axis=-1)
+  # Shape `expiries.shape + [dim]`
+  log_moneyness = tf.math.log(forward_bond_price / strikes_expand)
   d1 = tf.math.divide_no_nan(log_moneyness + 0.5 * variance, sqrt_variance)
   d2 = d1 - tf.math.sqrt(variance)
-  option_value_call = (
-      tf.expand_dims(discount_factor_maturity, axis=0) * _ncdf(d1) -
-      tf.expand_dims(strikes * discount_factor_expiry, axis=0) * _ncdf(d2))
-  option_value_put = (
-      tf.expand_dims(strikes * discount_factor_expiry, axis=0) * _ncdf(-d2)
-      - tf.expand_dims(discount_factor_maturity, axis=0) * _ncdf(-d1))
+  option_value_call = (discount_factor_maturity * _ncdf(d1)
+                       - strikes_expand * discount_rates_expiries* _ncdf(d2))
+  option_value_put = (strikes_expand * discount_rates_expiries * _ncdf(-d2)
+                      - discount_factor_maturity * _ncdf(-d1))
 
-  is_call_options = tf.broadcast_to(is_call_options, [dim] + strikes.shape)
-  intrinsic_value = tf.where(is_call_options,
-                             tf.math.maximum(forward_bond_price - strikes, 0),
-                             tf.math.maximum(strikes - forward_bond_price, 0))
+  is_call_options = tf.expand_dims(is_call_options, axis=-1)
+  intrinsic_value = tf.where(
+      is_call_options,
+      tf.math.maximum(forward_bond_price - strikes_expand, 0),
+      tf.math.maximum(strikes_expand - forward_bond_price, 0))
   option_value = tf.where(
-      maturities < expiries, tf.zeros_like(maturities),
+      maturities_expand < expiries_expand, tf.zeros_like(maturities_expand),
       tf.where(sqrt_variance > 0.0,
                tf.where(is_call_options, option_value_call, option_value_put),
                intrinsic_value))
-
-  # Make `dim` as the last dimension and return.
-  return tf.transpose(
-      option_value,
-      perm=[i for i in range(1, len(option_value.shape.as_list()))] + [0])
+  return option_value
 
 
 # TODO(b/158501671): Clean-up this implementation.
-def _bond_option_variance(model, option_expiry, bond_maturity, dim):
+def _bond_option_variance(model, option_expiry, bond_maturity):
   """Computes black equivalent variance for bond options.
 
   Black equivalent variance is definied as the variance to use in the Black
@@ -256,7 +271,6 @@ def _bond_option_variance(model, option_expiry, bond_maturity, dim):
       expiry of each option.
     bond_maturity: A rank 1 `Tensor` of real dtype specifying the time to
       maturity of underlying zero coupon bonds.
-    dim: Dimensionality of the Hull-White process.
 
   Returns:
     A rank 1 `Tensor` of same dtype and shape as the inputs with computed
@@ -270,8 +284,10 @@ def _bond_option_variance(model, option_expiry, bond_maturity, dim):
   mean_reversion = model.mean_reversion(option_expiry)
   volatility = model.volatility(option_expiry)
 
-  option_expiry = tf.repeat(tf.expand_dims(option_expiry, axis=0), dim, axis=0)
-  bond_maturity = tf.repeat(tf.expand_dims(bond_maturity, axis=0), dim, axis=0)
+  option_expiry = tf.repeat(tf.expand_dims(option_expiry, axis=0),
+                            model.dim(), axis=0)
+  bond_maturity = tf.repeat(tf.expand_dims(bond_maturity, axis=0),
+                            model.dim(), axis=0)
 
   var_between_vol_knots = model._variance_int(model._padded_knots,
                                               model._jump_locations,
@@ -294,6 +310,7 @@ def _bond_option_variance(model, option_expiry, bond_maturity, dim):
       varx_at_vol_knots, time_index, batch_dims=1)
   var_expiry = var_expiry * (
       tf.math.exp(-mean_reversion*option_expiry) - tf.math.exp(
-          -mean_reversion*bond_maturity))**2 / mean_reversion**2
+          -mean_reversion * bond_maturity))**2 / mean_reversion**2
   # gpylint: enable=protected-access
+  # shape [dim, num_times]
   return var_expiry

@@ -39,6 +39,13 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
     self.maturities = np.array([0.25, 0.5, 0.75, 1.0])
     self.strikes = 0.01 * np.ones_like(self.expiries)
     self.daycount_fractions = 0.25 * np.ones_like(self.expiries)
+    def discount_rate_1d_fn(t):
+      return 0.01 * tf.expand_dims(tf.ones_like(t), axis=-1)
+    self.discount_rate_1d_fn = discount_rate_1d_fn
+
+    def discount_rate_2d_fn(t):
+      return 0.01 * tf.ones(t.shape.as_list() + [2], dtype=t.dtype)
+    self.discount_rate_2d_fn = discount_rate_2d_fn
 
     super(HullWhiteCapFloorTest, self).setUp()
 
@@ -56,8 +63,6 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
     """Tests model with constant parameters in 1 dimension."""
     # 1 year cap with quarterly resets.
     dtype = tf.float64
-
-    discount_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
     price = tff.models.hull_white.cap_floor_price(
         strikes=self.strikes,
         expiries=self.expiries,
@@ -67,7 +72,7 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
         dim=1,
         mean_reversion=self.mean_reversion_1d,
         volatility=self.volatility_1d,
-        reference_rate_fn=discount_rate_fn,
+        reference_rate_fn=self.discount_rate_1d_fn,
         use_analytic_pricing=use_analytic_pricing,
         num_samples=500000,
         time_step=0.1,
@@ -96,7 +101,6 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
                                              dtype=dtype)
     volatility_1d = tf.convert_to_tensor(self.volatility_1d,
                                          dtype=dtype)
-    discount_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
     with tf.GradientTape(persistent=True) as tape:
       tape.watch([mean_reversion_1d, volatility_1d])
       price = tff.models.hull_white.cap_floor_price(
@@ -108,7 +112,7 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
           dim=1,
           mean_reversion=mean_reversion_1d,
           volatility=volatility_1d,
-          reference_rate_fn=discount_rate_fn,
+          reference_rate_fn=self.discount_rate_1d_fn,
           use_analytic_pricing=use_analytic_pricing,
           num_samples=10000,
           time_step=0.1,
@@ -140,8 +144,6 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
   def test_correctness_time_dep_1d(self, use_analytic_pricing, error_tol):
     """Tests model with piecewise constant volatility in 1 dimension."""
     dtype = tf.float64
-
-    discount_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
     volatility = tff.math.piecewise.PiecewiseConstantFunc(
         jump_locations=[0.5], values=self.volatility_time_dep_1d,
         dtype=dtype)
@@ -154,7 +156,7 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
         dim=1,
         mean_reversion=self.mean_reversion_1d,
         volatility=volatility,
-        reference_rate_fn=discount_rate_fn,
+        reference_rate_fn=self.discount_rate_1d_fn,
         use_analytic_pricing=use_analytic_pricing,
         num_samples=500000,
         time_step=0.1,
@@ -180,8 +182,6 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
   def test_1d_batch(self, use_analytic_pricing, error_tol):
     """Tests model with 1d batch of options."""
     dtype = tf.float64
-
-    discount_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
     expiries = np.array([self.expiries, self.expiries, self.expiries])
     maturities = np.array([self.maturities, self.maturities, self.maturities])
     strikes = np.array([self.strikes, self.strikes, self.strikes])
@@ -198,7 +198,7 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
         dim=1,
         mean_reversion=self.mean_reversion_1d,
         volatility=self.volatility_1d,
-        reference_rate_fn=discount_rate_fn,
+        reference_rate_fn=self.discount_rate_1d_fn,
         use_analytic_pricing=use_analytic_pricing,
         num_samples=500000,
         time_step=0.1,
@@ -225,8 +225,6 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
   def test_2d_batch(self, use_analytic_pricing, error_tol):
     """Tests model with 2d batch of options."""
     dtype = tf.float64
-
-    discount_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
     expiries = np.array([[self.expiries, self.expiries],
                          [self.expiries, self.expiries]])
     maturities = np.array([[self.maturities, self.maturities],
@@ -245,7 +243,7 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
         dim=1,
         mean_reversion=self.mean_reversion_1d,
         volatility=self.volatility_1d,
-        reference_rate_fn=discount_rate_fn,
+        reference_rate_fn=self.discount_rate_1d_fn,
         use_analytic_pricing=use_analytic_pricing,
         num_samples=500000,
         time_step=0.1,
@@ -272,8 +270,6 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
   def test_correctness_2d(self, use_analytic_pricing, error_tol):
     """Tests model with constant parameters in 2 dimension."""
     dtype = tf.float64
-
-    discount_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
     price = tff.models.hull_white.cap_floor_price(
         strikes=self.strikes,
         expiries=self.expiries,
@@ -283,7 +279,7 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
         dim=2,
         mean_reversion=self.mean_reversion_2d,
         volatility=self.volatility_2d,
-        reference_rate_fn=discount_rate_fn,
+        reference_rate_fn=self.discount_rate_2d_fn,
         use_analytic_pricing=use_analytic_pricing,
         num_samples=500000,
         time_step=0.1,
@@ -309,8 +305,6 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
   def test_mixed_1d_batch_2d(self, use_analytic_pricing, error_tol):
     """Tests mixed 1d batch with constant parameters in 2 dimension."""
     dtype = tf.float64
-
-    discount_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
     expiries = np.array([self.expiries, self.expiries, self.expiries])
     maturities = np.array([self.maturities, self.maturities, self.maturities])
     strikes = np.array([self.strikes, self.strikes, self.strikes])
@@ -327,7 +321,7 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
         dim=2,
         mean_reversion=self.mean_reversion_2d,
         volatility=self.volatility_2d,
-        reference_rate_fn=discount_rate_fn,
+        reference_rate_fn=self.discount_rate_2d_fn,
         use_analytic_pricing=use_analytic_pricing,
         num_samples=500000,
         time_step=0.1,
@@ -355,8 +349,6 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
   def test_call_put(self, use_analytic_pricing, error_tol):
     """Tests mixed 1d batch with constant parameters in 2 dimension."""
     dtype = tf.float64
-
-    discount_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
     expiries = np.array([self.expiries, self.expiries, self.expiries])
     maturities = np.array([self.maturities, self.maturities, self.maturities])
     strikes = np.array(
@@ -375,7 +367,7 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
         is_cap=[[True], [False], [False]],
         mean_reversion=self.mean_reversion_2d,
         volatility=self.volatility_2d,
-        reference_rate_fn=discount_rate_fn,
+        reference_rate_fn=self.discount_rate_2d_fn,
         use_analytic_pricing=use_analytic_pricing,
         num_samples=500000,
         time_step=0.1,
