@@ -9,6 +9,7 @@ py_library(
     srcs = ["__init__.py"],
     srcs_version = "PY3",
     deps = [
+        ":dataclass",
         ":tf_functions",
     ],
 )
@@ -34,6 +35,24 @@ py_test(
         # test util,
         # dataclasses dep,
         # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "dataclass",
+    srcs = ["dataclass.py"],
+    srcs_version = "PY3",
+)
+
+py_test(
+    name = "dataclass_test",
+    size = "small",
+    srcs = ["dataclass_test.py"],
+    python_version = "PY3",
+    deps = [
+        "//tf_quant_finance",
+        # test util,
         # tensorflow dep,
     ],
 )

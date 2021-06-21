@@ -14,9 +14,13 @@
 # limitations under the License.
 """Utilities module."""
 
+from tf_quant_finance.utils.dataclass import dataclass
 from tf_quant_finance.utils.tf_functions import iterate_nested
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
-_allowed_symbols = ['iterate_nested']
+_allowed_symbols = [
+    'dataclass',
+    'iterate_nested'
+]
 
 remove_undocumented(__name__, _allowed_symbols)
