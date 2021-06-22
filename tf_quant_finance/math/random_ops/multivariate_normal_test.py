@@ -109,21 +109,23 @@ class RandomTest(parameterized.TestCase, tf.test.TestCase):
           "seed": [1, 4567]
       })
   def test_dynamic_shapes(self, random_type, seed):
-    """Tests that the sample is correctly generated for pseudo and stateless."""
+    """Tests that the sample is correctly generated for dynamic shape."""
     mean = np.array([[1.0, 0.1], [0.1, 1.0]])
     covar = np.array([
         [[0.9, -0.1], [-0.1, 1.0]],
         [[1.1, -0.3], [-0.3, 0.6]],
     ])
     size = 30000
-    @tf.function(input_signature=[tf.TensorSpec([None, None]),
-                                  tf.TensorSpec([None, None, None])])
-    def sampler(mean, covar):
-      return tff_rnd.mv_normal_sample(
-          [size], mean=mean, covariance_matrix=covar,
-          random_type=tff_rnd.RandomType.HALTON, seed=seed)
 
-    sample = self.evaluate(sampler(mean, covar))
+    @tf.function(input_signature=[tf.TensorSpec([None], dtype=tf.int32),
+                                  tf.TensorSpec([None, None]),
+                                  tf.TensorSpec([None, None, None])])
+    def sampler(sample_shape, mean, covar):
+      return tff_rnd.mv_normal_sample(
+          sample_shape, mean=mean, covariance_matrix=covar,
+          random_type=random_type, seed=seed)
+
+    sample = self.evaluate(sampler([size], mean, covar))
     np.testing.assert_array_equal(sample.shape, [size, 2, 2])
     np.testing.assert_array_almost_equal(
         np.mean(sample, axis=0), mean, decimal=1)

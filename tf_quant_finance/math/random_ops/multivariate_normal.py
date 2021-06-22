@@ -185,6 +185,8 @@ def multivariate_normal(sample_shape,
 
   name = name or 'multivariate_normal'
   with tf.name_scope(name):
+    sample_shape = tf.convert_to_tensor(sample_shape, dtype=tf.int32,
+                                        name='sample_shape')
     if mean is not None:
       mean = tf.convert_to_tensor(mean, dtype=dtype, name='mean')
     if random_type in [RandomType.PSEUDO, RandomType.STATELESS]:
@@ -280,7 +282,6 @@ def _mvnormal_pseudo_antithetic(sample_shape,
                                 seed=None,
                                 dtype=None):
   """Returns normal draws with the antithetic samples."""
-  sample_shape = tf.TensorShape(sample_shape).as_list()
   sample_zero_dim = sample_shape[0]
   # For the antithetic sampler `sample_shape` is split evenly between
   # samples and their antithetic counterparts. In order to do the splitting
@@ -291,7 +292,8 @@ def _mvnormal_pseudo_antithetic(sample_shape,
       message='First dimension of `sample_shape` should be even for '
       'PSEUDO_ANTITHETIC random type')
   with tf.control_dependencies([is_even_dim]):
-    antithetic_shape = [sample_zero_dim // 2] + sample_shape[1:]
+    antithetic_shape = tf.concat([[sample_zero_dim // 2], sample_shape[1:]],
+                                 axis=0)
   if random_type == RandomType.PSEUDO_ANTITHETIC:
     random_type_sample = RandomType.PSEUDO
   else:
