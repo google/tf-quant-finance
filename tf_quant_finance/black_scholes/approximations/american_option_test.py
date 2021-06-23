@@ -23,6 +23,7 @@ import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 adesi_whaley = tff.black_scholes.approximations.adesi_whaley
+bjerksund_stensland = tff.black_scholes.approximations.bjerksund_stensland
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -41,7 +42,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
   )
   def test_option_prices_neg_carries(self, discount_rates, dividends,
                                      volatilities, expiries, expected_prices):
-    """Tests the prices for negative cost_of_carries."""
+    """Tests the Baron-Adesi Whaley prices for negative cost_of_carries."""
     spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
     strikes = np.array([100.0] * 10)
     is_call_options = np.array([True] * 5 + [False] * 5)
@@ -75,7 +76,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
   )
   def test_option_prices_pos_carries(self, discount_rates, dividends,
                                      volatilities, expiries, expected_prices):
-    """Tests the prices for positive cost_of_carries."""
+    """Tests the Baron-Adesi Whaley prices for positive cost_of_carries."""
     spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
     strikes = np.array([100.0] * 10)
     is_call_options = [True] * 5 + [False] * 5
@@ -111,7 +112,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
                                               volatilities,
                                               expiries,
                                               expected_prices):
-    """Tests the prices when cost_of_carries is zero."""
+    """Tests the Baron-Adesi Whaley prices when cost_of_carries is zero."""
     forwards = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
     strikes = np.array([100.0] * 10)
     is_call_options = [True] * 5 + [False] * 5
@@ -145,7 +146,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
   )
   def test_option_prices_no_dividends(self, dtype, discount_rates, volatilities,
                                       expiries, expected_prices):
-    """Tests the prices when no dividends are supplied."""
+    """Tests the Baron-Adesi Whaley prices when no dividends are supplied."""
     spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0])
     strikes = np.array([100.0, 100.0, 100.0, 100.0, 100.0])
     is_call_options = False
@@ -167,7 +168,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
       self.assertAllEqual(failed, tf.zeros_like(computed_prices))
 
   def test_option_prices_zero_discount_rates(self):
-    """Tests prices with zero discount."""
+    """Tests Baron-Adesi Whaley prices with zero discount."""
     dtype = tf.float64
     computed_prices, converged, failed = adesi_whaley(
         volatilities=[0.2], strikes=[104, 90],
@@ -187,7 +188,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
       self.assertAllEqual(failed, tf.zeros_like(computed_prices))
 
   def test_option_prices_all_call_options(self):
-    """Tests call prices with zero discount."""
+    """Tests Baron-Adesi Whaley call prices with zero discount."""
     dtype = tf.float64
     computed_prices, converged, failed = adesi_whaley(
         volatilities=[0.2], strikes=[104, 90],
@@ -204,6 +205,156 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
       self.assertAllEqual(converged, tf.ones_like(computed_prices))
     with self.subTest(name='NonFailed'):
       self.assertAllEqual(failed, tf.zeros_like(computed_prices))
+  
+  @parameterized.parameters(
+      (0.08, 0.2, 0.25,
+       [0.03, 0.57, 3.49, 10.32, 20.0, 20.41, 11.25, 4.40, 1.12, 0.18]),
+      (0.12, 0.2, 0.25,
+       [0.03, 0.57, 3.46, 10.29, 20.0, 20.22, 11.14, 4.35, 1.11, 0.18]),
+      (0.08, 0.4, 0.25,
+       [1.05, 3.25, 7.37, 13.47, 21.23, 21.44, 13.91, 8.27, 4.52, 2.29]),
+      (0.08, 0.2, 0.5,
+       [0.21, 1.34, 4.65, 10.94, 20.0, 20.95, 12.63, 6.37, 2.65, 0.92]),
+  )
+  def test_bs1993_prices_neg_carries(self, discount_rates, volatilities,
+                                     expiries, expected_prices):
+    """Tests Bjerksund Stensland 1993 prices for negative cost_of_carries."""
+    cost_of_carries = np.array([-0.04] * 10)
+    forwards = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
+    strikes = np.array([100.0] * 10)
+    is_call_options = np.array([True] * 5 + [False] * 5)
+    computed_prices = bjerksund_stensland(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        discount_rates=discount_rates,
+        cost_of_carries=cost_of_carries,
+        forwards=forwards,
+        is_call_options=is_call_options,
+        modified_boundary=False,
+        dtype=tf.float64)
+    expected_prices = np.array(expected_prices)
+    with self.subTest(name='ExpectedPrices'):
+      self.assertAllClose(expected_prices, computed_prices,
+                          rtol=5e-3, atol=5e-3,
+                          msg='Failed: Bjerksund Stensland 1993 negative carries test.')
+  
+  @parameterized.parameters(
+      (0.08, 0.2, 0.25,
+       [0.05, 0.85, 4.44, 11.66, 20.90, 20.00, 10.19, 3.51, 0.78, 0.11]),
+      (0.12, 0.2, 0.25,
+       [0.05, 0.84, 4.40, 11.55, 20.69, 20.00, 10.17, 3.49, 0.77, 0.11]),
+      (0.08, 0.4, 0.25,
+       [1.29, 3.82, 8.35, 14.80, 22.71, 20.53, 12.91, 7.42, 3.93, 1.93]),
+      (0.08, 0.2, 0.5,
+       [0.41, 2.18, 6.50, 13.42, 22.06, 20.00, 10.70, 4.70, 1.71, 0.52]),
+  )
+  def test_bs1993_prices_pos_carries(self, discount_rates, volatilities,
+                                     expiries, expected_prices):
+    """Tests Bjerksund Stensland 1993 prices for positive cost_of_carries."""
+    cost_of_carries = np.array([0.04] * 10)
+    forwards = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
+    strikes = np.array([100.0] * 10)
+    is_call_options = [True] * 5 + [False] * 5
+    computed_prices = bjerksund_stensland(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        discount_rates=discount_rates,
+        cost_of_carries=cost_of_carries,
+        forwards=forwards,
+        is_call_options=is_call_options,
+        modified_boundary=False,
+        dtype=tf.float64)
+    with self.subTest(name='ExpectedPrices'):
+      self.assertAllClose(expected_prices, computed_prices,
+                          rtol=5e-3, atol=5e-3,
+                          msg='Failed: Bjerksund Stensland 1993 positive carries test.')
+  
+  @parameterized.parameters(
+      (0.08, 0.08, 0.2, 0.25,
+       [20.00, 10.01, 3.16, 0.65, 0.09]),
+      (0.12, 0.12, 0.2, 0.25,
+       [20.00, 10.00, 2.86, 0.54, 0.07]),
+      (0.08, 0.08, 0.4, 0.25,
+       [20.28, 12.48, 7.04, 3.66, 1.77]),
+      (0.08, 0.08, 0.2, 0.5,
+       [20.00, 10.24, 4.11, 1.37, 0.39]),
+  )
+  def test_bs1993_prices_carries_equal_rate(self, discount_rates, cost_of_carries,
+                                      volatilities, expiries, expected_prices):
+    """Tests Bjerksund Stensland 1993 prices for zero cost_of_carries."""
+    forwards = np.array([80.0, 90.0, 100.0, 110.0, 120.0])
+    strikes = np.array([100.0] * 5)
+    is_call_options = np.array([False] * 5)
+    computed_prices = bjerksund_stensland(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        discount_rates=discount_rates,
+        cost_of_carries=cost_of_carries,
+        forwards=forwards,
+        is_call_options=is_call_options,
+        modified_boundary=False,
+        dtype=tf.float64)
+    with self.subTest(name='ExpectedPrices'):
+      self.assertAllClose(expected_prices, computed_prices,
+                          rtol=5e-3, atol=5e-3,
+                          msg='Failed: Bjerksund Stensland 1993 zero carries test.')
+  
+  @parameterized.parameters(
+      (0.08, -0.04, 0.2, 3.0,
+       [2.30, 4.71, 8.44, 13.74, 20.85, 25.61, 20.04, 15.47, 11.78, 8.87]),
+      (0.08, 0.0, 0.2, 3.0,
+       [3.95, 7.20, 11.64, 17.24, 23.93, 22.12, 16.14, 11.64, 8.31, 5.89]),
+      #(0.08, 0.04, 0.4, 3.0,
+      # [6.88, 11.49, 17.21, 23.84, 31.16, 20.32, 13.43, 8.86, 5.83, 3.83]),      # Results are suspect, see PR #54
+  )
+  def test_bs1993_prices_long_term1(self, discount_rates, cost_of_carries,
+                                      volatilities, expiries, expected_prices):
+    """Tests Bjerksund Stensland 1993 prices for long-term options."""
+    forwards = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
+    strikes = np.array([100.0] * 10)
+    is_call_options = [True] * 5 + [False] * 5
+    computed_prices = bjerksund_stensland(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        discount_rates=discount_rates,
+        cost_of_carries=cost_of_carries,
+        forwards=forwards,
+        is_call_options=is_call_options,
+        modified_boundary=False,
+        dtype=tf.float64)
+    with self.subTest(name='ExpectedPrices'):
+      self.assertAllClose(expected_prices, computed_prices,
+                          rtol=5e-3, atol=5e-3,
+                          msg='Failed: Bjerksund Stensland 1993 long-term 1 test.')
+  
+  @parameterized.parameters(
+      (0.08, 0.08, 0.2, 3.0,
+       [20.00, 11.67, 6.90, 4.12, 2.48])
+  )
+  def test_bs1993_prices_long_term2(self, discount_rates, cost_of_carries,
+                                      volatilities, expiries, expected_prices):
+    """Tests Bjerksund Stensland 1993 prices for long-term options."""
+    forwards = np.array([80.0, 90.0, 100.0, 110.0, 120.0])
+    strikes = np.array([100.0] * 5)
+    is_call_options = np.array([False] * 5)
+    computed_prices = bjerksund_stensland(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        discount_rates=discount_rates,
+        cost_of_carries=cost_of_carries,
+        forwards=forwards,
+        is_call_options=is_call_options,
+        modified_boundary=False,
+        dtype=tf.float64)
+    with self.subTest(name='ExpectedPrices'):
+      self.assertAllClose(expected_prices, computed_prices,
+                          rtol=5e-3, atol=5e-3,
+                          msg='Failed: Bjerksund Stensland 1993 long-term 2 test.')
 
 if __name__ == '__main__':
   tf.test.main()
