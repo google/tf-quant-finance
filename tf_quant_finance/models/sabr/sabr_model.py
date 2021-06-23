@@ -353,11 +353,12 @@ class SabrModel(generic_ito_process.GenericItoProcess):
         random.RandomType.SOBOL, random.RandomType.HALTON,
         random.RandomType.HALTON_RANDOMIZED, random.RandomType.STATELESS,
         random.RandomType.STATELESS_ANTITHETIC):
-      num_time_steps = tf.math.ceil(tf.math.divide(times[-1],
-                                                   time_step)) + times.shape[0]
+      num_time_steps = tf.cast(
+          tf.math.ceil(tf.math.divide(times[-1], time_step)),
+          dtype=tf.int32) + times.shape[0]
       # We need a [3] + initial_forward.shape tensor of random draws.
       # This will be accessed by normal_draws_index.
-      num_normal_draws = 3 * tf.size(initial_forward, out_type=tf.float64)
+      num_normal_draws = 3 * tf.size(initial_forward)
       normal_draws = utils.generate_mc_normal_draws(
           num_normal_draws=num_normal_draws,
           num_time_steps=num_time_steps,

@@ -146,6 +146,72 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
     expected_means = x0 + (2.0 / 3.0) * mu * np.power(times, 1.5)
     self.assertAllClose(means, expected_means, rtol=1e-2, atol=1e-2)
 
+  @parameterized.named_parameters({
+      "testcase_name": "1DBatch",
+      "batch_rank": 1,
+  }, {
+      "testcase_name": "2DBatch",
+      "batch_rank": 2,
+  })
+  def test_batch_sample_paths_2d(self, batch_rank):
+    """Tests path properties for a batch of 2-dimentional Ito process.
+
+    We construct the following Ito processes.
+
+    dX_1 = mu_1 sqrt(t) dt + s11 dW_1 + s12 dW_2
+    dX_2 = mu_2 sqrt(t) dt + s21 dW_1 + s22 dW_2
+
+    mu_1, mu_2 are constants.
+    s_ij = a_ij t + b_ij
+
+    For this process expected value at time t is (x_0)_i + 2/3 * mu_i * t^1.5.
+
+    Args:
+      batch_rank: The rank of the batch of processes being simulated.
+    """
+    dtype = tf.float64
+
+    mu = np.array([0.2, 0.7])
+    a = np.array([[0.4, 0.1], [0.3, 0.2]])
+    b = np.array([[0.33, -0.03], [0.21, 0.5]])
+
+    def drift_fn(t, x):
+      return mu * tf.sqrt(t) * tf.ones_like(x, dtype=t.dtype)
+
+    def vol_fn(t, x):
+      del x
+      return (a * t + b) * tf.ones([2]*batch_rank + [1, 2, 2], dtype=t.dtype)
+
+    process = GenericItoProcess(dim=2, drift_fn=drift_fn, volatility_fn=vol_fn,
+                                dtype=dtype)
+    times = np.array([0.1, 0.21, 0.32, 0.43, 0.55])
+    x0 = np.array([0.1, -1.1]) * np.ones([2]*batch_rank + [1, 2])
+
+    times_grid = None
+    time_step = 0.01
+
+    num_samples = 10000
+    normal_draws = None
+    paths = self.evaluate(
+        process.sample_paths(
+            times,
+            num_samples=num_samples,
+            initial_state=x0,
+            time_step=time_step,
+            times_grid=times_grid,
+            normal_draws=normal_draws,
+            seed=12134))
+
+    # The correct number of samples
+    num_samples = 10000
+    self.assertAllClose(list(paths.shape),
+                        [2]*batch_rank + [num_samples, 5, 2], atol=0)
+    means = np.mean(paths, axis=batch_rank)
+    times = np.reshape(times, [1]*batch_rank + [-1, 1])
+    expected_means = np.reshape(
+        x0, [2]*batch_rank + [1, 2]) + (2.0 / 3.0) * mu * np.power(times, 1.5)
+    self.assertAllClose(means, expected_means, rtol=1e-2, atol=1e-2)
+
   def test_sample_paths_dtypes(self):
     """Sampled paths have the expected dtypes."""
     for dtype in [np.float32, np.float64]:

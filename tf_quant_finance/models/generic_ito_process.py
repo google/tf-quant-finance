@@ -190,8 +190,13 @@ class GenericItoProcess(ito_process.ItoProcess):
         which the path points are to be evaluated.
       num_samples: Positive scalar `int`. The number of paths to draw.
         Default value: 1.
-      initial_state: `Tensor` of shape `[dim]`. The initial state of the
-        process.
+      initial_state: `Tensor` of shape broadcastable
+        `batch_shape + [num_samples, dim]`. The initial state of the process.
+        `batch_shape` represents the shape of the independent batches of the
+        stochastic process. Note that the `batch_shape` is inferred from
+        the `initial_state` and hence when sampling is requested for a batch of
+        stochastic processes, the shape of `initial_state` should be as least
+        `batch_shape + [1, 1]`.
         Default value: None which maps to a zero initial state.
       random_type: Enum value of `RandomType`. The type of (quasi)-random number
         generator to use to generate the paths.
@@ -236,11 +241,13 @@ class GenericItoProcess(ito_process.ItoProcess):
         grid are used.
         Default value: `None`, which means that times grid is computed using
         `time_step` and `num_time_steps`.
-      normal_draws: A `Tensor` of shape `[num_samples, num_time_points, dim]`
+      normal_draws: A `Tensor` of shape
+        `batch_shape + [num_samples, num_time_points, dim]`
         and the same `dtype` as `times`. Represents random normal draws to
-        compute increments `N(0, t_{n+1}) - N(0, t_n)`. When supplied,
-        `num_sample`, `time_step` and `num_time_steps` arguments are ignored and
-        the first dimensions of `normal_draws` are used instead.
+        compute increments `N(0, t_{n+1}) - N(0, t_n)`. `batch_shape` is the
+        shape of the independent batches of the stochastic process. When
+        supplied, `num_sample`, `time_step` and `num_time_steps` arguments are
+        ignored and the first dimensions of `normal_draws` are used instead.
       watch_params: An optional list of zero-dimensional `Tensor`s of the same
         `dtype` as `initial_state`. If provided, specifies `Tensor`s with
         respect to which the differentiation of the sampling function will
@@ -255,8 +262,8 @@ class GenericItoProcess(ito_process.ItoProcess):
         Default value: `False`.
 
     Returns:
-     A real `Tensor` of shape `[num_samples, k, n]` where `k` is the size of the
-     `times`, and `n` is the dimension of the process.
+     A real `Tensor` of shape `batch_shape + [num_samples, k, n]` where `k`
+     is the size of the `times`, and `n` is the dimension of the process.
 
     Raises:
       ValueError:
@@ -454,6 +461,10 @@ class GenericItoProcess(ito_process.ItoProcess):
         final_time: The final time at which the evolution stopped. This value
           is given by `max(min(end_time, start_time), 0)`.
     """
+    # TODO(b/191672818): Make sure this works with batching.
+    if values_grid.shape.rank > self._dim + 1:
+      raise ValueError('Finite difference solvers currently do not support '
+                       'batched Ito Processes.')
     pde_solver_fn = kwargs.get('pde_solver_fn', fd_solvers.solve_backward)
 
     second_order_coeff_fn, first_order_coeff_fn, zeroth_order_coeff_fn = (
@@ -624,6 +635,10 @@ class GenericItoProcess(ito_process.ItoProcess):
         final_time: The final time at which the evolution stopped. This value
           is given by `max(min(end_time, start_time), 0)`.
     """
+    # TODO(b/191672818): Make sure this works with batching.
+    if values_grid.shape.rank > self._dim + 1:
+      raise ValueError('Finite difference solvers currently do not support '
+                       'batched Ito Processes.')
     pde_solver_fn = kwargs.get('pde_solver_fn', fd_solvers.solve_forward)
 
     backward_second_order, backward_first_order, backward_zeroth_order = (

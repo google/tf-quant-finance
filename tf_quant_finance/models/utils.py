@@ -22,6 +22,7 @@ def generate_mc_normal_draws(num_normal_draws,
                              num_time_steps,
                              num_sample_paths,
                              random_type,
+                             batch_shape=None,
                              skip=0,
                              seed=None,
                              dtype=None,
@@ -30,11 +31,12 @@ def generate_mc_normal_draws(num_normal_draws,
 
   Many of Monte Carlo (MC) algorithms can be re-written so that all necessary
   random (or quasi-random) variables are drawn in advance as a `Tensor` of
-  shape `[num_time_steps, num_samples, num_normal_draws]`, where
-  `num_time_steps` is the number of time steps Monte Carlo algorithm performs,
-  `num_sample_paths` is a number of sample paths of the Monte Carlo algorithm
-  and `num_normal_draws` is a number of independent normal draws per sample
-  paths.
+  shape `batch_shape + [num_time_steps, num_samples, num_normal_draws]`, where
+  `batch_shape` is the shape of the independent batches of the Monte Carlo
+  algorithm, `num_time_steps` is the number of time steps Monte Carlo algorithm
+  performs within each batch, `num_sample_paths` is a number of sample paths of
+  the Monte Carlo algorithm and `num_normal_draws` is a number of independent
+  normal draws per sample path.
   For example, in order to use quasi-random numbers in a Monte Carlo algorithm,
   the samples have to be drawn in advance.
   The function generates a `Tensor`, say, `x` in a format such that for a
@@ -53,6 +55,11 @@ def generate_mc_normal_draws(num_normal_draws,
       Should be a graph compilation constant.
     random_type: Enum value of `tff.math.random.RandomType`. The type of
       (quasi)-random number generator to use to generate the paths.
+    batch_shape: This input can be either of type `tf.TensorShape` or a 1-d
+      `Tensor` of type `tf.int32` specifying the dimensions of independent
+      batches of normal samples to be drawn.
+      Default value: `None` which correspond to a single batch of shape
+      `tf.TensorShape([])`.
     skip: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
       Halton sequence to skip. Used only when `random_type` is 'SOBOL',
       'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
@@ -71,7 +78,8 @@ def generate_mc_normal_draws(num_normal_draws,
       Default value: `None` which maps to `generate_mc_normal_draws`.
 
   Returns:
-   A `Tensor` of shape `[num_time_steps, num_sample_paths, num_normal_draws]`.
+   A `Tensor` of shape
+   `[num_time_steps] + batch_shape + [num_sample_paths, num_normal_draws]`.
   """
   if name is None:
     name = 'generate_mc_normal_draws'
@@ -80,20 +88,30 @@ def generate_mc_normal_draws(num_normal_draws,
   with tf.name_scope(name):
     if dtype is None:
       dtype = tf.float32
+    if batch_shape is None:
+      batch_shape = tf.TensorShape([])
+
     # In case of quasi-random draws, the total dimension of the draws should be
     # `num_time_steps * dim`
-    total_dimension = tf.zeros([num_time_steps * num_normal_draws], dtype=dtype,
-                               name='total_dimension')
+    total_dimension = tf.zeros(
+        [num_time_steps * num_normal_draws], dtype=dtype,
+        name='total_dimension')
     normal_draws = random.mv_normal_sample(
-        [num_sample_paths], mean=total_dimension,
+        tf.concat([batch_shape, [num_sample_paths]], axis=0),
+        mean=total_dimension,
         random_type=random_type,
         seed=seed,
         skip=skip)
     # Reshape and transpose
     normal_draws = tf.reshape(
-        normal_draws, [num_sample_paths, num_time_steps, num_normal_draws])
-    # Shape [steps_num, num_samples, dim]
-    normal_draws = tf.transpose(normal_draws, [1, 0, 2])
+        normal_draws,
+        tf.concat([batch_shape, [num_sample_paths, num_time_steps,
+                                 num_normal_draws]], axis=0))
+    # Shape [steps_num] + batch_shape + [num_samples, dim]
+    normal_draws_rank = normal_draws.shape.rank
+    perm = [normal_draws_rank-2] + list(
+        range(normal_draws_rank-2)) + [normal_draws_rank-1]
+    normal_draws = tf.transpose(normal_draws, perm=perm)
     return normal_draws
 
 

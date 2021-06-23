@@ -133,7 +133,29 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
     with self.subTest('Covariance'):
       self.assertAllClose(covars, expected_covars, rtol=1e-2, atol=1e-2)
 
-  def test_sample_paths_1d(self):
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'NonBatch',
+          'use_batch': False,
+          'watch_params': None,
+          'supply_normal_draws': False,
+      }, {
+          'testcase_name': 'Batch',
+          'use_batch': True,
+          'watch_params': None,
+          'supply_normal_draws': False,
+      }, {
+          'testcase_name': 'BatchWithCustomForLoop',
+          'use_batch': True,
+          'watch_params': [],
+          'supply_normal_draws': False,
+      }, {
+          'testcase_name': 'BatchWithNormalDraws',
+          'use_batch': True,
+          'watch_params': None,
+          'supply_normal_draws': True,
+      })
+  def test_sample_paths_1d(self, use_batch, watch_params, supply_normal_draws):
     """Tests path properties for 1-dimentional Ito process.
 
     We construct the following Ito process.
@@ -143,46 +165,83 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
     ````
 
     For this process expected value at time t is x_0 + 2/3 * mu * t^1.5 .
+    Args:
+      use_batch: Test parameter to specify if we are testing the batch of Euler
+        sampling.
+      watch_params: Triggers custom for loop.
+      supply_normal_draws: Supply normal draws.
     """
+    dtype = tf.float64
     mu = 0.2
     a = 0.4
     b = 0.33
 
     def drift_fn(t, x):
-      return mu * tf.sqrt(t) * tf.ones_like(x, dtype=t.dtype)
+      drift = mu * tf.sqrt(t) * tf.ones_like(x, dtype=t.dtype)
+      return drift
 
     def vol_fn(t, x):
       del x
-      return (a * t + b) * tf.ones([1, 1], dtype=t.dtype)
+      if not use_batch:
+        return (a * t + b) * tf.ones([1, 1], dtype=t.dtype)
+      else:
+        return (a * t + b) * tf.ones([2, 1, 1, 1], dtype=t.dtype)
 
     times = np.array([0.0, 0.1, 0.21, 0.32, 0.43, 0.55])
     num_samples = 10000
-    x0 = np.array([0.1])
+
+    if supply_normal_draws:
+      # Use antithetic sampling
+      normal_draws = tf.random.stateless_normal(
+          shape=[2, 5000, 55, 1],
+          seed=[1, 42],
+          dtype=dtype)
+      normal_draws = tf.concat([normal_draws, -normal_draws], axis=1)
+    else:
+      normal_draws = None
+
+    if use_batch:
+      # x0.shape = [2, 1, 1]
+      x0 = np.array([[[0.1]], [[0.1]]])
+    else:
+      x0 = np.array([0.1])
     paths = self.evaluate(
         euler_sampling.sample(
             dim=1,
             drift_fn=drift_fn, volatility_fn=vol_fn,
             times=times, num_samples=num_samples, initial_state=x0,
             random_type=tff.math.random.RandomType.STATELESS,
+            normal_draws=normal_draws,
+            watch_params=watch_params,
             time_step=0.01,
-            seed=[1, 42]))
+            seed=[1, 42],
+            dtype=dtype))
     paths_no_zero = self.evaluate(
         euler_sampling.sample(
             dim=1,
             drift_fn=drift_fn, volatility_fn=vol_fn,
             times=times[1:], num_samples=num_samples, initial_state=x0,
             random_type=tff.math.random.RandomType.STATELESS,
+            normal_draws=normal_draws,
             time_step=0.01,
-            seed=[1, 42]))
+            seed=[1, 42],
+            dtype=dtype))
 
     with self.subTest('CorrectShape'):
-      self.assertAllClose(paths.shape, (num_samples, 6, 1), atol=0)
-    means = np.mean(paths, axis=0).reshape(-1)
+      if not use_batch:
+        self.assertAllClose(paths.shape, (num_samples, 6, 1), atol=0)
+      else:
+        self.assertAllClose(paths.shape, (2, num_samples, 6, 1), atol=0)
+    if not use_batch:
+      means = np.mean(paths, axis=0).reshape(-1)
+    else:
+      means = np.mean(paths, axis=1).reshape([2, 1, 6])
     expected_means = x0 + (2.0 / 3.0) * mu * np.power(times, 1.5)
     with self.subTest('ExpectedResult'):
       self.assertAllClose(means, expected_means, rtol=1e-2, atol=1e-2)
-    with self.subTest('IncludeInitialState'):
-      self.assertAllClose(paths[:, 1:, :], paths_no_zero)
+    if not use_batch:
+      with self.subTest('IncludeInitialState'):
+        self.assertAllClose(paths[:, 1:, :], paths_no_zero)
 
   @parameterized.named_parameters(
       {
