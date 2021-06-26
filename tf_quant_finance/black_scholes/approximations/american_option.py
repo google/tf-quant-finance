@@ -354,11 +354,10 @@ def bjerksund_stensland(*,
                  cost_of_carries=None,
                  discount_factors=None,
                  is_call_options=None,
-                 modified_boundary=None,
+                 modified_boundary=False,
                  dtype=None,
                  name=None):
-  """Computes the Bjerksund-Stensland option value for a batch of American options,
-    using the algorithm from the 1993 paper.
+  """Computes the Bjerksund-Stensland option value for a batch of American options.
 
   #### Example
 
@@ -438,10 +437,9 @@ def bjerksund_stensland(*,
     is_call_options: A boolean `Tensor` of a shape compatible with
       `volatilities`. Indicates whether the option is a call (if True) or a put
       (if False). If not supplied, call options are assumed.
-    modified_boundary: A boolean `Tensor` of a shape compatible with
-      `volatilities`. Indicates whether the Bjerksund-Stensland 1993 algorithm
-      (single boundary) if False or Bjerksund-Stensland 2002 algoritm (modified
-      boundary) if True, is to be used.
+    modified_boundary: Python `bool`. Indicates whether the Bjerksund-Stensland
+      1993 algorithm (single boundary) if False or Bjerksund-Stensland 2002
+      algoritm (modified boundary) if True, is to be used.
     dtype: Optional `tf.DType`. If supplied, the dtype to be used for conversion
       of any supplied non-`Tensor` arguments to `Tensor`.
       Default value: `None` which maps to the default dtype inferred by
@@ -512,11 +510,10 @@ def bjerksund_stensland(*,
     else:
       is_call_options = tf.constant(True, name='is_call_options')
 
-    if modified_boundary is not None:
-      modified_boundary = tf.convert_to_tensor(modified_boundary, dtype=tf.bool,
-                                             name='modified_boundary')
+    if modified_boundary:
+      bjerksund_stensland_model = _call_2002
     else:
-      modified_boundary = tf.constant(True, name='modified_boundary')
+      bjerksund_stensland_model = _call_1993
 
     # If cost of carry is greater than or equal to discount rate, then use 
     # Black-Scholes option price
@@ -533,12 +530,18 @@ def bjerksund_stensland(*,
             # For put options, adjust inputs according to call-put transformation 
             # function:  P(S, X, T, r, b, sigma) = C(X, S, T, r - b, -b, sigma)
             tf.where(is_call_options,
-                _call_1993(forwards, strikes, expiries, discount_rates,
+                bjerksund_stensland_model(forwards, strikes, expiries, discount_rates,
                     cost_of_carries, volatilities),
-                _call_1993(strikes, forwards, expiries, discount_rates -
-                    cost_of_carries, -cost_of_carries, volatilities)))
+                bjerksund_stensland_model(strikes, forwards, expiries, discount_rates -
+                        cost_of_carries, -cost_of_carries, volatilities)))
 
     return american_prices
+
+
+def _call_2002(S, K, T, r, b, sigma):
+  """Calculates the approximate value of an American call option (15) in reference [1]."""
+
+  raise NotImplementedError()
 
 
 def _call_1993(S, K, T, r, b, sigma):
