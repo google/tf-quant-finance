@@ -113,13 +113,8 @@ def implied_vol(*,
   if (spots is None) == (forwards is None):
     raise ValueError('Either spots or forwards must be supplied but not both.')
 
-  with tf.compat.v1.name_scope(
-      name,
-      default_name='implied_vol',
-      values=[
-          prices, spots, forwards, strikes, expiries, discount_factors,
-          is_call_options
-      ]):
+  name = name or 'implied_vol'
+  with tf.name_scope(name):
     prices = tf.convert_to_tensor(prices, dtype=dtype, name='prices')
     dtype = prices.dtype
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
@@ -154,9 +149,12 @@ def _validate_args_control_deps(prices, forwards, strikes, expiries,
                                 discount_factors, is_call_options):
   """Returns assertions for no-arbitrage conditions on the prices."""
   epsilon = tf.convert_to_tensor(1e-8, dtype=prices.dtype)
-  forwards_positive = tf.compat.v1.debugging.assert_positive(forwards)
-  strikes_positive = tf.compat.v1.debugging.assert_positive(strikes)
-  expiries_positive = tf.compat.v1.debugging.assert_non_negative(expiries)
+  forwards_positive = tf.debugging.assert_positive(
+      forwards, message='Forwards positive')
+  strikes_positive = tf.debugging.assert_positive(
+      strikes, message='Strikes positive')
+  expiries_positive = tf.debugging.assert_non_negative(
+      expiries, message='Expiries positive')
   put_lower_bounds = tf.nn.relu(strikes - forwards)
   call_lower_bounds = tf.nn.relu(forwards - strikes)
   if is_call_options is not None:
@@ -172,16 +170,20 @@ def _validate_args_control_deps(prices, forwards, strikes, expiries,
 
   undiscounted_prices = prices / discount_factors
   bounds_satisfied = [
-      tf.compat.v1.debugging.assert_less_equal(lower_bounds,
-                                               undiscounted_prices),
-      tf.compat.v1.debugging.assert_greater_equal(upper_bounds,
-                                                  undiscounted_prices)
+      tf.debugging.assert_less_equal(
+          lower_bounds, undiscounted_prices, message='Price lower bound'),
+      tf.debugging.assert_greater_equal(
+          upper_bounds, undiscounted_prices, message='Price upper bound')
   ]
   not_too_close_to_bounds = [
-      tf.compat.v1.debugging.assert_greater(
-          tf.math.abs(undiscounted_prices - lower_bounds), epsilon),
-      tf.compat.v1.debugging.assert_greater(
-          tf.math.abs(undiscounted_prices - upper_bounds), epsilon)
+      tf.debugging.assert_greater(
+          tf.math.abs(undiscounted_prices - lower_bounds),
+          epsilon,
+          message='Close to lower bound'),
+      tf.debugging.assert_greater(
+          tf.math.abs(undiscounted_prices - upper_bounds),
+          epsilon,
+          message='Close to upper bound')
   ]
   return [expiries_positive, forwards_positive, strikes_positive
          ] + bounds_satisfied + not_too_close_to_bounds

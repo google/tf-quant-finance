@@ -84,16 +84,22 @@ class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
       self.assertArrayNear(volatilities, implied_vols, 0.6)
 
   @parameterized.named_parameters(
-      # This case should hit the call lower bound since C = F - K.
-      ('call_lower', 0.0, 1.0, 1.0, 1.0, True),
-      # This case should hit the call upper bound since C = F
-      ('call_upper', 1.0, 1.0, 1.0, 1.0, True),
-      # This case should hit the put upper bound since C = K
-      ('put_lower', 1.0, 1.0, 1.0, 1.0, False),
-      # This case should hit the call lower bound since C = F - K.
-      ('put_upper', 0.0, 1.0, 1.0, 1.0, False))
+      ('forwards_positive', 1.0, -1.0, 1.0, 1.0, True, 'Forwards positive'),
+      ('strikes_positive', 1.0, 1.0, -1.0, 1.0, True, 'Strikes positive'),
+      # This case should hit the call lower bound since C < F - K.
+      # |C| is chosen to be greater than the hardcoded epsilon in the
+      # not_too_close_to_bounds asserts.
+      ('call_lower', -1e-7, 1.0, 1.0, 1.0, True, 'Price lower bound'),
+      # This case should hit the call upper bound since C > F
+      ('call_upper', 1.0 + 1e-7, 1.0, 1.0, 1.0, True, 'Price upper bound'),
+      # This case should hit the put lower bound since C < F - K.
+      ('put_lower', -1e-7, 1.0, 1.0, 1.0, False, 'Price lower bound'),
+      # This case should hit the put upper bound since C > K. F > 0 to avoid
+      # that check.
+      ('put_upper', 1.0 + 1e-7, 1e-7, 1.0, 1.0, False, 'Price upper bound'),
+  )
   def test_approx_implied_vol_validate_raises(self, price, forward, strike,
-                                              expiry, is_call_option):
+                                              expiry, is_call_option, regex):
     """Test the Radiocic-Polya approximation raises appropriately."""
     dtypes = [np.float32, np.float64]
     for dtype in dtypes:
@@ -102,7 +108,7 @@ class ApproxImpliedVolTest(parameterized.TestCase, tf.test.TestCase):
       strikes = np.array([strike]).astype(dtype)
       expiries = np.array([expiry]).astype(dtype)
       is_call_options = np.array([is_call_option])
-      with self.assertRaises(tf.errors.InvalidArgumentError):
+      with self.assertRaisesRegex(tf.errors.InvalidArgumentError, regex):
         implied_vols = bs.implied_vol_approx(
             prices=prices,
             strikes=strikes,
