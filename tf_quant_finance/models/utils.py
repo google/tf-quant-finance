@@ -96,8 +96,18 @@ def generate_mc_normal_draws(num_normal_draws,
     total_dimension = tf.zeros(
         [num_time_steps * num_normal_draws], dtype=dtype,
         name='total_dimension')
+    if random_type in [random.RandomType.PSEUDO_ANTITHETIC,
+                       random.RandomType.STATELESS_ANTITHETIC]:
+      # Put `num_sample_paths` to the front for antithetic samplers
+      sample_shape = tf.concat([[num_sample_paths], batch_shape], axis=0)
+      is_antithetic = True
+    else:
+      # Note that for QMC sequences `num_sample_paths` should follow
+      # `batch_shape`
+      sample_shape = tf.concat([batch_shape, [num_sample_paths]], axis=0)
+      is_antithetic = False
     normal_draws = random.mv_normal_sample(
-        tf.concat([batch_shape, [num_sample_paths]], axis=0),
+        sample_shape,
         mean=total_dimension,
         random_type=random_type,
         seed=seed,
@@ -105,12 +115,16 @@ def generate_mc_normal_draws(num_normal_draws,
     # Reshape and transpose
     normal_draws = tf.reshape(
         normal_draws,
-        tf.concat([batch_shape, [num_sample_paths, num_time_steps,
-                                 num_normal_draws]], axis=0))
+        tf.concat([sample_shape, [num_time_steps, num_normal_draws]], axis=0))
     # Shape [steps_num] + batch_shape + [num_samples, dim]
     normal_draws_rank = normal_draws.shape.rank
-    perm = [normal_draws_rank-2] + list(
-        range(normal_draws_rank-2)) + [normal_draws_rank-1]
+    if is_antithetic and normal_draws_rank > 3:
+      # Permutation for the case when the batch_shape is present
+      perm = [normal_draws_rank-2] + list(
+          range(1, normal_draws_rank-2)) + [0, normal_draws_rank-1]
+    else:
+      perm = [normal_draws_rank-2] + list(
+          range(normal_draws_rank-2)) + [normal_draws_rank-1]
     normal_draws = tf.transpose(normal_draws, perm=perm)
     return normal_draws
 

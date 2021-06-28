@@ -139,23 +139,34 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
           'use_batch': False,
           'watch_params': None,
           'supply_normal_draws': False,
+          'random_type': tff.math.random.RandomType.STATELESS,
       }, {
           'testcase_name': 'Batch',
           'use_batch': True,
           'watch_params': None,
           'supply_normal_draws': False,
+          'random_type': tff.math.random.RandomType.STATELESS,
+      }, {
+          'testcase_name': 'BatchAntithetic',
+          'use_batch': True,
+          'watch_params': None,
+          'supply_normal_draws': False,
+          'random_type': tff.math.random.RandomType.STATELESS_ANTITHETIC,
       }, {
           'testcase_name': 'BatchWithCustomForLoop',
           'use_batch': True,
           'watch_params': [],
           'supply_normal_draws': False,
+          'random_type': tff.math.random.RandomType.STATELESS,
       }, {
           'testcase_name': 'BatchWithNormalDraws',
           'use_batch': True,
           'watch_params': None,
           'supply_normal_draws': True,
+          'random_type': tff.math.random.RandomType.STATELESS,
       })
-  def test_sample_paths_1d(self, use_batch, watch_params, supply_normal_draws):
+  def test_sample_paths_1d(self, use_batch, watch_params, supply_normal_draws,
+                           random_type):
     """Tests path properties for 1-dimentional Ito process.
 
     We construct the following Ito process.
@@ -170,6 +181,7 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
         sampling.
       watch_params: Triggers custom for loop.
       supply_normal_draws: Supply normal draws.
+      random_type: `RandomType` of the sampled normal draws.
     """
     dtype = tf.float64
     mu = 0.2
@@ -210,7 +222,7 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
             dim=1,
             drift_fn=drift_fn, volatility_fn=vol_fn,
             times=times, num_samples=num_samples, initial_state=x0,
-            random_type=tff.math.random.RandomType.STATELESS,
+            random_type=random_type,
             normal_draws=normal_draws,
             watch_params=watch_params,
             time_step=0.01,
@@ -221,7 +233,7 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
             dim=1,
             drift_fn=drift_fn, volatility_fn=vol_fn,
             times=times[1:], num_samples=num_samples, initial_state=x0,
-            random_type=tff.math.random.RandomType.STATELESS,
+            random_type=random_type,
             normal_draws=normal_draws,
             time_step=0.01,
             seed=[1, 42],
