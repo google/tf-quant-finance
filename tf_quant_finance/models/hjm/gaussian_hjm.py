@@ -182,6 +182,9 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
       self._mean_reversion = tf.convert_to_tensor(
           mean_reversion, dtype=dtype, name='mean_reversion')
 
+      self._batch_shape = []
+      self._batch_rank = 0
+
       # Setup volatility
       if callable(volatility):
         self._volatility = volatility

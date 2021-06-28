@@ -31,27 +31,37 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
   def setUp(self):
     self.mean_reversion_1_factor = [0.03]
     self.volatility_1_factor = [0.01]
+    self.mean_reversion_batch_1_factor = [[0.03], [0.04]]
+    self.mean_reversion_batch_2_factor = [[0.03, 0.03], [0.04, 0.04]]
+    self.volatility_batch_1_factor = [[0.01], [0.015]]
+    self.volatility_batch_2_factor = [[0.005, 0.006], [0.004, 0.008]]
     self.mean_reversion_4_factor = [0.03, 0.02, 0.01, 0.005]
     self.volatility_4_factor = [0.01, 0.011, 0.015, 0.008]
     self.volatility_time_dep_1_factor = [0.01, 0.02, 0.01]
     self.instant_forward_rate = lambda *args: [0.01]
+    def _instant_forward_rate_batch(t):
+      ones = tf.transpose(tf.expand_dims(tf.ones_like(t), axis=0))
+      return tf.transpose(tf.constant([0.01, 0.02], dtype=t.dtype) * ones)
+    self.instant_forward_rate_batch = _instant_forward_rate_batch
+
     self.initial_state = [0.01, 0.01]
+    self.initial_state_batch = [[[0.01]], [[0.02]]]
     # See D. Brigo, F. Mercurio. Interest Rate Models. 2007.
-    def _true_mean(t):
+    def _true_mean(t, mr, vol, istate, f_0_t):
       dtype = np.float64
-      a = dtype(self.mean_reversion_1_factor)
-      sigma = dtype(self.volatility_1_factor)
-      initial_state = dtype(self.initial_state)
-      return (dtype(self.instant_forward_rate(t))
+      a = dtype(mr)
+      sigma = dtype(vol)
+      initial_state = dtype(istate)
+      return (dtype(f_0_t)
               + (sigma * sigma / 2 / a**2)
               * (1.0 - np.exp(-a * t))**2
-              - self.instant_forward_rate(0) * np.exp(-a * t)
+              - f_0_t * np.exp(-a * t)
               + initial_state *  np.exp(-a * t))
     self.true_mean = _true_mean
-    def _true_var(t):
+    def _true_var(t, mr, vol):
       dtype = np.float64
-      a = dtype(self.mean_reversion_1_factor)
-      sigma = dtype(self.volatility_1_factor)
+      a = dtype(mr)
+      sigma = dtype(vol)
       return (sigma * sigma / 2 / a) * (1.0 - np.exp(-2 * a * t))
     self.true_var = _true_var
 
@@ -135,9 +145,13 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
     paths = paths[:, -1]  # Extract paths values for the terminal time
     mean = np.mean(paths, axis=0)
     variance = np.var(paths, axis=0)
-    self.assertAllClose(mean, self.true_mean(1.0)[0], rtol=1e-4, atol=1e-4)
-    self.assertAllClose(variance,
-                        self.true_var(1.0)[0], rtol=1e-4, atol=1e-4)
+    self.assertAllClose(mean, self.true_mean(
+        1.0, self.mean_reversion_1_factor, self.volatility_1_factor,
+        self.initial_state, self.instant_forward_rate(1.0))[0],
+                        rtol=1e-4, atol=1e-4)
+    self.assertAllClose(variance, self.true_var(
+        1.0, self.mean_reversion_1_factor, self.volatility_1_factor)[0],
+                        rtol=1e-4, atol=1e-4)
 
   def test_zcb_variance_1_factor(self):
     """Tests 1-Factor model with constant parameters."""
@@ -170,6 +184,105 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
                                      self.mean_reversion_1_factor[0])
         self.assertAllClose(
             sampled_std[:, tidx], true_std, rtol=5e-4, atol=5e-4)
+
+  @parameterized.named_parameters({
+      'testcase_name': '1d',
+      'dim': 1,
+      'corr_matrix': None,
+  }, {
+      'testcase_name': '2d',
+      'dim': 2,
+      'corr_matrix': None,
+  }, {
+      'testcase_name': '2d_with_corr',
+      'dim': 2,
+      'corr_matrix': [[[1.0, 0.5], [0.5, 1.0]], [[1.0, 0.7], [0.7, 1.0]]],
+  })
+  def test_mean_and_variance_batch(self, dim, corr_matrix):
+    """Tests batch of 1-Factor model with constant parameters."""
+    dtype = tf.float64
+    if dim == 1:
+      mr = self.mean_reversion_batch_1_factor
+      vol = self.volatility_batch_1_factor
+    else:
+      mr = self.mean_reversion_batch_2_factor
+      vol = self.volatility_batch_2_factor
+
+    process = tff.models.hjm.QuasiGaussianHJM(
+        dim=dim,
+        mean_reversion=mr,
+        volatility=vol,
+        initial_discount_rate_fn=self.instant_forward_rate_batch,
+        corr_matrix=corr_matrix,
+        dtype=dtype)
+
+    paths, _, _, _ = process.sample_paths(
+        [0.1, 0.5, 1.0],
+        num_samples=20000,
+        time_step=0.1,
+        num_time_steps=None,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        seed=[1, 2],
+        skip=1000000)
+
+    paths = self.evaluate(paths)
+    self.assertAllEqual(paths.shape, [2, 20000, 3])
+    paths = paths[:, :, -1]  # Extract paths values for the terminal time
+    mean = np.mean(paths, axis=-1)
+    variance = np.var(paths, axis=-1)
+    f_0_t = [0.01, 0.02]
+    for i in range(2):
+      if dim == 1:
+        eff_vol = vol[i][0]
+      else:
+        if corr_matrix is None:
+          c = 0.0
+        else:
+          c = corr_matrix[i][1][0]
+        eff_vol = np.sqrt(vol[i][0]**2 + vol[i][1]**2 + 2*c*vol[i][0]*vol[i][1])
+      with self.subTest('CloseMean'):
+        self.assertAllClose(
+            mean[i], self.true_mean(
+                1.0, mr[i][0], eff_vol, self.initial_state_batch[i][0][0],
+                f_0_t[i]), rtol=1e-4, atol=1e-4)
+      with self.subTest('CloseStd'):
+        self.assertAllClose(
+            variance[i], self.true_var(1.0, mr[i][0], eff_vol),
+            rtol=1e-4, atol=1e-4)
+
+  def test_zcb_variance_batch_1_factor(self):
+    """Tests batch of 1-Factor model with constant parameters."""
+    num_samples = 100000
+    for dtype in [tf.float64]:
+      curve_times = np.array([0., 0.5, 1.0, 5.0, 10.0])
+      times = np.array([0.1, 0.5, 1.0, 3])
+      process = tff.models.hjm.QuasiGaussianHJM(
+          dim=1,
+          mean_reversion=self.mean_reversion_batch_1_factor,
+          volatility=self.volatility_batch_1_factor,
+          initial_discount_rate_fn=self.instant_forward_rate_batch,
+          dtype=dtype)
+      # generate zero coupon paths
+      paths, _, _ = process.sample_discount_curve_paths(
+          times,
+          curve_times=curve_times,
+          num_samples=num_samples,
+          time_step=0.1,
+          random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+          seed=[1, 2],
+          skip=1000000)
+      self.assertEqual(paths.dtype, dtype)
+      paths = self.evaluate(paths)
+      self.assertAllEqual(paths.shape, [2, num_samples, 5, 4])
+      sampled_std = tf.math.reduce_std(tf.math.log(paths), axis=1)
+      for i in range(2):
+        for tidx in range(4):
+          true_std = self.true_zcb_std(times[tidx], curve_times + times[tidx],
+                                       self.volatility_batch_1_factor[i][0],
+                                       self.mean_reversion_batch_1_factor[i][0])
+          with self.subTest('Batch_{}_time_index{}'.format(i, tidx)):
+            self.assertAllClose(
+                sampled_std[i, :, tidx], true_std, rtol=5e-4, atol=5e-4)
 
   @parameterized.named_parameters(
       {

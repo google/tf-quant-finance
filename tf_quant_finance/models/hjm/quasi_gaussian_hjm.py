@@ -115,31 +115,32 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
                validate_args=False,
                dtype=None,
                name=None):
-    """Initializes the HJM model.
+    """Initializes a batch of HJM models.
 
     Args:
       dim: A Python scalar which corresponds to the number of factors
         comprising the model.
-      mean_reversion: A real positive `Tensor` of shape `[dim]`. Corresponds
-        to the mean reversion rate of each factor.
+      mean_reversion: A real positive `Tensor` of shape `batch_shape + [dim]`.
+        `batch_shape` denotes the shape of independent HJM models within the
+        batch. Corresponds to the mean reversion rate of each factor.
       volatility: A real positive `Tensor` of the same `dtype` and shape as
         `mean_reversion` or a callable with the following properties:
-        (a)  The callable should accept a scalar `Tensor` `t` and a 1-D `Tensor`
-        `r(t)` of shape `[num_samples]` and returns a 2-D `Tensor` of shape
-        `[num_samples, dim]`. The variable `t`  stands for time and `r(t)` is
-        the short rate at time `t`.  The function returns instantaneous
-        volatility `sigma(t) = sigma(t, r(t))`.
-        When `volatility` is specified is a real `Tensor`, each factor is
+        (a)  The callable should accept a scalar `Tensor` `t` and a `Tensor`
+        `r(t)` of shape `batch_shape + [num_samples]` and returns a `Tensor` of
+        shape compatible with `batch_shape + [num_samples, dim]`. The variable
+        `t`  stands for time and `r(t)` is the short rate at time `t`. The
+        function returns instantaneous volatility `sigma(t) = sigma(t, r(t))`.
+        When `volatility` is specified as a real `Tensor`, each factor is
         assumed to have a constant instantaneous volatility  and the  model is
         effectively a Gaussian HJM model.
         Corresponds to the instantaneous volatility of each factor.
       initial_discount_rate_fn: A Python callable that accepts expiry time as
         a real `Tensor` of the same `dtype` as `mean_reversion` and returns a
-        `Tensor` of shape `input_shape`.
+        `Tensor` of shape `batch_shape + input_shape`.
         Corresponds to the zero coupon bond yield at the present time for the
         input expiry time.
-      corr_matrix: A `Tensor` of shape `[dim, dim]` and the same `dtype` as
-        `mean_reversion`.
+      corr_matrix: A `Tensor` of shape `batch_shape + [dim, dim]` and the same
+        `dtype` as `mean_reversion`.
         Corresponds to the correlation matrix `Rho`.
       validate_args: Optional boolean flag to enable validation of the input
         correlation matrix. If the flag is enabled and the input correlation
@@ -179,14 +180,24 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
 
       self._instant_forward_rate_fn = _instant_forward_rate_fn
       self._initial_discount_rate_fn = _initial_discount_rate_fn
-      self._mean_reversion = tf.convert_to_tensor(
+      mean_reversion = tf.convert_to_tensor(
           mean_reversion, dtype=dtype, name='mean_reversion')
+      def _infer_batch_shape():
+        zero = tf.constant([0], dtype=self._dtype)
+        return _initial_discount_rate_fn(zero).shape.as_list()[:-1]
+
+      self._batch_shape = _infer_batch_shape()
+      self._batch_rank = len(self._batch_shape)
+      self._mean_reversion = mean_reversion
 
       # Setup volatility
       if callable(volatility):
         self._volatility = volatility
       else:
         volatility = tf.convert_to_tensor(volatility, dtype=dtype)
+        # Add a dimension corresponding to `num_samples` during simulations
+        if self._batch_rank > 0:
+          volatility = tf.expand_dims(volatility, axis=self._batch_rank)
         def _tensor_to_volatility_fn(t, r):
           del t, r
           return volatility
@@ -194,7 +205,8 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
         self._volatility = _tensor_to_volatility_fn
 
       if corr_matrix is None:
-        corr_matrix = tf.eye(dim, dim, dtype=self._dtype)
+        corr_matrix = tf.eye(dim, dim, batch_shape=self._batch_shape,
+                             dtype=self._dtype)
       self._rho = tf.convert_to_tensor(corr_matrix, dtype=dtype, name='rho')
       if validate_args:
         try:
@@ -210,17 +222,18 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       """Volatility function of qG-HJM."""
       # Get parameter values at time `t`
       x = state[..., :self._factors]
-      num_samples = x.shape.as_list()[0]
+      batch_shape_x = x.shape.as_list()[:-1]
       r_t = self._instant_forward_rate_fn(t) + tf.reduce_sum(
           x, axis=-1, keepdims=True)
       volatility = self._volatility(t, r_t)
       volatility = tf.expand_dims(volatility, axis=-1)
 
       diffusion_x = tf.broadcast_to(
-          self._sqrt_rho * volatility,
-          (num_samples, self._factors, self._factors))
+          tf.expand_dims(self._sqrt_rho, axis=self._batch_rank) * volatility,
+          batch_shape_x + [self._factors, self._factors])
       paddings = tf.constant(
-          [[0, 0], [0, self._factors**2], [0, self._factors**2]],
+          [[0, 0]]*len(batch_shape_x) + [[0, self._factors**2],
+                                         [0, self._factors**2]],
           dtype=tf.int32)
       diffusion = tf.pad(diffusion_x, paddings)
 
@@ -231,8 +244,9 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       """Drift function of qG-HJM."""
       x = state[..., :self._factors]
       y = state[..., self._factors:]
-      num_samples = x.shape.as_list()[0]
-      y = tf.reshape(y, [num_samples, self._factors, self._factors])
+
+      batch_shape_x = x.shape.as_list()[:-1]
+      y = tf.reshape(y, batch_shape_x + [self._factors, self._factors])
       r_t = (self._instant_forward_rate_fn(t) +
              tf.reduce_sum(x, axis=-1, keepdims=True))
       volatility = self._volatility(t, r_t)
@@ -242,12 +256,21 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
           volatility, volatility, transpose_b=True)
       # create a matrix k2(i,j) = k(i) + k(j)
       mr2 = tf.expand_dims(self._mean_reversion, axis=-1)
-      mr2 = mr2 + tf.transpose(mr2)
+      perm = (list(range(self._batch_rank)) +
+              [self._batch_rank + 1, self._batch_rank])
+      mr2 = mr2 + tf.transpose(mr2, perm=perm)
+      # Add a dimension corresponding to `num_samples`
+      mr2 = tf.expand_dims(mr2, axis=self._batch_rank)
 
-      drift_x = tf.math.reduce_sum(y, axis=-1) - self._mean_reversion * x
-      drift_y = (self._rho * volatility_squared - mr2 * y)
+      mr = self._mean_reversion
+      if self._batch_rank > 0:
+        mr = tf.expand_dims(self._mean_reversion, axis=1)
+      drift_x = tf.math.reduce_sum(y, axis=-1) - mr * x
+
+      drift_y = (tf.expand_dims(self._rho, axis=self._batch_rank) *
+                 volatility_squared - mr2 * y)
       drift_y = tf.reshape(
-          drift_y, [num_samples, self._factors * self._factors])
+          drift_y, batch_shape_x + [self._factors * self._factors])
       drift = tf.concat([drift_x, drift_y], axis=-1)
       return drift
 
@@ -304,17 +327,17 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       A tuple containing four elements.
 
       * The first element is a `Tensor` of
-      shape `[num_samples, num_times]` containing the simulated short rate
-      paths.
+      shape `batch_shape + [num_samples, num_times]` containing the simulated
+      short rate paths.
       * The second element is a `Tensor` of shape
-      `[num_samples, num_times]` containing the simulated discount factor
-      paths.
+      `batch_shape + [num_samples, num_times]` containing the simulated
+      discount factor paths.
       * The third element is a `Tensor` of shape
-      `[num_samples, num_times, dim]` conating the simulated values of the
-      state variable `x`
+      `batch_shape + [num_samples, num_times, dim]` conating the simulated
+      values of the state variable `x`
       * The fourth element is a `Tensor` of shape
-      `[num_samples, num_times, dim^2]` conating the simulated values of the
-      state variable `y`.
+      `batch_shape + [num_samples, num_times, dim^2]` conating the simulated
+      values of the state variable `y`.
 
     Raises:
       ValueError:
@@ -380,14 +403,14 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       A tuple containing three `Tensor`s.
 
       * The first element is a `Tensor` of shape
-      `[num_samples, num_curve_times, num_times]` containing the simulated
-      zero coupon bond curves `P(t, T)`.
-      * The second element is a `Tensor` of
-      shape `[num_samples, num_times]` containing the simulated short rate
-      paths.
+      `batch_shape + [num_samples, num_curve_times, num_times]` containing
+      the simulated zero coupon bond curves `P(t, T)`.
+      * The second element is a `Tensor` of shape
+      `batch_shape + [num_samples, num_times]` containing the simulated short
+      rate paths.
       * The third element is a `Tensor` of shape
-      `[num_samples, num_times]` containing the simulated discount factor
-      paths.
+      `batch_shape + [num_samples, num_times]` containing the simulated
+      discount factor paths.
 
     ### References:
       [1]: Leif B.G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling,
@@ -401,28 +424,33 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       rate_paths, discount_factor_paths, x_t, y_t = self._sample_paths(
           times, time_step, num_time_steps, num_samples, random_type, skip,
           seed)
-      # Reshape x_t to (num_samples, 1, num_times, nfactors)
-      x_t = tf.expand_dims(x_t, axis=1)
-      # Reshape y_t to (num_samples, 1, num_times, nfactors**2)
-      y_t = tf.expand_dims(y_t, axis=1)
+      # Reshape x_t to (batch_size, num_samples, 1, num_times, nfactors)
+      x_t = tf.expand_dims(x_t, axis=self._batch_rank + 1)
+      # Reshape y_t to (batch_size, num_samples, 1, num_times, nfactors**2)
+      y_t = tf.expand_dims(y_t, axis=self._batch_rank + 1)
 
-      # Reshape all `Tensor`s so that they have the dimensions same as (or
-      # broadcastable to) the output shape
+      # Reshape `times` and `curve_times` so that they have the dimensions of
       # ([num_smaples,num_curve_times,num_sim_times]).
       num_curve_nodes = tf.shape(curve_times)[0]
       num_sim_steps = tf.shape(times)[0]
       times = tf.reshape(times, (1, 1, num_sim_steps))
       curve_times = tf.reshape(curve_times, (1, num_curve_nodes, 1))
+      # Reshape `mean_reversion` to the dimensions of
+      # (batch_shape, [num_smaples,num_curve_times,num_sim_times]).
+      mean_reversion = tf.reshape(
+          self._mean_reversion, self._batch_shape + [1, 1, 1, self._factors])
 
       return (self._bond_reconstitution(times, times + curve_times,
-                                        self._mean_reversion, x_t, y_t,
+                                        mean_reversion, x_t, y_t,
                                         num_samples, num_times), rate_paths,
               discount_factor_paths)
 
   def _sample_paths(self, times, time_step, num_time_steps, num_samples,
                     random_type, skip, seed):
     """Returns a sample of paths from the process."""
-    initial_state = tf.zeros((self._dim,), dtype=self._dtype)
+    # Initial state should be broadcastable to batch_shape + [num_samples, dim]
+    initial_state = tf.zeros(
+        self._batch_shape + [1, self._dim], dtype=self._dtype)
     # Note that we need a finer simulation grid (determnied by `dt`) to compute
     # discount factors accurately. The `times` input might not be granular
     # enough for accurate calculations.
@@ -456,21 +484,21 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
     x_paths = xy_paths[..., :self._factors]
     y_paths = xy_paths[..., self._factors:]
 
-    # Shape (num_times,)
+    # shape=(batch_shape, num_times)
     f_0_t = self._instant_forward_rate_fn(times)
-    # Shape (num_samples, num_times)
+    # shape=(batch_shape, num_samples, num_times)
     rate_paths = tf.math.reduce_sum(
-        x_paths, axis=-1) + f_0_t
+        x_paths, axis=-1) + tf.expand_dims(f_0_t, axis=-2)
 
     dt = tf.concat([tf.convert_to_tensor([0.0], dtype=self._dtype), dt],
                    axis=0)
     discount_factor_paths = tf.math.exp(-utils.cumsum_using_matvec(
         rate_paths * dt))
     return (
-        tf.gather(rate_paths, time_indices, axis=1),
-        tf.gather(discount_factor_paths, time_indices, axis=1),
-        tf.gather(x_paths, time_indices, axis=1),
-        tf.gather(y_paths, time_indices, axis=1)
+        tf.gather(rate_paths, time_indices, axis=-1),
+        tf.gather(discount_factor_paths, time_indices, axis=-1),
+        tf.gather(x_paths, time_indices, axis=self._batch_rank + 1),
+        tf.gather(y_paths, time_indices, axis=self._batch_rank + 1)
         )
 
   def _bond_reconstitution(self,
@@ -484,27 +512,28 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
     """Computes discount bond prices using Eq. 10.18 in Ref [2]."""
     times_expand = tf.expand_dims(times, axis=-1)
     maturities_expand = tf.expand_dims(maturities, axis=-1)
-    # p_0_t.shape = (1, 1, num_sim_steps)
+    # p_0_t.shape = (batch_size, 1, 1, num_sim_steps, 1)
     p_0_t = tf.math.exp(-self._initial_discount_rate_fn(times) * times)
-    # p_0_t_tau.shape = (1, num_curve_times, num_sim_steps)
+    # p_0_t_tau.shape = (batch_size, 1, num_curve_times, num_sim_steps, 1)
     p_0_t_tau = tf.math.exp(
         -self._initial_discount_rate_fn(maturities) *
         maturities) / p_0_t
-    # g_t_tau.shape = (1, num_curve_times, num_sim_steps, 1)
+    # g_t_tau.shape = (batch_size, 1, num_curve_times, num_sim_steps, 1)
     g_t_tau = (1. - tf.math.exp(
         -mean_reversion * (maturities_expand - times_expand))) / mean_reversion
-    # term1.shape = (num_samples, num_curve_times, num_sim_steps)
+    # term1.shape = (batch_size, num_samples, num_curve_times, num_sim_steps)
     term1 = tf.math.reduce_sum(x_t * g_t_tau, axis=-1)
-    # y_t: (num_samples, 1, num_times, nfactors**2) ->
-    # (num_samples, 1, num_times, nfactors, nfactors)
+    # y_t: (batch_size, num_samples, 1, num_times, nfactors**2) ->
+    # (batch_size, num_samples, 1, num_times, nfactors, nfactors)
     y_t = tf.reshape(
-        y_t, [num_samples, 1, num_times, self._factors, self._factors])
+        y_t, self._batch_shape + [num_samples, 1, num_times, self._factors,
+                                  self._factors])
     # now compute g_t_tau * y_t * g_t_tau
-    # term2.shape = (num_samples, num_curve_times, num_sim_steps)
+    # term2.shape = (batch_size, num_samples, num_curve_times, num_sim_steps)
     term2 = tf.math.reduce_sum(
         g_t_tau * tf.linalg.matvec(y_t, g_t_tau), axis=-1)
     p_t_tau = p_0_t_tau * tf.math.exp(-term1 - 0.5 * term2)
-    # p_t_tau.shape=(num_samples, num_curve_times, num_sim_steps)
+    # p_t_tau.shape=(batch_size, num_samples, num_curve_times, num_sim_steps)
     return p_t_tau
 
 
@@ -516,9 +545,7 @@ def _get_valid_sqrt_matrix(rho):
     return tf.linalg.cholesky(rho)
 
   def _psd_false():
-    # [e1, v1] = tf.linalg.eigh(rho)
     realv = tf.math.real(v)
-    adjusted_e = tf.zeros(shape=(tf.shape(rho)[0],), dtype=rho.dtype)
     adjusted_e = tf.linalg.diag(tf.maximum(tf.math.real(e), 1e-5))
     return tf.matmul(realv, tf.math.sqrt(adjusted_e))
 
