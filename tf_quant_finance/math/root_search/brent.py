@@ -15,63 +15,76 @@
 
 """Root search functions."""
 
-
-import collections
+from typing import Callable
 
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
+from tf_quant_finance import utils as tff_utils
 from tf_quant_finance.math.root_search import utils
+
+
+__all__ = [
+    'BrentResults',
+    'brentq',
+]
+
 
 # TODO(b/179451420): Refactor BrentResults as RootSearchResults and return it
 # for newton method as well.
-BrentResults = collections.namedtuple(
-    "BrentResults",
-    [
-        # A tensor containing the best estimate. If the search was successful,
-        # this estimate is a root of the objective function.
-        "estimated_root",
-        # A tensor containing the value of the objective function at the best
-        # estimate. If the search was successful, then this is close to 0.
-        "objective_at_estimated_root",
-        # A tensor containing number of iterations performed for each pair of
-        # starting points.
-        "num_iterations",
-        # Scalar boolean tensor indicating whether the best estimate is a root
-        # within the tolerance specified for the search.
-        "converged",
-    ])
+@tff_utils.dataclass
+class BrentResults:
+  """Brent root search results.
 
-# Values which remain fixed across all root searches (except for tensor dtypes
-# and shapes).
-_BrentSearchConstants = collections.namedtuple("_BrentSearchConstants", [
-    "false",
-    "zero",
-    "zero_value",
-])
+  Attributes:
+    estimated_root: A `Tensor` containing the best estimate. If the search was
+      successful, this estimate is a root of the objective function.
+    objective_at_estimated_root: A `Tensor` containing the value of the
+      objective function at  the best estimate. If the search was successful,
+      then this is close to 0.
+    num_iterations: A `Tensor` containing number of iterations performed for
+      each pair of starting points
+    converged: A boolean `Tensor` indicating whether the best estimate is a root
+      within the tolerance specified for the search.
+  """
+  estimated_root: types.RealTensor
+  objective_at_estimated_root: types.RealTensor
+  num_iterations: types.IntTensor
+  converged: types.BoolTensor
 
-# Values which are updated during the root search.
-_BrentSearchState = collections.namedtuple("_BrentSearchState", [
-    "best_estimate",
-    "value_at_best_estimate",
-    "last_estimate",
-    "value_at_last_estimate",
-    "contrapoint",
-    "value_at_contrapoint",
-    "step_to_best_estimate",
-    "step_to_last_estimate",
-    "num_iterations",
-    "finished",
-])
 
-# Values which remain fixed for a given root search.
-_BrentSearchParams = collections.namedtuple("_BrentSearchParams", [
-    "objective_fn",
-    "max_iterations",
-    "absolute_root_tolerance",
-    "relative_root_tolerance",
-    "function_tolerance",
-    "stopping_policy_fn",
-])
+@tff_utils.dataclass
+class _BrentSearchConstants:
+  """Values which remain fixed across all root searches."""
+  false: types.BoolTensor
+  zero: types.RealTensor
+  zero_value: types.RealTensor
+
+
+@tff_utils.dataclass
+class _BrentSearchState:
+  """Values which are updated during the root search."""
+  best_estimate: types.RealTensor
+  value_at_best_estimate: types.RealTensor
+  last_estimate: types.RealTensor
+  value_at_last_estimate: types.RealTensor
+  contrapoint: types.RealTensor
+  value_at_contrapoint: types.RealTensor
+  step_to_best_estimate: types.RealTensor
+  step_to_last_estimate: types.RealTensor
+  num_iterations: types.IntTensor
+  finished: types.BoolTensor
+
+
+@tff_utils.dataclass
+class _BrentSearchParams:
+  """Values which remain fixed for a given root search."""
+  objective_fn: Callable[[types.BoolTensor], types.BoolTensor]
+  max_iterations: types.IntTensor
+  absolute_root_tolerance: types.RealTensor
+  relative_root_tolerance: types.RealTensor
+  function_tolerance: types.RealTensor
+  stopping_policy_fn: Callable[[types.BoolTensor], types.BoolTensor]
 
 
 def _swap_where(condition, x, y):
@@ -152,7 +165,7 @@ def _should_stop(state, stopping_policy_fn):
     A boolean value indicating whether the overall search should continue.
   """
   return tf.convert_to_tensor(
-      stopping_policy_fn(state.finished), name="should_stop", dtype=tf.bool)
+      stopping_policy_fn(state.finished), name='should_stop', dtype=tf.bool)
 
 
 # This is a direct translation of the Brent root-finding method.
@@ -385,11 +398,11 @@ def _prepare_brent_args(objective_fn,
   """
   stopping_policy_fn = stopping_policy_fn or tf.reduce_all
   if not callable(stopping_policy_fn):
-    raise ValueError("stopping_policy_fn must be callable")
+    raise ValueError('stopping_policy_fn must be callable')
 
-  left_bracket = tf.convert_to_tensor(left_bracket, name="left_bracket")
+  left_bracket = tf.convert_to_tensor(left_bracket, name='left_bracket')
   right_bracket = tf.convert_to_tensor(
-      right_bracket, name="right_bracket", dtype=left_bracket.dtype)
+      right_bracket, name='right_bracket', dtype=left_bracket.dtype)
 
   if value_at_left_bracket is None:
     value_at_left_bracket = objective_fn(left_bracket)
@@ -398,11 +411,11 @@ def _prepare_brent_args(objective_fn,
 
   value_at_left_bracket = tf.convert_to_tensor(
       value_at_left_bracket,
-      name="value_at_left_bracket",
+      name='value_at_left_bracket',
       dtype=left_bracket.dtype.base_dtype)
   value_at_right_bracket = tf.convert_to_tensor(
       value_at_right_bracket,
-      name="value_at_right_bracket",
+      name='value_at_right_bracket',
       dtype=left_bracket.dtype.base_dtype)
 
   if relative_root_tolerance is None:
@@ -411,18 +424,18 @@ def _prepare_brent_args(objective_fn,
 
   absolute_root_tolerance = tf.convert_to_tensor(
       absolute_root_tolerance,
-      name="absolute_root_tolerance",
+      name='absolute_root_tolerance',
       dtype=left_bracket.dtype)
   relative_root_tolerance = tf.convert_to_tensor(
       relative_root_tolerance,
-      name="relative_root_tolerance",
+      name='relative_root_tolerance',
       dtype=left_bracket.dtype)
   function_tolerance = tf.convert_to_tensor(
-      function_tolerance, name="function_tolerance", dtype=left_bracket.dtype)
+      function_tolerance, name='function_tolerance', dtype=left_bracket.dtype)
 
   max_iterations = tf.broadcast_to(
       tf.convert_to_tensor(max_iterations),
-      name="max_iterations",
+      name='max_iterations',
       shape=left_bracket.shape)
   num_iterations = tf.zeros_like(max_iterations)
 
@@ -585,11 +598,7 @@ def _brent(objective_fn,
     ValueError: if the `stopping_policy_fn` is not callable.
   """
 
-  with tf.compat.v1.name_scope(name, default_name="brent_root", values=[
-      left_bracket, right_bracket, value_at_left_bracket,
-      value_at_right_bracket, max_iterations
-  ]):
-
+  with tf.name_scope(name or 'brent_root'):
     state, params, constants = _prepare_brent_args(
         objective_fn, left_bracket, right_bracket, value_at_left_bracket,
         value_at_right_bracket, absolute_root_tolerance,
@@ -638,18 +647,19 @@ def _brent(objective_fn,
       converged=converged)
 
 
-def brentq(objective_fn,
-           left_bracket,
-           right_bracket,
-           value_at_left_bracket=None,
-           value_at_right_bracket=None,
-           absolute_root_tolerance=2e-7,
-           relative_root_tolerance=None,
-           function_tolerance=2e-7,
-           max_iterations=100,
-           stopping_policy_fn=None,
-           validate_args=False,
-           name=None):
+def brentq(
+    objective_fn: Callable[[types.RealTensor], types.RealTensor],
+    left_bracket: types.RealTensor,
+    right_bracket: types.RealTensor,
+    value_at_left_bracket: types.RealTensor = None,
+    value_at_right_bracket: types.RealTensor = None,
+    absolute_root_tolerance: types.RealTensor = 2e-7,
+    relative_root_tolerance: types.RealTensor = None,
+    function_tolerance: types.RealTensor = 2e-7,
+    max_iterations: types.IntTensor = 100,
+    stopping_policy_fn: Callable[[types.BoolTensor], types.BoolTensor] = None,
+    validate_args: bool = False,
+    name: str = None) -> BrentResults:
   r"""Finds root(s) of a function of single variable using Brent's method.
 
   [Brent's method](https://en.wikipedia.org/wiki/Brent%27s_method) is a
@@ -660,6 +670,81 @@ def brentq(objective_fn,
 
   This implementation is a translation of the algorithm described in the
   [original article](https://academic.oup.com/comjnl/article/14/4/422/325237).
+
+  #### Examples
+
+  ```python
+  import tensorflow as tf
+  import tf_quant_finance as tff
+
+  # Example 1: Roots of a single function for two pairs of starting points.
+
+  f = lambda x: 63 * x**5 - 70 * x**3 + 15 * x + 2
+  x1 = tf.constant([-10, 1], dtype=tf.float64)
+  x2 = tf.constant([10, -1], dtype=tf.float64)
+
+  tf.math.brentq(objective_fn=f, left_bracket=x1, right_bracket=x2)
+  # ==> BrentResults(
+  #    estimated_root=array([-0.14823253, -0.14823253]),
+  #    objective_at_estimated_root=array([3.27515792e-15, 0.]),
+  #    num_iterations=array([11, 6]),
+  #    converged=array([True, True]))
+
+  tff.math.root_search.brentq(objective_fn=f,
+                              left_bracket=x1,
+                              right_bracket=x2,
+                              stopping_policy_fn=tf.reduce_any)
+  # ==> BrentResults(
+  #    estimated_root=array([-2.60718234, -0.14823253]),
+  #    objective_at_estimated_root=array([-6.38579115e+03, 2.39763764e-11]),
+  #    num_iterations=array([7, 6]),
+  #    converged=array([False, True]))
+  ```
+
+  # Example 2: Roots of a multiplex function for one pair of starting points.
+
+  def f(x):
+    return tf.constant([0., 63.], dtype=tf.float64) * x**5 \
+        + tf.constant([5., -70.], dtype=tf.float64) * x**3 \
+        + tf.constant([-3., 15.], dtype=tf.float64) * x \
+        + 2
+
+  x1 = tf.constant([-5, -5], dtype=tf.float64)
+  x2 = tf.constant([5, 5], dtype=tf.float64)
+
+  tff.math.root_search.brentq(objective_fn=f, left_bracket=x1, right_bracket=x2)
+  # ==> BrentResults(
+  #    estimated_root=array([-1., -0.14823253]),
+  #    objective_at_estimated_root=array([0., 2.08721929e-14]),
+  #    num_iterations=array([13, 11]),
+  #    converged=array([True, True]))
+
+  # Example 3: Roots of a multiplex function for two pairs of starting points.
+
+  def f(x):
+    return tf.constant([0., 63.], dtype=tf.float64) * x**5 \
+        + tf.constant([5., -70.], dtype=tf.float64) * x**3 \
+        + tf.constant([-3., 15.], dtype=tf.float64) * x \
+        + 2
+
+  x1 = tf.constant([[-5, -5], [10, 10]], dtype=tf.float64)
+  x2 = tf.constant([[5, 5], [-10, -10]], dtype=tf.float64)
+
+  tff.math.root_search.brentq(objective_fn=f, left_bracket=x1, right_bracket=x2)
+  # ==> BrentResults(
+  #    estimated_root=array([
+  #        [-1, -0.14823253],
+  #        [-1, -0.14823253]]),
+  #    objective_at_estimated_root=array([
+  #        [0., 2.08721929e-14],
+  #        [0., 2.08721929e-14]]),
+  #    num_iterations=array([
+  #        [13, 11],
+  #        [15, 11]]),
+  #    converged=array([
+  #        [True, True],
+  #        [True, True]]))
+  ```
 
   Args:
     objective_fn: Python callable for which roots are searched. It must be a
@@ -743,80 +828,6 @@ def brentq(objective_fn,
 
   Raises:
     ValueError: if the `stopping_policy_fn` is not callable.
-
-  #### Examples
-
-  ```python
-  import tensorflow.compat.v2 as tf
-  tf.enable_eager_execution()
-
-  # Example 1: Roots of a single function for two pairs of starting points.
-
-  f = lambda x: 63 * x**5 - 70 * x**3 + 15 * x + 2
-  x1 = tf.constant([-10, 1], dtype=tf.float64)
-  x2 = tf.constant([10, -1], dtype=tf.float64)
-
-  tf.math.brentq(objective_fn=f, left_bracket=x1, right_bracket=x2)
-  # ==> BrentResults(
-  #    estimated_root=array([-0.14823253, -0.14823253]),
-  #    objective_at_estimated_root=array([3.27515792e-15, 0.]),
-  #    num_iterations=array([11, 6]),
-  #    converged=array([True, True]))
-
-  tf.math.brentq(objective_fn=f,
-                 left_bracket=x1,
-                 right_bracket=x2,
-                 stopping_policy_fn=tf.reduce_any)
-  # ==> BrentResults(
-  #    estimated_root=array([-2.60718234, -0.14823253]),
-  #    objective_at_estimated_root=array([-6.38579115e+03, 2.39763764e-11]),
-  #    num_iterations=array([7, 6]),
-  #    converged=array([False, True]))
-
-  # Example 2: Roots of a multiplex function for one pair of starting points.
-
-  def f(x):
-    return tf.constant([0., 63.], dtype=tf.float64) * x**5 \
-        + tf.constant([5., -70.], dtype=tf.float64) * x**3 \
-        + tf.constant([-3., 15.], dtype=tf.float64) * x \
-        + 2
-
-  x1 = tf.constant([-5, -5], dtype=tf.float64)
-  x2 = tf.constant([5, 5], dtype=tf.float64)
-
-  tf.math.brentq(objective_fn=f, left_bracket=x1, right_bracket=x2)
-  # ==> BrentResults(
-  #    estimated_root=array([-1., -0.14823253]),
-  #    objective_at_estimated_root=array([0., 2.08721929e-14]),
-  #    num_iterations=array([13, 11]),
-  #    converged=array([True, True]))
-
-  # Example 3: Roots of a multiplex function for two pairs of starting points.
-
-  def f(x):
-    return tf.constant([0., 63.], dtype=tf.float64) * x**5 \
-        + tf.constant([5., -70.], dtype=tf.float64) * x**3 \
-        + tf.constant([-3., 15.], dtype=tf.float64) * x \
-        + 2
-
-  x1 = tf.constant([[-5, -5], [10, 10]], dtype=tf.float64)
-  x2 = tf.constant([[5, 5], [-10, -10]], dtype=tf.float64)
-
-  tf.math.brentq(objective_fn=f, left_bracket=x1, right_bracket=x2)
-  # ==> BrentResults(
-  #    estimated_root=array([
-  #        [-1, -0.14823253],
-  #        [-1, -0.14823253]]),
-  #    objective_at_estimated_root=array([
-  #        [0., 2.08721929e-14],
-  #        [0., 2.08721929e-14]]),
-  #    num_iterations=array([
-  #        [13, 11],
-  #        [15, 11]]),
-  #    converged=array([
-  #        [True, True],
-  #        [True, True]]))
-  ```
   """
 
   return _brent(

@@ -29,37 +29,45 @@ instruments and the present values computed using the constructed swap curve.
       Volume I: Foundations and Vanilla Models. Chapter 6. 2010.
 """
 
-import collections
+from typing import List, Callable, Any
 
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
+from tf_quant_finance import utils
 from tf_quant_finance.math import make_val_and_grad_fn
 from tf_quant_finance.math import optimizer as optimizers
 from tf_quant_finance.math.interpolation import linear
 from tf_quant_finance.rates import swap_curve_common as scc
 
 
-def swap_curve_fit(float_leg_start_times,
-                   float_leg_end_times,
-                   float_leg_daycount_fractions,
-                   fixed_leg_start_times,
-                   fixed_leg_end_times,
-                   fixed_leg_daycount_fractions,
-                   fixed_leg_cashflows,
-                   present_values,
-                   initial_curve_rates,
-                   present_values_settlement_times=None,
-                   float_leg_discount_rates=None,
-                   float_leg_discount_times=None,
-                   fixed_leg_discount_rates=None,
-                   fixed_leg_discount_times=None,
-                   optimizer=None,
-                   curve_interpolator=None,
-                   instrument_weights=None,
-                   curve_tolerance=1e-8,
-                   maximum_iterations=50,
-                   dtype=None,
-                   name=None):
+__all__ = [
+    'swap_curve_fit',
+]
+
+
+def swap_curve_fit(
+    float_leg_start_times: List[types.RealTensor],
+    float_leg_end_times: List[types.RealTensor],
+    float_leg_daycount_fractions: List[types.RealTensor],
+    fixed_leg_start_times: List[types.RealTensor],
+    fixed_leg_end_times: List[types.RealTensor],
+    fixed_leg_daycount_fractions: List[types.RealTensor],
+    fixed_leg_cashflows: List[types.RealTensor],
+    present_values: List[types.RealTensor],
+    initial_curve_rates: types.RealTensor,
+    present_values_settlement_times: List[types.RealTensor] = None,
+    float_leg_discount_rates: List[types.RealTensor] = None,
+    float_leg_discount_times: List[types.RealTensor] = None,
+    fixed_leg_discount_rates: List[types.RealTensor] = None,
+    fixed_leg_discount_times: List[types.RealTensor] = None,
+    optimizer: Callable[..., Any] = None,
+    curve_interpolator: Callable[..., types.RealTensor] = None,
+    instrument_weights: types.RealTensor = None,
+    curve_tolerance: types.RealTensor = 1e-8,
+    maximum_iterations: types.IntTensor = 50,
+    dtype: tf.DType = None,
+    name: str = None) -> scc.SwapCurveBuilderResult:
   """Constructs the zero swap curve using optimization.
 
   A zero swap curve is a function of time which gives the interest rate that
@@ -201,10 +209,10 @@ def swap_curve_fit(float_leg_start_times,
       `batch_shape`. The length of the list must be the same as the length of
       `fixed_leg_cashflows`. The input contains the market price of the
       underlying instruments.
-    initial_curve_rates: Optional `Tensor` of the `dtype` as `present_values`
-      and of shape `[batch_shape, num_instruments]` where `num_instruments`
-      is the length of `float_leg_start_times`. The starting guess for the
-      discount rates used to initialize the iterative procedure.
+    initial_curve_rates: A `Tensor` of the `dtype` as `present_values` and of
+      shape `[batch_shape, num_instruments]` where `num_instruments` is the
+      length of `float_leg_start_times`. The starting guess for the discount
+      rates used to initialize the iterative procedure.
     present_values_settlement_times: Optional list of `Tensor`s with the shapes
       and `dtype` compatible with `present_values` The settlement times for the
       present values is the time from now when the instrument is traded to the
@@ -232,26 +240,26 @@ def swap_curve_fit(float_leg_start_times,
       and `dtype` compatible with `present_values`. This input contains the
       times corresponding to the rates specified via the
       `fixed_leg_discount_rates`.
-    optimizer: Optional Python callable which implements the algorithm used to
-      minimize the objective function during curve construction. It should have
-      the following interface:
-      result = optimize(value_and_gradients_function, initial_position,
-      tolerance, max_iterations)
-      `value_and_gradients_function` is a Python callable that accepts a point
-      as a real `Tensor` and returns a tuple of `Tensor`s of real dtype
-      containing the value of the function and its gradient at that point.
-      'initial_position' is a real `Tensor` containing the starting point of the
-      optimization, 'tolerance' is a real scalar `Tensor` for stopping tolerance
-      for the procedure and `max_iterations` specifies the maximum number of
-      iterations.
-      `optimize` should return a namedtuple containing the items: `position` (a
-      tensor containing the optimal value), `converged` (a boolean indicating
-      whether the optimize converged according the specified criteria),
-      `failed` (a boolean indicating if the optimization resulted in a failure),
-      `num_iterations` (the number of iterations used), and `objective_value` (
-      the value of the objective function at the optimal value).
-      The default value for `optimize` is None and conjugate gradient algorithm
-      is used.
+    optimizer: Optional Python callable which implements the algorithm used
+      to minimize the objective function during calibration. It should have
+      the following interface: result =
+        optimizer(value_and_gradients_function, initial_position, tolerance,
+        max_iterations) `value_and_gradients_function` is a Python callable that
+        accepts a point as a real `Tensor` and returns a tuple of `Tensor`s of
+        real dtype containing the value of the function and its gradient at that
+        point. 'initial_position' is a real `Tensor` containing the starting
+        point of the optimization, 'tolerance' is a real scalar `Tensor` for
+        stopping tolerance for the procedure and `max_iterations` specifies the
+        maximum number of iterations.
+      `optimizer` should return a namedtuple containing the items: `position`
+        (a tensor containing the optimal value), `converged` (a boolean
+        indicating whether the optimize converged according the specified
+        criteria), `failed` (a boolean indicating if the optimization resulted
+        in a failure), `num_iterations` (the number of iterations used), and
+        `objective_value` ( the value of the objective function at the optimal
+        value). The default value for `optimizer` is None and conjugate
+        gradient algorithm is used.
+      Default value: `None` - indicating conjugate gradient minimizer.
     curve_interpolator: Optional Python callable used to interpolate the zero
       swap rates at cashflow times. It should have the following interface:
       yi = curve_interpolator(xi, x, y)
@@ -571,21 +579,20 @@ def _initialize_instrument_weights(float_times, fixed_times, dtype):
   return tf.unstack(weights, name='instrument_weights')
 
 
-CurveFittingVars = collections.namedtuple(
-    'CurveFittingVars',
-    [
-        # The `Tensor` of maturities at which the curve will be built.
-        # Coorspond to maturities on the underlying instruments
-        'expiry_times',
-        # `Tensor` containing the instrument index of each floating cashflow
-        'calc_groups_float',
-        # `Tensor` containing the instrument index of each fixed cashflow
-        'calc_groups_fixed',
-        # `Tensor` containing the settlement time of each floating cashflow
-        'settle_times_float',
-        # `Tensor` containing the settlement time of each fixed cashflow
-        'settle_times_fixed'
-    ])
+@utils.dataclass
+class CurveFittingVars:
+  """Curve fitting variables."""
+  # The `Tensor` of maturities at which the curve will be built.
+  # Coorspond to maturities on the underlying instruments
+  expiry_times: types.RealTensor
+  # `Tensor` containing the instrument index of each floating cashflow
+  calc_groups_float: types.IntTensor
+  # `Tensor` containing the instrument index of each fixed cashflow
+  calc_groups_fixed: types.IntTensor
+  # `Tensor` containing the settlement time of each floating cashflow
+  settle_times_float: types.RealTensor
+  # `Tensor` containing the settlement time of each fixed cashflow
+  settle_times_fixed: types.RealTensor
 
 
 def _create_curve_building_tensors(float_leg_start_times,

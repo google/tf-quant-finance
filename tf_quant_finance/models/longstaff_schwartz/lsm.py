@@ -15,23 +15,41 @@
 
 """Implementation of the regression MC of Longstaff and Schwartz."""
 
-import collections
+from typing import Callable
+
 import tensorflow.compat.v2 as tf
 
-LsmLoopVars = collections.namedtuple(
-    "LsmLoopVars",
-    [
-        "exercise_index",  # int. The LSM algorithm iterates backwards over
-        # times where an option can be exercised, this tracks progress.
-        "cashflow",  # (num_samples, batch_size) shaped tensor. Tracks the
-        # optimal cashflow of each sampled path for each payoff dimension at the
-        # current exercise time.
-        "values",  # (num_samples, batch_size) shaped tensor. Tracks option
-        # values along sampled paths.
-    ])
+from tf_quant_finance import types
+from tf_quant_finance import utils
 
 
-def make_polynomial_basis(degree):
+__all__ = [
+    "make_polynomial_basis",
+    "least_square_mc"
+]
+
+
+@utils.dataclass
+class LsmLoopVars:
+  """Collection of loop variables inside the LSM algorithm.
+
+  Attributes:
+    exercise_index: A scalar int `Tensor`. The LSM algorithm iterates backwards
+      over times where an option can be exercised, this tracks progress.
+    cashflow: A real `Tensor` of shape `[num_samples, batch_size]`. Tracks the
+      optimal cashflow of each sampled path for each payoff dimension at the
+      current exercise time.
+    values: Rank-1 `Tensor`, specifying the vol-vol parameters.
+    rho: A real `Tensor` of shape `[num_samples, batch_size]` shaped tensor.
+      Tracks option values along sampled paths.
+  """
+  exercise_index: types.IntTensor
+  cashflow: types.RealTensor
+  values: types.RealTensor
+
+
+def make_polynomial_basis(
+    degree: types.IntTensor) -> Callable[..., types.RealTensor]:
   """Produces a callable from samples to polynomial basis for use in regression.
 
   The output callable accepts a scalar `Tensor` `t` and a `Tensor` `X` of
@@ -64,7 +82,8 @@ def make_polynomial_basis(degree):
     A callable from `Tensor`s of shape `[batch_size, num_samples, dim]` to
     `Tensor`s of shape `[batch_size, (degree + 1)**dim, num_samples]`.
   """
-  def basis(sample_paths, time_index):
+  def basis(sample_paths: types.RealTensor,
+            time_index: types.IntTensor) -> types.RealTensor:
     """Computes polynomial basis expansion at the given sample points.
 
     Args:
@@ -107,14 +126,14 @@ def make_polynomial_basis(degree):
   return basis
 
 
-def least_square_mc(sample_paths,
-                    exercise_times,
-                    payoff_fn,
-                    basis_fn,
-                    discount_factors=None,
-                    num_calibration_samples=None,
-                    dtype=None,
-                    name=None):
+def least_square_mc(sample_paths: types.RealTensor,
+                    exercise_times: types.IntTensor,
+                    payoff_fn: Callable[..., types.RealTensor],
+                    basis_fn: Callable[..., types.RealTensor],
+                    discount_factors: types.RealTensor = None,
+                    num_calibration_samples: int = None,
+                    dtype: tf.DType = None,
+                    name: str = None) -> types.RealTensor:
   """Values Amercian style options using the LSM algorithm.
 
   The Least-Squares Monte-Carlo (LSM) algorithm is a Monte-Carlo approach to

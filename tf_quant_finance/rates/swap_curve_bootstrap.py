@@ -31,35 +31,43 @@ any arbitrary interpolation scheme could be used to build the curve.
   https://www.researchgate.net/publication/24071726_Interpolation_Methods_for_Curve_Construction
 """
 
-import collections
+from typing import List, Callable
 
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
+from tf_quant_finance import utils
 from tf_quant_finance.math.interpolation import linear
 # TODO(b/148945638): Move common functionality for swap curve construction to a
 # separate python module.
 from tf_quant_finance.rates import swap_curve_common as scc
 
 
-def swap_curve_bootstrap(float_leg_start_times,
-                         float_leg_end_times,
-                         fixed_leg_start_times,
-                         fixed_leg_end_times,
-                         fixed_leg_cashflows,
-                         present_values,
-                         present_values_settlement_times=None,
-                         float_leg_daycount_fractions=None,
-                         fixed_leg_daycount_fractions=None,
-                         float_leg_discount_rates=None,
-                         float_leg_discount_times=None,
-                         fixed_leg_discount_rates=None,
-                         fixed_leg_discount_times=None,
-                         curve_interpolator=None,
-                         initial_curve_rates=None,
-                         curve_tolerance=1e-8,
-                         maximum_iterations=50,
-                         dtype=None,
-                         name=None):
+__all__ = [
+    'swap_curve_bootstrap',
+]
+
+
+def swap_curve_bootstrap(
+    float_leg_start_times: List[types.RealTensor],
+    float_leg_end_times: List[types.RealTensor],
+    fixed_leg_start_times: List[types.RealTensor],
+    fixed_leg_end_times: List[types.RealTensor],
+    fixed_leg_cashflows: List[types.RealTensor],
+    present_values: List[types.RealTensor],
+    present_values_settlement_times: List[types.RealTensor] = None,
+    float_leg_daycount_fractions: List[types.RealTensor] = None,
+    fixed_leg_daycount_fractions: List[types.RealTensor] = None,
+    float_leg_discount_rates: List[types.RealTensor] = None,
+    float_leg_discount_times: List[types.RealTensor] = None,
+    fixed_leg_discount_rates: List[types.RealTensor] = None,
+    fixed_leg_discount_times: List[types.RealTensor] = None,
+    curve_interpolator: Callable[..., types.RealTensor] = None,
+    initial_curve_rates: types.RealTensor = None,
+    curve_tolerance: types.RealTensor = 1e-8,
+    maximum_iterations: types.IntTensor = 50,
+    dtype: tf.DType = None,
+    name: str = None) -> scc.SwapCurveBuilderResult:
   """Constructs the zero swap curve using bootstrap method.
 
   A zero swap curve is a function of time which gives the interest rate that
@@ -572,58 +580,57 @@ def _convert_to_tensors(dtype, input_array, name):
   return output_tensor
 
 
-CurveFittingVars = collections.namedtuple(
-    'CurveFittingVars',
-    [
-        # The `Tensor` of maturities at which the curve will be built.
-        # Coorspond to maturities on the underlying instruments
-        'expiry_times',
-        # `Tensor` containing fixed leg cashflows from all instruments
-        # "flattened" (or concatenated)
-        'fixed_leg_cashflows',
-        # `Tensor` containing daycount associated with fixed leg cashflows
-        'fixed_leg_daycount',
-        # `Tensor` containing the times at which fixed cashflows are discouted
-        'fixed_leg_calc_times',
-        # `Tensor` containing the instrument settlement times expanded to match
-        # the dimensions of fixed leg cashflows
-        'settle_times_fixed',
-        # `Tensor` containing the start times of time-periods corresponding to
-        # floating cashflows for all instruments "flattened" (or concatenated)
-        'float_leg_times_start',
-        # `Tensor` containing the end times of time-periods corresponding to
-        # floating cashflows for all instruments "flattened" (or concatenated)
-        'float_leg_times_end',
-        # `Tensor` containing daycount associated with floating leg cashflows
-        'float_leg_daycount',
-        # `Tensor` containing the instrument settlement times expanded to match
-        # the dimensions of floating cashflows
-        'settle_times_float',
-        # `Tensor` containing the instrument index of each "flattened" `Tensor`
-        # for floating cashflows
-        'calc_groups_float',
-        # `Tensor` containing the instrument index of each "flattened" `Tensor`
-        # for fixed cashflows
-        'calc_groups_fixed',
-        # `Tensor` containing the start times of the final accrual periods of
-        # each insrument. These will be used for bootstrap iterations.
-        'last_float_leg_start_time',
-        # `Tensor` containing the end times of the final accrual periods of
-        # each insrument. These will be used for bootstrap iterations.
-        'last_float_leg_end_time',
-        # `Tensor` containing the daycount of the final accrual periods of
-        # each insrument. These will be used for bootstrap iterations.
-        'last_float_leg_daycount',
-        # `Tensor` containing the discounting times of the final fixed cashflow
-        # of each insrument. These will be used for bootstrap iterations.
-        'last_fixed_leg_calc_time',
-        # `Tensor` containing the daycount of the final fixed cashflow
-        # of each insrument. These will be used for bootstrap iterations.
-        'last_fixed_leg_daycount',
-        # `Tensor` containing the the final fixed cashflow of each instrument.
-        # These will be used for bootstrap iterations.
-        'last_fixed_leg_cashflows'
-    ])
+@utils.dataclass
+class CurveFittingVars:
+  """Curve fitting variables."""
+  # The `Tensor` of maturities at which the curve will be built.
+  # Coorspond to maturities on the underlying instruments
+  expiry_times: types.RealTensor
+  # `Tensor` containing fixed leg cashflows from all instruments
+  # "flattened" (or concatenated)
+  fixed_leg_cashflows: types.RealTensor
+  # `Tensor` containing daycount associated with fixed leg cashflows
+  fixed_leg_daycount: types.RealTensor
+  # `Tensor` containing the times at which fixed cashflows are discouted
+  fixed_leg_calc_times: types.RealTensor
+  # `Tensor` containing the instrument settlement times expanded to match
+  # the dimensions of fixed leg cashflows
+  settle_times_fixed: types.RealTensor
+  # `Tensor` containing the start times of time-periods corresponding to
+  # floating cashflows for all instruments "flattened" (or concatenated)
+  float_leg_times_start: types.RealTensor
+  # `Tensor` containing the end times of time-periods corresponding to
+  # floating cashflows for all instruments "flattened" (or concatenated)
+  float_leg_times_end: types.RealTensor
+  # `Tensor` containing daycount associated with floating leg cashflows
+  float_leg_daycount: types.RealTensor
+  # `Tensor` containing the instrument settlement times expanded to match
+  # the dimensions of floating cashflows
+  settle_times_float: types.RealTensor
+  # `Tensor` containing the instrument index of each "flattened" `Tensor`
+  # for floating cashflows
+  calc_groups_float: types.IntTensor
+  # `Tensor` containing the instrument index of each "flattened" `Tensor`
+  # for fixed cashflows
+  calc_groups_fixed: types.IntTensor
+  # `Tensor` containing the start times of the final accrual periods of
+  # each insrument. These will be used for bootstrap iterations.
+  last_float_leg_start_time: types.RealTensor
+  # `Tensor` containing the end times of the final accrual periods of
+  # each insrument. These will be used for bootstrap iterations.
+  last_float_leg_end_time: types.RealTensor
+  # `Tensor` containing the daycount of the final accrual periods of
+  # each insrument. These will be used for bootstrap iterations.
+  last_float_leg_daycount: types.RealTensor
+  # `Tensor` containing the discounting times of the final fixed cashflow
+  # of each insrument. These will be used for bootstrap iterations.
+  last_fixed_leg_calc_time: types.RealTensor
+  # `Tensor` containing the daycount of the final fixed cashflow
+  # of each insrument. These will be used for bootstrap iterations.
+  last_fixed_leg_daycount: types.RealTensor
+  # `Tensor` containing the the final fixed cashflow of each instrument.
+  # These will be used for bootstrap iterations.
+  last_fixed_leg_cashflows: types.RealTensor
 
 
 def _create_curve_building_tensors(float_leg_start_times,

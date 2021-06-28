@@ -14,10 +14,20 @@
 # limitations under the License.
 """Cubic Spline interpolation framework."""
 
-import collections
 import enum
 import tensorflow.compat.v2 as tf
+
+from tf_quant_finance import types
+from tf_quant_finance import utils as tff_utils
 from tf_quant_finance.math.interpolation import utils
+
+
+__all__ = [
+    'BoundaryConditionType',
+    'SplineParameters',
+    'build',
+    'interpolate',
+]
 
 
 @enum.unique
@@ -36,29 +46,31 @@ class BoundaryConditionType(enum.Enum):
   FIXED_FIRST_DERIVATIVE = 3
 
 
-SplineParameters = collections.namedtuple(
-    "SplineParameters",
-    [
-        # A real `Tensor` of shape batch_shape + [num_points] containing
-        # X-coordinates of the spline.
-        "x_data",
-        # A `Tensor` of the same shape and `dtype` as `x_data` containing
-        # Y-coordinates of the spline.
-        "y_data",
-        # A `Tensor` of the same shape and `dtype` as `x_data` containing
-        # spline interpolation coefficients
-        "spline_coeffs"
-    ])
+@tff_utils.dataclass
+class SplineParameters:
+  """Cubic spline parameters.
+
+  Attributes:
+    x_data: A real `Tensor` of shape batch_shape + [num_points] containing
+      X-coordinates of the spline.
+    y_data: A `Tensor` of the same shape and `dtype` as `x_data` containing
+      Y-coordinates of the spline.
+    spline_coeffs: A `Tensor` of the same shape and `dtype` as `x_data`
+      containing spline interpolation coefficients
+  """
+  x_data: types.RealTensor
+  y_data: types.RealTensor
+  spline_coeffs: types.RealTensor
 
 
-def build(x_data,
-          y_data,
-          boundary_condition_type=BoundaryConditionType.NATURAL,
-          left_boundary_value=None,
-          right_boundary_value=None,
-          validate_args=False,
-          dtype=None,
-          name=None):
+def build(x_data: types.RealTensor,
+          y_data: types.RealTensor,
+          boundary_condition_type: BoundaryConditionType = None,
+          left_boundary_value: types.RealTensor = None,
+          right_boundary_value: types.RealTensor = None,
+          validate_args: bool = False,
+          dtype: tf.DType = None,
+          name=None) -> SplineParameters:
   """Builds a SplineParameters interpolation object.
 
   Given a `Tensor` of state points `x_data` and corresponding values `y_data`
@@ -105,8 +117,8 @@ def build(x_data,
     y_data: A `Tensor` of the same shape and `dtype` as `x_data` containing
       Y-coordinates of points to fit the splines to.
     boundary_condition_type: Boundary condition type for current cubic
-      interpolation. Instance of BoundaryConditionType enum. Default is
-      BoundaryConditionType.NATURAL
+      interpolation. Instance of BoundaryConditionType enum.
+      Default value: `None` which maps to `BoundaryConditionType.NATURAL`.
     left_boundary_value: Set to non-empty value IFF boundary_condition_type is
       FIXED_FIRST_DERIVATIVE, in which case set to cubic spline's first
       derivative at `x_data[..., 0]`.
@@ -127,11 +139,13 @@ def build(x_data,
   Returns:
     An instance of `SplineParameters`.
   """
-  # Main body of build
-  with tf.compat.v1.name_scope(
-      name, default_name="cubic_spline_build", values=[x_data, y_data]):
-    x_data = tf.convert_to_tensor(x_data, dtype=dtype, name="x_data")
-    y_data = tf.convert_to_tensor(y_data, dtype=dtype, name="y_data")
+  if boundary_condition_type is None:
+    boundary_condition_type = BoundaryConditionType.NATURAL
+  if name is None:
+    name = 'cubic_spline_build'
+  with tf.name_scope(name):
+    x_data = tf.convert_to_tensor(x_data, dtype=dtype, name='x_data')
+    y_data = tf.convert_to_tensor(y_data, dtype=dtype, name='y_data')
     # Sanity check inputs
     if validate_args:
       assert_sanity_check = [_validate_arguments(x_data)]
@@ -142,9 +156,9 @@ def build(x_data,
     if boundary_condition_type == BoundaryConditionType.FIXED_FIRST_DERIVATIVE:
       if left_boundary_value is None or right_boundary_value is None:
         raise ValueError(
-            "Expected non-empty left_boundary_value/right_boundary_value when "
-            "boundary_condition_type is FIXED_FIRST_DERIVATIVE, actual "
-            "left_boundary_value {0}, actual right_boundary_value {1}".format(
+            'Expected non-empty left_boundary_value/right_boundary_value when '
+            'boundary_condition_type is FIXED_FIRST_DERIVATIVE, actual '
+            'left_boundary_value {0}, actual right_boundary_value {1}'.format(
                 left_boundary_value, right_boundary_value))
     with tf.compat.v1.control_dependencies(assert_sanity_check):
       spline_coeffs = _calculate_spline_coeffs(x_data, y_data,
@@ -156,11 +170,11 @@ def build(x_data,
         x_data=x_data, y_data=y_data, spline_coeffs=spline_coeffs)
 
 
-def interpolate(x_values,
-                spline_data,
-                optimize_for_tpu=False,
-                dtype=None,
-                name=None):
+def interpolate(x_values: types.RealTensor,
+                spline_data: SplineParameters,
+                optimize_for_tpu: bool = False,
+                dtype: tf.DType = None,
+                name: str = None) -> types.RealTensor:
   """Interpolates spline values for the given `x_values` and the `spline_data`.
 
   Constant extrapolation is performed for the values outside the domain
@@ -200,9 +214,9 @@ def interpolate(x_values,
       If `x_values` batch shape is different from `spline_data.x_data` batch
       shape.
   """
-  name = name or "cubic_spline_interpolate"
+  name = name or 'cubic_spline_interpolate'
   with tf.name_scope(name):
-    x_values = tf.convert_to_tensor(x_values, dtype=dtype, name="x_values")
+    x_values = tf.convert_to_tensor(x_values, dtype=dtype, name='x_values')
     dtype = x_values.dtype
     # Unpack the spline data
     x_data = spline_data.x_data
@@ -214,7 +228,7 @@ def interpolate(x_values,
     x_values, spline_coeffs = utils.broadcast_common_batch_shape(
         x_values, spline_coeffs)
     # Determine the splines to use.
-    indices = tf.searchsorted(x_data, x_values, side="right") - 1
+    indices = tf.searchsorted(x_data, x_values, side='right') - 1
     # This selects all elements for the start of the spline interval.
     # Make sure indices lie in the permissible range
     lower_encoding = tf.maximum(indices, 0)
@@ -269,7 +283,7 @@ def interpolate(x_values,
 
 def _calculate_spline_coeffs_natural(dx, superdiag, subdiag, diag_values, rhs,
                                      dtype):
-  """Calculates the coefficients for the spline interpolation if the boundary condition type is NATURAL."""
+  """Calculates spline coefficients for the NATURAL boundary condition."""
   # remove duplicate
   corr_term = tf.logical_or(tf.equal(superdiag, 0), tf.equal(subdiag, 0))
   diag_values_corr = tf.where(corr_term, tf.ones_like(diag_values), diag_values)
@@ -332,9 +346,9 @@ def _calculate_spline_coeffs_clamped_or_first_derivative(
   right_boundary_tensor = tf.zeros_like(dx[..., :1], dtype=dtype)
   if boundary_condition_type == BoundaryConditionType.FIXED_FIRST_DERIVATIVE:
     left_boundary_tensor = tf.convert_to_tensor(
-        left_boundary_value, dtype=dtype, name="left_boundary_value")
+        left_boundary_value, dtype=dtype, name='left_boundary_value')
     right_boundary_tensor = tf.convert_to_tensor(
-        right_boundary_value, dtype=dtype, name="right_boundary_value")
+        right_boundary_value, dtype=dtype, name='right_boundary_value')
   top_rhs = 3.0 * (dd[..., :1] - left_boundary_tensor[..., :1])
   rhs = tf.concat([top_rhs, rhs, zero], axis=-1)
   # For rhs, at the right boundary, fill the value as bottom_rhs.
@@ -522,4 +536,4 @@ def _validate_arguments(x_data):
   return tf.compat.v1.debugging.assert_greater_equal(
       diffs,
       tf.zeros_like(diffs),
-      message="x_data is not sorted in non-decreasing order.")
+      message='x_data is not sorted in non-decreasing order.')

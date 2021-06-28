@@ -15,12 +15,13 @@
 
 """Quasi Monte Carlo support: Halton sequence."""
 
-import collections
-
 import numpy as np
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
+from tf_quant_finance import utils
 from tf_quant_finance.math.random_ops import stateless
+
 
 __all__ = [
     'sample',
@@ -40,30 +41,31 @@ _MAX_INDEX_BY_DTYPE = {tf.float32: 2**24 - 1, np.float32: 2**24 - 1,
 _NUM_COEFFS_BY_DTYPE = {tf.float32: 24, np.float32: 24,
                         tf.float64: 54, np.float64: 54}
 
+
 # Parameters that can be reused with subsequent calls to halton.sample().
-HaltonParams = collections.namedtuple(
-    'HaltonParams',
-    [
-        'perms',  # Uniform iid sample from the space of permutations as
-        # returned by _get_permutations() below. A tensor of shape
-        # [_MAX_SIZES_BY_AXES[dtype], sum(_PRIMES)] and dtype
-        # tf.float32 or tf.float64.
-        'zero_correction',  # A scaled uniform random tensor of shape
-        # [dim] and  dtype tf.float32 or tf.float64. Used to
-        # appropriately adjust the randomization described
-        # in Owen (2017), see below for further details.
-    ])
+@utils.dataclass
+class HaltonParams:
+  """Halton randomization parameters."""
+  # Uniform iid sample from the space of permutations as
+  # returned by _get_permutations() below. A tensor of shape
+  # [_MAX_SIZES_BY_AXES[dtype], sum(_PRIMES)] and dtype
+  # tf.float32 or tf.float64.
+  perms: types.IntTensor
+  # A scaled uniform random tensor of shape [dim] and  dtype tf.float32 or
+  # tf.float64. Used to appropriately adjust the randomization described in Owen
+  # (2017), see below for further details.
+  zero_correction: types.RealTensor
 
 
-def sample(dim,
-           num_results=None,
-           sequence_indices=None,
-           randomized=True,
+def sample(dim: int,
+           num_results: types.IntTensor = None,
+           sequence_indices: types.IntTensor = None,
+           randomized: bool = True,
            randomization_params=None,
-           seed=None,
-           validate_args=False,
-           dtype=None,
-           name=None):
+           seed: types.IntTensor = None,
+           validate_args: bool = False,
+           dtype: tf.DType = None,
+           name: str = None) -> types.RealTensor:
   r"""Returns a sample from the `dim` dimensional Halton sequence.
 
   Warning: The sequence elements take values only between 0 and 1. Care must be
@@ -347,7 +349,7 @@ def _get_permutations(num_results, dims, seed):
   while the next three are a permutation over 3 elements.
 
   Args:
-    num_results: A positive scalar `Tensor` of integral type. The number of
+    num_results: A positive scalar `Tensor` of integer type. The number of
       draws from the discrete uniform distribution over the permutation groups.
     dims: A 1D `Tensor` of the same dtype as `num_results`. The degree of the
       permutation groups from which to sample.

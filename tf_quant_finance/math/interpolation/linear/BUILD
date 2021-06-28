@@ -18,6 +18,7 @@ py_library(
     srcs = ["linear_interpolation.py"],
     deps = [
         "//tf_quant_finance/math:piecewise",
+        "//tf_quant_finance/types",
         # tensorflow dep,
     ],
 )

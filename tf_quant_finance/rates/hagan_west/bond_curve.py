@@ -38,45 +38,55 @@ method described by Hagan and West in Ref [1, 2].
   Wilmott Magazine, pp. 70-81. May 2008.
 """
 
-import collections
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
+from tf_quant_finance import utils
 from tf_quant_finance.rates.analytics import cashflows
 from tf_quant_finance.rates.hagan_west import monotone_convex
 
-CurveBuilderResult = collections.namedtuple(
+
+__all__ = [
     'CurveBuilderResult',
-    [
-        # Rank 1 real `Tensor`. Times for the computed discount rates.
-        'times',
-        # Rank 1 `Tensor` of the same dtype as `times`.
-        # The inferred discount rates.
-        'discount_rates',
-        # Rank 1 `Tensor` of the same dtype as `times`.
-        # The inferred discount factors.
-        'discount_factors',
-        # Rank 1 `Tensor` of the same dtype as `times`. The
-        # initial guess for the discount rates.
-        'initial_discount_rates',
-        # Scalar boolean `Tensor`. Whether the procedure converged.
-        'converged',
-        # Scalar boolean `Tensor`. Whether the procedure failed.
-        'failed',
-        # Scalar int32 `Tensor`. Number of iterations performed.
-        'iterations'
-    ])
+    'bond_curve',
+]
 
 
-def bond_curve(bond_cashflows,
-               bond_cashflow_times,
-               present_values,
-               present_values_settlement_times=None,
-               initial_discount_rates=None,
-               discount_tolerance=1e-8,
-               maximum_iterations=50,
-               validate_args=False,
-               dtype=None,
-               name=None):
+@utils.dataclass
+class CurveBuilderResult:
+  """Bond curve calibration results.
+
+  Attributes:
+    times: Rank 1 real `Tensor`. Times for the computed discount rates.
+    discount_rates: Rank 1 `Tensor` of the same dtype as `times`. The inferred
+      discount rates.
+    discount_factors: Rank 1 `Tensor` of the same dtype as `times`. The inferred
+      discount factors.
+    initial_discount_rates: Rank 1 `Tensor` of the same dtype as `times`. The
+      initial guess for the discount rates.
+    converged: Scalar boolean `Tensor`. Whether the procedure converged.
+    failed: Scalar boolean `Tensor`. Whether the procedure failed.
+    iterations: Scalar int32 `Tensor`. Number of iterations performed.
+  """
+  times: types.RealTensor
+  discount_rates: types.RealTensor
+  discount_factors: types.RealTensor
+  initial_discount_rates: types.RealTensor
+  converged: types.BoolTensor
+  failed: types.BoolTensor
+  iterations: types.IntTensor
+
+
+def bond_curve(bond_cashflows: types.RealTensor,
+               bond_cashflow_times: types.RealTensor,
+               present_values: types.RealTensor,
+               present_values_settlement_times: types.RealTensor = None,
+               initial_discount_rates: types.RealTensor = None,
+               discount_tolerance: types.RealTensor = 1e-8,
+               maximum_iterations: types.IntTensor = 50,
+               validate_args: bool = False,
+               dtype: tf.DType = None,
+               name: str = None) -> CurveBuilderResult:
   """Constructs the bond discount rate curve using the Hagan-West algorithm.
 
 

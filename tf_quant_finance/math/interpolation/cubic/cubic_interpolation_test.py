@@ -281,7 +281,7 @@ class CubicInterpolationTest(tf.test.TestCase, parameterized.TestCase):
     with self.assertRaises(tf.errors.InvalidArgumentError, msg=msg):
       self.evaluate(
           tff.math.interpolation.cubic.build_spline(
-              x_data, y_data, validate_args=True)[2])
+              x_data, y_data, validate_args=True))
 
   @parameterized.named_parameters(
       ("default_interpolation", False),

@@ -15,10 +15,20 @@
 """Payoff functions."""
 
 import functools
+from typing import Callable
+
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
 
-def make_basket_put_payoff(strike_price, dtype=None, name=None):
+
+__all__ = ["make_basket_put_payoff"]
+
+
+def make_basket_put_payoff(
+    strike_price: types.RealTensor,
+    dtype: tf.DType = None,
+    name: str = None) -> Callable[[types.RealTensor], types.RealTensor]:
   """Produces a callable from samples to payoff of a simple basket put option.
 
   Args:

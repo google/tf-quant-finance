@@ -30,6 +30,8 @@ py_library(
     name = "conjugate_gradient",
     srcs = ["conjugate_gradient.py"],
     deps = [
+        "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
         # attr dep,
         # tensorflow dep,
         # tensorflow_probability dep,

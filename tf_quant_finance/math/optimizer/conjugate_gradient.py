@@ -26,73 +26,82 @@ References:
   https://github.com/JuliaNLSolvers/LineSearches.jl
 """
 
-
 import collections
 
-import attr
+from  typing import Callable, Tuple
+
 import tensorflow.compat.v2 as tf
 
 from tensorflow_probability.python.optimizer import converged_all
 from tensorflow_probability.python.optimizer import linesearch
+from tf_quant_finance import types
+from tf_quant_finance import utils as tff_utils
 
-OptimizerResult = collections.namedtuple(
+
+__all__ = [
     'OptimizerResult',
-    [
-        # Scalar boolean tensor indicating whether the minimum
-        # was found within tolerance.
-        'converged',
-        # Scalar boolean tensor indicating whether a line search
-        # step failed to find a suitable step size satisfying Wolfe
-        # conditions. In the absence of any constraints on the
-        # number of objective evaluations permitted, this value will
-        # be the complement of `converged`. However, if there is
-        # a constraint and the search stopped due to available
-        # evaluations being exhausted, both `failed` and `converged`
-        # will be simultaneously False.
-        'failed',
-        # The number of iterations.
-        'num_iterations',
-        # The total number of objective evaluations performed.
-        'num_objective_evaluations',
-        # A tensor containing the last argument value found during the search.
-        # If the search converged, then this value is the argmin of the
-        # objective function (within some tolerance).
-        'position',
-        # A tensor containing the value of the objective
-        # function at the `position`. If the search
-        # converged, then this is the (local) minimum of
-        # the objective function.
-        'objective_value',
-        # A tensor containing the gradient of the
-        # objective function at the
-        # `final_position`. If the search converged
-        # the max-norm of this tensor should be
-        # below the tolerance.
-        'objective_gradient',
-    ])
+    'ConjugateGradientParams',
+    'minimize',
+]
 
-# Internal state of optimizer.
-_OptimizerState = collections.namedtuple(
-    '_OptimizerState',
-    [
-        # Fields from OptimizerResult.
-        'converged',
-        'failed',
-        'num_iterations',
-        'num_objective_evaluations',
-        # Position (x_k in [HZ2006]).
-        'position',
-        # Objective (f_k in [HZ2006]).
-        'objective_value',
-        # Gradient (g_k in [HZ2006]).
-        'objective_gradient',
-        # Direction, along which to go at the next step (d_k in [HZ2006]).
-        'direction',
-        # Previous step length (a_{k-1} in [HZ2006]).
-        'prev_step',
-    ])
 
-# A namedtuple to hold information about point needed for linesearch method.
+@tff_utils.dataclass
+class OptimizerResult:
+  """Optimization results.
+
+  Attributes:
+    converged: A boolean `Tensor` indicating whether the minimum as found within
+      tolerance.
+    failed: A boolean `Tensor` indicating whether a line search step failed to
+      find a suitable step size satisfying Wolfe conditions. In the absence of
+      any constraints on the number of objective evaluations permitted, this
+      value will be the complement of `converged`. However, if there is a
+      constraint and the search stopped due to available evaluations being
+      exhausted, both `failed` and `converged` will be simultaneously False.
+    num_iterations: The number of iterations
+    num_objective_evaluations: The total number of objective evaluations
+      performed.
+    position: A real `Tensor` containing the last argument value found during
+      the search. If the search converged, then this value is the argmin of the
+      objective function (within some tolerance).
+    objective_value: A real `Tensor` containing the value of the objective
+      function at the `position`. If the search converged, then this is the
+      (local) minimum of the objective function.
+    objective_gradient: A real `Tensor` containing the gradient of the
+      objective function at the `final_position`. If the search converged the
+      max-norm of this tensor should be below the tolerance.
+  """
+  converged: types.BoolTensor
+  failed: types.BoolTensor
+  num_iterations: types.IntTensor
+  num_objective_evaluations: types.IntTensor
+  position: types.RealTensor
+  objective_value: types.RealTensor
+  objective_gradient: types.RealTensor
+
+
+@tff_utils.dataclass
+class _OptimizerState:
+  """Internal state of optimizer."""
+  # Fields from OptimizerResult.
+  converged: types.BoolTensor
+  failed: types.BoolTensor
+  num_iterations: types.IntTensor
+  num_objective_evaluations: types.IntTensor
+  # Position (x_k in [HZ2006]).
+  position: types.RealTensor
+  # Objective (f_k in [HZ2006]).
+  objective_value: types.RealTensor
+  # Gradient (g_k in [HZ2006]).
+  objective_gradient: types.RealTensor
+  # Direction, along which to go at the next step (d_k in [HZ2006]).
+  direction: types.RealTensor
+  # Previous step length (a_{k-1} in [HZ2006]).
+  prev_step: types.RealTensor
+
+
+# TODO(b/191755220): Use dataclass instead once Hager-Zhang `val_where` utility
+# works with dataclasses.
 ValueAndGradient = collections.namedtuple(
     'ValueAndGradient',
     [
@@ -107,63 +116,66 @@ ValueAndGradient = collections.namedtuple(
     ])
 
 
-@attr.s
+@tff_utils.dataclass
 class ConjugateGradientParams(object):
   """Adjustable parameters of conjugate gradient algorithm."""
   # Real number. Sufficient decrease parameter for Wolfe conditions.
   # Corresponds to `delta` in [HZ2006].
   # Range (0, 0.5). Defaults to 0.1.
-  sufficient_decrease_param = attr.ib(default=0.1)
+  sufficient_decrease_param: types.RealTensor = 0.1
   # Real number. Curvature parameter for Wolfe conditions.
   # Corresponds to 'sigma' in [HZ2006].
   # Range [`delta`, 1). Defaults to 0.9.
-  curvature_param = attr.ib(default=0.9)
+  curvature_param: types.RealTensor = 0.9
   # Real number. Used to estimate the threshold at which the line search
   # switches to approximate Wolfe conditions.
   # Corresponds to 'epsilon' in [HZ2006].
   # Range (0, inf). Defaults to 1e-6.
-  threshold_use_approximate_wolfe_condition = attr.ib(default=1e-6)
+  threshold_use_approximate_wolfe_condition: types.RealTensor = 1e-6
   # Real number. Shrinkage parameter for line search.
   # Corresponds to 'gamma' in [HZ2006].
   # Range (0, 1). Defaults to 0.66.
-  shrinkage_param = attr.ib(default=0.66)
+  shrinkage_param: types.RealTensor = 0.66
   # Real number. Parameter used in to calculate lower bound for coefficient
   # 'beta_k', used to calculate next direction.
   # Corresponds to 'eta' in [HZ2013].
   # Range (0, inf). Defaults to 0.4.
-  direction_update_param = attr.ib(default=0.4)
+  direction_update_param: types.RealTensor = 0.4
   # Real number. Used in line search to expand the initial interval in case it
   # does not bracket a minimum.
   # Corresponds to 'rho' in [HZ2006].
   # Range (1.0, inf). Defaults to 5.0.
-  expansion_param = attr.ib(default=5.0)
+  expansion_param: types.RealTensor = 5.0
   # Real scalar `Tensor`. Factor used in initial guess for line search to
   # multiply previous step to get right point for quadratic interpolation.
   # Corresponds to 'psi_1' in [HZ2006].
   # Range (0, 1). Defaults to 0.2.
-  initial_guess_small_factor = attr.ib(default=0.2)
+  initial_guess_small_factor: types.RealTensor = 0.2
   # Real number. Factor used in initial guess for line search to multiply
   # previous step if qudratic interpolation failed.
   # Corresponds to 'psi_2' in [HZ2006].
   # Range (1, inf). Defaults to 2.0.
-  initial_guess_step_multiplier = attr.ib(default=2.0)
+  initial_guess_step_multiplier: types.RealTensor = 2.0
   # Boolean. Whether to try quadratic interpolation when finding initial step
   # for line search.
   # Corresponds to 'QuadStep' in [HZ2006].
   # Defaults  to `True`.
-  quad_step = attr.ib(default=True)
+  quad_step: bool = True
 
 
-def minimize(value_and_gradients_function,
-             initial_position,
-             tolerance=1e-8,
-             x_tolerance=0,
-             f_relative_tolerance=0,
-             max_iterations=50,
-             parallel_iterations=1,
-             stopping_condition=None,
-             params=None,
-             name=None):
+def minimize(
+    value_and_gradients_function: Callable[
+        [types.RealTensor], Tuple[types.RealTensor, types.RealTensor]],
+    initial_position: types.RealTensor,
+    tolerance: types.RealTensor = 1e-8,
+    x_tolerance: types.RealTensor = 0,
+    f_relative_tolerance: types.RealTensor = 0,
+    max_iterations: types.IntTensor = 50,
+    parallel_iterations: types.IntTensor = 1,
+    stopping_condition: Callable[[types.BoolTensor, types.BoolTensor],
+                                 types.BoolTensor] = None,
+    params: ConjugateGradientParams = None,
+    name: str = None) -> OptimizerResult:
   """Minimizes a differentiable function.
 
   Implementation of algorithm described in [HZ2006]. Updated formula for next
@@ -441,23 +453,22 @@ def minimize(value_and_gradients_function,
         objective_value=final_state.objective_value,
         objective_gradient=final_state.objective_gradient)
 
-# A namedtuple with result of guessing initial step.
-_StepGuessResult = collections.namedtuple(
-    '_StepGuessResult',
-    [
-        # ValueAndGradient describing the initial guess.
-        'step',
-        # Whether initial guess is "good enogh" to use. Used internally by
-        # _init_step, must have all components `True` when returned.
-        'can_take',
-        # If true, means that before performing line search we have to check
-        # whether Wolfe conditions are already satisfied, and in that case don't
-        # perform line search.
-        # Set to true if step was obtained by quandratic interpolation.
-        'may_terminate',
-        # Number of function calls made to determine initial step.
-        'func_evals',
-    ])
+
+@tff_utils.dataclass
+class _StepGuessResult:
+  """A namedtuple with result of guessing initial step."""
+  # ValueAndGradient describing the initial guess.
+  step: types.RealTensor
+  # Whether initial guess is "good enogh" to use. Used internally by
+  # _init_step, must have all components `True` when returned.
+  can_take: types.BoolTensor
+  # If true, means that before performing line search we have to check
+  # whether Wolfe conditions are already satisfied, and in that case don't
+  # perform line search.
+  # Set to true if step was obtained by quandratic interpolation.
+  may_terminate: types.BoolTensor
+  # Number of function calls made to determine initial step.
+  func_evals: types.IntTensor
 
 
 def _init_step(pos, prev_step, func, psi_1, psi_2, quad_step):

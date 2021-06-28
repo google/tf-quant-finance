@@ -17,6 +17,7 @@
 
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
 from tf_quant_finance.math.interpolation import cubic
 from tf_quant_finance.math.interpolation import linear
 
@@ -64,11 +65,11 @@ class Interpolation2D:
   """
 
   def __init__(self,
-               x_data,
-               y_data,
-               z_data,
-               dtype=None,
-               name=None):
+               x_data: types.RealTensor,
+               y_data: types.RealTensor,
+               z_data: types.RealTensor,
+               dtype: tf.DType = None,
+               name: str = None):
     """Initialize the 2d-interpolation object.
 
     Args:
@@ -106,9 +107,9 @@ class Interpolation2D:
           self._ydata, self._zdata, name="spline_y_direction")
 
   def interpolate(self,
-                  x_values,
-                  y_values,
-                  name=None):
+                  x_values: types.RealTensor,
+                  y_values: types.RealTensor,
+                  name: str = None):
     """Performs 2-D interpolation on a specified set of points.
 
     Args:

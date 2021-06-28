@@ -19,6 +19,7 @@ py_library(
     data = ["//third_party/sobol_data:new-joe-kuo-6.21201"],
     srcs_version = "PY3",
     deps = [
+        "//tf_quant_finance/types",
         # numpy dep,
         # six dep,
         # tensorflow dep,

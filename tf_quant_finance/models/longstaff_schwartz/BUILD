@@ -19,6 +19,8 @@ py_library(
     srcs = ["lsm.py"],
     srcs_version = "PY3",
     deps = [
+        "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
         # tensorflow dep,
     ],
 )
@@ -45,6 +47,7 @@ py_library(
     srcs = ["payoff_utils.py"],
     srcs_version = "PY3",
     deps = [
+        "//tf_quant_finance/types",
         # tensorflow dep,
     ],
 )

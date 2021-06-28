@@ -20,6 +20,8 @@ py_library(
     srcs = ["brent.py"],
     srcs_version = "PY3",
     deps = [
+        "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
         # numpy dep,
         # tensorflow dep,
     ],

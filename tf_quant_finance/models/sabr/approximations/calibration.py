@@ -13,10 +13,13 @@
 # limitations under the License.
 """Calibrates the approximated SABR model parameters using option prices."""
 
-from dataclasses import dataclass
+from typing import Callable
+
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import black_scholes
+from tf_quant_finance import types
+from tf_quant_finance import utils
 from tf_quant_finance.black_scholes.implied_vol_utils import UnderlyingDistribution
 from tf_quant_finance.math import make_val_and_grad_fn
 from tf_quant_finance.math import optimizer
@@ -25,7 +28,13 @@ from tf_quant_finance.models.sabr.approximations.implied_volatility import SabrA
 from tf_quant_finance.models.sabr.approximations.implied_volatility import SabrImpliedVolatilityType
 
 
-@dataclass
+__all__ = [
+    'CalibrationResult',
+    'calibration',
+]
+
+
+@utils.dataclass
 class CalibrationResult:
   """Collection of calibrated SABR parameters.
 
@@ -39,40 +48,41 @@ class CalibrationResult:
     rho: Rank-1 `Tensor`, specifying the correlations between the forward and
       the stochastic volatility.
   """
-  alpha: tf.Tensor
-  beta: tf.Tensor
-  volvol: tf.Tensor
-  rho: tf.Tensor
+  alpha: types.RealTensor
+  beta: types.RealTensor
+  volvol: types.RealTensor
+  rho: types.RealTensor
 
 
-def calibration(*,
-                prices,
-                strikes,
-                expiries,
-                forwards,
-                is_call_options,
-                beta,
-                nu,
-                rho,
-                volatility_type=SabrImpliedVolatilityType.LOGNORMAL,
-                approximation_type=SabrApproximationType.HAGAN,
-                volatility_based_calibration=True,
-                alpha=None,
-                alpha_lower_bound=None,
-                alpha_upper_bound=None,
-                calibrate_beta=False,
-                beta_lower_bound=0.0,
-                beta_upper_bound=1.0,
-                nu_lower_bound=0.0,
-                nu_upper_bound=1.0,
-                rho_lower_bound=-1.0,
-                rho_upper_bound=1.0,
-                optimizer_fn=None,
-                tolerance=1e-6,
-                maximum_iterations=100,
-                validate_args=False,
-                dtype=None,
-                name=None):
+def calibration(
+    *,
+    prices: types.RealTensor,
+    strikes: types.RealTensor,
+    expiries: types.RealTensor,
+    forwards: types.RealTensor,
+    is_call_options: types.BoolTensor,
+    beta: types.RealTensor,
+    nu: types.RealTensor,
+    rho: types.RealTensor,
+    volatility_type: SabrImpliedVolatilityType = None,
+    approximation_type: SabrApproximationType = None,
+    volatility_based_calibration: bool = True,
+    alpha: types.RealTensor = None,
+    alpha_lower_bound: types.RealTensor = None,
+    alpha_upper_bound: types.RealTensor = None,
+    calibrate_beta: bool = False,
+    beta_lower_bound: types.RealTensor = 0.0,
+    beta_upper_bound: types.RealTensor = 1.0,
+    nu_lower_bound: types.RealTensor = 0.0,
+    nu_upper_bound: types.RealTensor = 1.0,
+    rho_lower_bound: types.RealTensor = -1.0,
+    rho_upper_bound: types.RealTensor = 1.0,
+    optimizer_fn: Callable[..., types.RealTensor] = None,
+    tolerance: types.RealTensor = 1e-6,
+    maximum_iterations: types.RealTensor = 100,
+    validate_args: bool = False,
+    dtype: tf.DType = None,
+    name: str = None) -> CalibrationResult:
   """Calibrates the SABR model using European option prices.
 
   The SABR model specifies the risk neutral dynamics of the underlying as the
@@ -161,9 +171,9 @@ def calibration(*,
       the correlation between the forward price and the volatility. Values must
       satisfy -1 < `rho` < 1.
     volatility_type: Either SabrImpliedVolatility.NORMAL or LOGNORMAL.
-      Default value: `LOGNORMAL`
+      Default value: `None` which maps to `LOGNORMAL`
     approximation_type: Instance of `SabrApproxmationScheme`.
-      Default value: `HAGAN`.
+      Default value: `None` which maps to `HAGAN`.
     volatility_based_calibration: Boolean. If `True`, then the options prices
       are first converted to implied volatilities, and the calibration is then
       performed by minimizing the difference between input implied volatilities
@@ -255,6 +265,10 @@ def calibration(*,
     based on the specified convergance criteria) and the number of iterations
     performed.
   """
+  if approximation_type is None:
+    approximation_type = SabrApproximationType.HAGAN
+  if volatility_type is None:
+    volatility_type = SabrImpliedVolatilityType.LOGNORMAL
   name = name or 'sabr_calibration'
   with tf.name_scope(name):
     prices = tf.convert_to_tensor(prices, dtype=dtype, name='prices')
@@ -471,40 +485,44 @@ def _get_loss_for_price_based_calibration(*, prices, strikes, expiries,
   return loss_function
 
 
-@dataclass
-class _OptimizerArgHandler(object):
+@utils.dataclass
+class _OptimizerArgHandler:
   """Handles the packing/transformation of estimated parameters."""
   batch_size: int
-  alpha_lower_bound: tf.Tensor
-  alpha_upper_bound: tf.Tensor
-  nu_lower_bound: tf.Tensor
-  nu_upper_bound: tf.Tensor
-  rho_lower_bound: tf.Tensor
-  rho_upper_bound: tf.Tensor
+  alpha_lower_bound: types.RealTensor
+  alpha_upper_bound: types.RealTensor
+  nu_lower_bound: types.RealTensor
+  nu_upper_bound: types.RealTensor
+  rho_lower_bound: types.RealTensor
+  rho_upper_bound: types.RealTensor
   calibrate_beta: bool
-  beta: tf.Tensor
-  beta_lower_bound: tf.Tensor
-  beta_upper_bound: tf.Tensor
+  beta: types.RealTensor
+  beta_lower_bound: types.RealTensor
+  beta_upper_bound: types.RealTensor
 
-  def get_alpha(self, packed_optimizer_args):
+  def get_alpha(self,
+                packed_optimizer_args: types.RealTensor) -> types.RealTensor:
     """Unpack and return the alpha parameter."""
     return _to_constrained(
         packed_optimizer_args[0 * self.batch_size:1 * self.batch_size],
         self.alpha_lower_bound, self.alpha_upper_bound)
 
-  def get_nu(self, packed_optimizer_args):
+  def get_nu(self,
+             packed_optimizer_args: types.RealTensor) -> types.RealTensor:
     """Unpack and return the volvol parameter."""
     return _to_constrained(
         packed_optimizer_args[1 * self.batch_size:2 * self.batch_size],
         self.nu_lower_bound, self.nu_upper_bound)
 
-  def get_rho(self, packed_optimizer_args):
+  def get_rho(self,
+              packed_optimizer_args: types.RealTensor) -> types.RealTensor:
     """Unpack and return the rho parameter."""
     return _to_constrained(
         packed_optimizer_args[2 * self.batch_size:3 * self.batch_size],
         self.rho_lower_bound, self.rho_upper_bound)
 
-  def get_beta(self, packed_optimizer_args):
+  def get_beta(self,
+               packed_optimizer_args: types.RealTensor) -> types.RealTensor:
     """Unpack and return the beta parameter."""
     if self.calibrate_beta:
       return _to_constrained(

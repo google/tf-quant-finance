@@ -54,7 +54,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
 
     beta = np.array([0.5, 0.5], dtype=dtype)
 
-    models, is_converged, _ = tff.models.sabr.approximations.calibration(
+    models, is_converged, _ = tff.models.sabr.calibration(
         prices=observed_prices,
         strikes=strikes,
         expiries=expiries,
@@ -99,7 +99,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
 
     beta = np.array([0.5, 0.5], dtype=dtype)
 
-    models, is_converged, _ = tff.models.sabr.approximations.calibration(
+    models, is_converged, _ = tff.models.sabr.calibration(
         prices=observed_prices,
         strikes=strikes,
         expiries=expiries,
@@ -145,7 +145,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
 
     # Fails because `nu` is of incorrect shape.
     with self.assertRaises(tf.errors.InvalidArgumentError):
-      _, is_converged, _ = tff.models.sabr.approximations.calibration(
+      _, is_converged, _ = tff.models.sabr.calibration(
           prices=observed_prices,
           strikes=strikes,
           expiries=expiries,
@@ -164,7 +164,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
 
     # Fails because `rho` exceeds its expected bounds.
     with self.assertRaises(tf.errors.InvalidArgumentError):
-      _, is_converged, _ = tff.models.sabr.approximations.calibration(
+      _, is_converged, _ = tff.models.sabr.calibration(
           prices=observed_prices,
           strikes=strikes,
           expiries=expiries,
@@ -182,7 +182,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
       self.evaluate(is_converged)
 
     # Arguments are okay.
-    _, is_converged, _ = tff.models.sabr.approximations.calibration(
+    _, is_converged, _ = tff.models.sabr.calibration(
         prices=observed_prices,
         strikes=strikes,
         expiries=expiries,
@@ -525,7 +525,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
     # Calibrate the models.
     initial_beta = np.array([0.5, 0.5],
                             dtype=dtype) if calibrate_beta else true_beta
-    models, _, _ = tff.models.sabr.approximations.calibration(
+    models, _, _ = tff.models.sabr.calibration(
         prices=observed_prices,
         strikes=strikes,
         expiries=expiries,

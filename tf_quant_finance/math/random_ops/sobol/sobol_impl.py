@@ -19,7 +19,6 @@ A TensorFlow implementation of Sobol sequences, a type of quasi-random
 low-discrepancy sequence: https://en.wikipedia.org/wiki/Sobol_sequence.
 """
 
-
 import logging
 import os
 
@@ -27,15 +26,23 @@ import numpy as np
 from six.moves import range
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
+
+
+__all__ = [
+    'sample'
+]
+
+
 _LN_2 = np.log(2.)
 
 
-def sample(dim,
-           num_results,
-           skip=0,
-           validate_args=False,
-           dtype=None,
-           name=None):
+def sample(dim: int,
+           num_results: types.IntTensor,
+           skip: types.IntTensor = 0,
+           validate_args: bool = False,
+           dtype: tf.DType = None,
+           name=None) -> types.RealTensor:
   """Returns num_results samples from the Sobol sequence of dimension dim.
 
   Uses the original ordering of points, not the more commonly used Gray code

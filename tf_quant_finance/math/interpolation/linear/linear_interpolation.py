@@ -16,18 +16,25 @@
 """Linear interpolation method."""
 
 import tensorflow.compat.v2 as tf
+
+from tf_quant_finance import types
 from tf_quant_finance.math.interpolation import utils
 
 
-def interpolate(x,
-                x_data,
-                y_data,
-                left_slope=None,
-                right_slope=None,
-                validate_args=False,
-                optimize_for_tpu=False,
-                dtype=None,
-                name=None):
+__all__ = [
+    'interpolate',
+]
+
+
+def interpolate(x: types.RealTensor,
+                x_data: types.RealTensor,
+                y_data: types.RealTensor,
+                left_slope: types.RealTensor = None,
+                right_slope: types.RealTensor = None,
+                validate_args: bool = False,
+                optimize_for_tpu: bool = False,
+                dtype: tf.DType = None,
+                name: str = None):
   """Performs linear interpolation for supplied points.
 
   Given a set of knots whose x- and y- coordinates are in `x_data` and `y_data`,
@@ -86,12 +93,12 @@ def interpolate(x,
   Returns:
     A N-D `Tensor` of real dtype corresponding to the x-values in `x`.
   """
-  name = name or "linear_interpolation"
+  name = name or 'linear_interpolation'
   with tf.name_scope(name):
-    x = tf.convert_to_tensor(x, dtype=dtype, name="x")
+    x = tf.convert_to_tensor(x, dtype=dtype, name='x')
     dtype = dtype or x.dtype
-    x_data = tf.convert_to_tensor(x_data, dtype=dtype, name="x_data")
-    y_data = tf.convert_to_tensor(y_data, dtype=dtype, name="y_data")
+    x_data = tf.convert_to_tensor(x_data, dtype=dtype, name='x_data')
+    y_data = tf.convert_to_tensor(y_data, dtype=dtype, name='y_data')
     # Try broadcast batch_shapes
     x, x_data = utils.broadcast_common_batch_shape(x, x_data)
     x, y_data = utils.broadcast_common_batch_shape(x, y_data)
@@ -104,15 +111,15 @@ def interpolate(x,
       y_data = tf.expand_dims(y_data, 0)
 
     if left_slope is None:
-      left_slope = tf.constant(0.0, dtype=x.dtype, name="left_slope")
+      left_slope = tf.constant(0.0, dtype=x.dtype, name='left_slope')
     else:
       left_slope = tf.convert_to_tensor(left_slope, dtype=dtype,
-                                        name="left_slope")
+                                        name='left_slope')
     if right_slope is None:
-      right_slope = tf.constant(0.0, dtype=x.dtype, name="right_slope")
+      right_slope = tf.constant(0.0, dtype=x.dtype, name='right_slope')
     else:
       right_slope = tf.convert_to_tensor(right_slope, dtype=dtype,
-                                         name="right_slope")
+                                         name='right_slope')
     control_deps = []
     if validate_args:
       # Check that `x_data` elements is non-decreasing
@@ -120,7 +127,7 @@ def interpolate(x,
       assertion = tf.compat.v1.debugging.assert_greater_equal(
           diffs,
           tf.zeros_like(diffs),
-          message="x_data is not sorted in non-decreasing order.")
+          message='x_data is not sorted in non-decreasing order.')
       control_deps.append(assertion)
       # Check that the shapes of `x_data` and `y_data` are equal
       control_deps.append(
@@ -128,7 +135,7 @@ def interpolate(x,
 
     with tf.control_dependencies(control_deps):
       # Get upper bound indices for `x`.
-      upper_indices = tf.searchsorted(x_data, x, side="left", out_type=tf.int32)
+      upper_indices = tf.searchsorted(x_data, x, side='left', out_type=tf.int32)
       x_data_size = x_data.shape.as_list()[-1]
       at_min = tf.equal(upper_indices, 0)
       at_max = tf.equal(upper_indices, x_data_size)

@@ -28,6 +28,8 @@ py_library(
         "//tf_quant_finance/math:gradient",
         "//tf_quant_finance/math/interpolation/linear:linear_interpolation",
         "//tf_quant_finance/math/optimizer:conjugate_gradient",
+        "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
         # attr dep,
         # tensorflow dep,
     ],
@@ -40,6 +42,8 @@ py_library(
     deps = [
         ":swap_curve_fit",
         "//tf_quant_finance/math/interpolation/linear:linear_interpolation",
+        "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
         # attr dep,
         # numpy dep,
         # tensorflow dep,
@@ -50,7 +54,10 @@ py_library(
     name = "swap_curve_common",
     srcs = ["swap_curve_common.py"],
     srcs_version = "PY3",
-    deps = [],
+    deps = [
+        "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
+    ],
 )
 
 py_test(

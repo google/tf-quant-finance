@@ -54,17 +54,18 @@ curves at the same time).
 
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
 from tf_quant_finance.math import piecewise
 from tf_quant_finance.math.diff_ops import diff
 from tf_quant_finance.rates.analytics import forwards
 
 
-def interpolate(times,
-                interval_values,
-                interval_times,
-                validate_args=False,
-                dtype=None,
-                name=None):
+def interpolate(times: types.RealTensor,
+                interval_values: types.RealTensor,
+                interval_times: types.RealTensor,
+                validate_args: bool = False,
+                dtype: tf.DType = None,
+                name: str = None):
   """Performs the monotone convex interpolation.
 
   The monotone convex method is a scheme devised by Hagan and West (Ref [1]). It
@@ -165,10 +166,9 @@ def interpolate(times,
         computed from the largest interval time that is smaller than the time
         up to the given time.
   """
-  with tf.compat.v1.name_scope(
-      name,
-      default_name='interpolate',
-      values=[times, interval_times, interval_values]):
+  if name is None:
+    name = 'interpolate'
+  with tf.name_scope(name):
     times = tf.convert_to_tensor(times, dtype=dtype, name='times')
     interval_times = tf.convert_to_tensor(
         interval_times, dtype=dtype, name='interval_times')
