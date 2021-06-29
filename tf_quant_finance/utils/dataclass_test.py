@@ -14,6 +14,7 @@
 # limitations under the License.
 """Tests for the Coord decorator."""
 
+from typing import Tuple
 import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
@@ -31,9 +32,9 @@ class DataclassTest(tf.test.TestCase):
 
     @tf.function
     def fn(start_coords: Coords) -> Coords:
-      def cond(it, _):
+      def cond(it, _) -> bool:
         return it < 10
-      def body(it, coords):
+      def body(it, coords) -> Tuple(int, Coords):
         return it + 1, Coords(x=coords.x + 1, y=coords.y + 2)
       return tf.while_loop(cond, body, loop_vars=(0, start_coords))[1]
 
@@ -47,7 +48,7 @@ class DataclassTest(tf.test.TestCase):
     with self.subTest('SecondValue'):
       self.assertEqual(end_coords_eval.y, 20)
 
-  def test_docstring_preservation(self):
+  def test_docstring_preservation(self) -> None:
     @tff.utils.dataclass
     class Coords:
       """A coordinate grid."""

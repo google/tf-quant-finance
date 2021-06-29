@@ -19,7 +19,6 @@ import dataclasses
 import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
 @dataclasses.dataclass
@@ -33,7 +32,7 @@ class TfFunctionsTest(tf.test.TestCase):
   def _assert_keys_values(self,
                           iterator,
                           expected_keys=None,
-                          expected_values=None):
+                          expected_values=None) -> None:
     key_lists, values = zip(*list(iterator))
     keys = ['_'.join(k) for k in key_lists]
     if expected_keys is not None and expected_values is not None:
@@ -49,33 +48,33 @@ class TfFunctionsTest(tf.test.TestCase):
     if expected_values is not None:
       self.assertSameElements(values, expected_values)
 
-  def test_non_nested(self):
+  def test_non_nested(self) -> None:
     d = {'a': 1, 'b': 2}
     iterator = tff.utils.iterate_nested(d)
     self._assert_keys_values(
         iterator, expected_keys=['a', 'b'], expected_values=[1, 2])
 
-  def test_empty(self):
+  def test_empty(self) -> None:
     items = []
     for item in tff.utils.iterate_nested({}):
       items.append(item)
     self.assertEmpty(items)
 
-  def test_array_values(self):
+  def test_array_values(self) -> None:
     d = {'a': [1, 2, 3], 'b': {'c': [4, 5]}}
     self._assert_keys_values(
         tff.utils.iterate_nested(d),
         expected_keys=['a', 'b_c'],
         expected_values=[[1, 2, 3], [4, 5]])
 
-  def test_nested(self):
+  def test_nested(self) -> None:
     nested_dict = {'a': 1, 'b': [2, 3, 4], 'c': {'d': 8}}
     self._assert_keys_values(
         tff.utils.iterate_nested(nested_dict),
         expected_keys=['a', 'b', 'c_d'],
         expected_values=[1, [2, 3, 4], 8])
 
-  def test_dataclass(self):
+  def test_dataclass(self) -> None:
     d = {
         'a': {
             'b': {
