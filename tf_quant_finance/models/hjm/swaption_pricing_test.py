@@ -171,8 +171,22 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     self.assertAllClose(
         price, [[0.5593057004094042]], rtol=error_tol, atol=error_tol)
 
-  def test_1d_batch_1d(self):
-    """Tests 1-d batch."""
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'ModelHasNoBatch',
+          'model_batch_rank': 0,
+          'leading_dim_match': None,
+      }, {
+          'testcase_name': 'ModelHas1D_Batch_LeadDimBroadcastable',
+          'model_batch_rank': 1,
+          'leading_dim_match': False,
+      }, {
+          'testcase_name': 'ModelHas1D_Batch_LeadDimMatch',
+          'model_batch_rank': 1,
+          'leading_dim_match': True,
+      })
+  def test_1d_batch_1d(self, model_batch_rank, leading_dim_match):
+    """Tests 1-d batch of swaptions with 1-factor models."""
     dtype = tf.float64
     error_tol = 1e-2
 
@@ -180,13 +194,28 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
     expiries = np.array([1.0, 1.0])
     fixed_leg_payment_times = np.array([[1.25, 1.5, 1.75, 2.0],
                                         [1.25, 1.5, 1.75, 2.0]])
-    fixed_leg_daycount_fractions = 0.25 * np.ones_like(fixed_leg_payment_times)
-    fixed_leg_coupon = 0.011 * np.ones_like(fixed_leg_payment_times)
-    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
     mean_reversion = [0.03]
     volatility = [0.02]
+    if model_batch_rank == 1:
+      expiries = np.expand_dims(expiries, axis=0)
+      fixed_leg_payment_times = np.expand_dims(fixed_leg_payment_times, axis=0)
+      if leading_dim_match:
+        expiries = np.repeat(expiries, 4, axis=0)
+        fixed_leg_payment_times = np.repeat(fixed_leg_payment_times, 4, axis=0)
+      def zero_rate_fn(t):  # pylint-disable=function-redefined
+        ones = tf.expand_dims(tf.ones_like(t), axis=0)
+        return tf.transpose(tf.transpose(ones) * 0.01 * tf.ones(
+            (4), dtype=t.dtype))
+      mean_reversion = [[0.03], [0.03], [0.03], [0.03]]
+      volatility = [[0.02], [0.02], [0.02], [0.02]]
+      output_shape = [4, 2, 1]
+    else:
+      zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+      output_shape = [2, 1]
 
-    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
+    fixed_leg_daycount_fractions = 0.25 * np.ones_like(fixed_leg_payment_times)
+    fixed_leg_coupon = 0.011 * np.ones_like(fixed_leg_payment_times)
+
     price = tff.models.hjm.swaption_price(
         expiries=expiries,
         fixed_leg_payment_times=fixed_leg_payment_times,
@@ -204,10 +233,10 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         dtype=dtype)
 
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [2, 1])
+    self.assertAllEqual(price.shape, output_shape)
     price = self.evaluate(price)
     self.assertAllClose(
-        price, [[0.7163243383624043], [0.7163243383624043]],
+        price, 0.7163243383624043 * np.ones(output_shape),
         rtol=error_tol,
         atol=error_tol)
 

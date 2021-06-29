@@ -64,8 +64,8 @@ def price(*,
   the expiry of the swaption. Mid-curve swaptions are currently not supported
   (b/160061740).
 
-  This implementation uses the HJM model to numerically value the swaption via
-  Monte-Carlo. For more information on the formulation of the HJM model, see
+  This implementation uses the HJM model to numerically value European
+  swaptions. For more information on the formulation of the HJM model, see
   quasi_gaussian_hjm.py.
 
   #### Example
@@ -112,8 +112,14 @@ def price(*,
 
   Args:
     expiries: A real `Tensor` of any shape and dtype. The time to expiration of
-      the swaptions. The shape of this input determines the number (and shape)
-      of swaptions to be priced and the shape of the output.
+      the swaptions. The shape of this input along with the batch shape of the
+      HJM model determines the number (and shape) of swaptions to be priced and
+      the shape of the output. If the batch shape of HJM models is
+      `model_batch_shape`, then the leading dimensions of `expiries` must be
+      broadcastable to `model_batch_shape`. For example, if the rank of
+      `model_batch_shape` is `n` and the rank of `expiries.shape` is `m`, then
+      `m>=n` and the leading `n` dimensions of `expiries.shape` must be
+      broadcastable to `model_batch_shape`.
     fixed_leg_payment_times: A real `Tensor` of the same dtype as `expiries`.
       The payment times for each payment in the fixed leg. The shape of this
       input should be `expiries.shape + [n]` where `n` denotes the number of
@@ -126,24 +132,25 @@ def price(*,
       `fixed_leg_payment_times`. The fixed rate for each payment in the fixed
       leg.
     reference_rate_fn: A Python callable that accepts expiry time as a real
-      `Tensor` and returns a `Tensor` of shape `input_shape`. Returns the
-      continuously compounded zero rate at the
-      present time for the input expiry time.
+      `Tensor` and returns a `Tensor` of shape
+      `model_batch_shape + input_shape`. Returns the continuously compounded
+      zero rate at the present time for the input expiry time.
     num_hjm_factors: A Python scalar which corresponds to the number of factors
-      in the HJM model to be used for pricing.
-    mean_reversion: A real positive `Tensor` of shape `[num_hjm_factors]`.
-      Corresponds to the mean reversion rate of each factor.
+      in the batch of HJM models to be used for pricing.
+    mean_reversion: A real positive `Tensor` of shape
+      `model_batch_shape + [num_hjm_factors]`.
+      Corresponds to the mean reversion rate of each factor in the batch.
     volatility: A real positive `Tensor` of the same `dtype` and shape as
-      `mean_reversion` or a callable with the following properties: (a)  The
-        callable should accept a scalar `Tensor` `t` and a 1-D `Tensor` `r(t)`
-        of shape `[num_samples]` and returns a 2-D `Tensor` of shape
-        `[num_samples, num_hjm_factors]`. The variable `t`  stands for time and
-        `r(t)` is the short rate at time `t`.  The function returns the
-        instantaneous volatility `sigma(t) = sigma(t, r(t))`. When `volatility`
-        is specified as a real `Tensor`, each factor is assumed to have a
-        constant instantaneous volatility  and the  model is effectively a
-        Gaussian HJM model. Corresponds to the instantaneous volatility of each
-        factor.
+        `mean_reversion` or a callable with the following properties:
+        (a)  The callable should accept a scalar `Tensor` `t` and a `Tensor`
+        `r(t)` of shape `batch_shape + [num_samples]` and returns a `Tensor` of
+        shape compatible with `batch_shape + [num_samples, dim]`. The variable
+        `t`  stands for time and `r(t)` is the short rate at time `t`. The
+        function returns instantaneous volatility `sigma(t) = sigma(t, r(t))`.
+        When `volatility` is specified as a real `Tensor`, each factor is
+        assumed to have a constant instantaneous volatility  and the  model is
+        effectively a Gaussian HJM model.
+        Corresponds to the instantaneous volatility of each factor.
     times: An optional rank 1 `Tensor` of increasing positive real values. The
       times at which Monte Carlo simulations are performed. Relevant when
       swaption valuation is done using Monte Calro simulations.
@@ -228,10 +235,15 @@ def price(*,
       Default value: `None` which maps to the default name `hjm_swaption_price`.
 
   Returns:
-    A `Tensor` of real dtype and shape expiries.shape + [1]
-    containing the computed swaption prices. For swaptions that have reset in
-    the past (expiries<0), the function sets the corresponding option prices to
-    0.0.
+    A `Tensor` of real dtype and shape derived from `model_batch_shape` and
+    expiries.shape containing the computed swaption prices. The shape of the
+    output is as follows:
+      * If the `model_batch_shape` is [], then the shape of the output is
+        expiries.shape + [1]
+      * Otherwise, the shape of the output is
+        `model_batch_shape + expiries.shape[model_batch_shape.rank:] + [1]`
+    For swaptions that have reset in the past (expiries<0), the function sets
+    the corresponding option prices to 0.0.
   """
 
   # TODO(b/160061740): Extend the functionality to support mid-curve swaptions.
@@ -255,7 +267,6 @@ def price(*,
     is_payer_swaption = tf.convert_to_tensor(
         is_payer_swaption, dtype=tf.bool, name='is_payer_swaption')
 
-    output_shape = expiries.shape.as_list() + [1]
     # Add a dimension corresponding to multiple cashflows in a swap
     if expiries.shape.rank == fixed_leg_payment_times.shape.rank - 1:
       expiries = tf.expand_dims(expiries, axis=-1)
@@ -284,9 +295,13 @@ def price(*,
           corr_matrix=corr_matrix,
           dtype=dtype)
 
-      batch_shape = expiries.shape.as_list()[:-1] or [1]
+      # TODO(b/192294347): Enable pricing using batch of HJM models.
+      if reference_rate_fn(tf.constant([0.0], dtype=dtype)).shape.rank > 1:
+        raise ValueError('Pricing swaptions using a batch of HJM models with '
+                         'finite differences is not currently supported.')
+      instrument_batch_shape = expiries.shape.as_list()[:-1] or [1]
       return _bermudan_swaption_fd(
-          batch_shape,
+          instrument_batch_shape,
           model,
           # Add a dimension to denote ONE exercise date
           tf.expand_dims(expiries, axis=-2),
@@ -311,7 +326,7 @@ def price(*,
           dtype=dtype)
 
       return _european_swaption_mc(
-          output_shape, model, expiries, fixed_leg_payment_times,
+          model, expiries, fixed_leg_payment_times,
           fixed_leg_daycount_fractions, fixed_leg_coupon, notional,
           is_payer_swaption, times, time_step, num_time_steps, curve_times,
           num_samples, random_type, skip, seed, dtype, name + '_mc')
@@ -320,7 +335,7 @@ def price(*,
           str(valuation_method)))
 
 
-def _european_swaption_mc(output_shape, model, expiries,
+def _european_swaption_mc(model, expiries,
                           fixed_leg_payment_times, fixed_leg_daycount_fractions,
                           fixed_leg_coupon, notional, is_payer_swaption, times,
                           time_step, num_time_steps, curve_times, num_samples,
@@ -372,8 +387,8 @@ def _european_swaption_mc(output_shape, model, expiries,
         float_leg_pv - fixed_leg_pv)
     payoff_swap = tf.where(is_payer_swaption, payoff_swap, -1.0 * payoff_swap)
     payoff_swaption = tf.math.maximum(payoff_swap, 0.0)
-    option_value = tf.reshape(
-        tf.math.reduce_mean(payoff_swaption, axis=0), output_shape)
+    # Average over all simulation paths
+    option_value = tf.math.reduce_mean(payoff_swaption, axis=0)
 
     return notional * option_value
 
@@ -394,6 +409,7 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
         maximums=[x_max] * dim,
         sizes=[num_grid_points_fd] * dim,
         dtype=dtype)
+
     # TODO(b/186876306): Remove dynamic shapes.
     pde_time_grid, pde_time_grid_dt = _create_pde_time_grid(
         exercise_times, time_step_fd, num_time_steps_fd, dtype)
@@ -433,6 +449,7 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
       # zcb_curve.shape = [num_grid_points] + [maturities_shape]
       zcb_curve = tf.reshape(
           zcb_curve, tf.concat([[num_grid_points], maturities_shape], axis=0))
+
       # Shape after reduce_sum =
       # (num_grid_points, batch_shape)
       fixed_leg = tf.math.reduce_sum(
