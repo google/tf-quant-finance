@@ -43,7 +43,7 @@ class ReturnsType(enum.Enum):
   LOG = 2
 
 
-def realized_volatility(paths,
+def realized_volatility(sample_paths,
                         times=None,
                         scaling_factors=None,
                         returns_type=ReturnsType.LOG,
@@ -84,6 +84,8 @@ def realized_volatility(paths,
   Calculation of realized logarithmic volatility as in [1]:
 
   ```python
+  import tensorflow as tf
+  import tf_quant_finance as tff
   dtype=tf.float64
   num_samples = 1000
   num_times = 252
@@ -131,7 +133,8 @@ def realized_volatility(paths,
   under stochastic volatility. Journal of Computational and Applied Mathematics.
 
   Args:
-    paths: A real `Tensor` of shape `batch_shape_0 + [N] + batch_shape_1`.
+    sample_paths: A real `Tensor` of shape
+      `batch_shape_0 + [N] + batch_shape_1`.
     times: A real `Tensor` of shape compatible with `batch_shape_0 + [N] +
       batch_shape_1`. The times represented on the axis of interest (the `t_k`).
       Default value: None. Resulting in the assumption of unit time increments.
@@ -142,14 +145,14 @@ def realized_volatility(paths,
     returns_type: Value of ReturnsType. Indicates which definition of returns
       should be used.
       Default value: ReturnsType.LOG, representing logarithmic returns.
-    path_scale: Value of PathScale. Indicates which space the supplied `paths`
-      are in. If required the paths will then be transformed onto the
-      appropriate scale.
+    path_scale: Value of PathScale. Indicates which space the supplied
+      `sample_paths` are in. If required the paths will then be transformed onto
+      the appropriate scale.
       Default value: PathScale.ORIGINAL.
     axis: Python int. The axis along which to calculate the statistic.
       Default value: -1 (the final axis).
     dtype: `tf.DType`. If supplied the dtype for the input and output `Tensor`s.
-      Default value: `None` leading to use of `paths.dtype`.
+      Default value: `None` leading to use of `sample_paths`.
     name: Python str. The name to give to the ops created by this function.
       Default value: `None` which maps to 'realized_volatility'.
 
@@ -158,22 +161,23 @@ def realized_volatility(paths,
       `axis` having been reduced over).
   """
   with tf.name_scope(name or 'realized_volatility'):
-    paths = tf.convert_to_tensor(paths, dtype=dtype, name='paths')
-    dtype = dtype or paths.dtype
+    sample_paths = tf.convert_to_tensor(sample_paths, dtype=dtype,
+                                        name='sample_paths')
+    dtype = dtype or sample_paths.dtype
     if returns_type == ReturnsType.LOG:
       component_transform = lambda t: tf.pow(t, 2)
       result_transform = tf.math.sqrt
       if path_scale == PathScale.ORIGINAL:
-        transformed_paths = tf.math.log(paths)
+        transformed_paths = tf.math.log(sample_paths)
       elif path_scale == PathScale.LOG:
-        transformed_paths = paths
+        transformed_paths = sample_paths
     elif returns_type == ReturnsType.ABS:
       component_transform = tf.math.abs
       result_transform = tf.identity
       if path_scale == PathScale.ORIGINAL:
-        transformed_paths = paths
+        transformed_paths = sample_paths
       elif path_scale == PathScale.LOG:
-        transformed_paths = tf.math.exp(paths)
+        transformed_paths = tf.math.exp(sample_paths)
 
     diffs = component_transform(
         diff_ops.diff(transformed_paths, order=1, exclusive=True, axis=axis))

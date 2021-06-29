@@ -47,17 +47,20 @@ def interpolate(x: types.RealTensor,
   #### Examples
 
   ```python
+  import tf_quant_finance as tff
   x = [-10, -1, 1, 3, 6, 7, 8, 15, 18, 25, 30, 35]
   x_data = [-1, 2, 6, 8, 18, 30.0]
   y_data = [10, -1, -5, 7, 9, 20]
 
-  result = linear_interpolation(x, x_data, y_data)
-  # [ 10, 10, 2.66666667, -2, -5, 1, 7, 8.4, 9, 15.41666667, 20, 20]
+  tff.math.interpolation.linear.interpolate(x, x_data, y_data,
+                                            dtype=tf.float64)
+  # Expected: [ 10, 10, 2.66666667, -2, -5, 1, 7, 8.4, 9, 15.41666667, 20, 20]
   ```
 
   Args:
-    x: x-coordinates for which we need to get interpolation. A N-D `Tensor` of
-      real dtype. First N-1 dimensions represent batching dimensions.
+    x: x-coordinates for which we need to get interpolation. A N-D
+      `Tensor` of real dtype. First N-1 dimensions represent batching
+      dimensions.
     x_data: x coordinates. A N-D `Tensor` of real dtype. Should be sorted
       in non decreasing order. First N-1 dimensions represent batching
       dimensions.
@@ -79,21 +82,21 @@ def interpolate(x: types.RealTensor,
       interpolation may be wrong.
       Default value: `False`.
     optimize_for_tpu: A Python bool. If `True`, the algorithm uses one-hot
-      encoding to lookup indices of `x_values` in `x_data`. This significantly
+      encoding to lookup indices of `x` in `x_data`. This significantly
       improves performance of the algorithm on a TPU device but may slow down
       performance on the CPU.
       Default value: `False`.
     dtype: Optional tf.dtype for `x`, x_data`, `y_data`, `left_slope` and
       `right_slope`.
-      Default value: `None` which means that the `dtype` inferred by TensorFlow
-      is used.
+      Default value: `None` which means that the `dtype` inferred from
+        `x`.
     name: Python str. The name prefixed to the ops created by this function.
       Default value: `None` which maps to 'linear_interpolation'.
 
   Returns:
     A N-D `Tensor` of real dtype corresponding to the x-values in `x`.
   """
-  name = name or 'linear_interpolation'
+  name = name or 'linear_interpolate'
   with tf.name_scope(name):
     x = tf.convert_to_tensor(x, dtype=dtype, name='x')
     dtype = dtype or x.dtype
@@ -124,7 +127,7 @@ def interpolate(x: types.RealTensor,
     if validate_args:
       # Check that `x_data` elements is non-decreasing
       diffs = x_data[..., 1:] - x_data[..., :-1]
-      assertion = tf.compat.v1.debugging.assert_greater_equal(
+      assertion = tf.debugging.assert_greater_equal(
           diffs,
           tf.zeros_like(diffs),
           message='x_data is not sorted in non-decreasing order.')

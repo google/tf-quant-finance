@@ -38,11 +38,20 @@ swaption_price = vanilla_prices.swaption_price
 variance_swap_fair_strike = variance_swaps.fair_strike
 
 _allowed_symbols = [
-    'approximations', 'asset_or_nothing_price', 'binary_price',
-    'brownian_bridge_single', 'brownian_bridge_double', 'implied_vol',
-    'implied_vol_approx', 'implied_vol_newton', 'option_price',
-    'option_price_binomial', 'ImpliedVolMethod',
-    'ImpliedVolUnderlyingDistribution', 'barrier_price', 'swaption_price',
+    'approximations',
+    'asset_or_nothing_price',
+    'binary_price',
+    'brownian_bridge_single',
+    'brownian_bridge_double',
+    'implied_vol',
+    'implied_vol_approx',
+    'implied_vol_newton',
+    'option_price',
+    'option_price_binomial',
+    'ImpliedVolMethod',
+    'ImpliedVolUnderlyingDistribution',
+    'barrier_price',
+    'swaption_price',
     'variance_swap_fair_strike'
 ]
 

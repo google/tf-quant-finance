@@ -100,7 +100,7 @@ def bs_lsm_price(
     scaled_expiries = volatility * tf.math.sqrt(expiry_times)
     expiry_times_reshape = tf.reshape(expiry_times, [-1, 1, 1, 1])
     gbm = models.GeometricBrownianMotion(
-        mu=0.0, sigma=1.0,
+        mean=0.0, volatility=1.0,
         dtype=dtype)
     times = tf.linspace(tf.constant(0.0, dtype), 1.0, num_exercise_times)
     # Samples from Geometric Brownian motion to be used for all options

@@ -34,17 +34,18 @@ class HestonModel(generic_ito_process.GenericItoProcess):
 
   ```None
     dX(t) = -V(t) / 2 * dt + sqrt(V(t)) * dW_{X}(t),
-    dV(t) = kappa(t) * (theta(t) - V(t)) * dt
-            + epsilon(t) * sqrt(V(t)) * dW_{V}(t)
+    dV(t) = mean_reversion(t) * (theta(t) - V(t)) * dt
+            + volvol(t) * sqrt(V(t)) * dW_{V}(t)
   ```
 
   where `W_{X}` and `W_{V}` are 1D Brownian motions with a correlation
-  `rho(t)`. `kappa`, `theta`, `epsilon`, and `rho` are positive piecewise
-  constant functions of time. Here `V(t)` represents the process variance at
-  time `t` and `X` represents logarithm of the spot price at time `t`.
+  `rho(t)`. `mean_reversion`, `theta`, `volvol`, and `rho` are positive
+  piecewise constant functions of time. Here `V(t)` represents the process
+  variance at time `t` and `X` represents logarithm of the spot price at time
+  `t`.
 
-  `kappa` corresponds to the mean reversion rate, `theta` is the long run
-  price variance, and `epsilon` is the volatility of the volatility.
+  `mean_reversion` corresponds to the mean reversion rate, `theta` is the long
+  run price variance, and `volvol` is the volatility of the volatility.
 
   See [1] and [2] for details.
 
@@ -53,10 +54,10 @@ class HestonModel(generic_ito_process.GenericItoProcess):
   ```python
   import tf_quant_finance as tff
   import numpy as np
-  epsilon = PiecewiseConstantFunc(
+  volvol = tff.math.piecewise.PiecewiseConstantFunc(
       jump_locations=[0.5], values=[1, 1.1], dtype=np.float64)
-  process = HestonModel(kappa=0.5, theta=0.04, epsilon=epsilon, rho=0.1,
-                        dtype=np.float64)
+  process = tff.models.HestonModel(
+      mean_reversion=0.5, theta=0.04, volvol=volvol, rho=0.1, dtype=np.float64)
   times = np.linspace(0.0, 1.0, 1000)
   num_samples = 10000  # number of trajectories
   sample_paths = process.sample_paths(
@@ -78,9 +79,9 @@ class HestonModel(generic_ito_process.GenericItoProcess):
   """
 
   def __init__(self,
-               kappa,
+               mean_reversion,
                theta,
-               epsilon,
+               volvol,
                rho,
                dtype=None,
                name=None):
@@ -92,20 +93,21 @@ class HestonModel(generic_ito_process.GenericItoProcess):
         Link:
         http://www.ressources-actuarielles.net/ext/isfa/1226.nsf/d512ad5b22d73cc1c1257052003f1aed/1826b88b152e65a7c12574b000347c74/$FILE/LeifAndersenHeston.pdf
     Args:
-      kappa: Scalar real `Tensor` or an instant of batch-free left-continuous
-        `PiecewiseConstantFunc`. Should contain a positive value.
+      mean_reversion: Scalar real `Tensor` or an instant of batch-free
+        left-continuous `PiecewiseConstantFunc`. Should contain a positive
+        value.
         Corresponds to the mean reversion rate.
       theta: Scalar real `Tensor` or an instant of batch-free left-continuous
         `PiecewiseConstantFunc`. Should contain positive a value of the same
-        `dtype` as `kappa`.
+        `dtype` as `mean_reversion`.
         Corresponds to the lond run price variance.
-      epsilon: Scalar real `Tensor` or an instant of batch-free left-continuous
+      volvol: Scalar real `Tensor` or an instant of batch-free left-continuous
         `PiecewiseConstantFunc`. Should contain positive a value of the same
-        `dtype` as `kappa`.
+        `dtype` as `mean_reversion`.
         Corresponds to the volatility of the volatility.
       rho: Scalar real `Tensor` or an instant of batch-free left-continuous
         `PiecewiseConstantFunc`. Should contain a value in range (-1, 1) of the
-        same `dtype` as `kappa`.
+        same `dtype` as `mean_reversion`.
         Corresponds to the correlation between dW_{X}` and `dW_{V}`.
       dtype: The default dtype to use when converting values to `Tensor`s.
         Default value: `None` which means that default dtypes inferred by
@@ -114,18 +116,19 @@ class HestonModel(generic_ito_process.GenericItoProcess):
         Default value: `None` which maps to the default name `heston_model`.
     """
     self._name = name or 'heston_model'
-    with tf.compat.v1.name_scope(self._name,
-                                 values=[kappa, theta, epsilon, rho]):
+    with tf.name_scope(self._name):
       self._dtype = dtype or None
-      self._kappa = kappa if isinstance(
-          kappa, piecewise.PiecewiseConstantFunc) else tf.convert_to_tensor(
-              kappa, dtype=self._dtype, name='kappa')
+      if isinstance(mean_reversion, piecewise.PiecewiseConstantFunc):
+        self._mean_reversion = mean_reversion
+      else:
+        self._mean_reversion = tf.convert_to_tensor(
+            mean_reversion, dtype=self._dtype, name='mean_reversion')
       self._theta = theta if isinstance(
           theta, piecewise.PiecewiseConstantFunc) else tf.convert_to_tensor(
               theta, dtype=self._dtype, name='theta')
-      self._epsilon = epsilon if isinstance(
-          epsilon, piecewise.PiecewiseConstantFunc) else tf.convert_to_tensor(
-              epsilon, dtype=self._dtype, name='epsilon')
+      self._volvol = volvol if isinstance(
+          volvol, piecewise.PiecewiseConstantFunc) else tf.convert_to_tensor(
+              volvol, dtype=self._dtype, name='volvol')
       self._rho = rho if isinstance(
           rho, piecewise.PiecewiseConstantFunc) else tf.convert_to_tensor(
               rho, dtype=self._dtype, name='rho')
@@ -138,26 +141,27 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       # where W_{Z}(t) is an independent from W_{X} and W{V} Brownian motion
       # Volatility matrix for Heston model is then
       # [[sqrt(V(t)), 0],
-      #  [epsilon(t) * rho(t) * sqrt(V(t)), epsilon(t) * sqrt(1-rho**2) * V(t)]]
+      #  [volvol(t) * rho(t) * sqrt(V(t)), volvol(t) * sqrt(1-rho**2) * V(t)]]
       vol = tf.sqrt(tf.abs(x[..., 1]))
       zeros = tf.zeros_like(vol)
       # Get parameter values at time `t`
-      rho, epsilon = _get_parameters([t], self._rho, self._epsilon)  # pylint: disable=unbalanced-tuple-unpacking
-      rho, epsilon = rho[0], epsilon[0]
+      rho, volvol = _get_parameters([t], self._rho, self._volvol)  # pylint: disable=unbalanced-tuple-unpacking
+      rho, volvol = rho[0], volvol[0]
       # First column of the volatility matrix
-      vol_matrix_1 = tf.stack([vol, epsilon * rho * vol], -1)
+      vol_matrix_1 = tf.stack([vol, volvol * rho * vol], -1)
       # Second column of the volatility matrix
-      vol_matrix_2 = tf.stack([zeros, epsilon * tf.sqrt(1 - rho**2) * vol], -1)
+      vol_matrix_2 = tf.stack([zeros, volvol * tf.sqrt(1 - rho**2) * vol], -1)
       vol_matrix = tf.stack([vol_matrix_1, vol_matrix_2], -1)
       return vol_matrix
 
     def _drift_fn(t, x):
       var = x[..., 1]
       # Get parameter values at time `t`
-      kappa, theta = _get_parameters([t], self._kappa, self._theta)  # pylint: disable=unbalanced-tuple-unpacking
-      kappa, theta = kappa[0], theta[0]
+      mean_reversion, theta = _get_parameters(  # pylint: disable=unbalanced-tuple-unpacking
+          [t], self._mean_reversion, self._theta)
+      mean_reversion, theta = mean_reversion[0], theta[0]
       log_spot_drift = -var / 2
-      var_drift = kappa * (theta - var)
+      var_drift = mean_reversion * (theta - var)
       drift = tf.stack([log_spot_drift, var_drift], -1)
       return drift
 
@@ -239,7 +243,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       num_requested_times = times.shape[0]
       times, keep_mask = _prepare_grid(
           times, time_step, times.dtype,
-          self._kappa, self._theta, self._epsilon, self._rho)
+          self._mean_reversion, self._theta, self._volvol, self._rho)
       return self._sample_paths(
           times, num_requested_times,
           current_log_spot, current_vol,
@@ -261,9 +265,9 @@ class HestonModel(generic_ito_process.GenericItoProcess):
     dt = times[1:] - times[:-1]
     # Compute the parameters at `times`. Here + tf.reduce_min(dt) / 2 ensures
     # that the value is constant between `times`.
-    kappa, theta, epsilon, rho = _get_parameters(  # pylint: disable=unbalanced-tuple-unpacking
+    mean_reversion, theta, volvol, rho = _get_parameters(  # pylint: disable=unbalanced-tuple-unpacking
         times + tf.reduce_min(dt) / 2,
-        self._kappa, self._theta, self._epsilon, self._rho)
+        self._mean_reversion, self._theta, self._volvol, self._rho)
     # In order random_type which is not PSEUDO,  sequence of independent random
     # normals should be generated upfront.
     if dt.shape.is_fully_defined():
@@ -292,12 +296,12 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       if normal_draws is None:
         normals = random.mv_normal_sample(
             (num_samples,),
-            mean=tf.zeros([2], dtype=kappa.dtype), seed=seed)
+            mean=tf.zeros([2], dtype=mean_reversion.dtype), seed=seed)
       else:
         normals = normal_draws[i]
       def _next_vol_fn():
         return _update_variance(
-            kappa[i], theta[i], epsilon[i], rho[i],
+            mean_reversion[i], theta[i], volvol[i], rho[i],
             current_vol, time_step, normals[..., 0])
       # Do not update variance if `time_step > tolerance`
       next_vol = tf.cond(time_step > tolerance,
@@ -305,7 +309,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
                          lambda: current_vol)
       def _next_log_spot_fn():
         return _update_log_spot(
-            kappa[i], theta[i], epsilon[i], rho[i],
+            mean_reversion[i], theta[i], volvol[i], rho[i],
             current_vol, next_vol, current_log_spot, time_step,
             normals[..., 1])
       # Do not update state if `time_step > tolerance`
@@ -352,17 +356,17 @@ def _get_parameters(times, *params):
 
 
 def _update_variance(
-    kappa, theta, epsilon, rho,
+    mean_reversion, theta, volvol, rho,
     current_vol, time_step, normals, psi_c=1.5):
   """Updates variance value."""
   del rho
-  psi_c = tf.convert_to_tensor(psi_c, dtype=kappa.dtype)
-  scaled_time = tf.exp(-kappa * time_step)
-  epsilon_squared = epsilon**2
+  psi_c = tf.convert_to_tensor(psi_c, dtype=mean_reversion.dtype)
+  scaled_time = tf.exp(-mean_reversion * time_step)
+  volvol_squared = volvol**2
   m = theta + (current_vol - theta) * scaled_time
   s_squared = (
-      current_vol * epsilon_squared * scaled_time / kappa
-      * (1 - scaled_time) + theta * epsilon_squared / 2 / kappa
+      current_vol * volvol_squared * scaled_time / mean_reversion
+      * (1 - scaled_time) + theta * volvol_squared / 2 / mean_reversion
       * (1 - scaled_time)**2)
   psi = s_squared / m**2
   uniforms = 0.5 * (1 + tf.math.erf(normals / _SQRT_2))
@@ -384,17 +388,17 @@ def _update_variance(
 
 
 def _update_log_spot(
-    kappa, theta, epsilon, rho,
+    mean_reversion, theta, volvol, rho,
     current_vol, next_vol, current_log_spot, time_step, normals,
     gamma_1=0.5, gamma_2=0.5):
   """Updates log-spot value."""
-  k_0 = - rho * kappa * theta / epsilon * time_step
+  k_0 = - rho * mean_reversion * theta / volvol * time_step
   k_1 = (gamma_1 * time_step
-         * (kappa * rho / epsilon - 0.5)
-         - rho / epsilon)
+         * (mean_reversion * rho / volvol - 0.5)
+         - rho / volvol)
   k_2 = (gamma_2 * time_step
-         * (kappa * rho / epsilon - 0.5)
-         + rho / epsilon)
+         * (mean_reversion * rho / volvol - 0.5)
+         + rho / volvol)
   k_3 = gamma_1 * time_step * (1 - rho**2)
   k_4 = gamma_2 * time_step * (1 - rho**2)
 

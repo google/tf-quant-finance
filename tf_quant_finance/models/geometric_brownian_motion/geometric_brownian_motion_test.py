@@ -867,7 +867,7 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     samples = tf.xla.experimental.compile(sample_fn)[0]
     log_s = tf.math.log(samples)
     mean = tf.reduce_mean(log_s, axis=0)
-    expected_mean = ((process._mu - process._sigma**2 / 2)
+    expected_mean = ((process._mean - process._volatility**2 / 2)
                      * np.array([0.1, 0.5, 1.0]) + np.log(2.))
     self.assertAllClose(tf.squeeze(mean), expected_mean, atol=1e-2, rtol=1e-2)
 
@@ -910,7 +910,7 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     """Error is raised if `dim` is mismatched with the one from normal_draws."""
     dtype = tf.float64
     process = tff.models.GeometricBrownianMotion(
-        mu=0.05, sigma=0.1,
+        mean=0.05, volatility=0.1,
         dtype=dtype)
 
     with self.subTest("WrongDim"):

@@ -27,12 +27,12 @@ class Interpolation2D:
 
   For input `x_data` in x-direction we assume that values in y-direction are
   given by `y_data` and the corresponsing function values by `z_data`.
-  For given `x_values` and `y_values` along x- and y- direction respectively,
-  the interpolated function values are computed on grid `[x_values, y_values]`.
+  For given `x` and `y` along x- and y- direction respectively,
+  the interpolated function values are computed on grid `[x, y]`.
   The interpolation is first performed along y-direction for every `x_data`
-  point and all `y_values` using 1-d cubic spline interpolation. Next, for
+  point and all `y` using 1-d cubic spline interpolation. Next, for
   each interpolated `y_value` point, the function values are interpolated along
-  x-direction for `x_values` using 1-d cubic spline interpolation.
+  x-direction for `x` using 1-d cubic spline interpolation.
   Constant extrapolation is used for the linear interpolation and natural
   boundary conditions are used for the cubic spline.
 
@@ -107,17 +107,17 @@ class Interpolation2D:
           self._ydata, self._zdata, name="spline_y_direction")
 
   def interpolate(self,
-                  x_values: types.RealTensor,
-                  y_values: types.RealTensor,
+                  x: types.RealTensor,
+                  y: types.RealTensor,
                   name: str = None):
     """Performs 2-D interpolation on a specified set of points.
 
     Args:
-      x_values: Real-valued `Tensor` of shape `batch_shape + [num_points]`.
+      x: Real-valued `Tensor` of shape `batch_shape + [num_points]`.
         Defines the x-coordinates at which the interpolation should be
         performed. Note that `batch_shape` should be the same as in the
         underlying data.
-      y_values: A `Tensor` of the same shape and `dtype` as `x_values`.
+      y: A `Tensor` of the same shape and `dtype` as `x`.
         Defines the y-coordinates at which the interpolation should be
         performed.
       name: Python `str` name prefixed to ops created by this function.
@@ -125,35 +125,35 @@ class Interpolation2D:
         `interpolate`.
 
     Returns:
-      A `Tensor` of the same shape and `dtype` as `x_values`. Represents the
+      A `Tensor` of the same shape and `dtype` as `x`. Represents the
       interpolated values of the function on for the coordinates
-      `(x_values, y_values)`.
+      `(x, y)`.
     """
     name = name or self._name + "_interpolate"
     with tf.name_scope(name):
-      x_values = tf.convert_to_tensor(
-          x_values, dtype=self._dtype, name="x_values")
-      y_values = tf.convert_to_tensor(
-          y_values, dtype=self._dtype, name="y_values")
+      x = tf.convert_to_tensor(
+          x, dtype=self._dtype, name="x")
+      y = tf.convert_to_tensor(
+          y, dtype=self._dtype, name="y")
 
-      # Broadcast `y_values` to the number of `x_data` points
-      y_values = tf.expand_dims(y_values, axis=-2)
+      # Broadcast `y` to the number of `x_data` points
+      y = tf.expand_dims(y, axis=-2)
       # For each `x_data` point interpolate values of the function at the
-      # y_values. Shape of `xy_values` is
+      # y. Shape of `xy` is
       # batch_shape + `[num_x_data_points, num_points]`.
-      xy_values = cubic.interpolate(
-          y_values, self._spline_yz, name="interpolation_in_y_direction")
+      xy = cubic.interpolate(
+          y, self._spline_yz, name="interpolation_in_y_direction")
       # Interpolate the value of the function along x-direction
-      # Prepare xy_values for linear interpolation. Put the batch dims in front
-      xy_rank = xy_values.shape.rank
+      # Prepare xy for linear interpolation. Put the batch dims in front
+      xy_rank = xy.shape.rank
       perm = [xy_rank - 1] + list(range(xy_rank - 1))
       # Shape [num_points] + batch_shape + [num_x_data_points]
-      yx_values = tf.transpose(xy_values, perm=perm)
+      yx = tf.transpose(xy, perm=perm)
       # Get the permutation to the original shape
       perm_original = list(range(1, xy_rank)) + [0]
       # Reshape to [num_points] + batch_shape + [1]
-      x_values = tf.expand_dims(tf.transpose(
-          x_values, [xy_rank - 2] + list(range(xy_rank - 2))), axis=-1)
+      x = tf.expand_dims(tf.transpose(
+          x, [xy_rank - 2] + list(range(xy_rank - 2))), axis=-1)
       # Interpolation takes care of braodcasting
-      z_values = linear.interpolate(x_values, self._xdata, yx_values)
+      z_values = linear.interpolate(x, self._xdata, yx)
       return tf.squeeze(tf.transpose(z_values, perm=perm_original), axis=-2)

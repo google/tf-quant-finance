@@ -32,7 +32,7 @@ class HestonModelTest(tf.test.TestCase):
     """Tests volatility stays close to its mean for small vol of vol."""
     theta = 0.05
     process = HestonModel(
-        kappa=1.0, theta=theta, epsilon=0.00001,
+        mean_reversion=1.0, theta=theta, volvol=0.00001,
         rho=-0.0, dtype=np.float64)
     years = 1.0
     times = np.linspace(0.0, years, int(365 * years))
@@ -43,7 +43,7 @@ class HestonModelTest(tf.test.TestCase):
         num_samples=num_samples,
         initial_state=np.array([np.log(100), 0.045]),
         seed=None)
-    # For small values of epsilon, volatility should stay close to theta
+    # For small values of volvol, volatility should stay close to theta
     volatility_trace = self.evaluate(paths)[..., 1]
     max_deviation = np.max(abs(volatility_trace[:, 50:] - theta))
     self.assertAlmostEqual(
@@ -53,7 +53,7 @@ class HestonModelTest(tf.test.TestCase):
     """Tests state behaves like GBM for small vol of vol."""
     theta = 1.0
     process = HestonModel(
-        kappa=1.0, theta=theta, epsilon=0.00001,
+        mean_reversion=1.0, theta=theta, volvol=0.00001,
         rho=-0.0, dtype=np.float64)
     times = [0.0, 0.5, 1.0]
     num_samples = 1000
@@ -64,7 +64,7 @@ class HestonModelTest(tf.test.TestCase):
         num_samples=num_samples,
         initial_state=np.array([np.log(start_value), 1.0]),
         seed=None)
-    # For small values of epsilon, state should behave like Geometric
+    # For small values of volvol, state should behave like Geometric
     # Brownian Motion with volatility `theta`.
     state_trace = self.evaluate(paths)[..., 0]
     # Starting point should be the same
@@ -81,16 +81,16 @@ class HestonModelTest(tf.test.TestCase):
   def test_piecewise_and_dtype(self):
     """Tests that piecewise constant coefficients can be handled."""
     for dtype in (np.float32, np.float64):
-      kappa = tff.math.piecewise.PiecewiseConstantFunc(
+      mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
           jump_locations=[0.5], values=[1, 1.1], dtype=dtype)
       theta = tff.math.piecewise.PiecewiseConstantFunc(
           jump_locations=[0.5], values=[1, 0.9], dtype=dtype)
-      epsilon = tff.math.piecewise.PiecewiseConstantFunc(
+      volvol = tff.math.piecewise.PiecewiseConstantFunc(
           jump_locations=[0.3], values=[0.1, 0.2], dtype=dtype)
       rho = tff.math.piecewise.PiecewiseConstantFunc(
           jump_locations=[0.5], values=[0.4, 0.6], dtype=dtype)
       process = HestonModel(
-          kappa=kappa, theta=theta, epsilon=epsilon,
+          mean_reversion=mean_reversion, theta=theta, volvol=volvol,
           rho=rho, dtype=dtype)
       times = [0.1, 1.0]
       num_samples = 100
@@ -116,9 +116,9 @@ class HestonModelTest(tf.test.TestCase):
 
   def test_compare_monte_carlo_to_backward_pde(self):
     dtype = tf.float64
-    kappa = 0.3
+    mean_reversion = 0.3
     theta = 0.05
-    epsilon = 0.02
+    volvol = 0.02
     rho = 0.1
     maturity_time = 1.0
     initial_log_spot = 3.0
@@ -127,7 +127,8 @@ class HestonModelTest(tf.test.TestCase):
     discounting = 0.5
 
     heston = HestonModel(
-        kappa=kappa, theta=theta, epsilon=epsilon, rho=rho, dtype=dtype)
+        mean_reversion=mean_reversion, theta=theta, volvol=volvol, rho=rho,
+        dtype=dtype)
     initial_state = np.array([initial_log_spot, initial_vol])
     samples = heston.sample_paths(
         times=[maturity_time / 2, maturity_time],

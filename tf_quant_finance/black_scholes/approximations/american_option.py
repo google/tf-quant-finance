@@ -24,8 +24,8 @@ from tensorflow.python.util import deprecation  # pylint: disable=g-direct-tenso
 
 
 @deprecation.deprecated_args(
-    None, 'continuous_dividends is deprecated. Use dividend_rates instead',
-    'continuous_dividends')
+    '2021-07-01', 'continuous_dividends is deprecated. Use dividend_rates '
+    'instead', 'continuous_dividends')
 def adesi_whaley(volatilities,
                  strikes,
                  expiries,

@@ -19,8 +19,8 @@ from tensorflow.python.util import deprecation  # pylint: disable=g-direct-tenso
 
 
 @deprecation.deprecated_args(
-    None, 'continuous_dividends is deprecated. Use dividend_rates instead',
-    'continuous_dividends')
+    '2021-07-01', 'continuous_dividends is deprecated. Use dividend_rates '
+    'instead', 'continuous_dividends')
 def option_price(volatilities,
                  strikes,
                  expiries,
@@ -208,8 +208,8 @@ def option_price(volatilities,
 
 
 @deprecation.deprecated_args(
-    None, 'continuous_dividends is deprecated. Use dividend_rates instead',
-    'continuous_dividends')
+    '2021-07-01', 'continuous_dividends is deprecated. Use dividend_rates '
+    'instead', 'continuous_dividends')
 def barrier_price(volatilities,
                   strikes,
                   expiries,
@@ -618,8 +618,8 @@ def binary_price(*,
 
 
 @deprecation.deprecated_args(
-    None, 'continuous_dividends is deprecated. Use dividend_rates instead',
-    'continuous_dividends')
+    '2021-07-01', 'continuous_dividends is deprecated. Use dividend_rates '
+    'instead', 'continuous_dividends')
 def asset_or_nothing_price(volatilities,
                            strikes,
                            expiries,

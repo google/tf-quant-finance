@@ -91,15 +91,17 @@ def build(x_data: types.RealTensor,
   Typical Usage Example:
 
   ```python
-  import tensorflow.compat.v2 as tf
+  import tensorflow as tf
+  import tf_quant_finance as tff
   import numpy as np
 
-  x_data = np.linspace(-5.0, 5.0,  num=11)
+  x_data = tf.linspace(-5.0, 5.0,  num=11)
   y_data = 1.0/(1.0 + x_data**2)
-  spline = cubic_interpolation.build(x_data, y_data)
+  spline = tff.math.interpolation.cubic.build_spline(x_data, y_data)
   x_args = [3.3, 3.4, 3.9]
 
-  y = cubic_interpolation.interpolate(x_args, spline)
+  tff.math.interpolation.cubic.interpolate(x_args, spline)
+  # Expected: [0.0833737 , 0.07881707, 0.06149562]
   ```
 
   #### References:
@@ -170,12 +172,12 @@ def build(x_data: types.RealTensor,
         x_data=x_data, y_data=y_data, spline_coeffs=spline_coeffs)
 
 
-def interpolate(x_values: types.RealTensor,
+def interpolate(x: types.RealTensor,
                 spline_data: SplineParameters,
                 optimize_for_tpu: bool = False,
                 dtype: tf.DType = None,
                 name: str = None) -> types.RealTensor:
-  """Interpolates spline values for the given `x_values` and the `spline_data`.
+  """Interpolates spline values for the given `x` and the `spline_data`.
 
   Constant extrapolation is performed for the values outside the domain
   `spline_data.x_data`. This means that for `x > max(spline_data.x_data)`,
@@ -190,15 +192,15 @@ def interpolate(x_values: types.RealTensor,
     Link: http://index-of.co.uk/Algorithms/Algorithms%20in%20C.pdf
 
   Args:
-    x_values: A real `Tensor` of shape `batch_shape + [num_points]`.
+    x: A real `Tensor` of shape `batch_shape + [num_points]`.
     spline_data: An instance of `SplineParameters`. `spline_data.x_data` should
-      have the same batch shape as `x_values`.
+      have the same batch shape as `x`.
     optimize_for_tpu: A Python bool. If `True`, the algorithm uses one-hot
-      encoding to lookup indices of `x_values` in `spline_data.x_data`. This
+      encoding to lookup indices of `x` in `spline_data.x_data`. This
       significantly improves performance of the algorithm on a TPU device but
       may slow down performance on the CPU.
       Default value: `False`.
-    dtype: Optional dtype for `x_values`.
+    dtype: Optional dtype for `x`.
       Default value: `None` which maps to the default dtype inferred by
         TensorFlow.
     name: Python `str` name prefixed to ops created by this function.
@@ -206,29 +208,29 @@ def interpolate(x_values: types.RealTensor,
         `cubic_spline_interpolate`.
 
   Returns:
-      A `Tensor` of the same shape and `dtype` as `x_values`. Represents
+      A `Tensor` of the same shape and `dtype` as `x`. Represents
       the interpolated values.
 
   Raises:
     ValueError:
-      If `x_values` batch shape is different from `spline_data.x_data` batch
+      If `x` batch shape is different from `spline_data.x_data` batch
       shape.
   """
   name = name or 'cubic_spline_interpolate'
   with tf.name_scope(name):
-    x_values = tf.convert_to_tensor(x_values, dtype=dtype, name='x_values')
-    dtype = x_values.dtype
+    x = tf.convert_to_tensor(x, dtype=dtype, name='x')
+    dtype = x.dtype
     # Unpack the spline data
     x_data = spline_data.x_data
     y_data = spline_data.y_data
     spline_coeffs = spline_data.spline_coeffs
     # Try broadcast batch_shapes
-    x_values, x_data = utils.broadcast_common_batch_shape(x_values, x_data)
-    x_values, y_data = utils.broadcast_common_batch_shape(x_values, y_data)
-    x_values, spline_coeffs = utils.broadcast_common_batch_shape(
-        x_values, spline_coeffs)
+    x, x_data = utils.broadcast_common_batch_shape(x, x_data)
+    x, y_data = utils.broadcast_common_batch_shape(x, y_data)
+    x, spline_coeffs = utils.broadcast_common_batch_shape(
+        x, spline_coeffs)
     # Determine the splines to use.
-    indices = tf.searchsorted(x_data, x_values, side='right') - 1
+    indices = tf.searchsorted(x_data, x, side='right') - 1
     # This selects all elements for the start of the spline interval.
     # Make sure indices lie in the permissible range
     lower_encoding = tf.maximum(indices, 0)
@@ -265,7 +267,7 @@ def interpolate(x_values: types.RealTensor,
     spline_coeffs0 = get_slice(spline_coeffs, lower_encoding)
     spline_coeffs1 = get_slice(spline_coeffs, upper_encoding)
 
-    t = (x_values - x0) / dx
+    t = (x - x0) / dx
     t = tf.where(dx > 0, t, tf.zeros_like(t))
     df = ((t + 1.0) * spline_coeffs1 * 2.0) - ((t - 2.0) * spline_coeffs0 * 2.0)
     df1 = df * t * (t - 1) / 6.0
@@ -276,8 +278,8 @@ def interpolate(x_values: types.RealTensor,
     lower_bound = tf.expand_dims(tf.reduce_min(x_data, -1),
                                  -1) + tf.zeros_like(result)
     result = tf.where(
-        tf.logical_and(x_values <= upper_bound, x_values >= lower_bound),
-        result, tf.where(x_values > upper_bound, y0, y1))
+        tf.logical_and(x <= upper_bound, x >= lower_bound),
+        result, tf.where(x > upper_bound, y0, y1))
     return result
 
 
@@ -410,7 +412,7 @@ def _calculate_spline_coeffs(
    with t being the proportion of the difference between the x value of
    the spline used and the nx_value of the next spline:
 
-   t = (x_values - x_data[:,n]) / (x_data[:,n+1]-x_data[:,n])
+   t = (x - x_data[:,n]) / (x_data[:,n+1]-x_data[:,n])
 
    and `a`, `b`, `c`, and `d` are functions of `spline_coeffs` and `x_data` and
    are provided in the `interpolate` function.

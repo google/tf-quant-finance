@@ -29,10 +29,10 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
   Represents the 1-dimensional Ito process:
 
   ```None
-    dX(t) = mu(t) * X(t) * dt + sigma(t) * X(t) * dW(t),
+    dX(t) = means(t) * X(t) * dt + volatilities(t) * X(t) * dW(t),
   ```
 
-  where `W(t)` is a 1D Brownian motion, `mu(t)` and `sigma(t)` are either
+  where `W(t)` is a 1D Brownian motion, `mean(t)` and `volatility(t)` are either
   constant `Tensor`s or piecewise constant functions of time.
 
   Supports batching which enables modelling multiple univariate geometric
@@ -65,42 +65,43 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
   """
 
   def __init__(self,
-               mu,
-               sigma,
+               mean,
+               volatility,
                dtype=None,
                name=None):
     """Initializes the Geometric Brownian Motion.
 
     Args:
-      mu: Scalar real `Tensor` broadcastable to [`batch_shape`, 1] or an
-        instance of left-continuous `PiecewiseConstantFunc` with
-        [`batch_shape`, 1] dimensions. Where `batch_shape` is the larger of
-        `mu.shape` and `sigma.shape`.  `batch_shape` can be `()`, Corresponds
-        to the mean drift of the Ito process.
-      sigma: Scalar real `Tensor` broadcastable to [`batch_shape`, 1] or an
+      mean: A real `Tensor` broadcastable to `batch_shape + [1]` or an instance
+        of left-continuous `PiecewiseConstantFunc` with `batch_shape + [1]`
+        dimensions. Here `batch_shape` represents a batch of independent
+        GBMs. Corresponds to the mean drift of the Ito process.
+      volatility: A real `Tensor` broadcastable to `batch_shape + [1]` or an
         instance of left-continuous `PiecewiseConstantFunc` of the same `dtype`
-        and `batch_shape` as set by `mu`. Where `batch_shape` is the larger of
-        `mu.shape` and `sigma.shape`. Corresponds to the volatility of the
+        and `batch_shape` as set by `mean`. Corresponds to the volatility of the
         process and should be positive.
       dtype: The default dtype to use when converting values to `Tensor`s.
-        Default value: `None` which means that default dtypes inferred by
-          TensorFlow are used.
+        Default value: `None` which means that default dtypes inferred from
+          `mean` is used.
       name: Python string. The name to give to the ops created by this class.
         Default value: `None` which maps to the default name
         'geometric_brownian_motion'.
     """
-    self._name = name or "geometric_brownian_motion"
+    self._name = name or 'geometric_brownian_motion'
     with tf.name_scope(self._name):
-      self._mu, self._mu_is_constant = pw.convert_to_tensor_or_func(
-          mu, dtype=dtype, name="mu")
-      self._dtype = dtype or self._mu.dtype
-      self._sigma, self._sigma_is_constant = pw.convert_to_tensor_or_func(
-          sigma, dtype=self._dtype, name="sigma")
-      self._sigma_squared = self._sigma_squared_from_sigma(
-          self._sigma,
-          self._sigma_is_constant,
+      self._mean, self._mean_is_constant = pw.convert_to_tensor_or_func(
+          mean, dtype=dtype, name='mean')
+      self._dtype = dtype or self._mean.dtype
+      (
+          self._volatility,
+          self._volatility_is_constant
+      ) = pw.convert_to_tensor_or_func(volatility, dtype=self._dtype,
+                                       name='volatility')
+      self._volatility_squared = self._volatility_squared_from_volatility(
+          self._volatility,
+          self._volatility_is_constant,
           dtype=self._dtype,
-          name="sigma_squared")
+          name='volatility_squared')
       self._dim = 1
 
   def dim(self):
@@ -117,22 +118,22 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
 
   def drift_is_constant(self):
     """Returns True if the drift of the process is a constant."""
-    return self._mu_is_constant
+    return self._mean_is_constant
 
   def volatility_is_constant(self):
     """Returns True is the volatility of the process is a constant."""
-    return self._sigma_is_constant
+    return self._volatility_is_constant
 
   def drift_fn(self):
     """Python callable calculating instantaneous drift."""
     def _constant_fn(t, x):
-      """Drift function of the GBM with constant mu."""
+      """Drift function of the GBM with constant mean."""
       del t
-      return self._mu * x
+      return self._mean * x
 
     def _piecewise_fn(t, x):
-      """Drift function of the GBM with piecewise constant mu."""
-      return self._mu(t) * x
+      """Drift function of the GBM with piecewise constant mean."""
+      return self._mean(t) * x
 
     return _constant_fn if self.drift_is_constant() else _piecewise_fn
 
@@ -141,12 +142,12 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
     def _constant_fn(t, x):
       """Volatility function of the GBM with constant volatility."""
       del t
-      vol = self._sigma * tf.expand_dims(x, -1)
+      vol = self._volatility * tf.expand_dims(x, -1)
       return vol
 
     def _piecewise_fn(t, x):
       """Volatility function of the GBM with piecewise constant volatility."""
-      vol = self._sigma(t) * tf.expand_dims(x, -1)
+      vol = self._volatility(t) * tf.expand_dims(x, -1)
       return vol
 
     return _constant_fn if self.volatility_is_constant() else _piecewise_fn
@@ -162,15 +163,15 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
                    name=None):
     """Returns a sample of paths from the process.
 
-    If `mu` and `sigma` were specified with batch dimensions the sample paths
-    will be generated for all batch dimensions for the specified `times` using
-    a single set of random draws.
+    If `mean` and `volatility` were specified with batch dimensions the sample
+    paths will be generated for all batch dimensions for the specified `times`
+    using a single set of random draws.
 
     Args:
       times: A `Tensor` of positive real values of a shape `[T, k]`, where
         `T` is either empty or a shape which is broadcastable to `batch_shape`
-        (as defined by the shape of `mu` or `sigma` which were set when this
-        instance of GeometricBrownianMotion was initialised) and `k` is the
+        (as defined by the shape of `mean` or `volatility` which were set when
+        this instance of GeometricBrownianMotion was initialised) and `k` is the
         number of time points. The times at which the path points are to be
         evaluated.
       initial_state: A `Tensor` of the same `dtype` as `times` and of shape
@@ -212,18 +213,18 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
       ValueError: If `normal_draws` is supplied and does not have shape
       broadcastable to `[num_samples, num_time_points, 1]`.
     """
-    name = name or (self._name + "_sample_path")
+    name = name or (self._name + '_sample_path')
 
     with tf.name_scope(name):
       times = tf.convert_to_tensor(times, self._dtype)
       if normal_draws is not None:
         normal_draws = tf.convert_to_tensor(normal_draws, dtype=self._dtype,
-                                            name="normal_draws")
+                                            name='normal_draws')
       initial_state = utils.convert_to_tensor_with_default(
           initial_state,
           tf.ones([1], dtype=self._dtype),
           dtype=self._dtype,
-          name="initial_state")
+          name='initial_state')
 
       num_requested_times = times.shape[-1]
       return self._sample_paths(
@@ -281,27 +282,27 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
       draws_dim = normal_draws.shape[2]
       if draws_dim != 1:
         raise ValueError(
-            "`dim` should be equal to `1` but is {0}".format(draws_dim))
+            '`dim` should be equal to `1` but is {0}'.format(draws_dim))
     # Create a set of zeros that is the right shape to add a '0' as the first
     # element for each series of times.
     zeros = tf.zeros(tf.concat([times.shape[:-1], [1]], 0), dtype=self._dtype)
     times = tf.concat([zeros, times], -1)
-    mu_integral = self._integrate_parameter(self._mu, self._mu_is_constant,
-                                            times[..., :-1], times[..., 1:])
-    # mu_integral has shape [batch_shape, k-1], where self._mu has shape
+    mean_integral = self._integrate_parameter(
+        self._mean, self._mean_is_constant, times[..., :-1], times[..., 1:])
+    # mean_integral has shape [batch_shape, k-1], where self._mean has shape
     # [batch_shape, 1] and times has shape [k].
-    mu_integral = tf.expand_dims(mu_integral, -2)
-    sigma_sq_integral = self._integrate_parameter(self._sigma_squared,
-                                                  self._sigma_is_constant,
-                                                  times[..., :-1],
-                                                  times[..., 1:])
-    sigma_sq_integral = tf.expand_dims(sigma_sq_integral, -2)
-    # Giving mu_integral and sigma_sq_integral shape = [batch_shape, 1, k-1],
-    # where self._mu has shape [batch_shape, 1] and times has shape [k].
+    mean_integral = tf.expand_dims(mean_integral, -2)
+    volatility_sq_integral = self._integrate_parameter(
+        self._volatility_squared, self._volatility_is_constant,
+        times[..., :-1], times[..., 1:])
+    volatility_sq_integral = tf.expand_dims(volatility_sq_integral, -2)
+    # Giving mean_integral and volatility_sq_integral
+    # shape = `batch_shape + [1, k-1]`,
+    # where self._mean has shape `batch_shape + [1]` and times has shape `[k]`.
 
     # The logarithm of all the increments between the times.
-    log_increments = ((mu_integral - sigma_sq_integral / 2)
-                      + tf.sqrt(sigma_sq_integral)
+    log_increments = ((mean_integral - volatility_sq_integral / 2)
+                      + tf.sqrt(volatility_sq_integral)
                       * tf.transpose(tf.squeeze(normal_draws, -1)))
     # Since the implementation of tf.math.cumsum is single-threaded we
     # use lower-triangular matrix multiplication instead
@@ -314,22 +315,28 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
     samples = tf.expand_dims(initial_state, [-1]) * tf.math.exp(cumsum)
     return tf.expand_dims(samples, -1)
 
-  def _sigma_squared_from_sigma(self, sigma, sigma_is_constant, dtype=None,
-                                name=None):
-    """Returns sigma squared as either a `PiecewiseConstantFunc` or a `Tensor`.
+  def _volatility_squared_from_volatility(
+      self, volatility, volatility_is_constant, dtype=None, name=None):
+    """Returns volatility squared as either a `PiecewiseConstantFunc` or a `Tensor`.
 
     Args:
-      sigma: Either a 'Tensor' or 'PiecewiseConstantFunc'.
-      sigma_is_constant: `bool` which is True if sigma is of type `Tensor`.
+      volatility: Either a 'Tensor' or 'PiecewiseConstantFunc'.
+      volatility_is_constant: `bool` which is True if volatility is of type
+        `Tensor`.
       dtype: The default dtype to use when converting values to `Tensor`s.
         Default value: `None` which means that default dtypes inferred by
           TensorFlow are used.
       name: Python string. The name to give to the ops created by this class.
-        Default value: `None` which maps to the default name '_sigma_squared'.
+        Default value: `None` which maps to the default name
+        '_volatility_squared'.
     """
-    name = name or (self._name + "_sigma_squared")
-    return sigma ** 2 if sigma_is_constant else pw.PiecewiseConstantFunc(
-        sigma.jump_locations(), sigma.values()**2, dtype=dtype, name=name)
+    name = name or (self._name + '_volatility_squared')
+    if volatility_is_constant:
+      return volatility ** 2
+    else:
+      return pw.PiecewiseConstantFunc(
+          volatility.jump_locations(), volatility.values()**2,
+          dtype=dtype, name=name)
 
   # TODO(b/152967694): Remove the duplicate methods.
   def fd_solver_backward(self,
@@ -359,38 +366,17 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
     method is:
 
     ```None
-      V_t + Sum[mu_i(t, x) V_i, 1<=i<=n] +
-        (1/2) Sum[ D_{ij} V_{ij}, 1 <= i,j <= n] - r(t, x) V = 0
+      dV(t)/dt + mean(t, x) dV_i/dx
+      + (1/2) volatility^2(t, x) d^2V_i/dx^2 - r(t, x) V = 0
     ```
-
-    In the above, `V_t` is the derivative of `V` with respect to `t`,
-    `V_i` is the partial derivative with respect to `x_i` and `V_{ij}` the
-    (mixed) partial derivative with respect to `x_i` and `x_j`. `mu_i` is the
-    drift of this process and `D_{ij}` are the components of the diffusion
-    tensor:
-
-    ```None
-      D_{ij}(t,x) = (Sigma(t,x) . Transpose[Sigma(t,x)])_{ij}
-    ```
-
     This method evolves a spatially discretized solution of the above PDE from
     time `t0` to time `t1 < t0` (i.e. backwards in time).
-    The solution `V(t,x)` is assumed to be discretized on an `n`-dimensional
-    rectangular grid. A rectangular grid, G, in n-dimensions may be described
-    by specifying the coordinates of the points along each axis. For example,
-    a 2 x 4 grid in two dimensions can be specified by taking the cartesian
-    product of [1, 3] and [5, 6, 7, 8] to yield the grid points with
-    coordinates: `[(1, 5), (1, 6), (1, 7), (1, 8), (3, 5) ... (3, 8)]`.
+    The solution `V(t,x)` is assumed to be discretized on a grid.
 
     This method allows batching of solutions. In this context, batching means
     the ability to represent and evolve multiple independent functions `V`
-    (e.g. V1, V2 ...) simultaneously. A single discretized solution is specified
-    by stating its values at each grid point. This can be represented as a
-    `Tensor` of shape [d1, d2, ... dn] where di is the grid size along the `i`th
-    axis. A batch of such solutions is represented by a `Tensor` of shape:
-    [K, d1, d2, ... dn] where `K` is the batch size. This method only requires
-    that the input parameter `values_grid` be broadcastable with shape
-    [K, d1, ... dn].
+    (e.g. V1, V2 ...) simultaneously corresponding to `mean_1, mean_2 ...` and
+    `volatility_1, volatility_2 ....`.
 
     The evolution of the solution from `t0` to `t1` is often done by
     discretizing the differential equation to a difference equation along
@@ -411,8 +397,6 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
 
     For a simple instructive example of implementation of this method, see
     `models.GenericItoProcess.fd_solver_backward`.
-
-    # TODO(b/142309558): Complete documentation.
 
     Args:
       start_time: Real positive scalar `Tensor`. The start time of the grid.
@@ -444,7 +428,7 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
             the time and  coordinate grid as keyword arguments and returns a
             `Tensor` with shape that broadcasts with `[dim, dim]`.
           7. 'linear_coeff': A callable returning the linear coefficients of the
-            PDE (i.e. `mu_i(t, x)` above). Accepts time and coordinate grid as
+            PDE (i.e. `mean_i(t, x)` above). Accepts time and coordinate grid as
             keyword arguments and returns a `Tensor` with shape that broadcasts
             with `[dim]`.
           8. 'constant_coeff': A callable returning the coefficient of the
@@ -498,7 +482,7 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
         final_time: The final time at which the evolution stopped. This value
           is given by `max(min(end_time, start_time), 0)`.
     """
-    pde_solver_fn = kwargs.get("pde_solver_fn", fd_solvers.solve_backward)
+    pde_solver_fn = kwargs.get('pde_solver_fn', fd_solvers.solve_backward)
 
     second_order_coeff_fn, first_order_coeff_fn, zeroth_order_coeff_fn = (
         _backward_pde_coeffs(self._drift_fn, self._volatility_fn, discounting))
@@ -540,36 +524,26 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
     associated to this Ito process is given by:
 
     ```None
-      V_t + Sum[(mu_i(t, x) V)_i, 1<=i<=n]
-        - (1/2) Sum[ (D_{ij} V)_{ij}, 1 <= i,j <= n] = 0
+      dV/dt + d(mean_i(t, x) V) / dx
+        - (1/2) d^2(volatility^2(t, x) V) / dx^2 =  = 0
     ```
 
     with the initial value condition $$V(0, x) = u(x)$$.
 
     This method evolves a spatially discretized solution of the above PDE from
-    time `t0` to time `t1 > t0` (i.e. forwards in time).
-    The solution `V(t,x)` is assumed to be discretized on an `n`-dimensional
-    rectangular grid. A rectangular grid, G, in n-dimensions may be described
-    by specifying the coordinates of the points along each axis. For example,
-    a 2 x 4 grid in two dimensions can be specified by taking the cartesian
-    product of [1, 3] and [5, 6, 7, 8] to yield the grid points with
-    coordinates: `[(1, 5), (1, 6), (1, 7), (1, 8), (3, 5) ... (3, 8)]`.
+    time `t0` to time `t1 < t0` (i.e. backwards in time).
+    The solution `V(t,x)` is assumed to be discretized on a grid.
 
-    Batching of solutions is supported. In this context, batching means
+    This method allows batching of solutions. In this context, batching means
     the ability to represent and evolve multiple independent functions `V`
-    (e.g. V1, V2 ...) simultaneously. A single discretized solution is specified
-    by stating its values at each grid point. This can be represented as a
-    `Tensor` of shape [d1, d2, ... dn] where di is the grid size along the `i`th
-    axis. A batch of such solutions is represented by a `Tensor` of shape:
-    [K, d1, d2, ... dn] where `K` is the batch size. This method only requires
-    that the input parameter `values_grid` be broadcastable with shape
-    [K, d1, ... dn].
+    (e.g. V1, V2 ...) simultaneously corresponding to `mean_1, mean_2 ...` and
+    `volatility_1, volatility_2 ....`.
 
     The evolution of the solution from `t0` to `t1` is often done by
     discretizing the differential equation to a difference equation along
     the spatial and temporal axes. The temporal discretization is given by a
     (sequence of) time steps [dt_1, dt_2, ... dt_k] such that the sum of the
-    time steps is equal to the total time step `t1 - t0`. If a uniform time
+    time steps is equal to the total time step `t0 - t1`. If a uniform time
     step is used, it may equivalently be specified by stating the number of
     steps (n_steps) to take. This method provides both options via the
     `time_step` and `num_steps` parameters. However, not all methods need
@@ -584,8 +558,6 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
 
     For a simple instructive example of implementation of this method, see
     `models.GenericItoProcess.fd_solver_forward`.
-
-    # TODO(b/142309558): Complete documentation.
 
     Args:
       start_time: Real positive scalar `Tensor`. The start time of the grid.
@@ -614,7 +586,7 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
             the time and  coordinate grid as keyword arguments and returns a
             `Tensor` with shape that broadcasts with `[dim, dim]`.
           6. 'linear_coeff': A callable returning the linear coefficients of the
-            PDE (i.e. `mu_i(t, x)` above). Accepts time and coordinate grid as
+            PDE (i.e. `mean_i(t, x)` above). Accepts time and coordinate grid as
             keyword arguments and returns a `Tensor` with shape that broadcasts
             with `[dim]`.
           7. 'constant_coeff': A callable returning the coefficient of the
@@ -668,7 +640,7 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
         final_time: The final time at which the evolution stopped. This value
           is given by `max(min(end_time, start_time), 0)`.
     """
-    pde_solver_fn = kwargs.get("pde_solver_fn", fd_solvers.solve_forward)
+    pde_solver_fn = kwargs.get('pde_solver_fn', fd_solvers.solve_forward)
 
     backward_second_order, backward_first_order, backward_zeroth_order = (
         _backward_pde_coeffs(self._drift_fn, self._volatility_fn,
@@ -700,25 +672,27 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
 def _backward_pde_coeffs(drift_fn, volatility_fn, discounting):
   """Returns coeffs of the backward PDE."""
   def second_order_coeff_fn(t, coord_grid):
-    sigma = volatility_fn(t, _coord_grid_to_mesh_grid(coord_grid))
-    sigma_times_sigma_t = tf.linalg.matmul(sigma, sigma, transpose_b=True)
+    volatility = volatility_fn(t, _coord_grid_to_mesh_grid(coord_grid))
+    volatility_times_volatility_t = tf.linalg.matmul(
+        volatility, volatility, transpose_b=True)
 
     # We currently have [dim, dim] as innermost dimensions, but the returned
     # tensor must have [dim, dim] as outermost dimensions.
-    rank = len(sigma.shape.as_list())
+    rank = len(volatility.shape.as_list())
     perm = [rank - 2, rank - 1] + list(range(rank - 2))
-    sigma_times_sigma_t = tf.transpose(sigma_times_sigma_t, perm)
-    return sigma_times_sigma_t / 2
+    volatility_times_volatility_t = tf.transpose(
+        volatility_times_volatility_t, perm)
+    return volatility_times_volatility_t / 2
 
   def first_order_coeff_fn(t, coord_grid):
-    mu = drift_fn(t, _coord_grid_to_mesh_grid(coord_grid))
+    mean = drift_fn(t, _coord_grid_to_mesh_grid(coord_grid))
 
     # We currently have [dim] as innermost dimension, but the returned
     # tensor must have [dim] as outermost dimension.
-    rank = len(mu.shape.as_list())
+    rank = len(mean.shape.as_list())
     perm = [rank - 1] + list(range(rank - 1))
-    mu = tf.transpose(mu, perm)
-    return mu
+    mean = tf.transpose(mean, perm)
+    return mean
 
   def zeroth_order_coeff_fn(t, coord_grid):
     if not discounting:
@@ -731,4 +705,4 @@ def _backward_pde_coeffs(drift_fn, volatility_fn, discounting):
 def _coord_grid_to_mesh_grid(coord_grid):
   if len(coord_grid) == 1:
     return tf.expand_dims(coord_grid[0], -1)
-  return tf.stack(values=tf.meshgrid(*coord_grid, indexing="ij"), axis=-1)
+  return tf.stack(values=tf.meshgrid(*coord_grid, indexing='ij'), axis=-1)

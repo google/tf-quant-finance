@@ -22,23 +22,23 @@ import tensorflow.compat.v2 as tf
 from tf_quant_finance import types
 
 
-__all__ = ["make_basket_put_payoff"]
+__all__ = ['make_basket_put_payoff']
 
 
 def make_basket_put_payoff(
-    strike_price: types.RealTensor,
+    strikes: types.RealTensor,
     dtype: tf.DType = None,
     name: str = None) -> Callable[[types.RealTensor], types.RealTensor]:
   """Produces a callable from samples to payoff of a simple basket put option.
 
   Args:
-    strike_price: A `Tensor` of `dtype` consistent with `samples` and shape
+    strikes: A `Tensor` of `dtype` consistent with `samples` and shape
       `[num_samples, batch_size]`.
     dtype: Optional `dtype`. Either `tf.float32` or `tf.float64`. If supplied,
-      represents the `dtype` for the 'strike_price' as well as for the input
+      represents the `dtype` for the 'strikes' as well as for the input
       argument of the output payoff callable.
       Default value: `None`, which means that the `dtype` inferred from
-      `strike_price` is used.
+      `strikes` is used.
     name: Python `str` name prefixed to Ops created by the callable created
       by this function.
       Default value: `None` which is mapped to the default name 'put_valuer'
@@ -49,18 +49,17 @@ def make_basket_put_payoff(
     and a scalar `Tensor` representing current time to a `Tensor` of shape
     `[num_samples, batch_size]`.
   """
-  name = name or "put_valuer"
+  name = name or 'put_valuer'
   with tf.name_scope(name):
-    strike_price = tf.convert_to_tensor(strike_price, dtype=dtype,
-                                        name="strike_price")
-    dtype = dtype or strike_price.dtype
+    strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
+    dtype = dtype or strikes.dtype
     put_valuer = functools.partial(
-        _put_valuer, strike_price=strike_price, dtype=dtype)
+        _put_valuer, strikes=strikes, dtype=dtype)
 
   return put_valuer
 
 
-def _put_valuer(sample_paths, time_index, strike_price, dtype=None):
+def _put_valuer(sample_paths, time_index, strikes, dtype=None):
   """Produces a callable from samples to payoff of a simple basket put option.
 
   Args:
@@ -69,10 +68,10 @@ def _put_valuer(sample_paths, time_index, strike_price, dtype=None):
       `[batch_size, num_samples, num_times, dim]`.
     time_index: An integer scalar `Tensor` that corresponds to the time
       coordinate at which the basis function is computed.
-    strike_price: A `Tensor` of the same `dtype` as `sample_paths` and shape
+    strikes: A `Tensor` of the same `dtype` as `sample_paths` and shape
       compatible with `[num_samples, batch_size]`.
     dtype: Optional `dtype`. Either `tf.float32` or `tf.float64`. The `dtype`
-      If supplied, represents the `dtype` for the 'strike_price' as well as
+      If supplied, represents the `dtype` for the 'strikes' as well as
       for the input argument of the output payoff callable.
       Default value: `None`, which means that the `dtype` inferred by TensorFlow
       is used.
@@ -81,10 +80,9 @@ def _put_valuer(sample_paths, time_index, strike_price, dtype=None):
     and a scalar `Tensor` representing current time to a `Tensor` of shape
     `[num_samples, batch_size]`.
   """
-  strike_price = tf.convert_to_tensor(strike_price, dtype=dtype,
-                                      name="strike_price")
+  strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
   sample_paths = tf.convert_to_tensor(sample_paths, dtype=dtype,
-                                      name="sample_paths")
+                                      name='sample_paths')
   if sample_paths.shape.rank == 3:
     # Expand shape to [num_samples, 1, num_times, dim]
     sample_paths = tf.expand_dims(sample_paths, axis=1)
@@ -97,5 +95,5 @@ def _put_valuer(sample_paths, time_index, strike_price, dtype=None):
                                 [num_samples, batch_size, 1, dim])
   slice_sample_paths = tf.squeeze(slice_sample_paths, 2)
   average = tf.math.reduce_mean(slice_sample_paths, axis=-1)
-  return tf.nn.relu(strike_price - average)
+  return tf.nn.relu(strikes - average)
 
