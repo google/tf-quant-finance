@@ -220,7 +220,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
                                      expiries, expected_prices):
     """Tests Bjerksund Stensland 1993 prices for negative cost_of_carries."""
     cost_of_carries = np.array([-0.04] * 10)
-    forwards = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
+    spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
     strikes = np.array([100.0] * 10)
     is_call_options = np.array([True] * 5 + [False] * 5)
     computed_prices = bjerksund_stensland(
@@ -229,7 +229,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
         expiries=expiries,
         discount_rates=discount_rates,
         cost_of_carries=cost_of_carries,
-        forwards=forwards,
+        spots=spots,
         is_call_options=is_call_options,
         modified_boundary=False,
         dtype=tf.float64)
@@ -253,7 +253,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
                                      expiries, expected_prices):
     """Tests Bjerksund Stensland 1993 prices for positive cost_of_carries."""
     cost_of_carries = np.array([0.04] * 10)
-    forwards = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
+    spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
     strikes = np.array([100.0] * 10)
     is_call_options = [True] * 5 + [False] * 5
     computed_prices = bjerksund_stensland(
@@ -262,7 +262,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
         expiries=expiries,
         discount_rates=discount_rates,
         cost_of_carries=cost_of_carries,
-        forwards=forwards,
+        spots=spots,
         is_call_options=is_call_options,
         modified_boundary=False,
         dtype=tf.float64)
@@ -284,7 +284,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
   def test_bs1993_prices_carries_equal_rate(self, discount_rates, cost_of_carries,
                                       volatilities, expiries, expected_prices):
     """Tests Bjerksund Stensland 1993 prices for zero cost_of_carries."""
-    forwards = np.array([80.0, 90.0, 100.0, 110.0, 120.0])
+    spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0])
     strikes = np.array([100.0] * 5)
     is_call_options = np.array([False] * 5)
     computed_prices = bjerksund_stensland(
@@ -293,7 +293,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
         expiries=expiries,
         discount_rates=discount_rates,
         cost_of_carries=cost_of_carries,
-        forwards=forwards,
+        spots=spots,
         is_call_options=is_call_options,
         modified_boundary=False,
         dtype=tf.float64)
@@ -307,13 +307,13 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
        [2.30, 4.71, 8.44, 13.74, 20.85, 25.61, 20.04, 15.47, 11.78, 8.87]),
       (0.08, 0.0, 0.2, 3.0,
        [3.95, 7.20, 11.64, 17.24, 23.93, 22.12, 16.14, 11.64, 8.31, 5.89]),
-      #(0.08, 0.04, 0.4, 3.0,
-      # [6.88, 11.49, 17.21, 23.84, 31.16, 20.32, 13.43, 8.86, 5.83, 3.83]),      # Results are suspect, see PR #54
+      (0.08, 0.04, 0.2, 3.0,
+       [6.88, 11.49, 17.21, 23.84, 31.16, 20.32, 13.43, 8.86, 5.83, 3.83]),
   )
   def test_bs1993_prices_long_term1(self, discount_rates, cost_of_carries,
                                       volatilities, expiries, expected_prices):
     """Tests Bjerksund Stensland 1993 prices for long-term options."""
-    forwards = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
+    spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
     strikes = np.array([100.0] * 10)
     is_call_options = [True] * 5 + [False] * 5
     computed_prices = bjerksund_stensland(
@@ -322,7 +322,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
         expiries=expiries,
         discount_rates=discount_rates,
         cost_of_carries=cost_of_carries,
-        forwards=forwards,
+        spots=spots,
         is_call_options=is_call_options,
         modified_boundary=False,
         dtype=tf.float64)
@@ -338,7 +338,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
   def test_bs1993_prices_long_term2(self, discount_rates, cost_of_carries,
                                       volatilities, expiries, expected_prices):
     """Tests Bjerksund Stensland 1993 prices for long-term options."""
-    forwards = np.array([80.0, 90.0, 100.0, 110.0, 120.0])
+    spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0])
     strikes = np.array([100.0] * 5)
     is_call_options = np.array([False] * 5)
     computed_prices = bjerksund_stensland(
@@ -347,7 +347,7 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
         expiries=expiries,
         discount_rates=discount_rates,
         cost_of_carries=cost_of_carries,
-        forwards=forwards,
+        spots=spots,
         is_call_options=is_call_options,
         modified_boundary=False,
         dtype=tf.float64)

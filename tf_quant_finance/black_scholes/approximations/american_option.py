@@ -500,6 +500,9 @@ def bjerksund_stensland(*,
 
     if forwards is not None:
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
+      spots = tf.convert_to_tensor(
+          forwards * tf.exp(-(cost_of_carries) * expiries),
+          dtype=dtype, name='spots')
     else:
       spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
       forwards = spots * tf.exp(cost_of_carries * expiries)
@@ -523,16 +526,16 @@ def bjerksund_stensland(*,
                 volatilities=volatilities,
                 strikes=strikes,
                 expiries=expiries,
-                forwards=forwards,
+                spots=spots,
                 discount_rates=discount_rates,
                 cost_of_carries=cost_of_carries,
                 is_call_options=is_call_options),
             # For put options, adjust inputs according to call-put transformation 
             # function:  P(S, X, T, r, b, sigma) = C(X, S, T, r - b, -b, sigma)
             tf.where(is_call_options,
-                bjerksund_stensland_model(forwards, strikes, expiries, discount_rates,
+                bjerksund_stensland_model(spots, strikes, expiries, discount_rates,
                     cost_of_carries, volatilities),
-                bjerksund_stensland_model(strikes, forwards, expiries, discount_rates -
+                bjerksund_stensland_model(strikes, spots, expiries, discount_rates -
                         cost_of_carries, -cost_of_carries, volatilities)))
 
     return american_prices
