@@ -39,7 +39,7 @@ Functions to handle rates.
 
 ## Classes
 
-[`class SwapCurveBuilderResult`](../tf_quant_finance/rates/SwapCurveBuilderResult.md): SwapCurveBuilderResult(times, rates, discount_factors, initial_rates, converged, failed, iterations, objective_value)
+[`class SwapCurveBuilderResult`](../tf_quant_finance/rates/SwapCurveBuilderResult.md): Build curves for swapping future cash flows.
 
 ## Functions
 
