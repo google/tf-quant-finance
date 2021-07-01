@@ -78,6 +78,102 @@ class HestonModelTest(tf.test.TestCase):
       np.testing.assert_allclose(np.std(np.exp(state_trace[:, 1])),
                                  gbm_std, 2.0)
 
+  def test_expected_total_variance_scalar(self):
+    """Tests the expected total variance calculation."""
+    mean_reversion = 1.3
+    theta = 0.2
+    process = HestonModel(
+        mean_reversion=mean_reversion,
+        theta=theta,
+        volvol=0.01,
+        rho=0.1,
+        dtype=np.float64)
+    future_time = 1.2
+    initial_var = 0.3
+    expected_var = self.evaluate(
+        process.expected_total_variance(future_time, initial_var))
+    ground_var = (initial_var - theta) * (1 - np.exp(
+        -mean_reversion * future_time)) / mean_reversion + theta * future_time
+    np.testing.assert_allclose(expected_var, ground_var)
+
+  def test_expected_var_mc(self):
+    """Tests the expected total var calculation matches Monte Carlo results."""
+
+    # Define process
+    initial_var = 0.1
+    rho = -0.5
+    volvol = 1.0
+    mean_reversion = 10.0
+    theta = 0.04
+    dtype = tf.float64
+    process = tff.models.HestonModel(
+        mean_reversion=mean_reversion,
+        theta=theta,
+        volvol=volvol,
+        rho=rho,
+        dtype=dtype)
+
+    # Draw paths
+    num_samples = 10000
+    num_times = 252
+    initial_state = tf.constant([1.0, initial_var], dtype=dtype)
+    future_time = 1.0
+    times = tf.constant(np.linspace(0, future_time, num_times), dtype=dtype)
+    time_step = 0.1
+    paths = process.sample_paths(
+        times,
+        initial_state,
+        time_step=time_step,
+        num_samples=num_samples,
+        seed=123)
+
+    # Monte carlo estimate of discretized integral.
+    mc_estimate_var = self.evaluate(tf.math.reduce_mean(
+        tf.math.reduce_sum(tff.math.diff(times) * paths[:, :, 1], axis=1)))
+
+    # Compare to total var from formula implementation.
+    expected_var = self.evaluate(
+        process.expected_total_variance(future_time, initial_var))
+    np.testing.assert_allclose(expected_var, mc_estimate_var, rtol=0.01)
+
+  def test_expected_total_variance_batch(self):
+    """Tests the expected total variance calculation."""
+    mean_reversion = 1.3
+    theta = 0.2
+    process = HestonModel(
+        mean_reversion=mean_reversion,
+        theta=theta,
+        volvol=0.01,
+        rho=-0.0,
+        dtype=np.float64)
+    future_time = np.array([0.1, 1.0, 2.0])
+    initial_var = np.array([0.1, 0.2, 0.3])
+    expected_var = self.evaluate(
+        process.expected_total_variance(future_time, initial_var))
+    ground_var = (initial_var - theta) * (1 - np.exp(
+        -mean_reversion * future_time)) / mean_reversion + theta * future_time
+    np.testing.assert_allclose(expected_var, ground_var)
+
+  def test_expected_var_raises_on_piecewise_params(self):
+    """Tests the claimed error is raised for piecewise params."""
+    for dtype in (np.float32, np.float64):
+      mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
+          jump_locations=[0.5], values=[1, 1.1], dtype=dtype)
+      theta = tff.math.piecewise.PiecewiseConstantFunc(
+          jump_locations=[0.5], values=[1, 0.9], dtype=dtype)
+      volvol = tff.math.piecewise.PiecewiseConstantFunc(
+          jump_locations=[0.3], values=[0.1, 0.2], dtype=dtype)
+      rho = tff.math.piecewise.PiecewiseConstantFunc(
+          jump_locations=[0.5], values=[0.4, 0.6], dtype=dtype)
+      process = HestonModel(
+          mean_reversion=mean_reversion,
+          theta=theta,
+          volvol=volvol,
+          rho=rho,
+          dtype=dtype)
+      with self.assertRaises(ValueError):
+        process.expected_total_variance(1.0, 1.0)
+
   def test_piecewise_and_dtype(self):
     """Tests that piecewise constant coefficients can be handled."""
     for dtype in (np.float32, np.float64):

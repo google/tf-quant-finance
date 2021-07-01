@@ -343,6 +343,50 @@ class HestonModel(generic_ito_process.GenericItoProcess):
         maximum_iterations=steps_num)
     return tf.stack([log_spot_paths, vol_paths], -1)
 
+  def expected_total_variance(self, future_times, initial_var, name=None):
+    """Computes the expected variance of the process up to `future_time`.
+
+    The Heston model affords a closed form expression for its expected variance:
+
+    `E[S_T] = (V(0) - theta)(1 - e^{-mean_reversion * T})/ mean_reversion +
+    theta * T`
+
+    Where `S_T` represents the integral of the instantaneous variance process V
+    from 0 to `T` [p138. of 1].
+
+    ### References
+    [1] Gatheral, Jim. The volatility surface: a practitioner's guide. Vol. 357.
+      John Wiley & Sons, 2011.
+
+    Args:
+      future_times: real `Tensor` representing times in the future (`T` in the
+        above notation).
+      initial_var: real `Tensor` of shape compatible with `future_time`. The
+        value of the variance process at time zero, `V(0)`.
+      name: Python `str`. The name to give this op.
+        Default value: name of the instance + `_expected_total_variance`
+
+    Returns:
+      The expected variance at `future_time`.
+
+    Raises:
+      ValueError: for non-constant parameters.
+    """
+    for param_name in ['_mean_reversion', '_theta']:
+      param = getattr(self, param_name)
+      if not isinstance(param, tf.Tensor):
+        raise ValueError(f'Only constant values supported for {param_name}')
+    name = name or (self._name + '_expected_total_variance')
+    with tf.name_scope(name):
+      future_times = tf.convert_to_tensor(
+          future_times, self._dtype, name='future_times')
+      initial_var = tf.convert_to_tensor(
+          initial_var, self._dtype, name='initial_var')
+      reversion_strength = (1 - tf.math.exp(
+          -self._mean_reversion * future_times)) / self._mean_reversion
+      return (initial_var -
+              self._theta) * reversion_strength + self._theta * future_times
+
 
 def _get_parameters(times, *params):
   """Gets parameter values at at specified `times`."""
