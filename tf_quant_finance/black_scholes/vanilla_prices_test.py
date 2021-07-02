@@ -165,7 +165,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
       },
   )
   def test_option_prices_detailed_discount(self, dtype):
-    """Tests the prices with discount_rates and cost_of_carries are."""
+    """Tests the prices with discount_rates."""
     spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
     strikes = np.array([100.0] * 10)
     discount_rates = 0.08
@@ -173,7 +173,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     expiries = 0.25
 
     is_call_options = np.array([True] * 5 + [False] * 5)
-    cost_of_carries = -0.04
+    dividend_rates = 0.12
     computed_prices = self.evaluate(
         tff.black_scholes.option_price(
             volatilities=volatilities,
@@ -181,7 +181,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
             expiries=expiries,
             spots=spots,
             discount_rates=discount_rates,
-            cost_of_carries=cost_of_carries,
+            dividend_rates=dividend_rates,
             is_call_options=is_call_options,
             dtype=dtype))
     expected_prices = np.array(
@@ -350,7 +350,6 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     implied_binary_price = self.evaluate(
         tf.where(is_call_options, -implied_binary_price, implied_binary_price))
     self.assertArrayNear(implied_binary_price, actual_binary_price, 1e-10)
-    return (90.0, 105, 1.4653, False, False, False, 0)
 
   def test_asset_or_nothing_prices(self):
     """Tests that the BS asset-or-nothing option prices are correct."""
@@ -398,27 +397,35 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
                          asset_or_nothing_prices - cash_or_nothing_prices,
                          1e-10)
 
-  def test_vanilla_and_binary_prices_consistency_bulk(self):
-    """Tests the consistency between vanilla and binary option prices.
+  @parameterized.product(
+      discount_mode=('rates', 'factors'),
+      is_normal=(True, False),
+  )
+  def test_vanilla_and_binary_prices_consistency_bulk(self, discount_mode,
+                                                      is_normal):
+    """Tests the consistency between vanilla and binary option prices."""
 
-    A vanilla call is equivalent to the combination of a long asset-or-nothing
-    call and short {strike} units of cash-or-nothing calls.
-
-    A vanilla put is equivalent to the combination of a long {strike} units of
-    cash-or-nothing puts and an short asset-or-nothing put.
-
-    This tests confirms that the computed vanilla and binary option prices are
-    consistent with the above relations for a wide range of simulated settings.
-    """
+    # A vanilla call is equivalent to the combination of a long asset-or-nothing
+    # call and short {strike} units of cash-or-nothing calls.
+    # A vanilla put is equivalent to the combination of a long {strike} units of
+    # cash-or-nothing puts and an short asset-or-nothing put.
+    # This test confirms that the computed vanilla and binary option prices are
+    # consistent with the above relations for a range of simulated settings.
 
     np.random.seed(321)
     num_examples = 1000
-    forwards = np.exp(np.random.normal(size=num_examples))
-    strikes = np.exp(np.random.normal(size=num_examples))
     volatilities = np.exp(np.random.normal(size=num_examples))
+    strikes = np.exp(np.random.normal(size=num_examples))
     expiries = np.random.gamma(shape=1.0, scale=1.0, size=num_examples)
+    forwards = np.exp(np.random.normal(size=num_examples))
+    if discount_mode == 'rates':
+      discount_rates = np.random.uniform(0.0, 0.05, size=num_examples)
+      discount_factors = None
+    else:
+      discount_factors = np.random.beta(a=1.0, b=1.0, size=num_examples)
+      discount_rates = None
+    dividend_rates = np.random.uniform(0.0, 0.05, size=num_examples)
     call_options = np.random.binomial(n=1, p=0.5, size=num_examples)
-    discount_factors = np.random.beta(a=1.0, b=1.0, size=num_examples)
     is_call_options = np.array(call_options, dtype=np.bool)
 
     asset_or_nothing_prices = tff.black_scholes.asset_or_nothing_price(
@@ -426,14 +433,20 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
         strikes=strikes,
         expiries=expiries,
         forwards=forwards,
+        discount_rates=discount_rates,
+        dividend_rates=dividend_rates,
         is_call_options=is_call_options,
+        is_normal_volatility=is_normal,
         discount_factors=discount_factors)
     cash_or_nothing_prices = tff.black_scholes.binary_price(
         volatilities=volatilities,
         strikes=strikes,
         expiries=expiries,
         forwards=forwards,
+        discount_rates=discount_rates,
+        dividend_rates=dividend_rates,
         is_call_options=is_call_options,
+        is_normal_volatility=is_normal,
         discount_factors=discount_factors)
     synthetic_vanilla_from_binary_prices = tf.where(
         is_call_options,
@@ -445,7 +458,10 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
         strikes=strikes,
         expiries=expiries,
         forwards=forwards,
+        discount_rates=discount_rates,
+        dividend_rates=dividend_rates,
         is_call_options=is_call_options,
+        is_normal_volatility=is_normal,
         discount_factors=discount_factors)
 
     self.assertArrayNear(
@@ -619,13 +635,13 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
           'expected_price': [[9.024, 7.7627], [2.6789, 14.1112],
                              [2.2798, 3.7760], [2.95586, 1.4653]],
       }, {
-          'testcase_name': 'cost_of_carries',
+          'testcase_name': 'dividend_rates',
           'volatilities': 0.25,
           'strikes': 90.0,
           'expiries': 0.5,
           'spots': 100.0,
           'discount_rates': 0.08,
-          'cost_of_carries': 0.04,
+          'dividend_rates': 0.04,
           'barriers': 105.0,
           'rebates': 3.0,
           'is_barrier_down': False,
@@ -646,38 +662,22 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
                           is_knock_out,
                           is_call_options,
                           expected_price,
-                          dividend_rates=None,
-                          cost_of_carries=None):
+                          dividend_rates=None):
     """Computes test barrier option prices for the parameterized inputs."""
     # The input values are from examples in the following textbook:
     # The Complete guide to Option Pricing Formulas, 2nd Edition, Page 154
-    if cost_of_carries is not None:
-      price = tff.black_scholes.barrier_price(
-          volatilities=volatilities,
-          strikes=strikes,
-          expiries=expiries,
-          spots=spots,
-          discount_rates=discount_rates,
-          cost_of_carries=cost_of_carries,
-          dividend_rates=dividend_rates,
-          barriers=barriers,
-          rebates=rebates,
-          is_barrier_down=is_barrier_down,
-          is_knock_out=is_knock_out,
-          is_call_options=is_call_options)
-    else:
-      price = tff.black_scholes.barrier_price(
-          volatilities=volatilities,
-          strikes=strikes,
-          expiries=expiries,
-          spots=spots,
-          discount_rates=discount_rates,
-          dividend_rates=dividend_rates,
-          barriers=barriers,
-          rebates=rebates,
-          is_barrier_down=is_barrier_down,
-          is_knock_out=is_knock_out,
-          is_call_options=is_call_options)
+    price = tff.black_scholes.barrier_price(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        spots=spots,
+        discount_rates=discount_rates,
+        dividend_rates=dividend_rates,
+        barriers=barriers,
+        rebates=rebates,
+        is_barrier_down=is_barrier_down,
+        is_knock_out=is_knock_out,
+        is_call_options=is_call_options)
     self.assertAllClose(price, expected_price, 10e-3)
 
   @parameterized.named_parameters(
@@ -694,7 +694,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     rebates = 3.0
     expiries = 0.5
     discount_rates = 0.08
-    cost_of_carries = 0.04
+    dividend_rates = 0.04
     strikes = 90.0
     barriers = 95.0
     expected_price = 9.0246
@@ -708,7 +708,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
         expiries=expiries,
         spots=spots,
         discount_rates=discount_rates,
-        cost_of_carries=cost_of_carries,
+        dividend_rates=dividend_rates,
         barriers=barriers,
         rebates=rebates,
         is_barrier_down=is_barrier_down,

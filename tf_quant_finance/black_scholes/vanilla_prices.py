@@ -15,26 +15,29 @@
 
 import numpy as np
 import tensorflow.compat.v2 as tf
-from tensorflow.python.util import deprecation  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance import types
+__all__ = [
+    'option_price',
+    'barrier_price',
+    'binary_price',
+    'asset_or_nothing_price',
+    'swaption_price'
+]
 
 
-@deprecation.deprecated_args(
-    '2021-07-01', 'continuous_dividends is deprecated. Use dividend_rates '
-    'instead', 'continuous_dividends')
-def option_price(volatilities,
-                 strikes,
-                 expiries,
-                 spots=None,
-                 forwards=None,
-                 discount_rates=None,
-                 dividend_rates=None,
-                 continuous_dividends=None,
-                 cost_of_carries=None,
-                 discount_factors=None,
-                 is_call_options=None,
-                 is_normal_volatility=False,
-                 dtype=None,
-                 name=None):
+def option_price(*,
+                 volatilities: types.RealTensor,
+                 strikes: types.RealTensor,
+                 expiries: types.RealTensor,
+                 spots: types.RealTensor = None,
+                 forwards: types.RealTensor = None,
+                 discount_rates: types.RealTensor = None,
+                 dividend_rates: types.RealTensor = None,
+                 discount_factors: types.RealTensor = None,
+                 is_call_options: types.BoolTensor = None,
+                 is_normal_volatility: bool = False,
+                 dtype: tf.DType = None,
+                 name: str = None) -> types.RealTensor:
   """Computes the Black Scholes price for a batch of call or put options.
 
   #### Example
@@ -80,33 +83,19 @@ def option_price(volatilities,
       `volatilities` and of the shape that broadcasts with `volatilities`.
       If not `None`, discount factors are calculated as e^(-rT),
       where r are the discount rates, or risk free rates. At most one of
-      discount_rates and discount_factors can be supplied.
+      `discount_rates` and `discount_factors` can be supplied.
       Default value: `None`, equivalent to r = 0 and discount factors = 1 when
-      discount_factors also not given.
+      `discount_factors` also not given.
     dividend_rates: An optional real `Tensor` of same dtype as the
       `volatilities` and of the shape that broadcasts with `volatilities`.
-      If not `None`, `cost_of_carries` is calculated as r - q,
-      where r are the `discount_rates` and q is `dividend_rates`. Either
-      this or `cost_of_carries` can be given.
       Default value: `None`, equivalent to q = 0.
-    continuous_dividends: `Tensor` equivalent to `dividend_rates`, to be
-      deprecated.
-    cost_of_carries: An optional real `Tensor` of same dtype as the
-      `volatilities` and of the shape that broadcasts with `volatilities`.
-      Cost of storing a physical commodity, the cost of interest paid when
-      long, or the opportunity cost, or the cost of paying dividends when short.
-      If not `None`, and `spots` is supplied, used to calculate forwards from
-      `spots`: F = e^(bT) * S, where F is the forwards price, b is the cost of
-      carries, T is expiries and S is the spot price. If `None`, value assumed
-      to be equal to the `discount_rate` - `dividend_rates`
-      Default value: `None`, equivalent to b = r.
     discount_factors: An optional real `Tensor` of same dtype as the
       `volatilities`. If not `None`, these are the discount factors to expiry
-      (i.e. e^(-rT)). Mutually exclusive with discount_rate and cost_of_carry.
-      If neither is given, no discounting is applied (i.e. the undiscounted
-      option price is returned). If `spots` is supplied and `discount_factors`
-      is not `None` then this is also used to compute the forwards to expiry.
-      At most one of discount_rates and discount_factors can be supplied.
+      (i.e. e^(-rT)). Mutually exclusive with `discount_rates`. If neither is
+      given, no discounting is applied (i.e. the undiscounted option price is
+      returned). If `spots` is supplied and `discount_factors` is not `None`
+      then this is also used to compute the forwards to expiry. At most one of
+      `discount_rates` and `discount_factors` can be supplied.
       Default value: `None`, which maps to e^(-rT) calculated from
       discount_rates.
     is_call_options: A boolean `Tensor` of a shape compatible with
@@ -131,20 +120,12 @@ def option_price(volatilities,
     ValueError: If both `forwards` and `spots` are supplied or if neither is
       supplied.
     ValueError: If both `discount_rates` and `discount_factors` is supplied.
-    ValueError: If both `dividend_rates` and `cost_of_carries` is
-      supplied.
   """
-  dividend_rates = deprecation.deprecated_argument_lookup(
-      'dividend_rates', dividend_rates,
-      'continuous_dividends', continuous_dividends)
   if (spots is None) == (forwards is None):
     raise ValueError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
     raise ValueError('At most one of discount_rates and discount_factors may '
                      'be supplied')
-  if (dividend_rates is not None) and (cost_of_carries is not None):
-    raise ValueError('At most one of dividend_rates and cost_of_carries '
-                     'may be supplied')
 
   with tf.name_scope(name or 'option_price'):
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
@@ -171,17 +152,11 @@ def option_price(volatilities,
       dividend_rates = tf.convert_to_tensor(
           0.0, dtype=dtype, name='dividend_rates')
 
-    if cost_of_carries is not None:
-      cost_of_carries = tf.convert_to_tensor(
-          cost_of_carries, dtype=dtype, name='cost_of_carries')
-    else:
-      cost_of_carries = discount_rates - dividend_rates
-
     if forwards is not None:
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
     else:
       spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
-      forwards = spots * tf.exp(cost_of_carries * expiries)
+      forwards = spots * tf.exp((discount_rates - dividend_rates) * expiries)
 
     sqrt_var = volatilities * tf.math.sqrt(expiries)
     if not is_normal_volatility:  # lognormal model
@@ -190,13 +165,13 @@ def option_price(volatilities,
       d2 = d1 - sqrt_var
       undiscounted_calls = tf.where(sqrt_var > 0,
                                     forwards * _ncdf(d1) - strikes * _ncdf(d2),
-                                    tf.maximum(forwards - strikes, 0.0))
+                                    tf.math.maximum(forwards - strikes, 0.0))
     else:  # normal model
       d1 = tf.math.divide_no_nan((forwards - strikes), sqrt_var)
       undiscounted_calls = tf.where(
           sqrt_var > 0.0, (forwards - strikes) * _ncdf(d1) +
           sqrt_var * tf.math.exp(-0.5 * d1**2) / np.sqrt(2 * np.pi),
-          tf.maximum(forwards - strikes, 0.0))
+          tf.math.maximum(forwards - strikes, 0.0))
 
     if is_call_options is None:
       return discount_factors * undiscounted_calls
@@ -207,24 +182,20 @@ def option_price(volatilities,
                                        undiscounted_puts)
 
 
-@deprecation.deprecated_args(
-    '2021-07-01', 'continuous_dividends is deprecated. Use dividend_rates '
-    'instead', 'continuous_dividends')
-def barrier_price(volatilities,
-                  strikes,
-                  expiries,
-                  spots,
-                  barriers,
-                  rebates=None,
-                  discount_rates=None,
-                  dividend_rates=None,
-                  continuous_dividends=None,
-                  cost_of_carries=None,
-                  is_barrier_down=None,
-                  is_knock_out=None,
-                  is_call_options=None,
-                  dtype=None,
-                  name=None):
+def barrier_price(*,
+                  volatilities: types.RealTensor,
+                  strikes: types.RealTensor,
+                  expiries: types.RealTensor,
+                  spots: types.RealTensor,
+                  barriers: types.RealTensor,
+                  rebates: types.RealTensor = None,
+                  discount_rates: types.RealTensor = None,
+                  dividend_rates: types.RealTensor = None,
+                  is_barrier_down: types.BoolTensor = None,
+                  is_knock_out: types.BoolTensor = None,
+                  is_call_options: types.BoolTensor = None,
+                  dtype: tf.DType = None,
+                  name: str = None) -> types.RealTensor:
   """Prices barrier options in a Black-Scholes Model.
 
   Computes the prices of options with a single barrier in Black-Scholes world as
@@ -296,14 +267,6 @@ def barrier_price(volatilities,
       continuous dividend rate paid by the underlier. If `None`, then
       defaults to zero dividends.
       Default value: `None`, equivalent to zero dividends.
-    continuous_dividends: `Tensor` equivalent to `dividend_rates`, to be
-      deprecated.
-    cost_of_carries: A optional real `Tensor` of same dtype as the
-      `volatilities` and of the shape that broadcasts with `volatilities`.
-      Cost of storing a physical commodity, the cost of interest paid when
-      long, or the opportunity cost, or the cost of paying dividends when short.
-      If not `None`, `dividend_rates` is calculated as r - c,
-      where r are the `discount_rates` and c is `cost_of_carries`.
     is_barrier_down: A real `Tensor` of `boolean` values and of the shape
       that broadcasts with `volatilities`. True if barrier is below asset
       price at expiration.
@@ -332,12 +295,6 @@ def barrier_price(volatilities,
   # appropriate terms for calculating the integral. Then a dot product of each
   # row in the matricies coupled with the masks work to calculate the prices of
   # the barriers option.
-  dividend_rates = deprecation.deprecated_argument_lookup(
-      'dividend_rates', dividend_rates,
-      'continuous_dividends', continuous_dividends)
-  if (dividend_rates is not None) and (cost_of_carries is not None):
-    raise ValueError('At most one of dividend_rates and cost of carries '
-                     'may be supplied')
   with tf.name_scope(name or 'barrier_price'):
     spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
     dtype = spots.dtype
@@ -359,15 +316,12 @@ def barrier_price(volatilities,
       discount_rates = tf.convert_to_tensor(
           0.0, dtype=dtype, name='discount_rates')
 
-    if dividend_rates is None:
+    if dividend_rates is not None:
+      dividend_rates = tf.convert_to_tensor(
+          dividend_rates, dtype=dtype, name='dividend_rates')
+    else:
       dividend_rates = tf.convert_to_tensor(
           0.0, dtype=dtype, name='dividend_rates')
-
-    if cost_of_carries is not None:
-      cost_of_carries = tf.convert_to_tensor(
-          cost_of_carries, dtype=dtype, name='cost_of_carries')
-    else:
-      cost_of_carries = discount_rates - dividend_rates
 
     if is_barrier_down is None:
       is_barrier_down = tf.constant(1, name='is_barrier_down')
@@ -434,7 +388,7 @@ def barrier_price(volatilities,
 
     # Calculate params for integrals
     sqrt_var = volatilities * tf.math.sqrt(expiries)
-    mu = (cost_of_carries) - ((volatilities**2) / 2)
+    mu = (discount_rates - dividend_rates) - ((volatilities**2) / 2)
     lamda = 1 + (mu / (volatilities**2))
     x = (tf.math.log(spots / strikes) / (sqrt_var)) + (lamda * sqrt_var)
     x1 = (tf.math.log(spots / barriers) / (sqrt_var)) + (lamda * sqrt_var)
@@ -446,14 +400,11 @@ def barrier_price(volatilities,
     a = mu / (volatilities**2)
 
     # Other params used for integrals
-    discount_rates_exponent = tf.math.exp(-discount_rates * expiries,  # pylint: disable=invalid-unary-operand-type
-                                          name='discount_rates_exponent')
-    continuous_dividends_exponent = tf.math.exp(
-        (cost_of_carries - discount_rates) * expiries,
-        name='continuous_dividends_exponent')
+    discount_factors = tf.math.exp(
+        -discount_rates * expiries, name='discount_factors')
     barriers_ratio = tf.math.divide(barriers, spots, name='barriers_ratio')
-    spots_term = call_or_put * spots * continuous_dividends_exponent
-    strikes_term = call_or_put * strikes * discount_rates_exponent
+    spots_term = call_or_put * spots * tf.math.exp(-dividend_rates * expiries)
+    strikes_term = call_or_put * strikes * discount_factors
 
     # rank is used to stack elements and reduce_sum
     strike_rank = strikes.shape.rank
@@ -467,8 +418,8 @@ def barrier_price(volatilities,
          -strikes_term * (barriers_ratio**((2 * lamda) - 2)),
          spots_term * (barriers_ratio**(2 * lamda)),
          -strikes_term * (barriers_ratio**((2 * lamda) - 2)),
-         rebates * discount_rates_exponent,
-         -rebates * discount_rates_exponent * (  # pylint: disable=invalid-unary-operand-type
+         rebates * discount_factors,
+         -rebates * discount_factors * (  # pylint: disable=invalid-unary-operand-type
              barriers_ratio**((2 * lamda) - 2)),
          rebates * (barriers_ratio**(a + b)),
          rebates * (barriers_ratio**(a - b))),
@@ -495,18 +446,19 @@ def barrier_price(volatilities,
     return tf.reduce_sum(masks * terms_mat * cdf_mat, axis=strike_rank)
 
 
-# TODO(b/154806390): Binary price signature should be the same as that of the
-# vanilla price.
 def binary_price(*,
-                 volatilities,
-                 strikes,
-                 expiries,
-                 spots=None,
-                 forwards=None,
-                 discount_factors=None,
-                 is_call_options=None,
-                 dtype=None,
-                 name=None):
+                 volatilities: types.RealTensor,
+                 strikes: types.RealTensor,
+                 expiries: types.RealTensor,
+                 spots: types.RealTensor = None,
+                 forwards: types.RealTensor = None,
+                 discount_rates: types.RealTensor = None,
+                 dividend_rates: types.RealTensor = None,
+                 discount_factors: types.RealTensor = None,
+                 is_call_options: types.BoolTensor = None,
+                 is_normal_volatility: bool = False,
+                 dtype: tf.DType = None,
+                 name: str = None) -> types.RealTensor:
   """Computes the Black Scholes price for a batch of binary call or put options.
 
   The binary call (resp. put) option priced here is that which pays off a unit
@@ -555,6 +507,16 @@ def binary_price(*,
     forwards: A real `Tensor` of any shape that broadcasts to the shape of
       `volatilities`. The forwards to maturity. Either this argument or the
       `spots` must be supplied but both must not be supplied.
+    discount_rates: An optional real `Tensor` of same dtype as the
+      `volatilities` and of the shape that broadcasts with `volatilities`.
+      If not `None`, discount factors are calculated as e^(-rT),
+      where r are the discount rates, or risk free rates. At most one of
+      discount_rates and discount_factors can be supplied.
+      Default value: `None`, equivalent to r = 0 and discount factors = 1 when
+      discount_factors also not given.
+    dividend_rates: An optional real `Tensor` of same dtype as the
+      `volatilities` and of the shape that broadcasts with `volatilities`.
+      Default value: `None`, equivalent to q = 0.
     discount_factors: An optional real `Tensor` of same dtype as the
       `volatilities`. If not None, these are the discount factors to expiry
       (i.e. e^(-rT)). If None, no discounting is applied (i.e. the undiscounted
@@ -564,6 +526,10 @@ def binary_price(*,
     is_call_options: A boolean `Tensor` of a shape compatible with
       `volatilities`. Indicates whether the option is a call (if True) or a put
       (if False). If not supplied, call options are assumed.
+    is_normal_volatility: An optional Python boolean specifying whether the
+      `volatilities` correspond to lognormal Black volatility (if False) or
+      normal Black volatility (if True).
+      Default value: False, which corresponds to lognormal volatility.
     dtype: Optional `tf.DType`. If supplied, the dtype to be used for conversion
       of any supplied non-`Tensor` arguments to `Tensor`.
       Default value: None which maps to the default dtype inferred by TensorFlow
@@ -578,9 +544,13 @@ def binary_price(*,
   Raises:
     ValueError: If both `forwards` and `spots` are supplied or if neither is
       supplied.
+    ValueError: If both `discount_rates` and `discount_factors` is supplied.
   """
   if (spots is None) == (forwards is None):
     raise ValueError('Either spots or forwards must be supplied but not both.')
+  if (discount_rates is not None) and (discount_factors is not None):
+    raise ValueError('At most one of discount_rates and discount_factors may '
+                     'be supplied')
 
   with tf.name_scope(name or 'binary_price'):
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
@@ -589,12 +559,23 @@ def binary_price(*,
         volatilities, dtype=dtype, name='volatilities')
     expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')
 
-    if discount_factors is None:
-      discount_factors = tf.convert_to_tensor(
-          1.0, dtype=dtype, name='discount_factors')
-    else:
+    if discount_rates is not None:
+      discount_rates = tf.convert_to_tensor(
+          discount_rates, dtype=dtype, name='discount_rates')
+      discount_factors = tf.exp(-discount_rates * expiries)
+    elif discount_factors is not None:
       discount_factors = tf.convert_to_tensor(
           discount_factors, dtype=dtype, name='discount_factors')
+      discount_rates = -tf.math.log(discount_factors) / expiries
+    else:
+      discount_rates = tf.convert_to_tensor(
+          0.0, dtype=dtype, name='discount_rates')
+      discount_factors = tf.convert_to_tensor(
+          1.0, dtype=dtype, name='discount_factors')
+
+    if dividend_rates is None:
+      dividend_rates = tf.convert_to_tensor(
+          0.0, dtype=dtype, name='dividend_rates')
 
     if forwards is not None:
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
@@ -603,37 +584,40 @@ def binary_price(*,
       forwards = spots / discount_factors
 
     sqrt_var = volatilities * tf.math.sqrt(expiries)
-    d1 = (tf.math.log(forwards / strikes) + sqrt_var * sqrt_var / 2) / sqrt_var
-    d2 = d1 - sqrt_var
-    undiscounted_calls = _ncdf(d2)
+
+    if is_normal_volatility:  # normal model
+      d2 = (forwards - strikes) / sqrt_var
+    else:  # lognormal model
+      d2 = tf.math.log(forwards / strikes) / sqrt_var - sqrt_var / 2
+
+    zero_volatility_call_payoff = tf.where(forwards > strikes,
+                                           tf.ones_like(strikes, dtype=dtype),
+                                           tf.zeros_like(strikes, dtype=dtype))
+    undiscounted_calls = tf.where(sqrt_var > 0, _ncdf(d2),
+                                  zero_volatility_call_payoff)
+
     if is_call_options is None:
       return discount_factors * undiscounted_calls
-    is_call_options = tf.convert_to_tensor(is_call_options,
-                                           dtype=tf.bool,
-                                           name='is_call_options')
+
     undiscounted_puts = 1 - undiscounted_calls
     predicate = tf.broadcast_to(is_call_options, tf.shape(undiscounted_calls))
     return discount_factors * tf.where(predicate, undiscounted_calls,
                                        undiscounted_puts)
 
 
-@deprecation.deprecated_args(
-    '2021-07-01', 'continuous_dividends is deprecated. Use dividend_rates '
-    'instead', 'continuous_dividends')
-def asset_or_nothing_price(volatilities,
-                           strikes,
-                           expiries,
-                           spots=None,
-                           forwards=None,
-                           discount_rates=None,
-                           dividend_rates=None,
-                           continuous_dividends=None,
-                           cost_of_carries=None,
-                           discount_factors=None,
-                           is_call_options=None,
-                           is_normal_volatility=False,
-                           dtype=None,
-                           name=None):
+def asset_or_nothing_price(*,
+                           volatilities: types.RealTensor,
+                           strikes: types.RealTensor,
+                           expiries: types.RealTensor,
+                           spots: types.RealTensor = None,
+                           forwards: types.RealTensor = None,
+                           discount_rates: types.RealTensor = None,
+                           dividend_rates: types.RealTensor = None,
+                           discount_factors: types.RealTensor = None,
+                           is_call_options: types.BoolTensor = None,
+                           is_normal_volatility: bool = False,
+                           dtype: tf.DType = None,
+                           name: str = None) -> types.RealTensor:
   """Computes the Black Scholes price for a batch of asset-or-nothing options.
 
   The asset-or-nothing call (resp. put) pays out one unit of the underlying
@@ -685,29 +669,15 @@ def asset_or_nothing_price(volatilities,
       Default value: `None`, equivalent to r = 0 and discount factors = 1 when
         discount_factors also not given.
     dividend_rates: An optional real `Tensor` of same dtype as the
-      `volatilities` and of the shape that broadcasts with `volatilities`. If
-      not `None`, `cost_of_carries` is calculated as r - q, where r are the
-      `discount_rates` and q is `dividend_rates`. Either this or
-      `cost_of_carries` can be given.
+      `volatilities` and of the shape that broadcasts with `volatilities`.
       Default value: `None`, equivalent to q = 0.
-    continuous_dividends: `Tensor` equivalent to `dividend_rates`, to be
-      deprecated.
-    cost_of_carries: An optional real `Tensor` of same dtype as the
-      `volatilities` and of the shape that broadcasts with `volatilities`. Cost
-      of storing a physical commodity, the cost of interest paid when long, or
-      the opportunity cost, or the cost of paying dividends when short. If not
-      `None`, and `spots` is supplied, used to calculate forwards from
-      `spots`: F = e^(bT) * S, where F is the forwards price, b is the cost of
-        carries, T is expiries and S is the spot price. If `None`, value assumed
-        to be equal to the `discount_rate` - `dividend_rates`
-      Default value: `None`, equivalent to b = r.
     discount_factors: An optional real `Tensor` of same dtype as the
       `volatilities`. If not `None`, these are the discount factors to expiry
-      (i.e. e^(-rT)). Mutually exclusive with discount_rate and cost_of_carry.
-      If neither is given, no discounting is applied (i.e. the undiscounted
-      option price is returned). If `spots` is supplied and `discount_factors`
-      is not `None` then this is also used to compute the forwards to expiry. At
-      most one of discount_rates and discount_factors can be supplied.
+      (i.e. e^(-rT)). Mutually exclusive with discount_rates. If neither is
+      given, no discounting is applied (i.e. the undiscounted option price is
+      returned). If `spots` is supplied and `discount_factors` is not `None`
+      then this is also used to compute the forwards to expiry. At most one of
+      `discount_rates` and `discount_factors` can be supplied.
       Default value: `None`, which maps to e^(-rT) calculated from
         discount_rates.
     is_call_options: A boolean `Tensor` of a shape compatible with
@@ -733,20 +703,12 @@ def asset_or_nothing_price(volatilities,
     ValueError: If both `forwards` and `spots` are supplied or if neither is
       supplied.
     ValueError: If both `discount_rates` and `discount_factors` is supplied.
-    ValueError: If both `dividend_rates` and `cost_of_carries` is
-      supplied.
   """
-  dividend_rates = deprecation.deprecated_argument_lookup(
-      'dividend_rates', dividend_rates,
-      'continuous_dividends', continuous_dividends)
   if (spots is None) == (forwards is None):
     raise ValueError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
     raise ValueError('At most one of discount_rates and discount_factors may '
                      'be supplied')
-  if (dividend_rates is not None) and (cost_of_carries is not None):
-    raise ValueError('At most one of dividend_rates and cost_of_carries '
-                     'may be supplied')
 
   with tf.name_scope(name or 'asset_or_nothing_price'):
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
@@ -773,17 +735,11 @@ def asset_or_nothing_price(volatilities,
       dividend_rates = tf.convert_to_tensor(
           0.0, dtype=dtype, name='dividend_rates')
 
-    if cost_of_carries is not None:
-      cost_of_carries = tf.convert_to_tensor(
-          cost_of_carries, dtype=dtype, name='cost_of_carries')
-    else:
-      cost_of_carries = discount_rates - dividend_rates
-
     if forwards is not None:
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
     else:
       spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
-      forwards = spots * tf.exp(cost_of_carries * expiries)
+      forwards = spots * tf.exp((discount_rates - dividend_rates) * expiries)
 
     sqrt_var = volatilities * tf.math.sqrt(expiries)
 
@@ -809,22 +765,22 @@ def asset_or_nothing_price(volatilities,
 
 
 def swaption_price(*,
-                   volatilities,
-                   expiries,
-                   floating_leg_start_times,
-                   floating_leg_end_times,
-                   fixed_leg_payment_times,
-                   floating_leg_daycount_fractions,
-                   fixed_leg_daycount_fractions,
-                   fixed_leg_coupon,
-                   floating_leg_start_times_discount_factors,
-                   floating_leg_end_times_discount_factors,
-                   fixed_leg_payment_times_discount_factors,
-                   notional=None,
-                   is_payer_swaption=None,
-                   is_normal_volatility=True,
-                   dtype=None,
-                   name=None):
+                   volatilities: types.RealTensor,
+                   expiries: types.RealTensor,
+                   floating_leg_start_times: types.RealTensor,
+                   floating_leg_end_times: types.RealTensor,
+                   fixed_leg_payment_times: types.RealTensor,
+                   floating_leg_daycount_fractions: types.RealTensor,
+                   fixed_leg_daycount_fractions: types.RealTensor,
+                   fixed_leg_coupon: types.RealTensor,
+                   floating_leg_start_times_discount_factors: types.RealTensor,
+                   floating_leg_end_times_discount_factors: types.RealTensor,
+                   fixed_leg_payment_times_discount_factors: types.RealTensor,
+                   notional: types.RealTensor = None,
+                   is_payer_swaption: types.BoolTensor = None,
+                   is_normal_volatility: bool = True,
+                   dtype: tf.DType = None,
+                   name: str = None) -> types.RealTensor:
   """Calculates the price of European Swaptions using the Black model.
 
   A European Swaption is a contract that gives the holder an option to enter a

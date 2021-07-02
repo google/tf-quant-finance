@@ -27,6 +27,7 @@ py_library(
     srcs = ["vanilla_prices.py"],
     srcs_version = "PY3",
     deps = [
+        "//tf_quant_finance/types",
         # numpy dep,
         # tensorflow dep,
     ],
