@@ -160,7 +160,7 @@ py_library(
 
 py_test(
     name = "swaption_pricing_test",
-    timeout = "moderate",
+    timeout = "long",
     srcs = ["swaption_pricing_test.py"],
     python_version = "PY3",
     shard_count = 5,
