@@ -15,6 +15,7 @@
 """Approximate formulas for American option pricing."""
 
 from typing import Tuple
+
 import numpy as np
 import tensorflow.compat.v2 as tf
 from tf_quant_finance import types
@@ -24,6 +25,7 @@ from tf_quant_finance.math.root_search import newton as root_finder_newton
 
 __all__ = [
     'adesi_whaley',
+    'bjerksund_stensland',
 ]
 
 
@@ -72,7 +74,7 @@ def adesi_whaley(
     https://deriscope.com/docs/Barone_Adesi_Whaley_1987.pdf
 
   Args:
-    volatilities: Real `Tensor` of any shape and dtype. The volatilities to
+    volatilities: Real `Tensor` of any shape and real dtype. The volatilities to
       expiry of the options to price.
     strikes: A real `Tensor` of the same dtype and compatible shape as
       `volatilities`. The strikes of the options to be priced.
@@ -336,6 +338,259 @@ def _calc_d1(s, x, sigma, b, t):
 def _calc_q(n, m, sign, k=1):
   return ((1 - n) +
           sign * tf.math.sqrt((n - 1)**2 + tf.math.divide_no_nan(4 * m, k))) / 2
+
+
+def bjerksund_stensland(*,
+                        volatilities: types.RealTensor,
+                        strikes: types.RealTensor,
+                        expiries: types.RealTensor,
+                        spots: types.RealTensor = None,
+                        forwards: types.RealTensor = None,
+                        discount_rates: types.RealTensor = None,
+                        dividend_rates: types.RealTensor = None,
+                        discount_factors: types.RealTensor = None,
+                        is_call_options: types.BoolTensor = None,
+                        modified_boundary: bool = False,
+                        dtype: tf.DType = None,
+                        name=None) -> types.RealTensor:
+  """Computes prices of a batch of American options using Bjerksund-Stensland.
+
+  #### Example
+
+  ```python
+    import tf_quant_finance as tff
+    # Price a batch of 5 american call options.
+    volatilities = [0.2, 0.2, 0.2, 0.2, 0.2]
+    forwards = [80.0, 90.0, 100.0, 110.0, 120.0]
+    # Strikes will automatically be broadcasted to shape [5].
+    strikes = np.array([100.0])
+    # Expiries will be broadcast to shape [5], i.e. each option has strike=100
+    # and expiry = 0.25.
+    expiries = 0.25
+    discount_rates = 0.08
+    dividend_rates = 0.12
+    computed_prices = tff.black_scholes.approximations.bjerksund_stensland_1993(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        discount_rates=discount_rates,
+        dividend_rates=dividend_rates,
+        forwards=forwards,
+        is_call_options=True)
+  # Expected print output of computed prices:
+  # [ 0.02912157  0.57298896  3.48587029 10.31989532 20.        ]
+  ```
+
+  #### References:
+  [1] Bjerksund, P. and Stensland G., Closed Form Valuation of American Options,
+      2002
+      https://core.ac.uk/download/pdf/30824897.pdf
+
+  Args:
+    volatilities: Real `Tensor` of any shape and real dtype. The volatilities to
+      expiry of the options to price.
+    strikes: A real `Tensor` of the same dtype and compatible shape as
+      `volatilities`. The strikes of the options to be priced.
+    expiries: A real `Tensor` of same dtype and compatible shape as
+      `volatilities`. The expiry of each option. The units should be such that
+      `expiry * volatility**2` is dimensionless.
+    spots: A real `Tensor` of any shape that broadcasts to the shape of the
+      `volatilities`. The current spot price of the underlying. Either this
+      argument or the `forwards` (but not both) must be supplied.
+    forwards: A real `Tensor` of any shape that broadcasts to the shape of
+      `volatilities`. The forwards to maturity. Either this argument or the
+      `spots` must be supplied but both must not be supplied.
+    discount_rates: An optional real `Tensor` of same dtype as the
+      `volatilities` and of the shape that broadcasts with `volatilities`.
+      If not `None`, discount factors are calculated as e^(-rT),
+      where r are the discount rates, or risk free rates. At most one of
+      discount_rates and discount_factors can be supplied.
+      Default value: `None`, equivalent to r = 0 and discount factors = 1 when
+      discount_factors also not given.
+    dividend_rates: An optional real `Tensor` of same dtype as the
+      `volatilities`. The continuous dividend rate on the underliers. May be
+      negative (to indicate costs of holding the underlier).
+      Default value: `None`, equivalent to zero dividends.
+    discount_factors: An optional real `Tensor` of same dtype as the
+      `volatilities`. If not `None`, these are the discount factors to expiry
+      (i.e. e^(-rT)). Mutually exclusive with discount_rate and cost_of_carry.
+      If neither is given, no discounting is applied (i.e. the undiscounted
+      option price is returned). If `spots` is supplied and `discount_factors`
+      is not `None` then this is also used to compute the forwards to expiry.
+      At most one of discount_rates and discount_factors can be supplied.
+      Default value: `None`, which maps to e^(-rT) calculated from
+      discount_rates.
+    is_call_options: A boolean `Tensor` of a shape compatible with
+      `volatilities`. Indicates whether the option is a call (if True) or a put
+      (if False). If not supplied, call options are assumed.
+    modified_boundary: Python `bool`. Indicates whether the Bjerksund-Stensland
+      1993 algorithm (single boundary) if False or Bjerksund-Stensland 2002
+      algoritm (modified boundary) if True, is to be used.
+    dtype: Optional `tf.DType`. If supplied, the dtype to be used for conversion
+      of any supplied non-`Tensor` arguments to `Tensor`.
+      Default value: `None` which maps to the default dtype inferred by
+        TensorFlow.
+    name: str. The name for the ops created by this function.
+      Default value: `None` which is mapped to the default name `option_price`.
+
+  Returns:
+    A `Tensor` of the same shape as `forwards`.
+
+  Raises:
+    ValueError: If both `forwards` and `spots` are supplied or if neither is
+      supplied.
+    ValueError: If both `discount_rates` and `discount_factors` is supplied.
+    NotImpelentedError: If `modified_boundary` is `True`.
+  """
+  if (spots is None) == (forwards is None):
+    raise ValueError('Either spots or forwards must be supplied but not both.')
+  if (discount_rates is not None) and (discount_factors is not None):
+    raise ValueError('At most one of discount_rates and discount_factors may '
+                     'be supplied')
+  with tf.name_scope(name or 'option_price'):
+    strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
+    dtype = strikes.dtype
+    volatilities = tf.convert_to_tensor(
+        volatilities, dtype=dtype, name='volatilities')
+    expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')
+
+    if discount_rates is not None:
+      discount_rates = tf.convert_to_tensor(
+          discount_rates, dtype=dtype, name='discount_rates')
+      discount_factors = tf.exp(-discount_rates * expiries)
+    elif discount_factors is not None:
+      discount_factors = tf.convert_to_tensor(
+          discount_factors, dtype=dtype, name='discount_factors')
+      discount_rates = -tf.math.log(discount_factors) / expiries
+    else:
+      discount_rates = tf.convert_to_tensor(
+          0.0, dtype=dtype, name='discount_rates')
+      discount_factors = tf.convert_to_tensor(
+          1.0, dtype=dtype, name='discount_factors')
+
+    if dividend_rates is None:
+      dividend_rates = tf.convert_to_tensor(
+          0.0, dtype=dtype, name='dividend_rates')
+
+    cost_of_carries = discount_rates - dividend_rates
+
+    if forwards is not None:
+      forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
+      spots = tf.convert_to_tensor(
+          forwards * tf.exp(-(cost_of_carries) * expiries),
+          dtype=dtype, name='spots')
+    else:
+      spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
+      forwards = spots * tf.exp(cost_of_carries * expiries)
+
+    if is_call_options is not None:
+      is_call_options = tf.convert_to_tensor(is_call_options, dtype=tf.bool,
+                                             name='is_call_options')
+    else:
+      is_call_options = tf.constant(True, name='is_call_options')
+
+    if modified_boundary:
+      bjerksund_stensland_model = _call_2002
+    else:
+      bjerksund_stensland_model = _call_1993
+
+    # If cost of carry is greater than or equal to discount rate, then use
+    # Black-Scholes option price
+    american_prices = tf.where(
+        tf.math.logical_and(cost_of_carries >= discount_rates, is_call_options),
+        vanilla_prices.option_price(
+            volatilities=volatilities,
+            strikes=strikes,
+            expiries=expiries,
+            spots=spots,
+            discount_rates=discount_rates,
+            dividend_rates=dividend_rates,
+            is_call_options=is_call_options),
+        # For put options, adjust inputs according to call-put transformation
+        # function: P(S, X, T, r, b, sigma) = C(X, S, T, r - b, -b, sigma)
+        tf.where(is_call_options,
+                 bjerksund_stensland_model(
+                     spots, strikes, expiries, discount_rates,
+                     cost_of_carries, volatilities),
+                 bjerksund_stensland_model
+                 (strikes, spots, expiries, discount_rates - cost_of_carries,
+                  -cost_of_carries, volatilities)))
+    return american_prices
+
+
+def _call_2002(s, k, t, r, b, sigma):
+  """Calculates the approximate value of an American call option."""
+  # (15) in reference [1].
+  raise NotImplementedError('Bjerksund-Stensland 2002 algoritm is not '
+                            'supported yet.')
+
+
+def _call_1993(s, k, t, r, b, sigma):
+  """Calculates the approximate value of an American call option."""
+  # (4) in reference [1].
+
+  # The naming convention will align variables with the variables named in
+  # reference [1], but with X = _boundary_1993().
+  # [1] https://core.ac.uk/download/pdf/30824897.pdf
+
+  beta = (0.5 - b / sigma**2) + tf.math.sqrt((b / sigma**2 - 0.5)**2
+                                             + 2 * r / sigma**2)
+  alpha = ((_boundary_1993(k, t, r, b, sigma, beta) - k) *
+           _boundary_1993(k, t, r, b, sigma, beta)**(-beta))
+
+  return tf.where(s >= _boundary_1993(k, t, r, b, sigma, beta),
+                  s - k,
+                  alpha * s**beta
+                  - alpha * _phi_1993(s, t, beta,
+                                      _boundary_1993(k, t, r, b, sigma, beta),
+                                      _boundary_1993(k, t, r, b, sigma, beta),
+                                      r, b, sigma)
+                  + _phi_1993(s, t, 1,
+                              _boundary_1993(k, t, r, b, sigma, beta),
+                              _boundary_1993(k, t, r, b, sigma, beta),
+                              r, b, sigma)
+                  - _phi_1993(s, t, 1, k,
+                              _boundary_1993(k, t, r, b, sigma, beta),
+                              r, b, sigma)
+                  - k * _phi_1993(s, t, 0,
+                                  _boundary_1993(k, t, r, b, sigma, beta),
+                                  _boundary_1993(k, t, r, b, sigma, beta),
+                                  r, b, sigma)
+                  + k * _phi_1993(s, t, 0, k,
+                                  _boundary_1993(k, t, r, b, sigma, beta),
+                                  r, b, sigma))
+
+
+def _phi_1993(s, t, gamma, h, x, r, b, sigma):
+  """Computes the value of the Phi (7) function in reference [1]."""
+
+  # The naming convention will align variables with the variables named in
+  # reference [1], but with X = _boundary_1993().
+  # [1] https://core.ac.uk/download/pdf/30824897.pdf
+
+  kappa = (2 * b) / sigma**2 + (2 * gamma - 1)
+  d1 = (-(tf.math.log(s / h) + (b + (gamma - 0.5) * sigma**2) * t)
+        / (sigma * tf.math.sqrt(t)))
+  d2 = (-(tf.math.log(x**2 / (s * h)) + (b + (gamma - 0.5) * sigma**2) * t)
+        / (sigma * tf.math.sqrt(t)))
+  lambd = -r + gamma * b + 0.5 * gamma * (gamma - 1) * sigma**2
+
+  return (tf.math.exp(lambd * t) * s**gamma
+          * (_ncdf(d1) - (x / s)**kappa * _ncdf(d2)))
+
+
+def _boundary_1993(k, t, r, b, sigma, beta):
+  """Computes the early exercise boundary (10) in reference [1]."""
+
+  # The naming convention will align variables with the variables named in
+  # reference [1].
+  # [1] https://core.ac.uk/download/pdf/30824897.pdf
+
+  b0 = tf.math.maximum(k, (r / (r - b)) * k)
+  binfinity = beta / (beta - 1) * k
+  ht = -(b * t + 2 * sigma * tf.math.sqrt(t)) * (k**2 / ((binfinity - b0) * b0))
+
+  return b0 + (binfinity - b0) * (1 - tf.math.exp(ht))
 
 
 def _ncdf(x):
