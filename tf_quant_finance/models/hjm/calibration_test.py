@@ -206,6 +206,106 @@ class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
     self.assertAllClose(
         prices[:, 0], self.prices[:num_instruments], rtol=0.1, atol=0.1)
 
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'vol_based',
+          'vol_based_calib': True,
+      }, {
+          'testcase_name': 'price_based',
+          'vol_based_calib': False,
+      })
+  def test_calibration_batch(self, vol_based_calib):
+    """Tests calibration for a batch of models."""
+    dtype = tf.float64
+    mr0 = [[0.01, 0.05], [0.1, 0.2]]
+
+    vol0 = [[0.005, 0.007], [0.01, 0.015]]
+
+    def zero_rate_fn(t):
+      rates = 0.01 * tf.ones_like(tf.expand_dims(t, axis=0), dtype=dtype)
+      return tf.concat([rates, rates], axis=0)
+
+    times = np.unique(np.reshape(self.expiries, [-1]))
+    curve_times = None
+    random_type = tff.math.random.RandomType.STATELESS_ANTITHETIC
+    seed = [0, 0]
+    num_samples = 2000
+
+    valuation_method = tff.models.ValuationMethod.MONTE_CARLO
+    prices_2d = np.repeat(np.expand_dims(self.prices, axis=0), 2, axis=0)
+    expiries_2d = np.repeat(np.expand_dims(self.expiries, axis=0), 2, axis=0)
+    float_leg_start_times_2d = np.repeat(
+        np.expand_dims(self.float_leg_start_times, axis=0), 2, axis=0)
+    float_leg_end_times_2d = np.repeat(
+        np.expand_dims(self.float_leg_end_times, axis=0), 2, axis=0)
+    fixed_leg_payment_times_2d = np.repeat(
+        np.expand_dims(self.fixed_leg_payment_times, axis=0), 2, axis=0)
+    float_leg_daycount_fractions_2d = np.repeat(
+        np.expand_dims(self.float_leg_daycount_fractions, axis=0), 2, axis=0)
+    fixed_leg_daycount_fractions_2d = np.repeat(
+        np.expand_dims(self.fixed_leg_daycount_fractions, axis=0), 2, axis=0)
+    fixed_leg_coupon_2d = np.repeat(
+        np.expand_dims(self.fixed_leg_coupon, axis=0), 2, axis=0)
+    def _fn():
+      _, calib_mr, calib_vol, _, _, _ = (
+          tff.models.hjm.calibration_from_swaptions(
+              prices=prices_2d,
+              expiries=expiries_2d,
+              floating_leg_start_times=float_leg_start_times_2d,
+              floating_leg_end_times=float_leg_end_times_2d,
+              fixed_leg_payment_times=fixed_leg_payment_times_2d,
+              floating_leg_daycount_fractions=float_leg_daycount_fractions_2d,
+              fixed_leg_daycount_fractions=fixed_leg_daycount_fractions_2d,
+              fixed_leg_coupon=fixed_leg_coupon_2d,
+              reference_rate_fn=zero_rate_fn,
+              notional=100.,
+              num_hjm_factors=2,
+              mean_reversion=mr0,
+              volatility=vol0,
+              volatility_based_calibration=vol_based_calib,
+              calibrate_correlation=False,
+              swaption_valuation_method=valuation_method,
+              num_samples=num_samples,
+              random_type=random_type,
+              seed=seed,
+              time_step=0.25,
+              num_time_steps=None,
+              times=times,
+              curve_times=curve_times,
+              maximum_iterations=10,
+              dtype=dtype))
+      return calib_mr, calib_vol
+
+    calib_mr, calib_vol = self.evaluate(_fn())
+    with self.subTest('MR-Shape'):
+      self.assertAllEqual(calib_mr.shape, [2, 2])
+    with self.subTest('Vol-Shape'):
+      self.assertAllEqual(calib_vol.shape, [2, 2])
+
+    prices = tff.models.hjm.swaption_price(
+        expiries=expiries_2d,
+        fixed_leg_payment_times=fixed_leg_payment_times_2d,
+        fixed_leg_daycount_fractions=fixed_leg_daycount_fractions_2d,
+        fixed_leg_coupon=fixed_leg_coupon_2d,
+        reference_rate_fn=zero_rate_fn,
+        num_hjm_factors=2,
+        notional=100.,
+        mean_reversion=calib_mr,
+        volatility=calib_vol,
+        corr_matrix=None,
+        num_samples=num_samples,
+        random_type=random_type,
+        seed=seed,
+        time_step=0.25,
+        times=times,
+        curve_times=curve_times,
+        valuation_method=valuation_method,
+        dtype=dtype)
+
+    prices = self.evaluate(prices)
+    with self.subTest('CalibratedPrices'):
+      self.assertAllClose(prices[..., 0], prices_2d, rtol=0.1, atol=0.1)
+
 
 if __name__ == '__main__':
   tf.test.main()

@@ -114,7 +114,7 @@ def calibration_from_swaptions(*,
                                maximum_iterations=50,
                                dtype=None,
                                name=None):
-  """Calibrates HJM model using European Swaption prices.
+  """Calibrates a batch of HJM models using European Swaption prices.
 
   This function estimates the mean-reversion rates, volatility and correlation
   parameters of a multi factor HJM model using a set of European swaption
@@ -207,8 +207,10 @@ def calibration_from_swaptions(*,
   ````
 
   Args:
-    prices: A rank 1 real `Tensor`. The prices of swaptions used for
-      calibration.
+    prices: An N-D real `Tensor` of shape `batch_shape + [k]`. `batch_shape` is
+      the shape of the batch of models to calibrate and `k` is the number of
+      swaptions per calibration. The input represents the prices of swaptions
+      used for calibration.
     expiries: A real `Tensor` of same shape and dtype as `prices`. The time to
       expiration of the swaptions.
     floating_leg_start_times: A real `Tensor` of the same dtype as `prices`. The
@@ -237,10 +239,10 @@ def calibration_from_swaptions(*,
       the continuously compounded zero rate at the present time for the input
       expiry time.
     num_hjm_factors: A Python scalar which corresponds to the number of factors
-      in the calibrated HJM model.
+      in the batch of calibrated HJM models.
     mean_reversion: A real positive `Tensor` of same dtype as `prices` and shape
-      `(num_hjm_factors,)`. Corresponds to the initial values of the mean
-      reversion rates of the factors for calibration.
+      `batch_shape  + [num_hjm_factors]`. Corresponds to the initial values of
+      the mean reversion rates of the factors for calibration.
     volatility: A real positive `Tensor` of the same `dtype` and shape as
       `mean_reversion`. Corresponds to the initial values of the volatility of
       the factors for calibration.
@@ -434,9 +436,28 @@ def calibration_from_swaptions(*,
       return vols
 
     if volatility_based_calibration:
+      batch_shape = tf.shape(prices)[:-1]
+      batch_size = tf.math.reduce_prod(batch_shape)
+      num_instruments = tf.shape(prices)[-1]
       swap_rate, annuity = swap.ir_swap_par_rate_and_annuity(
           float_leg_start_times, float_leg_end_times, fixed_leg_payment_times,
           fixed_leg_daycount_fractions, reference_rate_fn)
+      # Because we require `reference_rate_fn` to return a Tensor of shape
+      # `[batch_shape] + t.shape`, we get cross product terms that we don't
+      # need. The logic below takes `swap_rate` and `annuity` from shape
+      # `[batch_shape, batch_shape, num_instruments]` to
+      # `[batch_shape, num_instruments]`
+      swap_rate = tf.reshape(
+          swap_rate, [batch_size, batch_size, num_instruments])
+      annuity = tf.reshape(
+          annuity, [batch_size, batch_size, num_instruments])
+      indices = tf.stack([tf.range(batch_size, dtype=tf.int32),
+                          tf.range(batch_size, dtype=tf.int32)],
+                         axis=-1)
+      swap_rate = tf.gather_nd(swap_rate, indices)
+      annuity = tf.gather_nd(annuity, indices)
+      swap_rate = tf.reshape(swap_rate, tf.shape(prices))
+      annuity = tf.reshape(annuity, tf.shape(prices))
       target_values = _price_to_normal_vol(prices, swap_rate, annuity)
     else:
       target_values = prices
@@ -465,23 +486,25 @@ def calibration_from_swaptions(*,
       init_corr = tf.range(0.1, num_thetas + 0.1, dtype=dtype) / num_thetas
     else:
       init_corr = []
+      if mean_reversion.shape.rank > 1:
+        init_corr = [[]] * mean_reversion.shape.rank
 
     initial_guess = tf.concat([
         _to_unconstrained(mean_reversion, mr_lb, mr_ub),
         _to_unconstrained(volatility, vol_lb, vol_ub),
         _to_unconstrained(init_corr, theta_lb, theta_ub)
-    ], axis=0)
+    ], axis=-1)
     scaled_target = _scale(target_values, target_lb, target_ub)
 
     @make_val_and_grad_fn
     def loss_function(x):
       """Loss function for the optimization."""
-      x_mr = _to_constrained(x[:num_hjm_factors], mr_lb, mr_ub)
-      x_vol = _to_constrained(x[num_hjm_factors:2 * num_hjm_factors], vol_lb,
-                              vol_ub)
+      x_mr = _to_constrained(x[..., :num_hjm_factors], mr_lb, mr_ub)
+      x_vol = _to_constrained(x[..., num_hjm_factors:2 * num_hjm_factors],
+                              vol_lb, vol_ub)
 
       if calibrate_correlation:
-        thetas = x[2 * num_hjm_factors:]
+        thetas = x[..., 2 * num_hjm_factors:]
         thetas = tfp.math.clip_by_value_preserve_gradient(thetas, -25.0, 25.0)
         x_corr = _correlation_matrix_using_hypersphere_decomposition(
             num_hjm_factors, _to_constrained(thetas, theta_lb, theta_ub))
@@ -514,7 +537,7 @@ def calibration_from_swaptions(*,
           curve_times=curve_times,
           time_step_finite_difference=time_step_finite_difference,
           num_grid_points_finite_difference=num_grid_points_finite_difference,
-          dtype=dtype)[:, 0]
+          dtype=dtype)[..., 0]
 
       if volatility_based_calibration:
         model_values = _price_to_normal_vol(model_values, swap_rate, annuity)
@@ -523,7 +546,8 @@ def calibration_from_swaptions(*,
             model_values)
 
       value = tf.math.reduce_sum(
-          (_scale(model_values, target_lb, target_ub) - scaled_target)**2)
+          (_scale(model_values, target_lb, target_ub) - scaled_target)**2,
+          axis=-1)
       return value
 
     optimization_result = optimizer_fn(
@@ -533,9 +557,9 @@ def calibration_from_swaptions(*,
         max_iterations=maximum_iterations)
     calibrated_parameters = optimization_result.position
     mean_reversion_calibrated = _to_constrained(
-        calibrated_parameters[:num_hjm_factors], mr_lb, mr_ub)
+        calibrated_parameters[..., :num_hjm_factors], mr_lb, mr_ub)
     volatility_calibrated = _to_constrained(
-        calibrated_parameters[num_hjm_factors:2 * num_hjm_factors], vol_lb,
+        calibrated_parameters[..., num_hjm_factors:2 * num_hjm_factors], vol_lb,
         vol_ub)
     volatility_fn_calibrated = _make_hjm_volatility_fn(volatility_calibrated,
                                                        dtype)
@@ -544,7 +568,7 @@ def calibration_from_swaptions(*,
           _correlation_matrix_using_hypersphere_decomposition(
               num_hjm_factors,
               _to_constrained(
-                  calibrated_parameters[2 * num_hjm_factors:],
+                  calibrated_parameters[..., 2 * num_hjm_factors:],
                   theta_lb, theta_ub)))
     else:
       correlation_calibrated = None
