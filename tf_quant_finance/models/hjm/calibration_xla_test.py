@@ -92,6 +92,7 @@ class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
 
     valuation_method = (tff.models.ValuationMethod.FINITE_DIFFERENCE
                         if use_fd else tff.models.ValuationMethod.MONTE_CARLO)
+    @tf.function(jit_compile=True)
     def _fn():
       _, calib_mr, calib_vol, calib_corr, _, _ = (
           tff.models.hjm.calibration_from_swaptions(
@@ -124,8 +125,7 @@ class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
               dtype=dtype))
       return calib_mr, calib_vol, calib_corr
 
-    calib_mr, calib_vol, calib_corr = self.evaluate(
-        tf.xla.experimental.compile(_fn))
+    calib_mr, calib_vol, calib_corr = _fn()
 
     prices = tff.models.hjm.swaption_price(
         expiries=self.expiries,

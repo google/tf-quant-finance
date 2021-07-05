@@ -210,11 +210,11 @@ py_test(
     srcs = ["calibration_xla_test.py"],
     python_version = "PY3",
     shard_count = 2,
-    tags = ["notap"],  # TODO(b/192874012): Speedup this test
     deps = [
         "//tf_quant_finance",
         # test util,
         # numpy dep,
         # tensorflow dep,
+        # xla_cpu_jit xla dep,
     ],
 )
