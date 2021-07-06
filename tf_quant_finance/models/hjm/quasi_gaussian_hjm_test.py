@@ -126,10 +126,12 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
         initial_discount_rate_fn=self.instant_forward_rate,
         dtype=dtype)
 
+    num_samples = 10_000
+
     def _fn():
       paths, _, _, _ = process.sample_paths(
           [0.1, 0.5, 1.0],
-          num_samples=10000,
+          num_samples=num_samples,
           time_step=time_step,
           num_time_steps=num_time_steps,
           random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
@@ -138,10 +140,10 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
       return paths
 
     if use_xla:
-      paths = self.evaluate(tf.xla.experimental.compile(_fn))[0]
+      paths = self.evaluate(tf.function(_fn, experimental_compile=True)())
     else:
       paths = self.evaluate(_fn())
-    self.assertAllEqual(paths.shape, [10000, 3])
+    self.assertAllEqual(paths.shape, [num_samples, 3])
     paths = paths[:, -1]  # Extract paths values for the terminal time
     mean = np.mean(paths, axis=0)
     variance = np.var(paths, axis=0)
@@ -155,7 +157,7 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
 
   def test_zcb_variance_1_factor(self):
     """Tests 1-Factor model with constant parameters."""
-    num_samples = 100000
+    num_samples = 10_000
     for dtype in [tf.float64]:
       curve_times = np.array([0., 0.5, 1.0, 5.0, 10.0])
       times = np.array([0.1, 0.5, 1.0, 3])
@@ -171,7 +173,7 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
           curve_times=curve_times,
           num_samples=num_samples,
           time_step=0.1,
-          random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+          random_type=tff.math.random.RandomType.SOBOL,
           seed=[1, 2],
           skip=1000000)
       self.assertEqual(paths.dtype, dtype)
@@ -183,7 +185,7 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
                                      self.volatility_1_factor[0],
                                      self.mean_reversion_1_factor[0])
         self.assertAllClose(
-            sampled_std[:, tidx], true_std, rtol=5e-4, atol=5e-4)
+            sampled_std[:, tidx], true_std, rtol=1e-3, atol=1e-3)
 
   @parameterized.named_parameters({
       'testcase_name': '1d',
