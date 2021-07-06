@@ -25,7 +25,6 @@ import tf_quant_finance as tff
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
-@test_util.run_all_in_graph_and_eager_modes
 class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
 
   def setUp(self):
@@ -70,7 +69,7 @@ class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
       })
   def test_calibration(self, optimizer_fn, vol_based_calib, num_hjm_factors,
                        time_step, num_time_steps, use_xla, use_fd, max_iter):
-    """Tests calibration with constant parameters."""
+    """Tests calibration with constant parameters is XLA-compatible."""
     dtype = tf.float64
     mr0 = [0.01, 0.05]
     if num_hjm_factors == 1:
@@ -92,7 +91,7 @@ class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
 
     valuation_method = (tff.models.ValuationMethod.FINITE_DIFFERENCE
                         if use_fd else tff.models.ValuationMethod.MONTE_CARLO)
-    @tf.function(jit_compile=True)
+    @tf.function(experimental_compile=True)
     def _fn():
       _, calib_mr, calib_vol, calib_corr, _, _ = (
           tff.models.hjm.calibration_from_swaptions(
@@ -125,35 +124,11 @@ class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
               dtype=dtype))
       return calib_mr, calib_vol, calib_corr
 
-    calib_mr, calib_vol, calib_corr = _fn()
+    # Extracting HLO text is supported only in eager mode
+    hlo_text = _fn.experimental_get_compiler_ir()(stage='hlo')
 
-    prices = tff.models.hjm.swaption_price(
-        expiries=self.expiries,
-        fixed_leg_payment_times=self.fixed_leg_payment_times,
-        fixed_leg_daycount_fractions=self.fixed_leg_daycount_fractions,
-        fixed_leg_coupon=self.fixed_leg_coupon,
-        reference_rate_fn=zero_rate_fn,
-        num_hjm_factors=num_hjm_factors,
-        notional=100.,
-        mean_reversion=calib_mr,
-        volatility=calib_vol,
-        corr_matrix=calib_corr,
-        num_samples=num_samples,
-        random_type=random_type,
-        seed=seed,
-        time_step=time_step,
-        num_time_steps=num_time_steps,
-        times=times,
-        curve_times=curve_times,
-        time_step_finite_difference=time_step,
-        num_grid_points_finite_difference=41,
-        valuation_method=valuation_method,
-        dtype=dtype)
-
-    prices = self.evaluate(prices)
-    # The tolerances here are very loose because this test just makes sure that
-    # we can compile and run the calibation with xla.
-    self.assertAllClose(prices[:, 0], self.prices, rtol=1, atol=1)
+    # Check that the output has an expected format
+    self.assertStartsWith(hlo_text, 'HloModule')
 
 
 if __name__ == '__main__':
