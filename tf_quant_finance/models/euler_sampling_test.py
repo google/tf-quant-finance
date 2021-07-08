@@ -339,7 +339,7 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
     # s_ij = a_ij t + b_ij
     # For this process expected value at time t is (x_0)_i + 2/3 * mu_i * t^1.5.
     dtype = tf.float64
-    num_samples = 50000
+    num_samples = 10000
     times = np.array([0.1, 0.21, 0.32])
     x0 = np.array([0.1, -1.1])
     mu = np.array([0.2, 0.7])

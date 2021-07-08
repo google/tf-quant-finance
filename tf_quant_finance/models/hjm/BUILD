@@ -192,7 +192,7 @@ py_library(
 
 py_test(
     name = "calibration_test",
-    timeout = "long",
+    timeout = "moderate",
     srcs = ["calibration_test.py"],
     python_version = "PY3",
     shard_count = 12,

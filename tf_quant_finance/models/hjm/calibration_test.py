@@ -134,7 +134,7 @@ class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
     curve_times = None
     random_type = tff.math.random.RandomType.STATELESS_ANTITHETIC
     seed = [0, 0]
-    num_samples = 2000
+    num_samples = 500
 
     valuation_method = tff.models.ValuationMethod.MONTE_CARLO
     def _fn():
@@ -229,7 +229,7 @@ class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
     curve_times = None
     random_type = tff.math.random.RandomType.STATELESS_ANTITHETIC
     seed = [0, 0]
-    num_samples = 2000
+    num_samples = 500
 
     valuation_method = tff.models.ValuationMethod.MONTE_CARLO
     prices_2d = np.repeat(np.expand_dims(self.prices, axis=0), 2, axis=0)
