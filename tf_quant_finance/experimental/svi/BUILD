@@ -17,6 +17,7 @@ py_library(
 py_library(
     name = "calibration",
     srcs = ["calibration.py"],
+    srcs_version = "PY3",
     deps = [
         ":parameterizations",
         "//tf_quant_finance/math",
