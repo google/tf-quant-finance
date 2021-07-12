@@ -70,16 +70,83 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
         rho_upper_bound=0.75,
         maximum_iterations=1000)
 
-    (calibrated_alpha, calibrated_beta, calibrated_volvol, calibrated_rho,
-     is_converged) = self.evaluate(
+    [calibrated_alpha, calibrated_beta, calibrated_volvol, calibrated_rho,
+     is_converged] = self.evaluate(
          [models.alpha, models.beta, models.volvol, models.rho, is_converged])
 
-    self.assertTrue(is_converged)
+    with self.subTest('AllConverged'):
+      self.assertTrue(all(is_converged))
+    with self.subTest('AlphaRecovered'):
+      self.assertAllClose(calibrated_alpha, [1.5, 2.5], atol=2e-3, rtol=2e-3)
+    with self.subTest('BetaRecovered'):
+      self.assertAllClose(calibrated_beta, [0.5, 0.5], atol=2e-3, rtol=2e-3)
+    with self.subTest('VolVolRecovered'):
+      self.assertAllClose(calibrated_volvol, [0.33, 0.66], atol=2e-2, rtol=5e-2)
+    with self.subTest('RhoRecovered'):
+      self.assertAllClose(calibrated_rho, [0.1, -0.1], atol=1e-2, rtol=5e-2)
 
-    self.assertAllClose(calibrated_alpha, [1.5, 2.5], atol=2e-3, rtol=2e-3)
-    self.assertAllClose(calibrated_beta, [0.5, 0.5], atol=2e-3, rtol=2e-3)
-    self.assertAllClose(calibrated_volvol, [0.33, 0.66], atol=2e-2, rtol=5e-2)
-    self.assertAllClose(calibrated_rho, [0.1, -0.1], atol=1e-2, rtol=5e-2)
+  def test_dynamic_shapes(self):
+    """Test calibration function with dynamically shaped inputs."""
+    dtype = np.float64
+
+    observed_prices = np.array(
+        [[20.09689284, 10.91953054, 4.25012702, 1.11561839, 0.20815853],
+         [3.34813209, 6.03578711, 10.2874194, 16.26824328, 23.73850935]],
+        dtype=dtype)
+
+    strikes = np.array(
+        [[80.0, 90.0, 100.0, 110.0, 120.0], [80.0, 90.0, 100.0, 110.0, 120.0]],
+        dtype=dtype)
+
+    expiries = np.array([[0.5], [1.0]], dtype=dtype)
+    forwards = [[100.0], [100.0]]
+    is_call_options = np.array([[True], [False]])
+
+    beta = np.array([0.5], dtype=dtype)
+    nu = np.array([1.0], dtype=dtype)
+
+    @tf.function(input_signature=[tf.TensorSpec([None, None], dtype=dtype),
+                                  tf.TensorSpec([None, None], dtype=dtype),
+                                  tf.TensorSpec([None, None], dtype=dtype),
+                                  tf.TensorSpec([None, None], dtype=dtype),
+                                  tf.TensorSpec([None, None], dtype=tf.bool),
+                                  tf.TensorSpec([None], dtype=dtype),
+                                  tf.TensorSpec([None], dtype=dtype)])
+    def fn(observed_prices, strikes, expiries, forwards, is_call_options,
+           beta, nu):
+      models, is_converged, _ = tff.models.sabr.calibration(
+          prices=observed_prices,
+          strikes=strikes,
+          expiries=expiries,
+          forwards=forwards,
+          is_call_options=is_call_options,
+          beta=beta,
+          calibrate_beta=False,
+          nu=nu,
+          nu_lower_bound=0.0,
+          nu_upper_bound=10.0,
+          rho=np.array(0.0, dtype=dtype),
+          rho_lower_bound=-0.75,
+          rho_upper_bound=0.75,
+          optimizer_fn=tff.math.optimizer.bfgs_minimize,
+          maximum_iterations=1000)
+      return models, is_converged
+
+    models, is_converged = fn(observed_prices, strikes, expiries, forwards,
+                              is_call_options, beta, nu)
+    [calibrated_alpha, calibrated_beta, calibrated_volvol, calibrated_rho,
+     is_converged] = self.evaluate(
+         [models.alpha, models.beta, models.volvol, models.rho, is_converged])
+    with self.subTest('AllConverged'):
+      self.assertTrue(all(is_converged))
+    with self.subTest('AlphaRecovered'):
+      self.assertAllClose(calibrated_alpha, [1.5, 2.5], atol=2e-3, rtol=2e-3)
+    with self.subTest('BetaRecovered'):
+      self.assertAllClose(calibrated_beta, [0.5, 0.5], atol=2e-3, rtol=2e-3)
+    with self.subTest('VolVolRecovered'):
+      self.assertAllClose(calibrated_volvol, [0.33, 0.66], atol=2e-2, rtol=5e-2)
+    with self.subTest('RhoRecovered'):
+      self.assertAllClose(calibrated_rho, [0.1, -0.1], atol=1e-2, rtol=5e-2)
 
   def test_calibration_batch_limits(self):
     """Demonstrate that lower/upper limits can be set independently in batch."""
@@ -119,7 +186,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
      is_converged) = self.evaluate(
          [models.alpha, models.beta, models.volvol, models.rho, is_converged])
 
-    self.assertTrue(is_converged)
+    self.assertTrue(all(is_converged))
 
     self.assertAllClose(calibrated_alpha, [1.5, 2.5], atol=2e-3, rtol=2e-3)
     self.assertAllClose(calibrated_beta, [0.5, 0.5], atol=2e-3, rtol=2e-3)
@@ -143,7 +210,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
 
     beta = np.array([0.5, 0.5], dtype=dtype)
 
-    # Fails because `nu` is of incorrect shape.
+    # Fails because `nu` is outside the limits.
     with self.assertRaises(tf.errors.InvalidArgumentError):
       _, is_converged, _ = tff.models.sabr.calibration(
           prices=observed_prices,
@@ -153,7 +220,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           is_call_options=is_call_options,
           beta=beta,
           calibrate_beta=False,
-          nu=np.array([1.0, 1.0, 1.0], dtype=dtype),
+          nu=np.array([1.0, 12.0], dtype=dtype),
           nu_lower_bound=0.0,
           nu_upper_bound=10.0,
           rho=np.array([0.0, 0.0], dtype=dtype),
@@ -197,8 +264,8 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
         rho_lower_bound=-0.75,
         rho_upper_bound=0.75,
         validate_args=True)
-    is_converged = self.evaluate([is_converged])
-    self.assertTrue(is_converged)
+    is_converged = self.evaluate(is_converged)
+    self.assertTrue(all(is_converged))
 
   @parameterized.named_parameters(
       {
@@ -213,10 +280,6 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'tolerance': 1e-6,
           'vol_type': LOGNORMAL,
           'noise_size': 0.0,
-          'alpha_tol': (1e-2, 1e-3),
-          'beta_tol': (1e-8, 1e-8),
-          'nu_tol': (5e-2, 1e-1),
-          'rho_tol': (1e-2, 1e-3),
           'price_tol': (1e-2, 5e-3)
       },
       {
@@ -228,13 +291,9 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'calibrate_beta': False,
           'vol_based_calibration': True,
           'max_iterations': 1000,
-          'tolerance': 1e-6,
+          'tolerance': 1e-8,
           'vol_type': LOGNORMAL,
           'noise_size': 0.0,
-          'alpha_tol': (1e-1, 5e-2),
-          'beta_tol': (1e-8, 1e-8),
-          'nu_tol': (0.5, 1.5),
-          'rho_tol': (0.1, 1.0),
           'price_tol': (1e-2, 5e-3)
       },
       {
@@ -249,10 +308,6 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'tolerance': 1e-6,
           'vol_type': LOGNORMAL,
           'noise_size': 0.0,
-          'alpha_tol': (1e-2, 1e-3),
-          'beta_tol': (1e-8, 1e-8),
-          'nu_tol': (2e-2, 5e-2),
-          'rho_tol': (1e-2, 1e-3),
           'price_tol': (1e-2, 5e-3)
       },
       {
@@ -264,13 +319,9 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'calibrate_beta': False,
           'vol_based_calibration': True,
           'max_iterations': 1000,
-          'tolerance': 1e-6,
+          'tolerance': 1e-8,
           'vol_type': LOGNORMAL,
           'noise_size': 0.0,
-          'alpha_tol': (5e-2, 2e-2),
-          'beta_tol': (1e-8, 1e-8),
-          'nu_tol': (0.25, 0.5),
-          'rho_tol': (0.1, 1.0),
           'price_tol': (1e-2, 5e-3)
       },
       {
@@ -285,10 +336,6 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'tolerance': 1e-6,
           'vol_type': LOGNORMAL,
           'noise_size': 0.01,
-          'alpha_tol': (1e-1, 1e-1),
-          'beta_tol': (1e-8, 1e-8),
-          'nu_tol': (0.5, 0.5),
-          'rho_tol': (1e-1, 1e-1),
           'price_tol': (1e-2, 5e-3)
       },
       {
@@ -303,10 +350,6 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'tolerance': 1e-6,
           'vol_type': LOGNORMAL,
           'noise_size': 0.01,
-          'alpha_tol': (1e-1, 1e-1),
-          'beta_tol': (1e-8, 1e-8),
-          'nu_tol': (0.5, 0.5),
-          'rho_tol': (1e-1, 1e-1),
           'price_tol': (1e-2, 5e-3)
       },
       {
@@ -321,10 +364,6 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'tolerance': 1e-6,
           'vol_type': LOGNORMAL,
           'noise_size': 0.0,
-          'alpha_tol': (1.0, 1e-1),
-          'beta_tol': (0.2, 0.5),
-          'nu_tol': (0.5, 1.0),
-          'rho_tol': (0.5, 5.0),
           'price_tol': (1e-2, 5e-3)
       },
       {
@@ -339,10 +378,6 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'tolerance': 1e-6,
           'vol_type': LOGNORMAL,
           'noise_size': 0.0,
-          'alpha_tol': (1.0, 1e-1),
-          'beta_tol': (1e-1, 1e-1),
-          'nu_tol': (2e-1, 5e-1),
-          'rho_tol': (5e-1, 5.0),
           'price_tol': (1e-2, 5e-3)
       },
       {
@@ -357,10 +392,6 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'tolerance': 1e-6,
           'vol_type': NORMAL,
           'noise_size': 0.0,
-          'alpha_tol': (1e-2, 1e-3),
-          'beta_tol': (1e-8, 1e-8),
-          'nu_tol': (5e-2, 1e-1),
-          'rho_tol': (1e-1, 1e-1),
           'price_tol': (1e-2, 5e-3)
       },
       {
@@ -375,10 +406,6 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'tolerance': 1e-6,
           'vol_type': NORMAL,
           'noise_size': 0.0,
-          'alpha_tol': (1e-2, 1e-3),
-          'beta_tol': (1e-8, 1e-8),
-          'nu_tol': (5e-2, 1e-1),
-          'rho_tol': (1e-1, 1e-1),
           'price_tol': (1e-2, 5e-3)
       },
       {
@@ -393,10 +420,6 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'tolerance': 1e-6,
           'vol_type': NORMAL,
           'noise_size': 0.0,
-          'alpha_tol': (1e-2, 1e-3),
-          'beta_tol': (1e-8, 1e-8),
-          'nu_tol': (5e-2, 0.1),
-          'rho_tol': (1e-2, 1e-3),
           'price_tol': (1e-2, 5e-3)
       },
       {
@@ -411,10 +434,6 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'tolerance': 1e-6,
           'vol_type': NORMAL,
           'noise_size': 0.0,
-          'alpha_tol': (1e-2, 1e-3),
-          'beta_tol': (1e-8, 1e-8),
-          'nu_tol': (1e-2, 1e-3),
-          'rho_tol': (1e-2, 1e-3),
           'price_tol': (1e-2, 5e-3)
       },
       {
@@ -429,10 +448,6 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'tolerance': 1e-6,
           'vol_type': NORMAL,
           'noise_size': 0.01,
-          'alpha_tol': (1e-1, 1e-1),
-          'beta_tol': (1e-8, 1e-8),
-          'nu_tol': (0.2, 0.5),
-          'rho_tol': (0.1, 0.5),
           'price_tol': (1e-2, 5e-3)
       },
       {
@@ -447,10 +462,6 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'tolerance': 1e-6,
           'vol_type': NORMAL,
           'noise_size': 0.01,
-          'alpha_tol': (1e-1, 1e-1),
-          'beta_tol': (1e-8, 1e-8),
-          'nu_tol': (0.5, 0.5),
-          'rho_tol': (1.0, 1.0),
           'price_tol': (1e-2, 5e-3)
       },
       {
@@ -465,10 +476,6 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'tolerance': 1e-5,
           'vol_type': NORMAL,
           'noise_size': 0.0,
-          'alpha_tol': (1.5, 1.0),
-          'beta_tol': (0.5, 1.5),
-          'nu_tol': (0.5, 1.0),
-          'rho_tol': (0.5, 5.0),
           'price_tol': (1e-2, 5e-3)
       },
       {
@@ -483,17 +490,12 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'tolerance': 1e-6,
           'vol_type': NORMAL,
           'noise_size': 0.0,
-          'alpha_tol': (1.0, 1e-1),
-          'beta_tol': (1e-1, 1e-1),
-          'nu_tol': (1e-1, 1e-1),
-          'rho_tol': (5e-2, 5e-1),
           'price_tol': (1e-2, 5e-3)
       },
   )
   def test_calibration(self, true_alpha, true_beta, true_nu, true_rho,
                        calibrate_beta, vol_based_calibration, max_iterations,
-                       tolerance, vol_type, noise_size, alpha_tol, beta_tol,
-                       nu_tol, rho_tol, price_tol):
+                       tolerance, vol_type, noise_size, price_tol):
     dtype = np.float64
 
     # Construct some market conditions.
@@ -516,11 +518,13 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
         rho=np.expand_dims(true_rho, axis=-1),
         volatility_type=vol_type,
         dtype=dtype)
-    observed_prices = denoised_prices + tf.random.normal(
+
+    # Add noise to the prices
+    observed_prices = denoised_prices + tf.random.stateless_normal(
         denoised_prices.shape,
         stddev=noise_size * denoised_prices,
-        seed=0,
-        dtype=tf.float64)
+        seed=[2, 4],
+        dtype=dtype)
 
     # Calibrate the models.
     initial_beta = np.array([0.5, 0.5],
@@ -542,7 +546,8 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
         rho_upper_bound=0.75,
         volatility_type=vol_type,
         maximum_iterations=max_iterations,
-        tolerance=tolerance)
+        tolerance=tolerance,
+        dtype=dtype)
 
     (calibrated_alpha, calibrated_beta, calibrated_volvol,
      calibrated_rho) = self.evaluate(
@@ -564,24 +569,11 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
 
     calibrated_prices, denoised_prices = self.evaluate(
         [calibrated_prices, denoised_prices])
-
     self.assertAllClose(
         calibrated_prices,
         denoised_prices,
         atol=price_tol[0],
         rtol=price_tol[1])
-
-    # Check that the calibrated parameters do not diverge too far from the
-    # parameters that generated the prices.
-    self.assertAllClose(
-        calibrated_alpha, true_alpha, atol=alpha_tol[0], rtol=alpha_tol[1])
-    self.assertAllClose(
-        calibrated_beta, true_beta, atol=beta_tol[0], rtol=beta_tol[1])
-    self.assertAllClose(
-        calibrated_volvol, true_nu, atol=nu_tol[0], rtol=nu_tol[1])
-    self.assertAllClose(
-        calibrated_rho, true_rho, atol=rho_tol[0], rtol=rho_tol[1])
-
 
 if __name__ == '__main__':
   tf.test.main()

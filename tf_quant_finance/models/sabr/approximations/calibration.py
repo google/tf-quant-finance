@@ -239,7 +239,7 @@ def calibration(
         `objective_value` ( the value of the objective function at the optimal
         value). The default value for `optimizer_fn` is None and conjugate
         gradient algorithm is used.
-      Default value: `None` - indicating conjugate gradient minimizer.
+      Default value: `None` - indicating LBFGS minimizer.
     tolerance: Scalar `Tensor` of real dtype. The absolute tolerance for
       terminating the iterations.
       Default value: 1e-6.
@@ -273,22 +273,40 @@ def calibration(
   with tf.name_scope(name):
     prices = tf.convert_to_tensor(prices, dtype=dtype, name='prices')
     dtype = dtype or prices.dtype
-    batch_size = tf.shape(prices)[0]
+
+    # Extract batch shape
+    batch_shape = prices.shape.as_list()[:-1]
+    if None in batch_shape:
+      batch_shape = tf.shape(prices)[:-1]
 
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
     expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')
-    forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='expiries')
+    forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
     is_call_options = tf.convert_to_tensor(
         is_call_options, name='is_call', dtype=tf.bool)
 
     if optimizer_fn is None:
-      optimizer_fn = optimizer.conjugate_gradient_minimize
+      optimizer_fn = optimizer.lbfgs_minimize
+
+    beta = tf.convert_to_tensor(beta, dtype=dtype)
+    beta_lower_bound = tf.convert_to_tensor(beta_lower_bound, dtype=dtype)
+    beta_upper_bound = tf.convert_to_tensor(beta_upper_bound, dtype=dtype)
+    beta = _assert_parameter_valid(
+        validate_args,
+        beta,
+        lower_bound=beta_lower_bound,
+        upper_bound=beta_upper_bound,
+        message='`beta` is invalid!')
+    # Broadcast beta to the correct batch shape
+    beta = tf.broadcast_to(beta, batch_shape, name='broadcast_beta')
 
     if alpha is None:
       # We set the initial value of alpha to be s.t. alpha * F^(beta - 1) is
       # on the order of 10%.
-      initial_alpha_guess = tf.math.reduce_mean(forwards)
-      alpha = tf.fill(dims=[batch_size], value=initial_alpha_guess)
+      if forwards.shape.rank == 0:
+        forwards = forwards[tf.newaxis]
+      # Shape compatible with batch_shape
+      alpha = tf.math.reduce_mean(forwards, axis=-1)
       alpha = tf.pow(alpha, 1.0 - beta) * 0.1
       alpha_lower_bound = alpha * 0.1
       alpha_upper_bound = alpha * 10.0
@@ -299,10 +317,11 @@ def calibration(
     alpha = _assert_parameter_valid(
         validate_args,
         alpha,
-        shape=[batch_size],
         lower_bound=alpha_lower_bound,
         upper_bound=alpha_upper_bound,
         message='`alpha` is invalid!')
+    # Broadcast alpha to the correct batch shape
+    # alpha += tf.zeros(batch_shape, dtype=alpha.dtype)
     initial_alpha = _to_unconstrained(alpha, alpha_lower_bound,
                                       alpha_upper_bound)
 
@@ -311,10 +330,11 @@ def calibration(
     nu = _assert_parameter_valid(
         validate_args,
         nu,
-        shape=[batch_size],
         lower_bound=nu_lower_bound,
         upper_bound=nu_upper_bound,
         message='`nu` is invalid!')
+    # Broadcast nu to the correct batch shape
+    nu = tf.broadcast_to(nu, batch_shape, name='broadcast_nu')
     initial_nu = _to_unconstrained(nu, nu_lower_bound, nu_upper_bound)
 
     rho_lower_bound = tf.convert_to_tensor(rho_lower_bound, dtype=dtype)
@@ -322,31 +342,24 @@ def calibration(
     rho = _assert_parameter_valid(
         validate_args,
         rho,
-        shape=[batch_size],
         lower_bound=rho_lower_bound,
         upper_bound=rho_upper_bound,
         message='`rho` is invalid!')
+    # Broadcast rho to the correct batch shape
+    rho = tf.broadcast_to(rho, batch_shape, name='broadcast_rho')
     initial_rho = _to_unconstrained(rho, rho_lower_bound, rho_upper_bound)
 
-    beta = tf.convert_to_tensor(beta, dtype=dtype)
-    beta_lower_bound = tf.convert_to_tensor(beta_lower_bound, dtype=dtype)
-    beta_upper_bound = tf.convert_to_tensor(beta_upper_bound, dtype=dtype)
-    beta = _assert_parameter_valid(
-        validate_args,
-        beta,
-        shape=[batch_size],
-        lower_bound=beta_lower_bound,
-        upper_bound=beta_upper_bound,
-        message='`beta` is invalid!')
+    # Construct initial state for the optimizer
     if calibrate_beta:
       initial_beta = _to_unconstrained(beta, beta_lower_bound, beta_upper_bound)
-      initial_x = tf.concat(
-          [initial_alpha, initial_nu, initial_rho, initial_beta], axis=0)
+      # Shape `batch_shape + [4]`
+      initial_x = tf.stack(
+          [initial_alpha, initial_nu, initial_rho, initial_beta], axis=-1)
     else:
-      initial_x = tf.concat([initial_alpha, initial_nu, initial_rho], axis=0)
+      # Shape `batch_shape + [3]`
+      initial_x = tf.stack([initial_alpha, initial_nu, initial_rho], axis=-1)
 
     optimizer_arg_handler = _OptimizerArgHandler(
-        batch_size=batch_size,
         alpha_lower_bound=alpha_lower_bound,
         alpha_upper_bound=alpha_upper_bound,
         nu_lower_bound=nu_lower_bound,
@@ -381,7 +394,6 @@ def calibration(
           approximation_type=approximation_type,
           dtype=dtype,
           optimizer_arg_handler=optimizer_arg_handler)
-
     optimization_result = optimizer_fn(
         loss_function,
         initial_position=initial_x,
@@ -441,8 +453,8 @@ def _get_loss_for_volatility_based_calibration(*, prices, strikes, expiries,
         volatility_type=volatility_type,
         approximation_type=approximation_type,
         dtype=dtype)
-
-    return tf.math.reduce_mean((target_implied_vol - implied_vol)**2)
+    # shape `batch_shape`
+    return tf.math.reduce_mean((target_implied_vol - implied_vol)**2, axis=-1)
 
   return loss_function
 
@@ -480,7 +492,8 @@ def _get_loss_for_price_based_calibration(*, prices, strikes, expiries,
         dtype=dtype)
 
     scaled_values = _price_transform(values)
-    return tf.math.reduce_mean((scaled_values - scaled_target_values)**2)
+    return tf.math.reduce_mean((scaled_values - scaled_target_values)**2,
+                               axis=-1)
 
   return loss_function
 
@@ -488,7 +501,6 @@ def _get_loss_for_price_based_calibration(*, prices, strikes, expiries,
 @utils.dataclass
 class _OptimizerArgHandler:
   """Handles the packing/transformation of estimated parameters."""
-  batch_size: int
   alpha_lower_bound: types.RealTensor
   alpha_upper_bound: types.RealTensor
   nu_lower_bound: types.RealTensor
@@ -503,30 +515,34 @@ class _OptimizerArgHandler:
   def get_alpha(self,
                 packed_optimizer_args: types.RealTensor) -> types.RealTensor:
     """Unpack and return the alpha parameter."""
+    alpha = packed_optimizer_args[..., 0]
     return _to_constrained(
-        packed_optimizer_args[0 * self.batch_size:1 * self.batch_size],
+        alpha,
         self.alpha_lower_bound, self.alpha_upper_bound)
 
   def get_nu(self,
              packed_optimizer_args: types.RealTensor) -> types.RealTensor:
     """Unpack and return the volvol parameter."""
+    nu = packed_optimizer_args[..., 1]
     return _to_constrained(
-        packed_optimizer_args[1 * self.batch_size:2 * self.batch_size],
+        nu,
         self.nu_lower_bound, self.nu_upper_bound)
 
   def get_rho(self,
               packed_optimizer_args: types.RealTensor) -> types.RealTensor:
     """Unpack and return the rho parameter."""
+    rho = packed_optimizer_args[..., 2]
     return _to_constrained(
-        packed_optimizer_args[2 * self.batch_size:3 * self.batch_size],
+        rho,
         self.rho_lower_bound, self.rho_upper_bound)
 
   def get_beta(self,
                packed_optimizer_args: types.RealTensor) -> types.RealTensor:
     """Unpack and return the beta parameter."""
     if self.calibrate_beta:
+      beta = packed_optimizer_args[..., -1]
       return _to_constrained(
-          packed_optimizer_args[3 * self.batch_size:4 * self.batch_size],
+          beta,
           self.beta_lower_bound, self.beta_upper_bound)
     else:
       return self.beta
@@ -549,12 +565,11 @@ def _to_constrained(x, lb, ub):
   return x * (ub - lb) + lb
 
 
-def _assert_parameter_valid(validate_args, x, shape, lower_bound, upper_bound,
+def _assert_parameter_valid(validate_args, x, lower_bound, upper_bound,
                             message):
   """Helper to check that the input parameter is valid."""
   if validate_args:
     with tf.control_dependencies([
-        tf.debugging.assert_equal(tf.shape(x), shape, message=message),
         tf.debugging.assert_greater_equal(x, lower_bound, message=message),
         tf.debugging.assert_less_equal(x, upper_bound, message=message),
     ]):
