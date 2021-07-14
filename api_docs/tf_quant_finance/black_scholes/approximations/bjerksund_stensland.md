@@ -6,28 +6,28 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2021-07-14.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.black_scholes.option_price" />
+<meta itemprop="name" content="tf_quant_finance.black_scholes.approximations.bjerksund_stensland" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.black_scholes.option_price
+# tf_quant_finance.black_scholes.approximations.bjerksund_stensland
 
 <!-- Insert buttons and diff -->
 
 <table class="tfo-notebook-buttons tfo-api" align="left">
 </table>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/black_scholes/vanilla_prices.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/black_scholes/approximations/american_option.py">View source</a>
 
 
 
-Computes the Black Scholes price for a batch of call or put options.
+Computes prices of a batch of American options using Bjerksund-Stensland.
 
 ```python
-tf_quant_finance.black_scholes.option_price(
+tf_quant_finance.black_scholes.approximations.bjerksund_stensland(
     *, volatilities, strikes, expiries, spots=None, forwards=None,
     discount_rates=None, dividend_rates=None, discount_factors=None,
-    is_call_options=None, is_normal_volatility=False, dtype=None, name=None
+    is_call_options=None, modified_boundary=False, dtype=None, name=None
 )
 ```
 
@@ -38,32 +38,38 @@ tf_quant_finance.black_scholes.option_price(
 #### Example
 
 ```python
-  # Price a batch of 5 vanilla call options.
-  volatilities = np.array([0.0001, 102.0, 2.0, 0.1, 0.4])
-  forwards = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+  import tf_quant_finance as tff
+  # Price a batch of 5 american call options.
+  volatilities = [0.2, 0.2, 0.2, 0.2, 0.2]
+  forwards = [80.0, 90.0, 100.0, 110.0, 120.0]
   # Strikes will automatically be broadcasted to shape [5].
-  strikes = np.array([3.0])
-  # Expiries will be broadcast to shape [5], i.e. each option has strike=3
-  # and expiry = 1.
-  expiries = 1.0
-  computed_prices = tff.black_scholes.option_price(
+  strikes = np.array([100.0])
+  # Expiries will be broadcast to shape [5], i.e. each option has strike=100
+  # and expiry = 0.25.
+  expiries = 0.25
+  discount_rates = 0.08
+  dividend_rates = 0.12
+  computed_prices = tff.black_scholes.approximations.bjerksund_stensland_1993(
       volatilities=volatilities,
       strikes=strikes,
       expiries=expiries,
-      forwards=forwards)
+      discount_rates=discount_rates,
+      dividend_rates=dividend_rates,
+      forwards=forwards,
+      is_call_options=True)
 # Expected print output of computed prices:
-# [ 0.          2.          2.04806848  1.00020297  2.07303131]
+# [ 0.02912157  0.57298896  3.48587029 10.31989532 20.        ]
 ```
 
 #### References:
-[1] Hull, John C., Options, Futures and Other Derivatives. Pearson, 2018.
-[2] Wikipedia contributors. Black-Scholes model. Available at:
-  https://en.wikipedia.org/w/index.php?title=Black%E2%80%93Scholes_model
+[1] Bjerksund, P. and Stensland G., Closed Form Valuation of American Options,
+    2002
+    https://core.ac.uk/download/pdf/30824897.pdf
 
 #### Args:
 
 
-* <b>`volatilities`</b>: Real `Tensor` of any shape and dtype. The volatilities to
+* <b>`volatilities`</b>: Real `Tensor` of any shape and real dtype. The volatilities to
   expiry of the options to price.
 * <b>`strikes`</b>: A real `Tensor` of the same dtype and compatible shape as
   `volatilities`. The strikes of the options to be priced.
@@ -80,28 +86,28 @@ tf_quant_finance.black_scholes.option_price(
   `volatilities` and of the shape that broadcasts with `volatilities`.
   If not `None`, discount factors are calculated as e^(-rT),
   where r are the discount rates, or risk free rates. At most one of
-  `discount_rates` and `discount_factors` can be supplied.
+  discount_rates and discount_factors can be supplied.
   Default value: `None`, equivalent to r = 0 and discount factors = 1 when
-  `discount_factors` also not given.
+  discount_factors also not given.
 * <b>`dividend_rates`</b>: An optional real `Tensor` of same dtype as the
-  `volatilities` and of the shape that broadcasts with `volatilities`.
-  Default value: `None`, equivalent to q = 0.
+  `volatilities`. The continuous dividend rate on the underliers. May be
+  negative (to indicate costs of holding the underlier).
+  Default value: `None`, equivalent to zero dividends.
 * <b>`discount_factors`</b>: An optional real `Tensor` of same dtype as the
   `volatilities`. If not `None`, these are the discount factors to expiry
-  (i.e. e^(-rT)). Mutually exclusive with `discount_rates`. If neither is
-  given, no discounting is applied (i.e. the undiscounted option price is
-  returned). If `spots` is supplied and `discount_factors` is not `None`
-  then this is also used to compute the forwards to expiry. At most one of
-  `discount_rates` and `discount_factors` can be supplied.
+  (i.e. e^(-rT)). Mutually exclusive with discount_rate and cost_of_carry.
+  If neither is given, no discounting is applied (i.e. the undiscounted
+  option price is returned). If `spots` is supplied and `discount_factors`
+  is not `None` then this is also used to compute the forwards to expiry.
+  At most one of discount_rates and discount_factors can be supplied.
   Default value: `None`, which maps to e^(-rT) calculated from
   discount_rates.
 * <b>`is_call_options`</b>: A boolean `Tensor` of a shape compatible with
   `volatilities`. Indicates whether the option is a call (if True) or a put
   (if False). If not supplied, call options are assumed.
-* <b>`is_normal_volatility`</b>: An optional Python boolean specifying whether the
-  `volatilities` correspond to lognormal Black volatility (if False) or
-  normal Black volatility (if True).
-  Default value: False, which corresponds to lognormal volatility.
+* <b>`modified_boundary`</b>: Python `bool`. Indicates whether the Bjerksund-Stensland
+  1993 algorithm (single boundary) if False or Bjerksund-Stensland 2002
+  algoritm (modified boundary) if True, is to be used.
 * <b>`dtype`</b>: Optional `tf.DType`. If supplied, the dtype to be used for conversion
   of any supplied non-`Tensor` arguments to `Tensor`.
   Default value: `None` which maps to the default dtype inferred by
@@ -112,9 +118,8 @@ tf_quant_finance.black_scholes.option_price(
 
 #### Returns:
 
+A `Tensor` of the same shape as `forwards`.
 
-* <b>`option_prices`</b>: A `Tensor` of the same shape as `forwards`. The Black
-Scholes price of the options.
 
 
 #### Raises:
@@ -123,3 +128,4 @@ Scholes price of the options.
 * <b>`ValueError`</b>: If both `forwards` and `spots` are supplied or if neither is
   supplied.
 * <b>`ValueError`</b>: If both `discount_rates` and `discount_factors` is supplied.
+* <b>`NotImpelentedError`</b>: If `modified_boundary` is `True`.
