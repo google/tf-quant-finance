@@ -41,7 +41,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
         alpha=1.63,
         beta=0.6,
         rho=0.00002,
-        nu=3.3,
+        volvol=3.3,
         dtype=tf.float64)
     equiv_vol = self.evaluate(equiv_vol)
 
@@ -53,7 +53,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
     # print(
     #   ql.sabrVolatility(
     #     strike=106.0, forward=120.0, expiryTime=17.0/365.0,
-    #     alpha=1.63, beta=0.6, nu=3.3, rho=0.0002
+    #     alpha=1.63, beta=0.6, volvol=3.3, rho=0.0002
     #   ))
     # ```
     self.assertAllClose(equiv_vol, [0.33284656705268817, 1.9828728139982792])
@@ -82,7 +82,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
             [0.75],
         ]),
         rho=0.05,
-        nu=np.array([
+        volvol=np.array([
             [2.0],
             [2.5],
             [3.0],
@@ -97,7 +97,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
                 # These correspond to:
                 # strikes=[105.0, 110.0, 115.0, 120.0, 125.0],
                 # For expiries=30.0/365.0, forwards=115.0, alpha=1.0, beta=0.25,
-                # rho=0.05, and nu=2.0.
+                # rho=0.05, and volvol=2.0.
                 0.07290126718857293,
                 0.048678694833488044,
                 0.02925354052258421,
@@ -108,7 +108,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
                 # These correspond to:
                 # strikes=[105.0, 110.0, 115.0, 120.0, 125.0],
                 # For expiries=60.0/365.0, forwards=115.0, alpha=1.5, beta=0.5,
-                # rho=0.05, and nu=2.5.
+                # rho=0.05, and volvol=2.5.
                 0.19479147227269086,
                 0.1647194927224411,
                 0.15186141282688834,
@@ -119,7 +119,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
                 # These correspond to:
                 # strikes=[105.0, 110.0, 115.0, 120.0, 125.0],
                 # For expiries=90.0/365.0, forwards=115.0, alpha=2.0, beta=0.75,
-                # rho=0.05, and nu=3.0.
+                # rho=0.05, and volvol=3.0.
                 0.7493941577599591,
                 0.7318045979333434,
                 0.7259931664225101,
@@ -137,7 +137,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'expiries': 200.0 / 365.0,
               'alpha': 0.31,
               'beta': 0.5,
-              'nu': 2.8,
+              'volvol': 2.8,
               'rho': -0.02,
               'expected_vol': 0.1805437461785543
           },
@@ -148,7 +148,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'expiries': 200.0 / 365.0,
               'alpha': 0.31,
               'beta': 0.0,
-              'nu': 2.8,
+              'volvol': 2.8,
               'rho': 0.2,
               'expected_vol': 0.10940855660611389
           },
@@ -159,18 +159,18 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'expiries': 200.0 / 365.0,
               'alpha': 0.31,
               'beta': 1.0,
-              'nu': 2.8,
+              'volvol': 2.8,
               'rho': 0.2,
               'expected_vol': 0.5679836366288498
           },
-          # 'testcase_name': 'nu_zero',
+          # 'testcase_name': 'volvol_zero',
           {
               'strikes': 130.0,
               'forwards': 110.0,
               'expiries': 200.0 / 365.0,
               'alpha': 0.31,
               'beta': 0.55,
-              'nu': 0.0,
+              'volvol': 0.0,
               'rho': 0.2,
               'expected_vol': 0.036000740359707344
           },
@@ -181,7 +181,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'expiries': 0.0,
               'alpha': 0.31,
               'beta': 0.55,
-              'nu': 2.5,
+              'volvol': 2.5,
               'rho': 0.2,
               'expected_vol': 0.1400903903272142
           },
@@ -192,7 +192,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'expiries': 0.5,
               'alpha': 0.31,
               'beta': 0.55,
-              'nu': 2.5,
+              'volvol': 2.5,
               'rho': 0.2,
               'expected_vol': 0.043211700217443874
           },
@@ -208,7 +208,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
                   0.31,
               'beta':
                   0.28,
-              'nu':
+              'volvol':
                   2.5,
               'rho':
                   0.2,
@@ -221,7 +221,8 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
       dtype=(tf.float32, tf.float64))
   def test_implied_volatility_lognormal_correctness(self, forwards, strikes,
                                                     expiries, alpha, beta, rho,
-                                                    nu, expected_vol, dtype):
+                                                    volvol, expected_vol,
+                                                    dtype):
     equiv_vol = tff.models.sabr.approximations.implied_volatility(
         forwards=forwards,
         strikes=strikes,
@@ -229,7 +230,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
         alpha=alpha,
         beta=beta,
         rho=rho,
-        nu=nu,
+        volvol=volvol,
         dtype=dtype)
     equiv_vol = self.evaluate(equiv_vol)
     self.assertAllClose(expected_vol, equiv_vol, atol=2e-5, rtol=2e-4)
@@ -243,7 +244,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'expiries': 200.0 / 365.0,
               'alpha': 0.31,
               'beta': 0.12,
-              'nu': 2.8,
+              'volvol': 2.8,
               'rho': -0.02,
               'expected_vol': 14.240742
           },
@@ -254,7 +255,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'expiries': 200.0 / 365.0,
               'alpha': 0.31,
               'beta': 0.0,
-              'nu': 2.8,
+              'volvol': 2.8,
               'rho': 0.2,
               'expected_vol': 13.098578
           },
@@ -265,18 +266,18 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'expiries': 200.0 / 365.0,
               'alpha': 0.31,
               'beta': 1.0,
-              'nu': 2.8,
+              'volvol': 2.8,
               'rho': 0.2,
               'expected_vol': 67.89029
           },
-          # 'testcase_name': 'nu_zero',
+          # 'testcase_name': 'volvol_zero',
           {
               'strikes': 130.0,
               'forwards': 110.0,
               'expiries': 200.0 / 365.0,
               'alpha': 0.31,
               'beta': 0.55,
-              'nu': 0.0,
+              'volvol': 0.0,
               'rho': 0.2,
               'expected_vol': 4.309942
           },
@@ -287,7 +288,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'expiries': 0.0,
               'alpha': 0.31,
               'beta': 0.55,
-              'nu': 2.5,
+              'volvol': 2.5,
               'rho': 0.2,
               'expected_vol': 16.771861
           },
@@ -298,13 +299,14 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'expiries': np.array([0.5, 2.0]),
               'alpha': 0.31,
               'beta': 0.28,
-              'nu': 2.5,
+              'volvol': 2.5,
               'rho': 0.2,
               'expected_vol': np.array([1.557701, 6.032939])
           }),
       dtype=(tf.float32, tf.float64))
   def test_implied_volatility_normal_correctness(self, forwards, strikes,
-                                                 expiries, alpha, beta, rho, nu,
+                                                 expiries, alpha, beta, rho,
+                                                 volvol,
                                                  expected_vol, dtype):
     equiv_vol = tff.models.sabr.approximations.implied_volatility(
         forwards=forwards,
@@ -313,7 +315,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
         alpha=alpha,
         beta=beta,
         rho=rho,
-        nu=nu,
+        volvol=volvol,
         dtype=dtype,
         volatility_type=NORMAL)
     equiv_vol = self.evaluate(equiv_vol)
@@ -328,7 +330,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'expiries': 200.0 / 365.0,
               'alpha': 0.31,
               'beta': 0.5,
-              'nu': 2.8,
+              'volvol': 2.8,
               'rho': -0.02,
           },
           # Generic scalar pathological example: at-the-money.
@@ -338,7 +340,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'expiries': 200.0 / 365.0,
               'alpha': 0.31,
               'beta': 0.5,
-              'nu': 2.8,
+              'volvol': 2.8,
               'rho': -0.02,
           },
           # Generic scalar pathological example: beta = 0
@@ -348,7 +350,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'expiries': 200.0 / 365.0,
               'alpha': 0.31,
               'beta': 0.0,
-              'nu': 2.8,
+              'volvol': 2.8,
               'rho': -0.02,
           },
           # Generic scalar pathological example: beta = 1
@@ -358,17 +360,17 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'expiries': 200.0 / 365.0,
               'alpha': 0.31,
               'beta': 1.0,
-              'nu': 2.8,
+              'volvol': 2.8,
               'rho': -0.02,
           },
-          # Generic scalar pathological example: nu = 0
+          # Generic scalar pathological example: volvol = 0
           {
               'strikes': 130.0,
               'forwards': 130.0,
               'expiries': 200.0 / 365.0,
               'alpha': 0.31,
               'beta': 0.5,
-              'nu': 0.0,
+              'volvol': 0.0,
               'rho': -0.02,
           },
           # Generic scalar pathological example: expiries = 0.0
@@ -378,7 +380,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'expiries': 0.0 / 365.0,
               'alpha': 0.31,
               'beta': 0.5,
-              'nu': 2.8,
+              'volvol': 2.8,
               'rho': -0.02,
           },
           # Generic example, with tensor values, including at-the-money case and
@@ -391,13 +393,13 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
               'expiries': [[0.0], [1.0]],
               'alpha': [[0.25], [0.5]],
               'beta': [[0.33], [0.66]],
-              'nu': [[1.0], [2.0]],
+              'volvol': [[1.0], [2.0]],
               'rho': [[0.001], [-0.001]],
           }),
       vol_type=(NORMAL, LOGNORMAL),
       dtype=(tf.float32, tf.float64))
   def test_implied_volatility_differentiable(self, strikes, forwards, expiries,
-                                             alpha, beta, nu, rho, vol_type,
+                                             alpha, beta, volvol, rho, vol_type,
                                              dtype):
     forwards = tf.convert_to_tensor(forwards, dtype=dtype)
     strikes = tf.convert_to_tensor(strikes, dtype=dtype)
@@ -405,10 +407,10 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
     alpha = tf.convert_to_tensor(alpha, dtype=dtype)
     beta = tf.convert_to_tensor(beta, dtype=dtype)
     rho = tf.convert_to_tensor(rho, dtype=dtype)
-    nu = tf.convert_to_tensor(nu, dtype=dtype)
+    volvol = tf.convert_to_tensor(volvol, dtype=dtype)
 
     with tf.GradientTape(persistent=True) as tape:
-      tape.watch([forwards, strikes, expiries, alpha, beta, rho, nu])
+      tape.watch([forwards, strikes, expiries, alpha, beta, rho, volvol])
       equiv_vol = tff.models.sabr.approximations.implied_volatility(
           forwards=forwards,
           strikes=strikes,
@@ -416,12 +418,12 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
           alpha=alpha,
           beta=beta,
           rho=rho,
-          nu=nu,
+          volvol=volvol,
           volatility_type=vol_type,
           dtype=dtype)
       grad = tape.gradient(
           target=equiv_vol,
-          sources=[forwards, strikes, expiries, alpha, beta, rho, nu])
+          sources=[forwards, strikes, expiries, alpha, beta, rho, volvol])
 
     grad = self.evaluate(grad)
     self.assertTrue(all(np.all(np.isfinite(x)) for x in grad))
@@ -437,7 +439,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
         alpha=1.63,
         beta=0.6,
         rho=0.00002,
-        nu=3.3,
+        volvol=3.3,
         shift=shift,
         dtype=tf.float64,
         volatility_type=volatility_type)
@@ -449,7 +451,7 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
         alpha=1.63,
         beta=0.6,
         rho=0.00002,
-        nu=3.3,
+        volvol=3.3,
         dtype=tf.float64,
         volatility_type=volatility_type)
 

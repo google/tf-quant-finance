@@ -28,7 +28,7 @@ def option_price(*,
                  is_call_options,
                  alpha,
                  beta,
-                 nu,
+                 volvol,
                  rho,
                  shift=0.0,
                  volatility_type=SabrImpliedVolatilityType.LOGNORMAL,
@@ -52,7 +52,7 @@ def option_price(*,
     is_call_options=np.array([True, False]),
     alpha=3.2,
     beta=0.2,
-    nu=1.4,
+    volvol=1.4,
     rho=0.0005,
     dtype=tf.float64)
 
@@ -77,8 +77,9 @@ def option_price(*,
       positive.
     beta: Real `Tensor` of shape compatible with that of `strikes`, specifying
       the model exponent `beta`. Values must satisfy 0 <= `beta` <= 1.
-    nu: Real `Tensor` of shape compatible with that of `strikes`, specifying the
-      model vol-vol multipliers. Values must satisfy 0 <= `nu`.
+    volvol: Real `Tensor` of shape compatible with that of `strikes`,
+      specifying the model vol-vol multipliers. Values must satisfy
+      `0 <= volvol`.
     rho: Real `Tensor` of shape compatible with that of `strikes`, specifying
       the correlation factors between the Wiener processes modeling the forward
       and the volatility. Values must satisfy -1 < `rho` < 1.
@@ -122,7 +123,7 @@ def option_price(*,
           forwards=forwards,
           alpha=alpha,
           beta=beta,
-          nu=nu,
+          volvol=volvol,
           rho=rho,
           shift=shift,
           volatility_type=volatility_type,
@@ -144,7 +145,7 @@ def option_price(*,
           forwards=forwards,
           alpha=alpha,
           beta=beta,
-          nu=nu,
+          volvol=volvol,
           rho=rho,
           shift=shift,
           volatility_type=volatility_type,

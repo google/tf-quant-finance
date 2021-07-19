@@ -44,10 +44,10 @@ class HestonPriceTest(parameterized.TestCase, tf.test.TestCase):
         expiries=1.2,
         forwards=100.0,
         is_call_options=True,
-        kappas=2.0,
-        thetas=0.5,
-        sigmas=0.15,
-        rhos=0.3,
+        mean_reversion=2.0,
+        theta=0.5,
+        volvol=0.15,
+        rho=0.3,
         discount_factors=1.0,
         dtype=dtype)
     # Computed using scipy
@@ -70,8 +70,8 @@ class HestonPriceTest(parameterized.TestCase, tf.test.TestCase):
           'dtype': np.float32,
       })
   def test_heston_price(self, dtype, use_forwards):
-    kappas = np.array([0.1, 10.0], dtype=dtype)
-    thetas = np.array([0.1, 0.5], dtype=dtype)
+    mean_reversion = np.array([0.1, 10.0], dtype=dtype)
+    theta = np.array([0.1, 0.5], dtype=dtype)
     variances = np.array([0.1, 0.5], dtype=dtype)
     discount_factors = np.array([0.99, 0.98], dtype=dtype)
     expiries = np.array([1.0], dtype=dtype)
@@ -81,17 +81,17 @@ class HestonPriceTest(parameterized.TestCase, tf.test.TestCase):
     else:
       spots = forwards * discount_factors
       forwards = None
-    sigmas = np.array([1.0, 0.9], dtype=dtype)
+    volvol = np.array([1.0, 0.9], dtype=dtype)
     strikes = np.array([9.7, 10.0], dtype=dtype)
 
-    rhos = np.array([0.5, 0.1], dtype=dtype)
+    rho = np.array([0.5, 0.1], dtype=dtype)
 
     tff_prices = self.evaluate(
         tff.models.heston.approximations.european_option_price(
-            kappas=kappas,
-            thetas=thetas,
-            sigmas=sigmas,
-            rhos=rhos,
+            mean_reversion=mean_reversion,
+            theta=theta,
+            volvol=volvol,
+            rho=rho,
             variances=variances,
             forwards=forwards,
             spots=spots,

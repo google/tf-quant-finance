@@ -62,9 +62,9 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
         is_call_options=is_call_options,
         beta=beta,
         calibrate_beta=False,
-        nu=np.array([1.0, 1.0], dtype=dtype),
-        nu_lower_bound=0.0,
-        nu_upper_bound=10.0,
+        volvol=np.array([1.0, 1.0], dtype=dtype),
+        volvol_lower_bound=0.0,
+        volvol_upper_bound=10.0,
         rho=np.array([0.0, 0.0], dtype=dtype),
         rho_lower_bound=-0.75,
         rho_upper_bound=0.75,
@@ -103,7 +103,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
     is_call_options = np.array([[True], [False]])
 
     beta = np.array([0.5], dtype=dtype)
-    nu = np.array([1.0], dtype=dtype)
+    volvol = np.array([1.0], dtype=dtype)
 
     @tf.function(input_signature=[tf.TensorSpec([None, None], dtype=dtype),
                                   tf.TensorSpec([None, None], dtype=dtype),
@@ -113,7 +113,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
                                   tf.TensorSpec([None], dtype=dtype),
                                   tf.TensorSpec([None], dtype=dtype)])
     def fn(observed_prices, strikes, expiries, forwards, is_call_options,
-           beta, nu):
+           beta, volvol):
       models, is_converged, _ = tff.models.sabr.calibration(
           prices=observed_prices,
           strikes=strikes,
@@ -122,9 +122,9 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           is_call_options=is_call_options,
           beta=beta,
           calibrate_beta=False,
-          nu=nu,
-          nu_lower_bound=0.0,
-          nu_upper_bound=10.0,
+          volvol=volvol,
+          volvol_lower_bound=0.0,
+          volvol_upper_bound=10.0,
           rho=np.array(0.0, dtype=dtype),
           rho_lower_bound=-0.75,
           rho_upper_bound=0.75,
@@ -133,7 +133,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
       return models, is_converged
 
     models, is_converged = fn(observed_prices, strikes, expiries, forwards,
-                              is_call_options, beta, nu)
+                              is_call_options, beta, volvol)
     [calibrated_alpha, calibrated_beta, calibrated_volvol, calibrated_rho,
      is_converged] = self.evaluate(
          [models.alpha, models.beta, models.volvol, models.rho, is_converged])
@@ -174,9 +174,9 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
         is_call_options=is_call_options,
         beta=beta,
         calibrate_beta=False,
-        nu=np.array([1.0, 1.0], dtype=dtype),
-        nu_lower_bound=np.array([0.0, 0.2]),
-        nu_upper_bound=np.array([5.0, 10.0]),
+        volvol=np.array([1.0, 1.0], dtype=dtype),
+        volvol_lower_bound=np.array([0.0, 0.2]),
+        volvol_upper_bound=np.array([5.0, 10.0]),
         rho=np.array([0.0, 0.0], dtype=dtype),
         rho_lower_bound=np.array([-1.0, -0.75]),
         rho_upper_bound=np.array([1.0, 0.75]),
@@ -210,7 +210,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
 
     beta = np.array([0.5, 0.5], dtype=dtype)
 
-    # Fails because `nu` is outside the limits.
+    # Fails because `volvol` is outside the limits.
     with self.assertRaises(tf.errors.InvalidArgumentError):
       _, is_converged, _ = tff.models.sabr.calibration(
           prices=observed_prices,
@@ -220,9 +220,9 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           is_call_options=is_call_options,
           beta=beta,
           calibrate_beta=False,
-          nu=np.array([1.0, 12.0], dtype=dtype),
-          nu_lower_bound=0.0,
-          nu_upper_bound=10.0,
+          volvol=np.array([1.0, 12.0], dtype=dtype),
+          volvol_lower_bound=0.0,
+          volvol_upper_bound=10.0,
           rho=np.array([0.0, 0.0], dtype=dtype),
           rho_lower_bound=-0.75,
           rho_upper_bound=0.75,
@@ -239,9 +239,9 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           is_call_options=is_call_options,
           beta=beta,
           calibrate_beta=False,
-          nu=np.array([1.0, 1.0], dtype=dtype),
-          nu_lower_bound=0.0,
-          nu_upper_bound=10.0,
+          volvol=np.array([1.0, 1.0], dtype=dtype),
+          volvol_lower_bound=0.0,
+          volvol_upper_bound=10.0,
           rho=np.array([0.0, 0.76], dtype=dtype),
           rho_lower_bound=-0.75,
           rho_upper_bound=0.75,
@@ -257,9 +257,9 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
         is_call_options=is_call_options,
         beta=beta,
         calibrate_beta=False,
-        nu=np.array([1.0, 1.0], dtype=dtype),
-        nu_lower_bound=0.0,
-        nu_upper_bound=10.0,
+        volvol=np.array([1.0, 1.0], dtype=dtype),
+        volvol_lower_bound=0.0,
+        volvol_upper_bound=10.0,
         rho=np.array([0.0, 0.0], dtype=dtype),
         rho_lower_bound=-0.75,
         rho_upper_bound=0.75,
@@ -272,7 +272,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'no_noise_lognormal_fixed_beta_0x5_price_based',
           'true_alpha': np.array([1.5, 2.5], dtype=np.float64),
           'true_beta': np.array([0.5, 0.5], dtype=np.float64),
-          'true_nu': np.array([0.33, 0.50], dtype=np.float64),
+          'true_volvol': np.array([0.33, 0.50], dtype=np.float64),
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': False,
           'vol_based_calibration': False,
@@ -286,7 +286,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'no_noise_lognormal_fixed_beta_0x5_vol_based',
           'true_alpha': np.array([1.5, 2.5], dtype=np.float64),
           'true_beta': np.array([0.5, 0.5], dtype=np.float64),
-          'true_nu': np.array([0.33, 0.50], dtype=np.float64),
+          'true_volvol': np.array([0.33, 0.50], dtype=np.float64),
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': False,
           'vol_based_calibration': True,
@@ -300,7 +300,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'no_noise_lognormal_fixed_beta_extremes_price_based',
           'true_alpha': np.array([10.0, 0.1], dtype=np.float64),
           'true_beta': np.array([0.0, 1.0], dtype=np.float64),
-          'true_nu': np.array([0.33, 0.50], dtype=np.float64),
+          'true_volvol': np.array([0.33, 0.50], dtype=np.float64),
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': False,
           'vol_based_calibration': False,
@@ -314,7 +314,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'no_noise_lognormal_fixed_beta_extremes_vol_based',
           'true_alpha': np.array([10.0, 0.1], dtype=np.float64),
           'true_beta': np.array([0.0, 1.0], dtype=np.float64),
-          'true_nu': np.array([0.33, 0.50], dtype=np.float64),
+          'true_volvol': np.array([0.33, 0.50], dtype=np.float64),
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': False,
           'vol_based_calibration': True,
@@ -328,7 +328,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'low_noise_lognormal_fixed_beta_0x5_price_based',
           'true_alpha': np.array([1.5, 2.5], dtype=np.float64),
           'true_beta': np.array([0.5, 0.5], dtype=np.float64),
-          'true_nu': np.array([0.33, 0.50], dtype=np.float64),
+          'true_volvol': np.array([0.33, 0.50], dtype=np.float64),
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': False,
           'vol_based_calibration': False,
@@ -342,7 +342,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'low_noise_lognormal_fixed_beta_0x5_vol_based',
           'true_alpha': np.array([1.5, 2.5], dtype=np.float64),
           'true_beta': np.array([0.5, 0.5], dtype=np.float64),
-          'true_nu': np.array([0.33, 0.50], dtype=np.float64),
+          'true_volvol': np.array([0.33, 0.50], dtype=np.float64),
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': False,
           'vol_based_calibration': True,
@@ -356,7 +356,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'no_noise_lognormal_calib_beta_price_based',
           'true_alpha': np.array([1.5, 2.5], dtype=np.float64),
           'true_beta': np.array([0.4, 0.6], dtype=np.float64),
-          'true_nu': np.array([0.33, 0.50], dtype=np.float64),
+          'true_volvol': np.array([0.33, 0.50], dtype=np.float64),
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': True,
           'vol_based_calibration': False,
@@ -370,7 +370,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'no_noise_lognormal_calib_beta_vol_based',
           'true_alpha': np.array([1.5, 2.5], dtype=np.float64),
           'true_beta': np.array([0.4, 0.6], dtype=np.float64),
-          'true_nu': np.array([0.33, 0.50], dtype=np.float64),
+          'true_volvol': np.array([0.33, 0.50], dtype=np.float64),
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': True,
           'vol_based_calibration': True,
@@ -384,7 +384,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'no_noise_normal_fixed_beta_0x5_price_based',
           'true_alpha': np.array([1.5, 2.5], dtype=np.float64),
           'true_beta': np.array([0.5, 0.5], dtype=np.float64),
-          'true_nu': np.array([0.33, 0.50], dtype=np.float64),
+          'true_volvol': np.array([0.33, 0.50], dtype=np.float64),
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': False,
           'vol_based_calibration': False,
@@ -398,7 +398,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'no_noise_normal_fixed_beta_0x5_vol_based',
           'true_alpha': np.array([1.5, 2.5], dtype=np.float64),
           'true_beta': np.array([0.5, 0.5], dtype=np.float64),
-          'true_nu': np.array([0.33, 0.50], dtype=np.float64),
+          'true_volvol': np.array([0.33, 0.50], dtype=np.float64),
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': False,
           'vol_based_calibration': True,
@@ -412,7 +412,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'no_noise_normal_fixed_beta_extremes_price_based',
           'true_alpha': np.array([10.0, 0.1], dtype=np.float64),
           'true_beta': np.array([0.0, 1.0], dtype=np.float64),
-          'true_nu': np.array([0.33, 0.50], dtype=np.float64),
+          'true_volvol': np.array([0.33, 0.50], dtype=np.float64),
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': False,
           'vol_based_calibration': False,
@@ -426,7 +426,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'no_noise_normal_fixed_beta_extremes_vol_based',
           'true_alpha': np.array([10.0, 0.1], dtype=np.float64),
           'true_beta': np.array([0.0, 1.0], dtype=np.float64),
-          'true_nu': np.array([0.33, 0.50], dtype=np.float64),
+          'true_volvol': np.array([0.33, 0.50], dtype=np.float64),
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': False,
           'vol_based_calibration': True,
@@ -440,7 +440,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'low_noise_normal_fixed_beta_0x5_price_based',
           'true_alpha': np.array([1.5, 2.5], dtype=np.float64),
           'true_beta': np.array([0.5, 0.5], dtype=np.float64),
-          'true_nu': np.array([0.33, 0.50], dtype=np.float64),
+          'true_volvol': np.array([0.33, 0.50], dtype=np.float64),
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': False,
           'vol_based_calibration': False,
@@ -454,7 +454,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'low_noise_normal_fixed_beta_0x5_vol_based',
           'true_alpha': np.array([1.5, 2.5], dtype=np.float64),
           'true_beta': np.array([0.5, 0.5], dtype=np.float64),
-          'true_nu': np.array([0.33, 0.50], dtype=np.float64),
+          'true_volvol': np.array([0.33, 0.50], dtype=np.float64),
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': False,
           'vol_based_calibration': True,
@@ -468,7 +468,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'no_noise_normal_calib_beta_price_based',
           'true_alpha': np.array([1.5, 2.5], dtype=np.float64),
           'true_beta': np.array([0.4, 0.6], dtype=np.float64),
-          'true_nu': np.array([0.33, 0.50], dtype=np.float64),
+          'true_volvol': np.array([0.33, 0.50], dtype=np.float64),
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': True,
           'vol_based_calibration': False,
@@ -482,7 +482,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'no_noise_normal_calib_beta_vol_based',
           'true_alpha': np.array([1.5, 2.5], dtype=np.float64),
           'true_beta': np.array([0.4, 0.6], dtype=np.float64),
-          'true_nu': np.array([0.33, 0.50], dtype=np.float64),
+          'true_volvol': np.array([0.33, 0.50], dtype=np.float64),
           'true_rho': np.array([0.1, -0.1], dtype=np.float64),
           'calibrate_beta': True,
           'vol_based_calibration': True,
@@ -493,7 +493,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
           'price_tol': (1e-2, 5e-3)
       },
   )
-  def test_calibration(self, true_alpha, true_beta, true_nu, true_rho,
+  def test_calibration(self, true_alpha, true_beta, true_volvol, true_rho,
                        calibrate_beta, vol_based_calibration, max_iterations,
                        tolerance, vol_type, noise_size, price_tol):
     dtype = np.float64
@@ -514,7 +514,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
         is_call_options=is_call_options,
         alpha=np.expand_dims(true_alpha, axis=-1),
         beta=np.expand_dims(true_beta, axis=-1),
-        nu=np.expand_dims(true_nu, axis=-1),
+        volvol=np.expand_dims(true_volvol, axis=-1),
         rho=np.expand_dims(true_rho, axis=-1),
         volatility_type=vol_type,
         dtype=dtype)
@@ -538,9 +538,9 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
         beta=initial_beta,
         calibrate_beta=calibrate_beta,
         volatility_based_calibration=vol_based_calibration,
-        nu=np.array([1.0, 1.0], dtype=dtype),
-        nu_lower_bound=0.0,
-        nu_upper_bound=10.0,
+        volvol=np.array([1.0, 1.0], dtype=dtype),
+        volvol_lower_bound=0.0,
+        volvol_upper_bound=10.0,
         rho=np.array([0.0, 0.0], dtype=dtype),
         rho_lower_bound=-0.75,
         rho_upper_bound=0.75,
@@ -562,7 +562,7 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
         is_call_options=is_call_options,
         alpha=np.array(np.expand_dims(calibrated_alpha, axis=1), dtype=dtype),
         beta=np.array(np.expand_dims(calibrated_beta, axis=1), dtype=dtype),
-        nu=np.array(np.expand_dims(calibrated_volvol, axis=1), dtype=dtype),
+        volvol=np.array(np.expand_dims(calibrated_volvol, axis=1), dtype=dtype),
         rho=np.array(np.expand_dims(calibrated_rho, axis=1), dtype=dtype),
         volatility_type=vol_type,
         dtype=dtype)

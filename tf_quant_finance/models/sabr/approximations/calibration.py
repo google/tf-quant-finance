@@ -62,7 +62,7 @@ def calibration(
     forwards: types.RealTensor,
     is_call_options: types.BoolTensor,
     beta: types.RealTensor,
-    nu: types.RealTensor,
+    volvol: types.RealTensor,
     rho: types.RealTensor,
     volatility_type: SabrImpliedVolatilityType = None,
     approximation_type: SabrApproximationType = None,
@@ -73,8 +73,8 @@ def calibration(
     calibrate_beta: bool = False,
     beta_lower_bound: types.RealTensor = 0.0,
     beta_upper_bound: types.RealTensor = 1.0,
-    nu_lower_bound: types.RealTensor = 0.0,
-    nu_upper_bound: types.RealTensor = 1.0,
+    volvol_lower_bound: types.RealTensor = 0.0,
+    volvol_upper_bound: types.RealTensor = 1.0,
     rho_lower_bound: types.RealTensor = -1.0,
     rho_upper_bound: types.RealTensor = 1.0,
     optimizer_fn: Callable[..., types.RealTensor] = None,
@@ -90,7 +90,7 @@ def calibration(
 
   ```
     dF = sigma F^beta dW_1
-    dsigma = nu sigma dW_2
+    dsigma = volvol sigma dW_2
     dW1 dW2 = rho dt
 
     F(0) = f
@@ -136,9 +136,9 @@ def calibration(
       is_call_options=is_call_options,
       beta=beta,
       calibrate_beta=False,
-      nu=np.array([1.0, 1.0], dtype=dtype),
-      nu_lower_bound=0.0,
-      nu_upper_bound=10.0,
+      volvol=np.array([1.0, 1.0], dtype=dtype),
+      volvol_lower_bound=0.0,
+      volvol_upper_bound=10.0,
       rho=np.array([0.0, 0.0], dtype=dtype),
       rho_lower_bound=-0.75,
       rho_upper_bound=0.75,
@@ -165,8 +165,8 @@ def calibration(
       option (=True) or a put option (=False).
     beta: Real `Tensor` of shape [batch_size], specifying the initial estimate
       of the model `beta`. Values must satisify 0 <= `beta` <= 1
-    nu: Real `Tensor` of shape [batch_size], specifying the initial estimate of
-      the vol-vol parameter. Values must satisfy 0 <= `nu`.
+    volvol: Real `Tensor` of shape [batch_size], specifying the initial estimate
+      of the vol-vol parameter. Values must satisfy `0 <= volvol`.
     rho: Real `Tensor` of shape [batch_size], specifying the initial estimate of
       the correlation between the forward price and the volatility. Values must
       satisfy -1 < `rho` < 1.
@@ -208,11 +208,11 @@ def calibration(
       compatible with that of `beta`, specifying the upper bound for the
       calibrated value.
       Defalut value: 1.0
-    nu_lower_bound: Real `Tensor` compatible with that of `nu`, specifying the
-      lower bound for the calibrated value.
+    volvol_lower_bound: Real `Tensor` compatible with that of `volvol`,
+      specifying the lower bound for the calibrated value.
       Default value: 0.0.
-    nu_upper_bound: Real `Tensor` compatible with that of `nu`, specifying the
-      lower bound for the calibrated value.
+    volvol_upper_bound: Real `Tensor` compatible with that of `volvol`,
+      specifying the lower bound for the calibrated value.
       Default value: 1.0.
     rho_lower_bound: Real `Tensor` compatible with that of `rho`, specifying the
       lower bound for the calibrated value.
@@ -325,17 +325,18 @@ def calibration(
     initial_alpha = _to_unconstrained(alpha, alpha_lower_bound,
                                       alpha_upper_bound)
 
-    nu_lower_bound = tf.convert_to_tensor(nu_lower_bound, dtype=dtype)
-    nu_upper_bound = tf.convert_to_tensor(nu_upper_bound, dtype=dtype)
-    nu = _assert_parameter_valid(
+    volvol_lower_bound = tf.convert_to_tensor(volvol_lower_bound, dtype=dtype)
+    volvol_upper_bound = tf.convert_to_tensor(volvol_upper_bound, dtype=dtype)
+    volvol = _assert_parameter_valid(
         validate_args,
-        nu,
-        lower_bound=nu_lower_bound,
-        upper_bound=nu_upper_bound,
-        message='`nu` is invalid!')
-    # Broadcast nu to the correct batch shape
-    nu = tf.broadcast_to(nu, batch_shape, name='broadcast_nu')
-    initial_nu = _to_unconstrained(nu, nu_lower_bound, nu_upper_bound)
+        volvol,
+        lower_bound=volvol_lower_bound,
+        upper_bound=volvol_upper_bound,
+        message='`volvol` is invalid!')
+    # Broadcast volvol to the correct batch shape
+    volvol = tf.broadcast_to(volvol, batch_shape, name='broadcast_volvol')
+    initial_volvol = _to_unconstrained(volvol, volvol_lower_bound,
+                                       volvol_upper_bound)
 
     rho_lower_bound = tf.convert_to_tensor(rho_lower_bound, dtype=dtype)
     rho_upper_bound = tf.convert_to_tensor(rho_upper_bound, dtype=dtype)
@@ -354,16 +355,17 @@ def calibration(
       initial_beta = _to_unconstrained(beta, beta_lower_bound, beta_upper_bound)
       # Shape `batch_shape + [4]`
       initial_x = tf.stack(
-          [initial_alpha, initial_nu, initial_rho, initial_beta], axis=-1)
+          [initial_alpha, initial_volvol, initial_rho, initial_beta], axis=-1)
     else:
       # Shape `batch_shape + [3]`
-      initial_x = tf.stack([initial_alpha, initial_nu, initial_rho], axis=-1)
+      initial_x = tf.stack([initial_alpha, initial_volvol, initial_rho],
+                           axis=-1)
 
     optimizer_arg_handler = _OptimizerArgHandler(
         alpha_lower_bound=alpha_lower_bound,
         alpha_upper_bound=alpha_upper_bound,
-        nu_lower_bound=nu_lower_bound,
-        nu_upper_bound=nu_upper_bound,
+        volvol_lower_bound=volvol_lower_bound,
+        volvol_upper_bound=volvol_upper_bound,
         rho_lower_bound=rho_lower_bound,
         rho_upper_bound=rho_upper_bound,
         calibrate_beta=calibrate_beta,
@@ -402,14 +404,14 @@ def calibration(
 
     calibration_parameters = optimization_result.position
     calibrated_alpha = optimizer_arg_handler.get_alpha(calibration_parameters)
-    calibrated_nu = optimizer_arg_handler.get_nu(calibration_parameters)
+    calibrated_volvol = optimizer_arg_handler.get_volvol(calibration_parameters)
     calibrated_rho = optimizer_arg_handler.get_rho(calibration_parameters)
     calibrated_beta = optimizer_arg_handler.get_beta(calibration_parameters)
 
     return (CalibrationResult(
         alpha=calibrated_alpha,
         beta=calibrated_beta,
-        volvol=calibrated_nu,
+        volvol=calibrated_volvol,
         rho=calibrated_rho), optimization_result.converged,
             optimization_result.num_iterations)
 
@@ -438,7 +440,7 @@ def _get_loss_for_volatility_based_calibration(*, prices, strikes, expiries,
   def loss_function(x):
     """Loss function for vol-based optimization."""
     candidate_alpha = optimizer_arg_handler.get_alpha(x)
-    candidate_nu = optimizer_arg_handler.get_nu(x)
+    candidate_volvol = optimizer_arg_handler.get_volvol(x)
     candidate_rho = optimizer_arg_handler.get_rho(x)
     candidate_beta = optimizer_arg_handler.get_beta(x)
 
@@ -448,7 +450,7 @@ def _get_loss_for_volatility_based_calibration(*, prices, strikes, expiries,
         forwards=forwards,
         alpha=tf.expand_dims(candidate_alpha, axis=-1),
         beta=tf.expand_dims(candidate_beta, axis=-1),
-        nu=tf.expand_dims(candidate_nu, axis=-1),
+        volvol=tf.expand_dims(candidate_volvol, axis=-1),
         rho=tf.expand_dims(candidate_rho, axis=-1),
         volatility_type=volatility_type,
         approximation_type=approximation_type,
@@ -474,7 +476,7 @@ def _get_loss_for_price_based_calibration(*, prices, strikes, expiries,
   def loss_function(x):
     """Loss function for the price-based optimization."""
     candidate_alpha = optimizer_arg_handler.get_alpha(x)
-    candidate_nu = optimizer_arg_handler.get_nu(x)
+    candidate_volvol = optimizer_arg_handler.get_volvol(x)
     candidate_rho = optimizer_arg_handler.get_rho(x)
     candidate_beta = optimizer_arg_handler.get_beta(x)
 
@@ -485,7 +487,7 @@ def _get_loss_for_price_based_calibration(*, prices, strikes, expiries,
         is_call_options=is_call_options,
         alpha=tf.expand_dims(candidate_alpha, axis=-1),
         beta=tf.expand_dims(candidate_beta, axis=-1),
-        nu=tf.expand_dims(candidate_nu, axis=-1),
+        volvol=tf.expand_dims(candidate_volvol, axis=-1),
         rho=tf.expand_dims(candidate_rho, axis=-1),
         volatility_type=volatility_type,
         approximation_type=approximation_type,
@@ -503,8 +505,8 @@ class _OptimizerArgHandler:
   """Handles the packing/transformation of estimated parameters."""
   alpha_lower_bound: types.RealTensor
   alpha_upper_bound: types.RealTensor
-  nu_lower_bound: types.RealTensor
-  nu_upper_bound: types.RealTensor
+  volvol_lower_bound: types.RealTensor
+  volvol_upper_bound: types.RealTensor
   rho_lower_bound: types.RealTensor
   rho_upper_bound: types.RealTensor
   calibrate_beta: bool
@@ -520,13 +522,13 @@ class _OptimizerArgHandler:
         alpha,
         self.alpha_lower_bound, self.alpha_upper_bound)
 
-  def get_nu(self,
-             packed_optimizer_args: types.RealTensor) -> types.RealTensor:
+  def get_volvol(self,
+                 packed_optimizer_args: types.RealTensor) -> types.RealTensor:
     """Unpack and return the volvol parameter."""
-    nu = packed_optimizer_args[..., 1]
+    volvol = packed_optimizer_args[..., 1]
     return _to_constrained(
-        nu,
-        self.nu_lower_bound, self.nu_upper_bound)
+        volvol,
+        self.volvol_lower_bound, self.volvol_upper_bound)
 
   def get_rho(self,
               packed_optimizer_args: types.RealTensor) -> types.RealTensor:

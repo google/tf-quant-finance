@@ -40,7 +40,7 @@ class SabrApproximationEuropeanOptionsTest(parameterized.TestCase,
         is_call_options=np.array([True, False]),
         alpha=3.2,
         beta=0.2,
-        nu=1.4,
+        volvol=1.4,
         rho=0.0005,
         dtype=tf.float64)
 
@@ -55,7 +55,7 @@ class SabrApproximationEuropeanOptionsTest(parameterized.TestCase,
         is_call_options=np.array([True, False]),
         alpha=3.2,
         beta=0.2,
-        nu=1.4,
+        volvol=1.4,
         rho=0.0005,
         volatility_type=NORMAL,
         dtype=tf.float64)
@@ -75,14 +75,14 @@ class SabrApproximationEuropeanOptionsTest(parameterized.TestCase,
               'expiries': [[0.0], [1.0]],
               'alpha': [[0.25], [0.5]],
               'beta': [[0.33], [0.66]],
-              'nu': [[1.0], [2.0]],
+              'volvol': [[1.0], [2.0]],
               'rho': [[0.001], [-0.001]],
           },),
       is_call=(True, False, [[True], [False]], [[False], [True]]),
       vol_type=(NORMAL, LOGNORMAL),
   )
   def test_european_option_differentiable(self, strikes, forwards, expiries,
-                                          alpha, beta, nu, rho, is_call,
+                                          alpha, beta, volvol, rho, is_call,
                                           vol_type):
     dtype = tf.float64
 
@@ -92,11 +92,11 @@ class SabrApproximationEuropeanOptionsTest(parameterized.TestCase,
     alpha = tf.convert_to_tensor(alpha, dtype=dtype)
     beta = tf.convert_to_tensor(beta, dtype=dtype)
     rho = tf.convert_to_tensor(rho, dtype=dtype)
-    nu = tf.convert_to_tensor(nu, dtype=dtype)
+    volvol = tf.convert_to_tensor(volvol, dtype=dtype)
     is_call = tf.convert_to_tensor(is_call)
 
     with tf.GradientTape(persistent=True) as tape:
-      tape.watch([forwards, strikes, expiries, alpha, beta, rho, nu])
+      tape.watch([forwards, strikes, expiries, alpha, beta, rho, volvol])
       price = tff.models.sabr.approximations.european_option_price(
           forwards=forwards,
           strikes=strikes,
@@ -105,12 +105,12 @@ class SabrApproximationEuropeanOptionsTest(parameterized.TestCase,
           alpha=alpha,
           beta=beta,
           rho=rho,
-          nu=nu,
+          volvol=volvol,
           volatility_type=vol_type,
           dtype=dtype)
       grad = tape.gradient(
           target=price,
-          sources=[forwards, strikes, expiries, alpha, beta, rho, nu])
+          sources=[forwards, strikes, expiries, alpha, beta, rho, volvol])
 
     grad = self.evaluate(grad)
     self.assertTrue(all(np.all(np.isfinite(x)) for x in grad))
@@ -126,7 +126,7 @@ class SabrApproximationEuropeanOptionsTest(parameterized.TestCase,
         is_call_options=np.array([True, False]),
         alpha=3.2,
         beta=0.2,
-        nu=1.4,
+        volvol=1.4,
         rho=0.0005,
         shift=shift,
         volatility_type=volatility_type,
@@ -139,7 +139,7 @@ class SabrApproximationEuropeanOptionsTest(parameterized.TestCase,
         is_call_options=np.array([True, False]),
         alpha=3.2,
         beta=0.2,
-        nu=1.4,
+        volvol=1.4,
         rho=0.0005,
         volatility_type=volatility_type,
         dtype=tf.float64)

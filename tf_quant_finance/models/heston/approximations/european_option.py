@@ -17,28 +17,24 @@ import numpy as np
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance.math import integration
-from tensorflow.python.util import deprecation  # pylint: disable=g-direct-tensorflow-import
 
 _PI_ = np.pi
 _COMPOSITE_SIMPSONS_RULE = integration.IntegrationMethod.COMPOSITE_SIMPSONS_RULE
 
 
-@deprecation.deprecated_args(
-    None, 'continuous_dividends is deprecated. Use dividend_rates instead',
-    'continuous_dividends')
-def european_option_price(strikes=None,
+def european_option_price(*,
+                          strikes=None,
                           expiries=None,
                           is_call_options=None,
                           variances=None,
-                          kappas=None,
-                          thetas=None,
-                          sigmas=None,
-                          rhos=None,
+                          mean_reversion=None,
+                          theta=None,
+                          volvol=None,
+                          rho=None,
                           spots=None,
                           forwards=None,
                           discount_rates=None,
                           dividend_rates=None,
-                          continuous_dividends=None,
                           cost_of_carries=None,
                           discount_factors=None,
                           integration_method=None,
@@ -62,7 +58,7 @@ def european_option_price(strikes=None,
   Heston model:
   ```
     dF/F = sqrt(V) * dW_1
-    dV = kappa * (theta - V) * dt * sigma * sqrt(V) * dW_2
+    dV = mean_reversion * (theta - V) * dt * sigma * sqrt(V) * dW_2
     <dW_1,dW_2> = rho *dt
   ```
   The variance V follows a square root process.
@@ -77,10 +73,10 @@ def european_option_price(strikes=None,
       expiries=1.2,
       forwards=100.0,
       is_call_options=True,
-      kappas=2.0,
-      thetas=0.5,
-      sigmas=0.15,
-      rhos=0.3,
+      mean_reversion=2.0,
+      theta=0.5,
+      volvol=0.15,
+      rho=0.3,
       discount_factors=1.0,
       dtype=np.float64)
   # Expected print output of prices:
@@ -105,15 +101,15 @@ def european_option_price(strikes=None,
       (if False). If not supplied, call options are assumed.
     variances: A real `Tensor` of the same dtype and compatible shape as
       `strikes`. The initial value of the variance.
-    kappas: A real `Tensor` of the same dtype and compatible shape as
+    mean_reversion: A real `Tensor` of the same dtype and compatible shape as
       `strikes`. The mean reversion strength of the variance square root
       process.
-    thetas: A real `Tensor` of the same dtype and compatible shape as
+    theta: A real `Tensor` of the same dtype and compatible shape as
       `strikes`. The mean reversion level of the variance square root process.
-    sigmas: A real `Tensor` of the same dtype and compatible shape as
+    volvol: A real `Tensor` of the same dtype and compatible shape as
       `strikes`. The volatility of the variance square root process (volatility
       of volatility)
-    rhos: A real `Tensor` of the same dtype and compatible shape as
+    rho: A real `Tensor` of the same dtype and compatible shape as
       `strikes`. The correlation between spot and variance.
         spots: A real `Tensor` of any shape that broadcasts to the shape of the
       `volatilities`. The current spot price of the underlying. Either this
@@ -134,8 +130,6 @@ def european_option_price(strikes=None,
       where r are the `discount_rates` and q is `dividend_rates`. Either
       this or `cost_of_carries` can be given.
       Default value: `None`, equivalent to q = 0.
-    continuous_dividends: `Tensor` equivalent to `dividend_rates`, to be
-      deprecated.
     cost_of_carries: An optional real `Tensor` of same dtype as the
       `strikes` and of the shape that broadcasts with `strikes`.
       Cost of storing a physical commodity, the cost of interest paid when
@@ -170,9 +164,6 @@ def european_option_price(strikes=None,
     A `Tensor` of the same shape as the input data which is the price of
     European options under the Heston model.
   """
-  dividend_rates = deprecation.deprecated_argument_lookup(
-      'dividend_rates', dividend_rates,
-      'continuous_dividends', continuous_dividends)
   if (spots is None) == (forwards is None):
     raise ValueError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
@@ -186,10 +177,11 @@ def european_option_price(strikes=None,
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
     dtype = strikes.dtype
     expiries = tf.convert_to_tensor(expiries, dtype=dtype, name='expiries')
-    kappas = tf.convert_to_tensor(kappas, dtype=dtype, name='kappas')
-    thetas = tf.convert_to_tensor(thetas, dtype=dtype, name='thetas')
-    sigmas = tf.convert_to_tensor(sigmas, dtype=dtype, name='sigmas')
-    rhos = tf.convert_to_tensor(rhos, dtype=dtype, name='rhos')
+    mean_reversion = tf.convert_to_tensor(mean_reversion, dtype=dtype,
+                                          name='mean_reversion')
+    theta = tf.convert_to_tensor(theta, dtype=dtype, name='theta')
+    volvol = tf.convert_to_tensor(volvol, dtype=dtype, name='volvol')
+    rho = tf.convert_to_tensor(rho, dtype=dtype, name='rho')
     variances = tf.convert_to_tensor(variances, dtype=dtype, name='variances')
 
     if discount_factors is not None:
@@ -226,18 +218,19 @@ def european_option_price(strikes=None,
 
     # Cast as complex for the characteristic function calculation
     expiries_real = tf.complex(expiries, tf.zeros_like(expiries))
-    kappas_real = tf.complex(kappas, tf.zeros_like(kappas))
-    thetas_real = tf.complex(thetas, tf.zeros_like(thetas))
-    sigmas_real = tf.complex(sigmas, tf.zeros_like(sigmas))
-    rhos_real = tf.complex(rhos, tf.zeros_like(rhos))
+    mean_reversion_real = tf.complex(mean_reversion,
+                                     tf.zeros_like(mean_reversion))
+    theta_real = tf.complex(theta, tf.zeros_like(theta))
+    volvol_real = tf.complex(volvol, tf.zeros_like(volvol))
+    rho_real = tf.complex(rho, tf.zeros_like(rho))
     variances_real = tf.complex(variances, tf.zeros_like(variances))
 
     # Prepare inputs to build an integrand_function
     expiries_real = tf.expand_dims(expiries_real, -1)
-    kappas_real = tf.expand_dims(kappas_real, -1)
-    thetas_real = tf.expand_dims(thetas_real, -1)
-    sigmas_real = tf.expand_dims(sigmas_real, -1)
-    rhos_real = tf.expand_dims(rhos_real, -1)
+    mean_reversion_real = tf.expand_dims(mean_reversion_real, -1)
+    theta_real = tf.expand_dims(theta_real, -1)
+    volvol_real = tf.expand_dims(volvol_real, -1)
+    rho_real = tf.expand_dims(rho_real, -1)
     variances_real = tf.expand_dims(variances_real, -1)
     if integration_method is None:
       integration_method = _COMPOSITE_SIMPSONS_RULE
@@ -254,19 +247,22 @@ def european_option_price(strikes=None,
       # (noted 'phi_2' in 'The Little Heston Trap', (Albrecher))
       u_real = tf.complex(u, tf.zeros_like(u))
       u_imag = tf.complex(tf.zeros_like(u), u)
-      s = rhos_real * sigmas_real * u_imag
-      # TODO(b/156221007): investigate why s_kappa = (s - kappas_real)**2 leads
-      # to a wrong result in graph mode.
-      s_kappa = (s - kappas_real) * s - (s - kappas_real) * kappas_real
-      d = s_kappa - sigmas_real ** 2 * (-u_imag - u_real ** 2)
+      s = rho_real * volvol_real * u_imag
+      # TODO(b/156221007): investigate why
+      # s_mean_reversion = (s - mean_reversion_real)**2 leads to a wrong result
+      # in graph mode.
+      s_mean_reversion = ((s - mean_reversion_real) * s
+                          - (s - mean_reversion_real) * mean_reversion_real)
+      d = s_mean_reversion - volvol_real ** 2 * (-u_imag - u_real ** 2)
       d = tf.math.sqrt(d)
-      g = (kappas_real - s - d) / (kappas_real - s + d)
-      a = kappas_real * thetas_real
+      g = (mean_reversion_real - s - d) / (mean_reversion_real - s + d)
+      a = mean_reversion_real * theta_real
       h = g * tf.math.exp(-d * expiries_real)
       m = 2 * tf.math.log((1 - h) / (1 - g))
-      c = (a / sigmas_real ** 2) * ((kappas_real - s - d) * expiries_real - m)
+      c = (a / volvol_real ** 2) * ((mean_reversion_real - s - d)
+                                    * expiries_real - m)
       e = (1 - tf.math.exp(-d * expiries_real))
-      d_new = (kappas_real - s - d) / sigmas_real ** 2 * (e / (1 - h))
+      d_new = (mean_reversion_real - s - d) / volvol_real ** 2 * (e / (1 - h))
       return tf.math.exp(c + d_new * variances_real)
 
     def integrand_function(u, k):

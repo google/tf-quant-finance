@@ -59,7 +59,7 @@ def implied_volatility(*,
                        forwards,
                        alpha,
                        beta,
-                       nu,
+                       volvol,
                        rho,
                        shift=0.0,
                        volatility_type=SabrImpliedVolatilityType.LOGNORMAL,
@@ -73,7 +73,7 @@ def implied_volatility(*,
 
   ```
     dF = sigma F^beta dW_1
-    dsigma = nu sigma dW_2
+    dsigma = volvol sigma dW_2
     dW1 dW2 = rho dt
 
     F(0) = f
@@ -98,7 +98,7 @@ def implied_volatility(*,
       alpha=1.63,
       beta=0.6,
       rho=0.00002,
-      nu=3.3,
+      volvol=3.3,
       dtype=tf.float64)
   # Expected: [0.33284656705268817, 1.9828728139982792]
 
@@ -123,8 +123,9 @@ def implied_volatility(*,
       positive.
     beta: Real `Tensor` of shape compatible with that of `strikes`, specifying
       the model exponent `beta`. Values must satisfy 0 <= `beta` <= 1.
-    nu: Real `Tensor` of shape compatible with that of `strikes`, specifying the
-      model vol-vol multipliers. Values of `nu` must be non-negative.
+    volvol: Real `Tensor` of shape compatible with that of `strikes`,
+      specifying the model vol-vol multipliers. Values of `volvol` must be
+      non-negative.
     rho: Real `Tensor` of shape compatible with that of `strikes`, specifying
       the correlation factors between the Wiener processes modeling the forward
       and the volatility. Values must satisfy -1 < `rho` < 1.
@@ -161,7 +162,7 @@ def implied_volatility(*,
     alpha = tf.convert_to_tensor(alpha, dtype=dtype, name='alpha')
     beta = tf.convert_to_tensor(beta, dtype=dtype, name='beta')
     rho = tf.convert_to_tensor(rho, dtype=dtype, name='rho')
-    nu = tf.convert_to_tensor(nu, dtype=dtype, name='nu')
+    volvol = tf.convert_to_tensor(volvol, dtype=dtype, name='volvol')
 
     # Apply the shift.
     strikes += shift
@@ -176,7 +177,7 @@ def implied_volatility(*,
     adj_alpha = alpha * tf.math.pow(strikes, beta - 1.0)
 
     # Zeta, as defined in (eq. A.69b in [1])
-    zeta = (nu / adj_alpha) * sqrt_adj_moneyness * log_moneyness
+    zeta = (volvol / adj_alpha) * sqrt_adj_moneyness * log_moneyness
     # Zeta / xhat(zeta), as defined in (eq. A.69b in [1])
     zeta_by_xhat = _zeta_by_xhat(zeta, rho, dtype)
 
@@ -187,9 +188,10 @@ def implied_volatility(*,
     # The correction terms occurring in (1 + {...}) of (eq. A.69a) of [1], where
     # we have multiplied in the "t_ex" to make the quantities dimensionless.
     correction_2 = ((rho * beta / 4.0) * (1.0 / sqrt_adj_moneyness) *
-                    (adj_alpha * nu * expiries))
+                    (adj_alpha * volvol * expiries))
 
-    correction_3 = ((2.0 - 3.0 * rho * rho) / 24.0) * (nu * nu * expiries)
+    correction_3 = ((2.0 - 3.0 * rho * rho) / 24.0
+                    * (volvol * volvol * expiries))
 
     if volatility_type == SabrImpliedVolatilityType.NORMAL:
       correction_1 = ((-beta * (2.0 - beta) / 24.0) * (1.0 / adj_moneyness) *
