@@ -156,12 +156,12 @@ def option_price_binomial(*,
     log_spot_grid_2 = tf.expand_dims(ln_dn - ln_up, axis=-1) * grid_idx
     log_spot_grid = log_spot_grid_1 + log_spot_grid_2
 
-    # Reshaping needed to ensure that batch axis is at the right place in
-    # both the spots (coming from log_spot_grid above) and the strikes etc.
+    # Adding the new dimension is to ensure that batch shape is at the front.
     payoff_fn = _get_payoff_fn(
-        tf.reshape(strikes, [-1, 1]), tf.reshape(is_call_options, [-1, 1]))
+        tf.expand_dims(strikes, axis=-1),
+        tf.expand_dims(is_call_options, axis=-1))
     value_mod_fn = _get_value_modifier(
-        tf.reshape(is_american, [-1, 1]), payoff_fn)
+        tf.expand_dims(is_american, axis=-1), payoff_fn)
 
     # Shape [batch shape, num time steps + 1]
     values_grid = payoff_fn(tf.math.exp(log_spot_grid))
@@ -175,8 +175,9 @@ def option_price_binomial(*,
     ln_up = tf.expand_dims(ln_up, axis=-1)
 
     def one_step_back(current_values, current_log_spot_grid):
-      next_values = current_values[:, 1:] * p_dn + current_values[:, :-1] * p_up
-      next_log_spot_grid = current_log_spot_grid[:, :-1] - ln_up
+      next_values = (current_values[..., 1:] * p_dn
+                     + current_values[..., :-1] * p_up)
+      next_log_spot_grid = current_log_spot_grid[..., :-1] - ln_up
       next_values = value_mod_fn(next_values, tf.math.exp(next_log_spot_grid))
       return discount_factors * next_values, next_log_spot_grid
 
@@ -184,13 +185,13 @@ def option_price_binomial(*,
       del current_values, current_log_spot_grid
       return True
 
-    batch_size = values_grid.shape[0]
+    batch_shape = values_grid.shape[:-1]
     pv, _ = tf.while_loop(
         should_continue,
         one_step_back, (values_grid, log_spot_grid),
         maximum_iterations=tf.cast(num_steps, dtype=tf.int32),
-        shape_invariants=(tf.TensorShape([batch_size, None]),
-                          tf.TensorShape([batch_size, None])))
+        shape_invariants=(tf.TensorShape(batch_shape + [None]),
+                          tf.TensorShape(batch_shape + [None])))
     return tf.squeeze(pv, axis=-1)
 
 
