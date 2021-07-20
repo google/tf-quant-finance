@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Quasi Monte Carlo support: Sobol sequence.
 
 A TensorFlow implementation of Sobol sequences, a type of quasi-random
@@ -21,6 +20,7 @@ low-discrepancy sequence: https://en.wikipedia.org/wiki/Sobol_sequence.
 
 import logging
 import os
+from typing import Tuple
 
 import numpy as np
 from six.moves import range
@@ -28,11 +28,10 @@ import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import types
 
-
 __all__ = [
-    'sample'
+    'load_data',
+    'sample',
 ]
-
 
 _LN_2 = np.log(2.)
 
@@ -42,7 +41,7 @@ def sample(dim: int,
            skip: types.IntTensor = 0,
            validate_args: bool = False,
            dtype: tf.DType = None,
-           name=None) -> types.RealTensor:
+           name: str = None) -> types.RealTensor:
   """Returns num_results samples from the Sobol sequence of dimension dim.
 
   Uses the original ordering of points, not the more commonly used Gray code
@@ -86,12 +85,15 @@ def sample(dim: int,
       if dim < 1:
         raise ValueError(
             'Dimension must be greater than zero. Supplied {}'.format(dim))
-      control_dependencies.append(tf.compat.v1.debugging.assert_greater(
-          num_results, 0,
-          message='Number of results `num_results` must be greater than zero.'))
-      control_dependencies.append(tf.compat.v1.debugging.assert_greater(
-          skip, 0,
-          message='`skip` must be non-negative.'))
+      control_dependencies.append(
+          tf.compat.v1.debugging.assert_greater(
+              num_results,
+              0,
+              message='Number of results `num_results` must be greater than zero.'
+          ))
+      control_dependencies.append(
+          tf.compat.v1.debugging.assert_greater(
+              skip, 0, message='`skip` must be non-negative.'))
 
     with tf.compat.v1.control_dependencies(control_dependencies):
       if validate_args:
@@ -142,8 +144,8 @@ def sample(dim: int,
     result, _ = tf.while_loop(_cond, _body, (product[0, :, :], 1))
     # Shift back from integers to floats.
     dtype = dtype or tf.float32
-    return (tf.cast(result, dtype)
-            / tf.cast(tf.bitwise.left_shift(1, num_digits), dtype))
+    return (tf.cast(result, dtype) /
+            tf.cast(tf.bitwise.left_shift(1, num_digits), dtype))
 
 
 # TODO(b/135590027): Add option to store these instead of recomputing each time.
@@ -196,12 +198,12 @@ def _get_sobol_data_path():
   path1 = os.path.join('third_party', 'sobol_data', filename)
   path2 = os.path.abspath(
       os.path.join(
-          os.path.dirname(__file__), '..', '..', '..',
-          'third_party', 'sobol_data', filename))
+          os.path.dirname(__file__), '..', '..', '..', 'third_party',
+          'sobol_data', filename))
   path3 = os.path.abspath(
       os.path.join(
-          os.path.dirname(__file__), '..', '..', '..', '..',
-          'third_party', 'sobol_data', filename))
+          os.path.dirname(__file__), '..', '..', '..', '..', 'third_party',
+          'sobol_data', filename))
 
   paths = [path1, path2, path3]
   for path in paths:
@@ -209,7 +211,7 @@ def _get_sobol_data_path():
       return path
 
 
-def _load_sobol_data():
+def load_data() -> Tuple[types.RealTensor, types.RealTensor]:
   """Parses file 'new-joe-kuo-6.21201'."""
   path = _get_sobol_data_path()
   if path is None:
@@ -236,5 +238,4 @@ def _load_sobol_data():
   return polynomial_coefficients, direction_numbers
 
 
-(_PRIMITIVE_POLYNOMIAL_COEFFICIENTS,
- _INITIAL_DIRECTION_NUMBERS) = _load_sobol_data()
+(_PRIMITIVE_POLYNOMIAL_COEFFICIENTS, _INITIAL_DIRECTION_NUMBERS) = load_data()
