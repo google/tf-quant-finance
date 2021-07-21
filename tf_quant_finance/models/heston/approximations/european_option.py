@@ -16,31 +16,36 @@
 import numpy as np
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
 from tf_quant_finance.math import integration
+
+__all__ = [
+    'european_option_price'
+]
 
 _PI_ = np.pi
 _COMPOSITE_SIMPSONS_RULE = integration.IntegrationMethod.COMPOSITE_SIMPSONS_RULE
 
 
-def european_option_price(*,
-                          strikes=None,
-                          expiries=None,
-                          is_call_options=None,
-                          variances=None,
-                          mean_reversion=None,
-                          theta=None,
-                          volvol=None,
-                          rho=None,
-                          spots=None,
-                          forwards=None,
-                          discount_rates=None,
-                          dividend_rates=None,
-                          cost_of_carries=None,
-                          discount_factors=None,
-                          integration_method=None,
-                          dtype=None,
-                          name=None,
-                          **kwargs):
+def european_option_price(
+    *,
+    strikes: types.RealTensor,
+    expiries: types.RealTensor,
+    spots: types.RealTensor = None,
+    forwards: types.RealTensor = None,
+    is_call_options: types.BoolTensor = None,
+    discount_rates: types.RealTensor = None,
+    dividend_rates: types.RealTensor = None,
+    discount_factors: types.RealTensor = None,
+    variances: types.RealTensor,
+    mean_reversion: types.RealTensor,
+    theta: types.RealTensor,
+    volvol: types.RealTensor,
+    rho: types.RealTensor = None,
+    integration_method: integration.IntegrationMethod = None,
+    dtype: tf.DType = None,
+    name: str = None,
+    **kwargs) -> types.RealTensor:
   """Calculates European option prices under the Heston model.
 
   Heston originally published in 1993 his eponymous model [3]. He provided
@@ -96,9 +101,34 @@ def european_option_price(*,
       to be priced.
     expiries: A real `Tensor` of the same dtype and compatible shape as
       `strikes`.  The expiry of each option.
+    spots: A real `Tensor` of any shape that broadcasts to the shape of the
+      `volatilities`. The current spot price of the underlying. Either this
+      argument or the `forwards` (but not both) must be supplied.
+    forwards: A real `Tensor` of any shape that broadcasts to the shape of
+      `strikes`. The forwards to maturity. Either this argument or the
+      `spots` must be supplied but both must not be supplied.
     is_call_options: A boolean `Tensor` of a shape compatible with
       `strikes`. Indicates whether the option is a call (if True) or a put
       (if False). If not supplied, call options are assumed.
+    discount_rates: An optional real `Tensor` of same dtype as the
+      `strikes` and of the shape that broadcasts with `strikes`.
+      If not `None`, discount factors are calculated as e^(-rT),
+      where r are the discount rates, or risk free rates. At most one of
+      discount_rates and discount_factors can be supplied.
+      Default value: `None`, equivalent to r = 0 and discount factors = 1 when
+      discount_factors also not given.
+    dividend_rates: An optional real `Tensor` of same dtype as the
+      `strikes` and of the shape that broadcasts with `volatilities`.
+      Default value: `None`, equivalent to q = 0.
+    discount_factors: An optional real `Tensor` of same dtype as the
+      `strikes`. If not `None`, these are the discount factors to expiry
+      (i.e. e^(-rT)). Mutually exclusive with `discount_rates`. If neither is
+      given, no discounting is applied (i.e. the undiscounted option price is
+      returned). If `spots` is supplied and `discount_factors` is not `None`
+      then this is also used to compute the forwards to expiry. At most one of
+      `discount_rates` and `discount_factors` can be supplied.
+      Default value: `None`, which maps to e^(-rT) calculated from
+      discount_rates.
     variances: A real `Tensor` of the same dtype and compatible shape as
       `strikes`. The initial value of the variance.
     mean_reversion: A real `Tensor` of the same dtype and compatible shape as
@@ -111,42 +141,6 @@ def european_option_price(*,
       of volatility)
     rho: A real `Tensor` of the same dtype and compatible shape as
       `strikes`. The correlation between spot and variance.
-        spots: A real `Tensor` of any shape that broadcasts to the shape of the
-      `volatilities`. The current spot price of the underlying. Either this
-      argument or the `forwards` (but not both) must be supplied.
-    forwards: A real `Tensor` of any shape that broadcasts to the shape of
-      `strikes`. The forwards to maturity. Either this argument or the
-      `spots` must be supplied but both must not be supplied.
-    discount_rates: An optional real `Tensor` of same dtype as the
-      `strikes` and of the shape that broadcasts with `strikes`.
-      If not `None`, discount factors are calculated as e^(-rT),
-      where r are the discount rates, or risk free rates. At most one of
-      discount_rates and discount_factors can be supplied.
-      Default value: `None`, equivalent to r = 0 and discount factors = 1 when
-      discount_factors also not given.
-    dividend_rates: An optional real `Tensor` of same dtype as the
-      `strikes` and of the shape that broadcasts with `strikes`.
-      If not `None`, `cost_of_carries` is calculated as r - q,
-      where r are the `discount_rates` and q is `dividend_rates`. Either
-      this or `cost_of_carries` can be given.
-      Default value: `None`, equivalent to q = 0.
-    cost_of_carries: An optional real `Tensor` of same dtype as the
-      `strikes` and of the shape that broadcasts with `strikes`.
-      Cost of storing a physical commodity, the cost of interest paid when
-      long, or the opportunity cost, or the cost of paying dividends when short.
-      If not `None`, and `spots` is supplied, used to calculate forwards from
-      `spots`: F = e^(bT) * S, where F is the forwards price, b is the cost of
-      carries, T is expiries and S is the spot price. If `None`, value assumed
-      to be equal to the `discount_rate` - `dividend_rates`
-      Default value: `None`, equivalent to b = r.
-    discount_factors: An optional real `Tensor` of same dtype as the
-      `strikes`. If not `None`, these are the discount factors to expiry
-      (i.e. e^(-rT)). Mutually exclusive with discount_rate and cost_of_carry.
-      If neither is given, no discounting is applied (i.e. the undiscounted
-      option price is returned). If `spots` is supplied and `discount_factors`
-      is not `None` then this is also used to compute the forwards to expiry.
-      At most one of discount_rates and discount_factors can be supplied.
-      Default value: `None`, which maps to -log(discount_factors) / expiries
     integration_method: An instance of `math.integration.IntegrationMethod`.
       Default value: `None` which maps to the Simpsons integration rule.
     dtype: Optional `tf.DType`. If supplied, the dtype to be used for conversion
@@ -169,9 +163,6 @@ def european_option_price(*,
   if (discount_rates is not None) and (discount_factors is not None):
     raise ValueError('At most one of discount_rates and discount_factors may '
                      'be supplied')
-  if (dividend_rates is not None) and (cost_of_carries is not None):
-    raise ValueError('At most one of dividend_rates and cost_of_carries '
-                     'may be supplied')
 
   with tf.compat.v1.name_scope(name, default_name='eu_option_price'):
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
@@ -201,12 +192,6 @@ def european_option_price(*,
       dividend_rates = tf.convert_to_tensor(
           0.0, dtype=dtype, name='dividend_rates')
 
-    if cost_of_carries is not None:
-      cost_of_carries = tf.convert_to_tensor(
-          cost_of_carries, dtype=dtype, name='cost_of_carries')
-    else:
-      cost_of_carries = discount_rates - dividend_rates
-
     if discount_factors is None:
       discount_factors = tf.exp(-discount_rates * expiries)  # pylint: disable=invalid-unary-operand-type
 
@@ -214,6 +199,7 @@ def european_option_price(*,
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
     else:
       spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
+      cost_of_carries = discount_rates - dividend_rates
       forwards = spots * tf.exp(cost_of_carries * expiries)
 
     # Cast as complex for the characteristic function calculation

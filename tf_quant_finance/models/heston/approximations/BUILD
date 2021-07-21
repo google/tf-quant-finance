@@ -17,6 +17,7 @@ py_library(
     srcs = ["european_option.py"],
     deps = [
         "//tf_quant_finance/math/integration",
+        "//tf_quant_finance/types",
         # numpy dep,
         # tensorflow dep,
     ],

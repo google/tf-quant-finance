@@ -15,16 +15,24 @@
 
 """Heston model with piecewise constant parameters."""
 
+from typing import Union, Callable
+
 import numpy as np
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
 from tf_quant_finance.math import piecewise
 from tf_quant_finance.math import random_ops as random
 from tf_quant_finance.models import generic_ito_process
 from tf_quant_finance.models import utils
 
+__all__ = [
+    'HestonModel'
+]
 
 _SQRT_2 = np.sqrt(2., dtype=np.float64)
+
+_CallableOrTensor = Union[Callable, types.RealTensor]
 
 
 class HestonModel(generic_ito_process.GenericItoProcess):
@@ -79,12 +87,12 @@ class HestonModel(generic_ito_process.GenericItoProcess):
   """
 
   def __init__(self,
-               mean_reversion,
-               theta,
-               volvol,
-               rho,
-               dtype=None,
-               name=None):
+               mean_reversion: _CallableOrTensor,
+               theta: _CallableOrTensor,
+               volvol: _CallableOrTensor,
+               rho: _CallableOrTensor,
+               dtype: tf.DType = None,
+               name: str = None):
     """Initializes the Heston Model.
 
     #### References:
@@ -168,15 +176,15 @@ class HestonModel(generic_ito_process.GenericItoProcess):
     super(HestonModel, self).__init__(2, _drift_fn, _vol_fn, dtype, name)
 
   def sample_paths(self,
-                   times,
-                   initial_state,
-                   num_samples=1,
-                   random_type=None,
-                   seed=None,
-                   time_step=None,
-                   skip=0,
-                   tolerance=1e-6,
-                   name=None):
+                   times: types.RealTensor,
+                   initial_state: types.RealTensor,
+                   num_samples: types.IntTensor = 1,
+                   random_type: random.RandomType = None,
+                   seed: types.RealTensor = None,
+                   time_step: types.RealTensor = None,
+                   skip: types.IntTensor = 0,
+                   tolerance: types.RealTensor = 1e-6,
+                   name: str = None) -> types.RealTensor:
     """Returns a sample of paths from the process.
 
     Using Quadratic-Exponential (QE) method described in [1] generates samples
@@ -343,7 +351,11 @@ class HestonModel(generic_ito_process.GenericItoProcess):
         maximum_iterations=steps_num)
     return tf.stack([log_spot_paths, vol_paths], -1)
 
-  def expected_total_variance(self, future_times, initial_var, name=None):
+  def expected_total_variance(
+      self,
+      future_times: types.RealTensor,
+      initial_var: types.RealTensor,
+      name: str = None) -> types.RealTensor:
     """Computes the expected variance of the process up to `future_time`.
 
     The Heston model affords a closed form expression for its expected variance:
