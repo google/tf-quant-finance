@@ -32,8 +32,7 @@ py_test(
     srcs = ["digital_net_test.py"],
     python_version = "PY3",
     deps = [
-        ":digital_net",
-        ":sobol",
+        "//tf_quant_finance",
         # test util,
         # tensorflow dep,
     ],
@@ -55,7 +54,7 @@ py_test(
     srcs = ["lattice_rule_test.py"],
     python_version = "PY3",
     deps = [
-        ":lattice_rule",
+        "//tf_quant_finance",
         # test util,
         # tensorflow dep,
     ],
@@ -79,7 +78,7 @@ py_test(
     srcs = ["sobol_test.py"],
     python_version = "PY3",
     deps = [
-        ":sobol",
+        "//tf_quant_finance",
         # test util,
         # tensorflow dep,
     ],
@@ -100,7 +99,7 @@ py_test(
     srcs = ["utils_test.py"],
     python_version = "PY3",
     deps = [
-        ":utils",
+        "//tf_quant_finance",
         # test util,
         # tensorflow dep,
     ],

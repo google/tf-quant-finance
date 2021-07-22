@@ -14,6 +14,7 @@
 # limitations under the License.
 """RQMC support."""
 
+from tf_quant_finance.experimental.rqmc import utils
 from tf_quant_finance.experimental.rqmc.digital_net import random_scrambling_matrices
 from tf_quant_finance.experimental.rqmc.digital_net import sample_digital_net
 from tf_quant_finance.experimental.rqmc.digital_net import scramble_generating_matrices
@@ -32,6 +33,7 @@ _allowed_symbols = [
     'sample_sobol',
     'scramble_generating_matrices',
     'sobol_generating_matrices',
+    'utils',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

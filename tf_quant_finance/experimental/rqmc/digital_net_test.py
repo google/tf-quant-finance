@@ -15,13 +15,14 @@
 """Tests for digital nets."""
 
 import tensorflow.compat.v2 as tf
-from tf_quant_finance.experimental.rqmc import digital_net
-from tf_quant_finance.experimental.rqmc import sobol
-from tf_quant_finance.experimental.rqmc import utils
+import tf_quant_finance as tff
+
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
+rqmc = tff.experimental.rqmc
 
-# @test_util.run_all_in_graph_and_eager_modes
+
+@test_util.run_all_in_graph_and_eager_modes
 class DigitalNetTest(tf.test.TestCase):
 
   def test_random_scrambling_matrices(self):
@@ -31,15 +32,15 @@ class DigitalNetTest(tf.test.TestCase):
     seed = (2, 3)
 
     for dtype in [tf.int32, tf.int64]:
-      generating_matrices = sobol.sobol_generating_matrices(
+      generating_matrices = rqmc.sobol_generating_matrices(
           dim, num_results, num_digits, dtype=dtype)
 
-      actual = digital_net.random_scrambling_matrices(
+      actual = rqmc.random_scrambling_matrices(
           generating_matrices, num_digits, seed, validate_args=True)
 
       power = tf.constant(num_digits, dtype=dtype)
-      minval = utils.exp2(power - 1)
-      maxval = utils.exp2(power)
+      minval = rqmc.utils.exp2(power - 1)
+      maxval = rqmc.utils.exp2(power)
 
       self.assertEqual(actual.shape, generating_matrices.shape)
       self.assertEqual(actual.dtype, dtype)
@@ -52,11 +53,11 @@ class DigitalNetTest(tf.test.TestCase):
     num_digits = 3  # ceil(log2(num_results))
     seed = (2, 3)
 
-    generating_matrices = sobol.sobol_generating_matrices(
+    generating_matrices = rqmc.sobol_generating_matrices(
         dim, num_results, num_digits)
 
     for dtype in [tf.int32, tf.int64]:
-      actual = digital_net.random_scrambling_matrices(
+      actual = rqmc.random_scrambling_matrices(
           generating_matrices,
           num_digits,
           seed,
@@ -64,8 +65,8 @@ class DigitalNetTest(tf.test.TestCase):
           validate_args=True)
 
       power = tf.constant(num_digits, dtype=dtype)
-      minval = utils.exp2(power - 1)
-      maxval = utils.exp2(power)
+      minval = rqmc.utils.exp2(power - 1)
+      maxval = rqmc.utils.exp2(power)
 
       self.assertEqual(actual.shape, generating_matrices.shape)
       self.assertEqual(actual.dtype, dtype)
@@ -109,8 +110,8 @@ class DigitalNetTest(tf.test.TestCase):
                               [0.21875, 0.84375, 0.09375, 0.53125, 0.40625]],
                              dtype=tf.float32)
 
-      actual = digital_net.sample_digital_net(
-          sobol.sobol_generating_matrices(
+      actual = rqmc.sample_digital_net(
+          rqmc.sobol_generating_matrices(
               dim, num_results, num_digits, dtype=dtype),
           num_results,
           num_digits,
@@ -135,8 +136,8 @@ class DigitalNetTest(tf.test.TestCase):
                             [0.21875, 0.84375, 0.09375, 0.53125, 0.40625]],
                            dtype=tf.float32)
 
-    actual = digital_net.sample_digital_net(
-        sobol.sobol_generating_matrices(dim, num_results, num_digits),
+    actual = rqmc.sample_digital_net(
+        rqmc.sobol_generating_matrices(dim, num_results, num_digits),
         num_results,
         num_digits,
         sequence_indices=tf.constant(indices, dtype=tf.int64),
@@ -161,8 +162,8 @@ class DigitalNetTest(tf.test.TestCase):
                             [0.25, 0.25, 0.25, 0.75, 0.25, 0.75]],
                            dtype=tf.float32)
 
-    actual = digital_net.sample_digital_net(
-        sobol.sobol_generating_matrices(dim, num_results, num_digits),
+    actual = rqmc.sample_digital_net(
+        rqmc.sobol_generating_matrices(dim, num_results, num_digits),
         num_results,
         num_digits,
         apply_tent_transform=True,
@@ -177,7 +178,7 @@ class DigitalNetTest(tf.test.TestCase):
     num_results = 6
     num_digits = 3  # ceil(log2(num_results))
 
-    generating_matrices = sobol.sobol_generating_matrices(
+    generating_matrices = rqmc.sobol_generating_matrices(
         dim, num_results, num_digits)
 
     for dtype in [tf.float32, tf.float64]:
@@ -189,7 +190,7 @@ class DigitalNetTest(tf.test.TestCase):
                               [0.625, 0.125, 0.875, 0.625, 0.625]],
                              dtype=dtype)
 
-      actual = digital_net.sample_digital_net(
+      actual = rqmc.sample_digital_net(
           generating_matrices,
           num_results,
           num_digits,
@@ -207,13 +208,13 @@ class DigitalNetTest(tf.test.TestCase):
     seed = (2, 3)
 
     for dtype in [tf.int32, tf.int64]:
-      generating_matrices = sobol.sobol_generating_matrices(
+      generating_matrices = rqmc.sobol_generating_matrices(
           dim, num_results, num_digits, dtype=dtype)
 
-      scrambling_matrices = digital_net.random_scrambling_matrices(
+      scrambling_matrices = rqmc.random_scrambling_matrices(
           generating_matrices, num_digits, seed)
 
-      actual = digital_net.scramble_generating_matrices(
+      actual = rqmc.scramble_generating_matrices(
           generating_matrices,
           scrambling_matrices,
           num_digits,
@@ -228,17 +229,17 @@ class DigitalNetTest(tf.test.TestCase):
     num_digits = 3  # ceil(log2(num_results))
 
     for dtype in [tf.int32, tf.int64]:
-      generating_matrices = sobol.sobol_generating_matrices(
+      generating_matrices = rqmc.sobol_generating_matrices(
           dim, num_results, num_digits, dtype=dtype)
 
       # All scrambling matrices values are between 2^{num_digits - 1} (incl.)
       # and 2^{num_digits} (excl.). Scrambling using matrices for which all
       # values are set to 2^{num_digits - 1} should be a no-op.
       min_scrambling_matrices = tf.broadcast_to(
-          utils.exp2(tf.cast(num_digits, dtype) - 1),
+          rqmc.utils.exp2(tf.cast(num_digits, dtype) - 1),
           shape=generating_matrices.shape)
 
-      actual = digital_net.scramble_generating_matrices(
+      actual = rqmc.scramble_generating_matrices(
           generating_matrices,
           min_scrambling_matrices,
           num_digits,
@@ -257,14 +258,14 @@ class DigitalNetTest(tf.test.TestCase):
     num_digits = 3  # ceil(log2(num_results))
     seed = (2, 3)
 
-    generating_matrices = sobol.sobol_generating_matrices(
+    generating_matrices = rqmc.sobol_generating_matrices(
         dim, num_results, num_digits)
 
-    scrambling_matrices = digital_net.random_scrambling_matrices(
+    scrambling_matrices = rqmc.random_scrambling_matrices(
         generating_matrices, num_digits, seed)
 
     for dtype in [tf.int32, tf.int64]:
-      actual = digital_net.scramble_generating_matrices(
+      actual = rqmc.scramble_generating_matrices(
           generating_matrices,
           scrambling_matrices,
           num_digits,

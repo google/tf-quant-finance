@@ -15,8 +15,11 @@
 """Tests for RQMC utils."""
 
 import tensorflow.compat.v2 as tf
-from tf_quant_finance.experimental.rqmc import utils
+import tf_quant_finance as tff
+
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+
+utils = tff.experimental.rqmc.utils
 
 
 @test_util.run_all_in_graph_and_eager_modes
