@@ -15,8 +15,9 @@
 """Support for digital nets."""
 
 import tensorflow.compat.v2 as tf
-import tf_quant_finance.experimental.rqmc.utils as utils
-import tf_quant_finance.types as types
+
+from tf_quant_finance import types
+from tf_quant_finance.experimental.rqmc import utils
 
 __all__ = [
     'random_scrambling_matrices',

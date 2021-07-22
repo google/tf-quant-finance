@@ -15,8 +15,10 @@
 """Utility functions."""
 
 from typing import Union
+
 import tensorflow.compat.v2 as tf
-import tf_quant_finance.types as types
+
+from tf_quant_finance import types
 
 
 def exp2(value: types.IntTensor) -> types.IntTensor:

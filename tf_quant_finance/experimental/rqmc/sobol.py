@@ -15,10 +15,11 @@
 """Support for Sobol sequence generation."""
 
 import tensorflow.compat.v2 as tf
-import tf_quant_finance.experimental.rqmc.digital_net as digital_net
-import tf_quant_finance.experimental.rqmc.utils as utils
-import tf_quant_finance.math.random_ops.sobol as sobol
-import tf_quant_finance.types as types
+
+from tf_quant_finance import types
+from tf_quant_finance.experimental.rqmc import digital_net
+from tf_quant_finance.experimental.rqmc import utils
+from tf_quant_finance.math.random_ops import sobol
 
 __all__ = [
     'sample_sobol',
