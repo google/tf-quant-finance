@@ -107,6 +107,7 @@ for end-to-end examples. It includes tutorial notebooks such as:
   *   [Root search using Brent's method](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Root_Search.ipynb)
   *   [Optimization](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Optimization.ipynb)
   *   [Swap Curve Fitting](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Swap_Curve_Fitting.ipynb)
+  *   [Vectorization and XLA compilation](https://colab.research.google.com/github/google/tf-quant-finance/blob/master/tf_quant_finance/examples/jupyter_notebooks/Vectorization_and_XLA_compilation.ipynb)
 
 The above links will open Jupyter Notebooks in Colab.
 
