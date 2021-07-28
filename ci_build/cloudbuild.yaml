@@ -6,7 +6,7 @@ steps:
       - 'gcr.io/$PROJECT_ID/bazel-local:latest'
       - '-f'
       - '/workspace/ci_build/Dockerfile'
-      -'.'
+      - .
     id: Build Docker image
   - name: gcr.io/$PROJECT_ID/bazel-local
     args:
