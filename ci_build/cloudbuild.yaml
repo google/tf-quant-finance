@@ -1,0 +1,23 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/bazel-local:latest'
+      - '-f'
+      - '/workspace/ci_build/Dockerfile'
+      -'.'
+    id: Build Docker image
+  - name: gcr.io/$PROJECT_ID/bazel-local
+    args:
+      - test
+      - tf_quant_finance/...
+      - '--test_summary=detailed'
+      - '--test_output=errors'
+    id: Run bazel test
+    entrypoint: bazel
+timeout: 7200s
+logsBucket: 'gs://$_LOGS_BUCKET/'
+options:
+  machineType: E2_HIGHCPU_32
+queueTtl: 1200s

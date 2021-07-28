@@ -1,6 +1,6 @@
 # TF Quant Finance: TensorFlow based Quant Finance Library
 
-[![Build Status](https://travis-ci.org/google/tf-quant-finance.svg?branch=master)](https://travis-ci.org/google/tf-quant-finance)
+[![Build Status](https://storage.googleapis.com/tf-quant-finance-build-result/status.svg)](https://storage.googleapis.com/tf-quant-finance-build-result/logs.txt)
 
 ## Table of contents
 1. [Introduction](#introduction)
