@@ -147,15 +147,14 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
         matrix is not positive semidefinite, an error is raised.
         Default value: False.
       dtype: The default dtype to use when converting values to `Tensor`s.
-        Default value: `None` which means that default dtypes inferred by
-          TensorFlow are used.
+        Default value: `None` which maps to `tf.float32`.
       name: Python string. The name to give to the ops created by this class.
         Default value: `None` which maps to the default name
         `quasi_gaussian_hjm_model`.
     """
     self._name = name or 'quasi_gaussian_hjm_model'
     with tf.name_scope(self._name):
-      self._dtype = dtype or None
+      self._dtype = dtype or tf.float32
       # x has dimensionality of `dim` and y `dim * dim`
       self._dim = dim + dim**2
       self._factors = dim
@@ -207,7 +206,8 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       if corr_matrix is None:
         corr_matrix = tf.eye(dim, dim, batch_shape=self._batch_shape,
                              dtype=self._dtype)
-      self._rho = tf.convert_to_tensor(corr_matrix, dtype=dtype, name='rho')
+      self._rho = tf.convert_to_tensor(corr_matrix, dtype=self._dtype,
+                                       name='rho')
       if validate_args:
         try:
           self._sqrt_rho = tf.linalg.cholesky(self._rho)
@@ -274,8 +274,8 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       drift = tf.concat([drift_x, drift_y], axis=-1)
       return drift
 
-    super(QuasiGaussianHJM, self).__init__(self._dim, _drift_fn, _vol_fn, dtype,
-                                           self._name)
+    super(QuasiGaussianHJM, self).__init__(
+        self._dim, _drift_fn, _vol_fn, self._dtype, self._name)
 
   def sample_paths(self,
                    times,

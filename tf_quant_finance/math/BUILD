@@ -135,8 +135,9 @@ py_test(
     python_version = "PY3",
     shard_count = 5,
     deps = [
-        ":piecewise",
+        "//tf_quant_finance",
         # test util,
+        # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
     ],

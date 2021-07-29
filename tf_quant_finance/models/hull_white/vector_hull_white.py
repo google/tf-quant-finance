@@ -178,8 +178,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
          `Tensor` of shape `[dim, dim]`.
         Corresponds to the correlation matrix `Rho`.
       dtype: The default dtype to use when converting values to `Tensor`s.
-        Default value: `None` which means that default dtypes inferred by
-          TensorFlow are used.
+        Default value: `None` which maps to `tf.float32`.
       name: Python string. The name to give to the ops created by this class.
         Default value: `None` which maps to the default name `hull_white_model`.
 
@@ -193,7 +192,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
     """
     self._name = name or 'hull_white_model'
     with tf.name_scope(self._name):
-      self._dtype = dtype or None
+      self._dtype = dtype or tf.float32
       # If the parameter is callable but not a piecewise constant use
       # generic sampling method (e.g., Euler).
       self._sample_with_generic = False
@@ -283,7 +282,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                 - mean_reversion * x)
       return drift
     super(VectorHullWhiteModel, self).__init__(dim, _drift_fn, _vol_fn,
-                                               dtype, name)
+                                               self._dtype, name)
 
   @property
   def mean_reversion(self):

@@ -68,6 +68,8 @@ class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
           'corr': None,
           'vol_jumps': None,
           'vol_values': None,
+          'num_time_steps': None,
+          'dtype': tf.float32,
       },
       {
           'testcase_name': '1f_constant_num_time_steps',
@@ -78,6 +80,7 @@ class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
           'vol_jumps': None,
           'vol_values': None,
           'num_time_steps': 21,
+          'dtype': tf.float64,
       },
       {
           'testcase_name': '1f_time_dep',
@@ -87,6 +90,8 @@ class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
           'corr': None,
           'vol_jumps': [[0.5, 1.0]],
           'vol_values': [[0.01, 0.02, 0.01]],
+          'num_time_steps': None,
+          'dtype': None,
       },
       {
           'testcase_name': '2f_constant',
@@ -96,6 +101,8 @@ class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
           'corr': None,
           'vol_jumps': None,
           'vol_values': None,
+          'num_time_steps': None,
+          'dtype': tf.float64,
       },
       {
           'testcase_name': '2f_constant_with_corr',
@@ -105,6 +112,8 @@ class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
           'corr': [[1.0, 0.5], [0.5, 1.0]],
           'vol_jumps': None,
           'vol_values': None,
+          'num_time_steps': None,
+          'dtype': tf.float64,
       },
       {
           'testcase_name': '2f_time_dep',
@@ -114,12 +123,13 @@ class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
           'corr': None,
           'vol_jumps': [[0.5, 1.0], [0.5, 1.0]],
           'vol_values': [[0.005, 0.008, 0.005], [0.005, 0.008, 0.005]],
+          'num_time_steps': None,
+          'dtype': tf.float64,
       }
       )
   def test_correctness_rate_df_sims(self, dim, mr, vol, corr, vol_jumps,
-                                    vol_values, num_time_steps=None):
+                                    vol_values, num_time_steps, dtype):
     """Tests short rate and discount factor simulations."""
-    dtype = np.float64
     if vol is None:
       vol = tff.math.piecewise.PiecewiseConstantFunc(vol_jumps, vol_values,
                                                      dtype=dtype)
@@ -141,14 +151,19 @@ class GaussianHJMModelTest(parameterized.TestCase, tf.test.TestCase):
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 2],
         skip=1000000)
-    self.assertEqual(paths.dtype, dtype)
+    if dtype is not None:
+      with self.subTest('Dtype'):
+        self.assertEqual(paths.dtype, dtype)
     paths = self.evaluate(paths)
     df = self.evaluate(df)
-    self.assertAllEqual(paths.shape, [num_samples, 4])
-    self.assertAllEqual(df.shape, [num_samples, 4])
+    with self.subTest('ShapePaths'):
+      self.assertAllEqual(paths.shape, [num_samples, 4])
+    with self.subTest('ShapeDiscountFactors'):
+      self.assertAllEqual(df.shape, [num_samples, 4])
     discount_mean = np.mean(df, axis=0)
     expected_mean = np.exp(-0.01 * times)
-    self.assertAllClose(discount_mean, expected_mean, rtol=2e-4, atol=2e-4)
+    with self.subTest('DiscountMean'):
+      self.assertAllClose(discount_mean, expected_mean, rtol=1e-3, atol=1e-3)
 
   @parameterized.named_parameters(
       {

@@ -91,38 +91,44 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'STATELESS',
           'random_type': tff.math.random.RandomType.STATELESS_ANTITHETIC,
           'seed': [1, 2],
+          'dtype': None,
       }, {
           'testcase_name': 'HALTON',
           'random_type': tff.math.random.RandomType.HALTON,
           'seed': None,
+          'dtype': tf.float64,
       })
-  def test_mean_and_variance_1d(self, random_type, seed):
+  def test_mean_and_variance_1d(self, random_type, seed, dtype):
     """Tests model with piecewise constant parameters in 1 dimension."""
-    for dtype in [tf.float32, tf.float64]:
-      # exact discretization is not supported for time-dependent specification
-      # of mean reversion rate.
-      mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
-          [], values=[self.mean_reversion[0]], dtype=dtype)
-      volatility = tff.math.piecewise.PiecewiseConstantFunc(
-          [0.1, 2.0], values=3 * [self.volatility[0]], dtype=dtype)
-      process = tff.models.hull_white.HullWhiteModel1F(
-          mean_reversion=mean_reversion,
-          volatility=volatility,
-          initial_discount_rate_fn=self.instant_forward_rate_1d_fn,
-          dtype=dtype)
-      paths = process.sample_paths(
-          [0.1, 0.5, 1.0],
-          num_samples=50000,
-          random_type=random_type,
-          seed=seed,
-          skip=1000000)
-      self.assertEqual(paths.dtype, dtype)
+    # exact discretization is not supported for time-dependent specification
+    # of mean reversion rate.
+    mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
+        [], values=[self.mean_reversion[0]], dtype=dtype)
+    volatility = tff.math.piecewise.PiecewiseConstantFunc(
+        [0.1, 2.0], values=3 * [self.volatility[0]], dtype=dtype)
+    process = tff.models.hull_white.HullWhiteModel1F(
+        mean_reversion=mean_reversion,
+        volatility=volatility,
+        initial_discount_rate_fn=self.instant_forward_rate_1d_fn,
+        dtype=dtype)
+    paths = process.sample_paths(
+        [0.1, 0.5, 1.0],
+        num_samples=50000,
+        random_type=random_type,
+        seed=seed,
+        skip=1000000)
+    if dtype is not None:
+      with self.subTest('Dytpe'):
+        self.assertEqual(paths.dtype, dtype)
+    with self.subTest('Shape'):
       self.assertAllEqual(paths.shape, [50000, 3, 1])
-      paths = self.evaluate(paths)
-      paths = paths[:, -1, :]  # Extract paths values for the terminal time
-      mean = np.mean(paths, axis=0)
-      variance = np.var(paths, axis=0)
+    paths = self.evaluate(paths)
+    paths = paths[:, -1, :]  # Extract paths values for the terminal time
+    mean = np.mean(paths, axis=0)
+    variance = np.var(paths, axis=0)
+    with self.subTest('Mean'):
       self.assertAllClose(mean, [self.true_mean(1.0)[0]], rtol=1e-4, atol=1e-4)
+    with self.subTest('Variance'):
       self.assertAllClose(variance,
                           [self.true_var(1.0)[0]], rtol=1e-4, atol=1e-4)
 

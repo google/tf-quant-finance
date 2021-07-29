@@ -146,15 +146,14 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
       corr_matrix: A `Tensor` of shape `[dim, dim]` and the same `dtype` as
         `mean_reversion`. Corresponds to the correlation matrix `Rho`.
       dtype: The default dtype to use when converting values to `Tensor`s.
-        Default value: `None` which means that default dtypes inferred by
-          TensorFlow are used.
+        Default value: `None` which maps to `tf.float32`.
       name: Python string. The name to give to the ops created by this class.
         Default value: `None` which maps to the default name
           `gaussian_hjm_model`.
     """
     self._name = name or 'gaussian_hjm_model'
     with tf.name_scope(self._name):
-      self._dtype = dtype or None
+      self._dtype = dtype or tf.float32
       self._dim = dim
       self._factors = dim
 
@@ -219,7 +218,7 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
 
       self._exact_discretization_setup(dim)
       super(quasi_gaussian_hjm.QuasiGaussianHJM,
-            self).__init__(dim, _drift_fn, _vol_fn, dtype, self._name)
+            self).__init__(dim, _drift_fn, _vol_fn, self._dtype, self._name)
 
   def sample_paths(self,
                    times,

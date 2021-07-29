@@ -118,14 +118,13 @@ class HestonModel(generic_ito_process.GenericItoProcess):
         same `dtype` as `mean_reversion`.
         Corresponds to the correlation between dW_{X}` and `dW_{V}`.
       dtype: The default dtype to use when converting values to `Tensor`s.
-        Default value: `None` which means that default dtypes inferred by
-          TensorFlow are used.
+        Default value: `None` which maps to `tf.float32`.
       name: Python string. The name to give to the ops created by this class.
         Default value: `None` which maps to the default name `heston_model`.
     """
     self._name = name or 'heston_model'
     with tf.name_scope(self._name):
-      self._dtype = dtype or None
+      self._dtype = dtype or tf.float32
       if isinstance(mean_reversion, piecewise.PiecewiseConstantFunc):
         self._mean_reversion = mean_reversion
       else:
@@ -173,7 +172,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       drift = tf.stack([log_spot_drift, var_drift], -1)
       return drift
 
-    super(HestonModel, self).__init__(2, _drift_fn, _vol_fn, dtype, name)
+    super(HestonModel, self).__init__(2, _drift_fn, _vol_fn, self._dtype, name)
 
   def sample_paths(self,
                    times: types.RealTensor,

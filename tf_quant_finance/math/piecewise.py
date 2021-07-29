@@ -87,8 +87,8 @@ class PiecewiseConstantFunc(object):
         `event_shape` allows for array-valued piecewise constant functions
         and `batch_rank = len(batch_shape)`.
       dtype:  Optional dtype for `jump_locations` and `values`.
-        Default value: `None` which maps to the default dtype inferred by
-        TensorFlow.
+        Default value: `None` which maps to the default dtype inferred from
+        `jump_locations`.
       name: Python `str` name prefixed to ops created by this class.
         Default value: `None` which is mapped to the default name
         `PiecewiseConstantFunc`.
@@ -103,10 +103,11 @@ class PiecewiseConstantFunc(object):
     # Add a property that indicates that the class instance is a
     # piecewise constant function
     self.is_piecewise_constant = True
-    with tf.compat.v1.name_scope(self._name, values=[jump_locations, values]):
+    with tf.name_scope(self._name):
       self._jump_locations = tf.convert_to_tensor(jump_locations, dtype=dtype,
                                                   name='jump_locations')
-      self._values = tf.convert_to_tensor(values, dtype=dtype,
+      self._dtype = dtype or self._jump_locations.dtype
+      self._values = tf.convert_to_tensor(values, dtype=self._dtype,
                                           name='values')
       shape_values = self._values.shape.as_list()
 
@@ -124,6 +125,10 @@ class PiecewiseConstantFunc(object):
                            'element than the event shape of `jump_locations` '
                            'but are {0} and {1}'.format(
                                shape_values[-1], shape_jump_locations[-1]))
+
+  def dtype(self):
+    """The underlying data type."""
+    return self._dtype
 
   def values(self):
     """The value of the piecewise constant function between jump locations."""
@@ -162,8 +167,9 @@ class PiecewiseConstantFunc(object):
       `batch_shape + [num_points] + event_shape` containing values of the
       piecewise constant function.
     """
-    with tf.compat.v1.name_scope(name, self._name + '_call', [x]):
-      x = tf.convert_to_tensor(x, dtype=self._jump_locations.dtype, name='x')
+    name = name or self._name  + '_call'
+    with tf.name_scope(name):
+      x = tf.convert_to_tensor(x, dtype=self.dtype(), name='x')
       batch_shape = tf.shape(self._jump_locations)[:-1]
       x = _try_broadcast_to(x, batch_shape)
       side = 'left' if left_continuous else 'right'
@@ -190,10 +196,11 @@ class PiecewiseConstantFunc(object):
       `batch_shape + [num_points] + event_shape` containing values of the
       integral of the piecewise constant function between `[x1, x2]`.
     """
-    with tf.compat.v1.name_scope(name, self._name + '_integrate', [x1, x2]):
-      x1 = tf.convert_to_tensor(x1, dtype=self._jump_locations.dtype,
+    name = name or self._name + '_integrate'
+    with tf.name_scope(name):
+      x1 = tf.convert_to_tensor(x1, dtype=self.dtype(),
                                 name='x1')
-      x2 = tf.convert_to_tensor(x2, dtype=self._jump_locations.dtype,
+      x2 = tf.convert_to_tensor(x2, dtype=self.dtype(),
                                 name='x2')
       batch_shape = tf.shape(self._jump_locations)[:-1]
       x1 = _try_broadcast_to(x1, batch_shape)
@@ -234,8 +241,8 @@ def find_interval_index(query_xs,
       as closed.
     dtype: Optional `tf.Dtype`. If supplied, the dtype for `query_xs` and
       `interval_lower_xs`.
-      Default value: None which maps to the default dtype inferred by TensorFlow
-        (float32).
+      Default value: None which maps to the default dtype inferred from
+      `query_xs`.
     name: Optional name of the operation.
 
   Returns:
@@ -246,14 +253,13 @@ def find_interval_index(query_xs,
     the point lies to the right of all intervals (if `last_interval_is_closed`
     is `True`).
   """
-  with tf.compat.v1.name_scope(
-      name,
-      default_name='find_interval_index',
-      values=[query_xs, interval_lower_xs, last_interval_is_closed]):
+  name = name or 'find_interval_index'
+  with tf.name_scope(name):
     # TODO(b/138988951): add ability to validate that intervals are increasing.
     # TODO(b/138988951): validate that if last_interval_is_closed, input size
     # must be > 1.
     query_xs = tf.convert_to_tensor(query_xs, dtype=dtype)
+    dtype = dtype or query_xs.dtype
     interval_lower_xs = tf.convert_to_tensor(interval_lower_xs, dtype=dtype)
 
     # Result assuming that last interval is half-open.
@@ -270,7 +276,7 @@ def find_interval_index(query_xs,
 
     # cap to last_index if the query x is not in the last interval, otherwise,
     # cap to last_index - 1.
-    caps = last_index - tf.cast(should_cap, dtype=tf.dtypes.int32)
+    caps = last_index - tf.cast(should_cap, dtype=tf.int32)
 
     return tf.compat.v1.where(last_interval_is_closed,
                               tf.minimum(indices, caps), indices)

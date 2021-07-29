@@ -191,18 +191,20 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
       'testcase_name': '1d',
       'dim': 1,
       'corr_matrix': None,
+      'dtype': None,
   }, {
       'testcase_name': '2d',
       'dim': 2,
       'corr_matrix': None,
+      'dtype': tf.float32,
   }, {
       'testcase_name': '2d_with_corr',
       'dim': 2,
       'corr_matrix': [[[1.0, 0.5], [0.5, 1.0]], [[1.0, 0.7], [0.7, 1.0]]],
+      'dtype': tf.float64,
   })
-  def test_mean_and_variance_batch(self, dim, corr_matrix):
+  def test_mean_and_variance_batch(self, dim, corr_matrix, dtype):
     """Tests batch of 1-Factor model with constant parameters."""
-    dtype = tf.float64
     if dim == 1:
       mr = self.mean_reversion_batch_1_factor
       vol = self.volatility_batch_1_factor

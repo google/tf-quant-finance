@@ -119,8 +119,7 @@ class HullWhiteModel1F(vector_hull_white.VectorHullWhiteModel):
         P(0,t) = exp(-y(t) * t) where P(0,t) denotes the initial discount bond
         prices.
       dtype: The default dtype to use when converting values to `Tensor`s.
-        Default value: `None` which means that default dtypes inferred by
-          TensorFlow are used.
+        Default value: `None` which maps to `tf.float32`.
       name: Python string. The name to give to the ops created by this class.
         Default value: `None` which maps to the default name `hull_white_model`.
     """

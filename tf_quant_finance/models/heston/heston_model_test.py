@@ -14,6 +14,8 @@
 # limitations under the License.
 """Tests for Heston Model."""
 
+from absl.testing import parameterized
+
 import numpy as np
 import tensorflow.compat.v2 as tf
 
@@ -26,7 +28,7 @@ grids = tff.math.pde.grids
 
 
 @test_util.run_all_in_graph_and_eager_modes
-class HestonModelTest(tf.test.TestCase):
+class HestonModelTest(parameterized.TestCase, tf.test.TestCase):
 
   def test_volatility(self):
     """Tests volatility stays close to its mean for small vol of vol."""
@@ -156,55 +158,65 @@ class HestonModelTest(tf.test.TestCase):
 
   def test_expected_var_raises_on_piecewise_params(self):
     """Tests the claimed error is raised for piecewise params."""
-    for dtype in (np.float32, np.float64):
-      mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
-          jump_locations=[0.5], values=[1, 1.1], dtype=dtype)
-      theta = tff.math.piecewise.PiecewiseConstantFunc(
-          jump_locations=[0.5], values=[1, 0.9], dtype=dtype)
-      volvol = tff.math.piecewise.PiecewiseConstantFunc(
-          jump_locations=[0.3], values=[0.1, 0.2], dtype=dtype)
-      rho = tff.math.piecewise.PiecewiseConstantFunc(
-          jump_locations=[0.5], values=[0.4, 0.6], dtype=dtype)
-      process = HestonModel(
-          mean_reversion=mean_reversion,
-          theta=theta,
-          volvol=volvol,
-          rho=rho,
-          dtype=dtype)
-      with self.assertRaises(ValueError):
-        process.expected_total_variance(1.0, 1.0)
+    dtype = tf.float64
+    mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
+        jump_locations=[0.5], values=[1, 1.1], dtype=dtype)
+    theta = tff.math.piecewise.PiecewiseConstantFunc(
+        jump_locations=[0.5], values=[1, 0.9], dtype=dtype)
+    volvol = tff.math.piecewise.PiecewiseConstantFunc(
+        jump_locations=[0.3], values=[0.1, 0.2], dtype=dtype)
+    rho = tff.math.piecewise.PiecewiseConstantFunc(
+        jump_locations=[0.5], values=[0.4, 0.6], dtype=dtype)
+    process = HestonModel(
+        mean_reversion=mean_reversion,
+        theta=theta,
+        volvol=volvol,
+        rho=rho,
+        dtype=dtype)
+    with self.assertRaises(ValueError):
+      process.expected_total_variance(1.0, 1.0)
 
-  def test_piecewise_and_dtype(self):
+  @parameterized.named_parameters(
+      ('SinglePrecision', np.float32),
+      ('DoublePrecision', np.float64),
+      ('AutoDtype', None))
+  def test_piecewise_and_dtype(self, dtype):
     """Tests that piecewise constant coefficients can be handled."""
-    for dtype in (np.float32, np.float64):
-      mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
-          jump_locations=[0.5], values=[1, 1.1], dtype=dtype)
-      theta = tff.math.piecewise.PiecewiseConstantFunc(
-          jump_locations=[0.5], values=[1, 0.9], dtype=dtype)
-      volvol = tff.math.piecewise.PiecewiseConstantFunc(
-          jump_locations=[0.3], values=[0.1, 0.2], dtype=dtype)
-      rho = tff.math.piecewise.PiecewiseConstantFunc(
-          jump_locations=[0.5], values=[0.4, 0.6], dtype=dtype)
-      process = HestonModel(
-          mean_reversion=mean_reversion, theta=theta, volvol=volvol,
-          rho=rho, dtype=dtype)
-      times = [0.1, 1.0]
-      num_samples = 100
-      initial_state = np.array([np.log(100), 0.045], dtype=dtype)
-      paths = process.sample_paths(
-          times,
-          time_step=0.1,
-          num_samples=num_samples,
-          initial_state=initial_state,
-          seed=None)
-      paths = self.evaluate(paths)
-      state_trace, volatility_trace = paths[..., 0], paths[..., 0]
-      self.assertEqual(volatility_trace.dtype, dtype)
-      self.assertEqual(state_trace.dtype, dtype)
-      # Check drift and volatility calculation
+    mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
+        jump_locations=[0.5], values=[1, 1.1], dtype=dtype)
+    theta = tff.math.piecewise.PiecewiseConstantFunc(
+        jump_locations=[0.5], values=[1, 0.9], dtype=dtype)
+    volvol = tff.math.piecewise.PiecewiseConstantFunc(
+        jump_locations=[0.3], values=[0.1, 0.2], dtype=dtype)
+    rho = tff.math.piecewise.PiecewiseConstantFunc(
+        jump_locations=[0.5], values=[0.4, 0.6], dtype=dtype)
+    process = HestonModel(
+        mean_reversion=mean_reversion, theta=theta, volvol=volvol,
+        rho=rho, dtype=dtype)
+    times = [0.1, 1.0]
+    num_samples = 100
+    initial_state = np.array([np.log(100), 0.045], dtype=dtype)
+    paths = process.sample_paths(
+        times,
+        time_step=0.1,
+        num_samples=num_samples,
+        initial_state=initial_state,
+        seed=None)
+    paths = self.evaluate(paths)
+    state_trace, volatility_trace = paths[..., 0], paths[..., 0]
+    if dtype is not None:
+      with self.subTest('VolatilityDtype'):
+        self.assertEqual(volatility_trace.dtype, dtype)
+      with self.subTest('StateDtype'):
+        self.assertEqual(state_trace.dtype, dtype)
+    # Check drift and volatility calculation
+    dtype = paths.dtype
+    initial_state = tf.convert_to_tensor(initial_state, dtype=dtype)
+    with self.subTest('Drift'):
       self.assertAllClose(
           process.drift_fn()(times[0], initial_state),
           np.array([-0.0225, 0.955]))
+    with self.subTest('Volatility'):
       self.assertAllClose(
           process.volatility_fn()(times[0], initial_state),
           np.array([[0.21213203, 0.],
@@ -249,7 +261,7 @@ class HestonModelTest(tf.test.TestCase):
                               sizes=[grid_size_s, grid_size_v],
                               dtype=dtype)
 
-    s_mesh, _ = tf.meshgrid(grid[0], grid[1], indexing="ij")
+    s_mesh, _ = tf.meshgrid(grid[0], grid[1], indexing='ij')
     final_value_grid = tf.nn.relu(tf.math.exp(s_mesh) - strike)
     value_grid = heston.fd_solver_backward(
         start_time=1.0,
@@ -263,5 +275,5 @@ class HestonModelTest(tf.test.TestCase):
     self.assertAllClose(monte_carlo_price, pde_price, atol=0.1, rtol=0.1)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
   tf.test.main()

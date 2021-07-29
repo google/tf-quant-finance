@@ -34,9 +34,9 @@ py_test(
     python_version = "PY3",
     shard_count = 6,
     deps = [
-        ":heston_model",
         "//tf_quant_finance",
         # test util,
+        # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
     ],
