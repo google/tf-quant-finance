@@ -373,7 +373,7 @@ def calibration_from_swaptions(*,
     mean reversion rate, volatility and correlation parameters. The fifth and
     sixth elements contains the optimization status (whether the optimization
     algorithm succeeded in finding the optimal point based on the specified
-    convergance criteria) and the number of iterations performed.
+    convergence criteria) and the number of iterations performed.
   """
   del floating_leg_daycount_fractions
   name = name or 'hjm_swaption_calibration'

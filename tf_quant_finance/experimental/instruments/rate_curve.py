@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Interest rate curve defintion."""
+"""Interest rate curve definition."""
 import tensorflow.compat.v2 as tf
 from tf_quant_finance import datetime as dates
 from tf_quant_finance.math.interpolation import linear
@@ -41,7 +41,7 @@ class RateCurve(object):
       valuation_date: A scalar `DateTensor` specifying the valuation (or
         settlement) date for the curve.
       compounding: Optional scalar `Tensor` of dtype int32 specifying the
-        componding frequency of the input rates. Use compounding=0 for
+        compounding frequency of the input rates. Use compounding=0 for
         continuously compounded rates. If compounding is different than 0, then
         rates are converted to continuously componded rates to perform
         interpolation.

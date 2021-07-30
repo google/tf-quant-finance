@@ -113,7 +113,7 @@ def sample(*,
       Either this or `num_time_steps` should be supplied.
       Default value: `None`.
     num_time_steps: An optional Scalar integer `Tensor` - a total number of time
-      steps performed by the algorithm. The maximal distance betwen points in
+      steps performed by the algorithm. The maximal distance between points in
       grid is bounded by `times[-1] / (num_time_steps - times.shape[0])`.
       Either this or `time_step` should be supplied.
       Default value: `None`.
@@ -354,7 +354,7 @@ def _while_loop(*, dim, steps_num, current_state, drift_fn, volatility_fn,
                 sqrt_dt, time_step, num_requested_times, keep_mask, swap_memory,
                 random_type, seed, normal_draws, input_gradients,
                 stratonovich_order, aux_normal_draws):
-  """Smaple paths using tf.while_loop."""
+  """Sample paths using tf.while_loop."""
   cond_fn = lambda i, *args: i < steps_num
 
   def step_fn(i, written_count, current_state, result):
@@ -406,7 +406,7 @@ def _for_loop(*, dim, steps_num, current_state, drift_fn, volatility_fn,
               dt, sqrt_dt, time_indices, keep_mask, random_type, seed,
               normal_draws, input_gradients, stratonovich_order,
               aux_normal_draws):
-  """Smaple paths using custom for_loop."""
+  """Sample paths using custom for_loop."""
   num_time_points = time_indices.shape.as_list()[-1]
   if num_time_points == 1:
     iter_nums = steps_num

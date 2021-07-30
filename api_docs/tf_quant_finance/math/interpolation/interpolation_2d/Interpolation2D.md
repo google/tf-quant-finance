@@ -36,7 +36,7 @@ tf_quant_finance.math.interpolation.interpolation_2d.Interpolation2D(
 <!-- Placeholder for "Used in" -->
 
 For input `x_data` in x-direction we assume that values in y-direction are
-given by `y_data` and the corresponsing function values by `z_data`.
+given by `y_data` and the corresponding function values by `z_data`.
 For given `x` and `y` along x- and y- direction respectively,
 the interpolated function values are computed on grid `[x, y]`.
 The interpolation is first performed along y-direction for every `x_data`

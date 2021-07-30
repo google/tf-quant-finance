@@ -255,7 +255,7 @@ class CapAndFloor:
         end_date=self._maturity_date,
         tenor=self._reset_frequency).dates()
 
-    # rates reset at the begining of coupon period
+    # rates reset at the beginning of coupon period
     reset_dates = date_schedule[:, :-1]
     # payments occur at the end of the coupon period
     payment_dates = date_schedule[:, 1:]

@@ -267,5 +267,5 @@ A Tuple of three elements. The first element is an instance of
 `HullWhite1F` whose parameters are calibrated to the input
 swaption prices. The second and third elements contains the optimization
 status (whether the optimization algorithm succeeded in finding the
-optimal point based on the specified convergance criteria) and the number
+optimal point based on the specified convergence criteria) and the number
 of iterations performed.

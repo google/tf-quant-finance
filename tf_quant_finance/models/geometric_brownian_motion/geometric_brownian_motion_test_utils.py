@@ -60,7 +60,7 @@ def arrays_all_close(test_obj, a, b, atol, msg=None):
        structure of these.
     atol: absolute tolerance as a numpy `ndarray` of the same shape as `a` and
        `b`.
-    msg: Optional message to inlcude in the error message.
+    msg: Optional message to include in the error message.
   Raises:
     ValueError: If `a`, `b` and `atol` do not have the same shape.
     AssertionError: If any of the elements are outside the tolerance.

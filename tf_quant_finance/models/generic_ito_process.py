@@ -226,7 +226,7 @@ class GenericItoProcess(ito_process.ItoProcess):
         Either this or `num_time_steps` should be supplied.
         Default value: `None`.
       num_time_steps: An optional Scalar integer `Tensor` - a total number of
-        time steps performed by the algorithm. The maximal distance betwen
+        time steps performed by the algorithm. The maximal distance between
         points in grid is bounded by
         `times[-1] / (num_time_steps - times.shape[0])`.
         Either this or `time_step` should be supplied.
@@ -403,7 +403,7 @@ class GenericItoProcess(ito_process.ItoProcess):
 
     def drift_fn(t, x):
       del t
-      # `x` is expeceted to be of shape [num_processes] + sample_shape + [dim]
+      # `x` is expected to be of shape [num_processes] + sample_shape + [dim]
       # We need to expand rank of rates to
       # `[num_processes] + extra_rank * [1] + [1]`
       expand_rank = x.shape.rank - 2
@@ -414,7 +414,7 @@ class GenericItoProcess(ito_process.ItoProcess):
 
     def vol_fn(t, x):
       del t
-      # `x` is expeceted to be of shape [num_processes] + sample_shape + [dim]
+      # `x` is expected to be of shape [num_processes] + sample_shape + [dim]
       # As before, need to expand rank of volatilities to
       # `[num_processes] + extra_rank * [1] + [1]`
       expand_rank = x.shape.rank - 2
@@ -511,7 +511,7 @@ class GenericItoProcess(ito_process.ItoProcess):
             keyword arguments and returns a `Tensor` with shape that broadcasts
             with `[dim]`.
           8. 'constant_coeff': A callable returning the coefficient of the
-            linear homogenous term (i.e. `r(t,x)` above). Same spec as above.
+            linear homogeneous term (i.e. `r(t,x)` above). Same spec as above.
             The `one_step_fn` callable returns a 2-tuple containing the next
             coordinate grid, next values grid.
       boundary_conditions: The boundary conditions. Only rectangular boundary
@@ -715,7 +715,7 @@ class GenericItoProcess(ito_process.ItoProcess):
             keyword arguments and returns a `Tensor` with shape that broadcasts
             with `[dim]`.
           7. 'constant_coeff': A callable returning the coefficient of the
-            linear homogenous term (i.e. `r(t,x)` above). Same spec as above.
+            linear homogeneous term (i.e. `r(t,x)` above). Same spec as above.
             The `one_step_fn` callable returns a 2-tuple containing the next
             coordinate grid, next values grid.
       boundary_conditions: The boundary conditions. Only rectangular boundary

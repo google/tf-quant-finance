@@ -48,7 +48,7 @@ class AmericanOption(instrument.Instrument):
   """Represents a batch of American Equity Options.
 
   An American equity option is a contract that gives the holder an opportunity
-  to buy (call) or sell (put) an equity for a predifined value (strike) at
+  to buy (call) or sell (put) an equity for a predefined value (strike) at
   any date before the expiry.
 
   The AmericanOption class can be used to create and price multiple options
@@ -255,11 +255,11 @@ class AmericanOption(instrument.Instrument):
       config: AmericanOptionConfig = None
       ) -> List["AmericanOption"]:
     proto_dict = proto_utils.from_protos(proto_list, config)
-    intruments = []
+    instruments = []
     for kwargs in proto_dict.values():
       # Create an instrument
-      intruments.append(cls(**kwargs))
-    return intruments
+      instruments.append(cls(**kwargs))
+    return instruments
 
   @classmethod
   def group_protos(
@@ -318,7 +318,7 @@ class AmericanOption(instrument.Instrument):
             seed=self._seed)
         return self._short_position * self._contract_amount * prices
       else:
-        raise ValueError("Only BS-LSM model is suppoted. "
+        raise ValueError("Only BS-LSM model is supported. "
                          "Supplied {}".format(self._model))
 
   @property

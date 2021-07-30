@@ -174,7 +174,7 @@ class VolatilitySurface(abc.ABC):
       expiry_times: Optional real `Tensor` containing the time to expiration
         for which interpolation is desired. The user should supply either
         `expiry_dates` or `expiry_times` for interpolation.
-      term: Optional input specifiying the term of the underlying rate for
+      term: Optional input specifying the term of the underlying rate for
         which the interpolation is desired. Relevant for interest rate implied
         volatility data.
 

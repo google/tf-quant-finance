@@ -160,7 +160,7 @@ class BrownianMotion(ito_process.ItoProcess):
         return value of the callable is a real `Tensor` of the same dtype as the
         input arguments and of shape `times_shape + [dim, dim]` where
         `times_shape` is the shape of the times `Tensor`. Note that it is an
-        error to suppy this argument if the `volatility` is not supplied.
+        error to supply this argument if the `volatility` is not supplied.
         Default value: None.
       dtype: The default dtype to use when converting values to `Tensor`s.
         Default value: None which means that default dtypes inferred by

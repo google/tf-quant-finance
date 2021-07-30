@@ -300,7 +300,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
         in Euler scheme. Used only when Euler scheme is applied.
         Default value: `None`.
       num_time_steps: An optional Scalar integer `Tensor` - a total number of
-        time steps performed by the algorithm. The maximal distance betwen
+        time steps performed by the algorithm. The maximal distance between
         points in grid is bounded by
         `times[-1] / (num_time_steps - times.shape[0])`.
         Either this or `time_step` should be supplied.

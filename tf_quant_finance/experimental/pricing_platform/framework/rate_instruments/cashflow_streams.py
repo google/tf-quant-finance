@@ -951,7 +951,7 @@ def process_curve_types(
     mask for `curve_types`.
   """
   def _get_signature(curve):
-    """Converts curve infromation to a string."""
+    """Converts curve information to a string."""
     if isinstance(curve, curve_types_lib.RiskFreeCurve):
       return curve.currency.value
     elif isinstance(curve, curve_types_lib.RateIndexCurve):

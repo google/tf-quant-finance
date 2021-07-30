@@ -38,7 +38,7 @@ tf_quant_finance.experimental.instruments.Bond(
 <!-- Placeholder for "Used in" -->
 
 Bonds are fixed income securities where the issuer makes periodic payments
-(or coupons) on a pricipal amount (also known as the face value) based on a
+(or coupons) on a principal amount (also known as the face value) based on a
 fixed annualized interest rate. The payments are made periodically (for
 example quarterly or semi-annually) where the last payment is typically made
 at the maturity (or termination) of the contract at which time the principal
@@ -50,7 +50,7 @@ date T_n and equally spaced coupon payment dates T_1, T_2, ..., T_n such that
 T_0 < T_1 < T_2 < ... < T_n and dt_i = T_(i+1) - T_i    (A)
 
 The coupon accrual begins on T_0, T_1, ..., T_(n-1) and the payments are made
-on T_1, T_2, ..., T_n (payment dates). The pricipal is also paid at T_n.
+on T_1, T_2, ..., T_n (payment dates). The principal is also paid at T_n.
 
 The Bond class can be used to create and price multiple bond securities
 simultaneously. However all bonds within a Bond object must be priced using

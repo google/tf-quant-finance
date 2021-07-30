@@ -359,7 +359,7 @@ class LocalStochasticVolatilityModel(generic_ito_process.GenericItoProcess):
         then the object must implement a function `volatility(strike,
         expiry_times)` which takes real `Tensor`s corresponding to option
         strikes and time to expiry and returns a real `Tensor` containing the
-        correspoding market implied volatility.
+        corresponding market implied volatility.
       variance_process: An instance of `LSVVarianceModel` or
         `ItoProcess`specifying the dynamics of the variance process of
         the LSV model.

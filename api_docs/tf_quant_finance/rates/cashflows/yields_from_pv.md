@@ -110,7 +110,7 @@ bond has 4% coupon rate and 2 year expiry. The second has 6% coupon rate and
   iterations is exhausted or the tolerance is reached (whichever is
   earlier). Supply `None` to remove the limit on the number of iterations.
   Default value: 10.
-* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
   Default value: None which maps to the default dtype inferred from
   `cashflows`.
 * <b>`name`</b>: Python str. The name to give to the ops created by this function.

@@ -85,7 +85,7 @@ def implied_vol(*,
       not supplied, call options are assumed.
       Default value: None.
     initial_volatilities: A real `Tensor` of the same shape and dtype as
-      `forwards`. The starting postions for Newton's method.
+      `forwards`. The starting positions for Newton's method.
       Default value: None. If not supplied, the starting point is chosen using
         the Stefanica-Radoicic scheme. See `polya_approx.implied_vol` for
         details.
@@ -196,7 +196,7 @@ def _newton_implied_vol(prices, strikes, expiries, forwards, discount_factors,
   is found via application of Newton's algorithm for locating the root of a
   differentiable function.
 
-  The implmentation assumes that each cell in the supplied tensors corresponds
+  The implementation assumes that each cell in the supplied tensors corresponds
   to an independent volatility to find.
 
   Args:
@@ -217,7 +217,7 @@ def _newton_implied_vol(prices, strikes, expiries, forwards, discount_factors,
       Indicates whether the option is a call (if True) or a put (if False). If
       not supplied, call options are assumed.
     initial_volatilities: A real `Tensor` of the same shape and dtype as
-      `forwards`. The starting postions for Newton's method.
+      `forwards`. The starting positions for Newton's method.
     underlying_distribution: Enum value of ImpliedVolUnderlyingDistribution to
       select the distribution of the underlying.
     tolerance: `float`. The root finder will stop where this tolerance is

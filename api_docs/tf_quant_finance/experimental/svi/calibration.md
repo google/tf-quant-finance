@@ -143,5 +143,5 @@ A Tuple of three elements: (parameters, status, iterations)
 - parameters: a tensor of shape [batch_size, 5] representing raw parameters
   for the SVI model calibrated with given input Black-Scholes volatilities.
 - status: boolean, whether the optimization algorithm succeeded in finding
-  the optimal point based on the specified convergance criteria.
+  the optimal point based on the specified convergence criteria.
 - iterations: the number of iterations performed during the optimization.

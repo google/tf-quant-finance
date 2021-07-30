@@ -67,7 +67,7 @@ def swap_price(pay_leg_cashflows,
     receive_leg_discount_factors: A `Tensor` of the same `dtype` as
       `receive_leg_cashflows` and of compatible shape. Discount factors for each
       cashflow of the receive leg.
-    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+    dtype: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
       Default value: None which maps to the default dtype inferred from
       `pay_leg_cashflows`.
     name: Python str. The name to give to the ops created by this function.
@@ -138,7 +138,7 @@ def equity_leg_cashflows(
     dividends:  A `Tensor` of the same `dtype` as `forward_prices` and of
       compatible shape. Discrete dividends paid at the leg reset times.
       Default value: None which maps to zero dividend.
-    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+    dtype: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
       Default value: None which maps to the default dtype inferred from
       `forward_prices`.
     name: Python str. The name to give to the ops created by this function.
@@ -201,7 +201,7 @@ def rate_leg_cashflows(
       compatible shape. Notional amount for each cashflow.
     daycount_fractions: A `Tensor` of the same `dtype` as `coupon_rates` and of
       compatible shape. Year fractions for the coupon accrual.
-    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+    dtype: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
       Default value: None which maps to the default dtype inferred from
       `coupon_rates`.
     name: Python str. The name to give to the ops created by this function.
@@ -285,7 +285,7 @@ def ir_swap_price(
     receive_leg_discount_factors: A `Tensor` of the same `dtype` as
       `pay_leg_coupon_rates` and of compatible shape. Discount factors for each
       cashflow of the receive leg.
-    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+    dtype: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
       Default value: None which maps to the default dtype inferred from
       `pay_leg_coupon_rates`.
     name: Python str. The name to give to the ops created by this function.
@@ -363,7 +363,7 @@ def ir_swap_par_rate_and_annuity(floating_leg_start_times,
       `Tensor` and returns a `Tensor` of shape `input_shape + [dim]`. Returns
       the continuously compounded zero rate at the present time for the input
       expiry time.
-    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+    dtype: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
       Default value: None which maps to the default dtype inferred from
         `floating_leg_start_times`.
     name: Python str. The name to give to the ops created by this function.
@@ -478,7 +478,7 @@ def equity_swap_price(
       `batch_shape`. Indicates whether the swap holder is equity holder or
       receiver.
       Default value: None which means that all swaps are equity reiver swaps.
-    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+    dtype: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
       Default value: None which maps to the default dtype inferred from
       `rate_leg_coupon_rates`.
     name: Python str. The name to give to the ops created by this function.

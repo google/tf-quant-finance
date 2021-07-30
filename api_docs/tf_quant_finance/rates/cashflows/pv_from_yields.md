@@ -99,7 +99,7 @@ bond has 4% coupon rate and 2 year expiry. The second has 6% coupon rate and
   `k-1` where `k` is the number of related cashflows.
   Default value: None. This implies that all the cashflows are treated as a
     single group.
-* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
   Default value: None which maps to the default dtype inferred from
   `cashflows`.
 * <b>`name`</b>: Python str. The name to give to the ops created by this function.

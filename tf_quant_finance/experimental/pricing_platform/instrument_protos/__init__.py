@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Intruments protos module."""
+"""Instrument protos module."""
 
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import all_instruments_pb2 as instruments
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import american_equity_option_pb2 as american_equity_option

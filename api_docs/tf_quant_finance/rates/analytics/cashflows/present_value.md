@@ -62,7 +62,7 @@ tf_quant_finance.rates.analytics.cashflows.present_value(
 * <b>`discount_factors`</b>: A `Tensor` of the same `dtype` as `cashflows` and of
   compatible shape. The set of discount factors corresponding to the
   cashflows.
-* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
   Default value: None which maps to the default dtype inferred from
   `cashflows`.
 * <b>`name`</b>: Python str. The name to give to the ops created by this function.

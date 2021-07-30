@@ -140,17 +140,17 @@ class SampleSobolSequenceTest(tf.test.TestCase):
     self.assertAllClose((x * y).mean(), 0.25, rtol=0.05)
 
   def test_dim_should_be_positive(self):
-    """Error is trigerred if dim < 1."""
+    """Error is triggered if dim < 1."""
     with self.assertRaises(ValueError):
       self.evaluate(random.sobol.sample(0, 5, validate_args=True))
 
   def test_skip_should_be_non_negative(self):
-    """Error is trigerred if skip < 0."""
+    """Error is triggered if skip < 0."""
     with self.assertRaises(tf.errors.InvalidArgumentError):
       self.evaluate(random.sobol.sample(2, 5, skip=-10, validate_args=True))
 
   def test_num_results_should_be_positive(self):
-    """Error is trigerred if num_results < 1."""
+    """Error is triggered if num_results < 1."""
     with self.assertRaises(tf.errors.InvalidArgumentError):
       self.evaluate(random.sobol.sample(2, 0, validate_args=True))
 

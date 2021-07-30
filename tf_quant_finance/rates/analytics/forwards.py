@@ -48,7 +48,7 @@ def forward_rates(df_start_dates,
       dates.
     daycount_fractions: A real `Tensor` representing  year fractions for the
       coupon accrual.
-    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+    dtype: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
       Default value: None which maps to the default dtype inferred from
       `df_start_dates`.
     name: Python str. The name to give to the ops created by this function.

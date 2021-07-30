@@ -217,7 +217,7 @@ def prepare_grid(*, times, time_step, dtype, num_time_steps=None,
     time_step: Rank 0 real `Tensor`. Maximal distance between points in
       resulting grid.
     dtype: `tf.Dtype` of the input and output `Tensor`s.
-    num_time_steps: Number of points on the grid. If suppied, a uniform grid
+    num_time_steps: Number of points on the grid. If supplied, a uniform grid
       is constructed for `[time_step, times[-1] - time_step]` consisting of
       max(0, num_time_steps - len(times)) points that is then concatenated with
       times. This parameter guarantees the number of points on the time grid
@@ -264,7 +264,7 @@ def prepare_grid(*, times, time_step, dtype, num_time_steps=None,
         tf.math.maximum(time_indices - 1, 0))
   # Create a boolean mask to identify the iterations that have to be recorded.
   # Use `tf.scatter_nd` because it handles duplicates. Also we first create
-  # an int64 Tensor and then create a boolean mask becase scatter_nd with
+  # an int64 Tensor and then create a boolean mask because scatter_nd with
   # booleans is currently not supported on GPUs.
   mask = tf.scatter_nd(
       indices=tf.expand_dims(tf.cast(time_indices, dtype=tf.int64), axis=1),

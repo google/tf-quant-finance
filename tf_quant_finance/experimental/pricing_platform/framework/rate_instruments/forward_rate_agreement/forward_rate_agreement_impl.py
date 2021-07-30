@@ -316,14 +316,14 @@ class ForwardRateAgreement(instrument.Instrument):
       config: ForwardRateAgreementConfig = None
       ) -> List["ForwardRateAgreement"]:
     proto_dict = proto_utils.from_protos_v2(proto_list, config)
-    intruments = []
+    instruments = []
     for kwargs in proto_dict.values():
       # Convert rate term to the period tensors
       kwargs["rate_term"] = market_data_utils.period_from_list(
           kwargs["rate_term"])
       # Create an instrument
-      intruments.append(cls(**kwargs))
-    return intruments
+      instruments.append(cls(**kwargs))
+    return instruments
 
   @classmethod
   def group_protos(

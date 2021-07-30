@@ -32,7 +32,7 @@ class InterestRateSwap:
   counterparty's payments are linked to a floating index, most commonly the
   LIBOR rate. On the other hand, in the case of interest rate basis swap, the
   payments of both counterparties are linked to a floating index. Typically, the
-  floating rate is observed (or fixed) at the begining of each period while the
+  floating rate is observed (or fixed) at the beginning of each period while the
   payments are made at the end of each period [1].
 
   For example, consider a vanilla swap with the starting date T_0 and maturity

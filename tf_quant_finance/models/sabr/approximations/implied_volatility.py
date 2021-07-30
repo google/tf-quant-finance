@@ -199,10 +199,10 @@ def implied_volatility(*,
 
       # This is the denominator term occurring in the ((1 + ...) / (1 + ...)) of
       # (eq. A.69a) in [1], and is effectively the same as setting beta = 0.0
-      numer = _denom(0.0, log_moneyness)
+      number = _denom(0.0, log_moneyness)
 
       return (adj_alpha * strikes * tf.math.pow(moneyness, beta / 2.0) *
-              (numer / denom) * zeta_by_xhat *
+              (number / denom) * zeta_by_xhat *
               (1 + correction_1 + correction_2 + correction_3))
 
     elif volatility_type == SabrImpliedVolatilityType.LOGNORMAL:

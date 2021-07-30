@@ -51,7 +51,7 @@ a_1 \\ \vdots \\ a_n \\ b
     $$\nabla h = \left(\frac{f_2 - f_1}{x_2 - x_1},
                   \frac{f_2 - f_1}{y_2 - y_1}\right)$$.
 
-  * Is this a "reasoable" thing we can always do (project along each dimension
+  * Is this a "reasonable" thing we can always do (project along each dimension
     and solve independently) even if we have more points?
     $$\to$$ Nope. Doesn't seem to work well.
 

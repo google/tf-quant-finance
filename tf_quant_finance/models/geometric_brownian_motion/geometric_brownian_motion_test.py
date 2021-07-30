@@ -64,7 +64,7 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
           vol, np.expand_dims(expected_vol, axis=-1), atol=1e-8, rtol=1e-8)
 
   def test_univariate_default_initialization(self):
-    """Tests default intialization behavior of univariate sample_paths."""
+    """Tests default initialization behavior of univariate sample_paths."""
     drift_in = 0.05
     vol_in = 0.5
     times = [0, 1, 2, 3]

@@ -96,7 +96,7 @@ def options_price_from_samples(strikes,
           tf.transpose(discount_factors_builder, [0, 2, 1])), [0, 2, 1])
 
   # make discount factors the same shape as `p_t_tau`. This involves adding
-  # an extra dimenstion (corresponding to `curve_times`).
+  # an extra dimension (corresponding to `curve_times`).
   discount_factors_builder = tf.expand_dims(discount_factors_builder, axis=1)
   discount_factors_simulated = tf.repeat(
       discount_factors_builder, p_t_tau.shape.as_list()[1], axis=1)
