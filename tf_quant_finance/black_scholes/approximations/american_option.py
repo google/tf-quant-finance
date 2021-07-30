@@ -29,6 +29,10 @@ __all__ = [
 ]
 
 
+_SQRT_2_PI = np.sqrt(2 * np.pi, dtype=np.float64)
+_SQRT_2 = np.sqrt(2., dtype=np.float64)
+
+
 def adesi_whaley(
     *,
     volatilities: types.RealTensor,
@@ -350,9 +354,9 @@ def bjerksund_stensland(*,
                         dividend_rates: types.RealTensor = None,
                         discount_factors: types.RealTensor = None,
                         is_call_options: types.BoolTensor = None,
-                        modified_boundary: bool = False,
+                        modified_boundary: bool = True,
                         dtype: tf.DType = None,
-                        name=None) -> types.RealTensor:
+                        name: str = None) -> types.RealTensor:
   """Computes prices of a batch of American options using Bjerksund-Stensland.
 
   #### Example
@@ -369,16 +373,17 @@ def bjerksund_stensland(*,
     expiries = 0.25
     discount_rates = 0.08
     dividend_rates = 0.12
-    computed_prices = tff.black_scholes.approximations.bjerksund_stensland_1993(
+    computed_prices = tff.black_scholes.approximations.bjerksund_stensland(
         volatilities=volatilities,
         strikes=strikes,
         expiries=expiries,
         discount_rates=discount_rates,
         dividend_rates=dividend_rates,
         forwards=forwards,
-        is_call_options=True)
+        is_call_options=True
+        modified_boundary=True)
   # Expected print output of computed prices:
-  # [ 0.02912157  0.57298896  3.48587029 10.31989532 20.        ]
+  # [ 0.03931201  0.70745419  4.01937524 11.31429842 21.20602005]
   ```
 
   #### References:
@@ -440,7 +445,6 @@ def bjerksund_stensland(*,
     ValueError: If both `forwards` and `spots` are supplied or if neither is
       supplied.
     ValueError: If both `discount_rates` and `discount_factors` is supplied.
-    NotImpelentedError: If `modified_boundary` is `True`.
   """
   if (spots is None) == (forwards is None):
     raise ValueError('Either spots or forwards must be supplied but not both.')
@@ -521,8 +525,102 @@ def bjerksund_stensland(*,
 def _call_2002(s, k, t, r, b, sigma):
   """Calculates the approximate value of an American call option."""
   # (15) in reference [1].
-  raise NotImplementedError('Bjerksund-Stensland 2002 algoritm is not '
-                            'supported yet.')
+
+  dtype = sigma.dtype
+
+  # Divide time into two subperiods (0, t) and (t, T).
+  t1 = 0.5 * (tf.math.sqrt(tf.constant(5.0, dtype=dtype)) - 1) * t
+
+  beta = 0.5 - b / sigma**2 + tf.math.sqrt((b / sigma**2 - 0.5)**2
+                                           + 2 * r / sigma**2)
+
+  x1 = _boundary1_2002(k, t, r, b, sigma, beta)
+  x2 = _boundary2_2002(k, t, r, b, sigma, beta)
+
+  alpha1 = (x1 - k) * x1**(-beta)
+  alpha2 = (x2 - k) * x2**(-beta)
+
+  return tf.where(
+      s >= x2,
+      s - k,
+      (alpha2 * s**beta
+       - alpha2 * _phi_1993(s, t1, beta, x2, x2, r, b, sigma)
+       + _phi_1993(s, t1, 1, x2, x2, r, b, sigma)
+       - _phi_1993(s, t1, 1, x1, x2, r, b, sigma)
+       - k * _phi_1993(s, t1, 0, x2, x2, r, b, sigma)
+       + k * _phi_1993(s, t1, 0, x1, x2, r, b, sigma)
+       + alpha1 * _phi_1993(s, t1, beta, x1, x2, r, b, sigma)
+       - alpha1 * _psi_2002(s, t, beta, x1, x2, x1, t1, r, b, sigma)
+       + _psi_2002(s, t, 1, x1, x2, x1, t1, r, b, sigma)
+       - _psi_2002(s, t, 1, k, x2, x1, t1, r, b, sigma)
+       - k * _psi_2002(s, t, 0, x1, x2, x1, t1, r, b, sigma)
+       + k * _psi_2002(s, t, 0, k, x2, x1, t1, r, b, sigma)))
+
+
+def _psi_2002(s, t, gamma, h, x2, x1, t1, r, b, sigma):
+  """Compute the psi function."""
+
+  d1 = (-(tf.math.log(s/x1) + (b + (gamma - 0.5) * sigma**2) * t1)
+        / (sigma * tf.math.sqrt(t1)))
+  d2 = (-(tf.math.log(x2**2 / (s * x1)) + (b + (gamma - 0.5) * sigma**2) * t1)
+        / (sigma * tf.math.sqrt(t1)))
+  d3 = (-(tf.math.log(s/x1) - (b + (gamma - 0.5) * sigma**2) * t1)
+        / (sigma * tf.math.sqrt(t1)))
+  d4 = (-(tf.math.log(x2**2 / (s * x1)) - (b + (gamma - 0.5) * sigma**2) * t1)
+        / (sigma * tf.math.sqrt(t1)))
+  f1 = (-(tf.math.log(s/h) + (b + (gamma - 0.5) * sigma**2) * t)
+        / (sigma * tf.math.sqrt(t)))
+  f2 = (-(tf.math.log(x2**2 / (s * h)) + (b + (gamma - 0.5) * sigma**2) * t)
+        / (sigma * tf.math.sqrt(t)))
+  f3 = (-(tf.math.log(x1**2 / (s * h)) + (b + (gamma - 0.5) * sigma**2) * t)
+        / (sigma * tf.math.sqrt(t)))
+  f4 = (-(tf.math.log((s * x1**2) / (h * x2**2))
+          + (b + (gamma - 0.5) * sigma**2) * t)
+        / (sigma * tf.math.sqrt(t)))
+
+  kappa = (2 * b) / sigma**2 + (2 * gamma - 1)
+  lambd = -r + gamma * b + 0.5 * gamma * (gamma - 1) * sigma**2
+
+  return (tf.math.exp(lambd * t) * s**gamma
+          * (_cbnd(d1, f1, tf.math.sqrt(t1/t))
+             - (x2/s)**kappa * _cbnd(d2, f2, tf.math.sqrt(t1/t))
+             - (x1/s)**kappa * _cbnd(d3, f3, -tf.math.sqrt(t1/t))
+             + (x1/x2)**kappa * _cbnd(d4, f4, -tf.math.sqrt(t1/t))))
+
+
+def _boundary1_2002(k, t, r, b, sigma, beta):
+  """Computes the first boundary or trigger price for the Bjerksund-Stensland 2002 algorithm."""
+
+  # The naming convention will align variables with the variables named in
+  # reference [1].
+  # [1] https://core.ac.uk/download/pdf/30824897.pdf
+
+  dtype = sigma.dtype
+
+  # Divide time into two subperiods (0, t) and (t, T).
+  t1 = 0.5 * (tf.math.sqrt(tf.constant(5.0, dtype=dtype)) - 1) * t
+
+  b0 = tf.math.maximum(k, (r / (r - b)) * k)
+  binfinity = beta / (beta - 1) * k
+  ht1 = (-(b * (t - t1) + 2 * sigma * tf.math.sqrt(t - t1))
+         * (k**2 / ((binfinity - b0) * b0)))
+
+  return b0 + (binfinity - b0) * (1 - tf.math.exp(ht1))
+
+
+def _boundary2_2002(k, t, r, b, sigma, beta):
+  """Computes the second boundary or trigger price for the Bjerksund-Stensland 2002 algorithm."""
+
+  # The naming convention will align variables with the variables named in
+  # reference [1].
+  # [1] https://core.ac.uk/download/pdf/30824897.pdf
+
+  b0 = tf.math.maximum(k, (r / (r - b)) * k)
+  binfinity = beta / (beta - 1) * k
+  ht2 = (-(b * t + 2 * sigma * tf.math.sqrt(t))
+         * (k**2 / ((binfinity - b0) * b0)))
+
+  return b0 + (binfinity - b0) * (1 - tf.math.exp(ht2))
 
 
 def _call_1993(s, k, t, r, b, sigma):
@@ -601,5 +699,77 @@ def _npdf(x):
   return tf.math.exp(-0.5 * x**2) / _SQRT_2_PI
 
 
-_SQRT_2_PI = np.sqrt(2 * np.pi, dtype=np.float64)
-_SQRT_2 = np.sqrt(2., dtype=np.float64)
+def _cbnd(dh, dk, rho):
+  """Computes values for the cumulative standard bivariate normal distribution.
+
+  More specifically, compultes `P(x > dh, y > dk)` where `x` and `y` are
+  standard normal variables with correlation `rho`.
+
+  Args:
+    dh: A real `Tensor` representing lower integration limits for `x`.
+    dk: A `Tensor` of the same dtype as `dh` and of compatible shape
+      representing lower integration limits `y`.
+    rho: A `Tensor` of the same dtype as `dh` and of compatible shape
+      representing correlation coefficients.
+
+  Returns:
+    A `Tensor` of cumulative distribution function values.
+
+  #### References:
+  [1] Genz, A., Numerical Computation of Rectanglar Bivariate and Trivariate
+        Normal and t Probabilities, 2004
+    http://www.math.wsu.edu/faculty/genz/papers/bvnt.pdf
+  """
+
+  # Python code adapted from Fortran code and naming convention will align
+  # variables with the variables named in BVND function.
+  # http://www.math.wsu.edu/faculty/genz/software/fort77/tvpack.f
+
+  dtype = rho.dtype
+
+  # Gauss Legendre Points and Weights
+  # Unlike in the reference paper, always uses 10 points regardless of value of
+  # rho, for efficiency reasons on the GPU.
+  w = tf.constant(
+      [0.01761400713915212, 0.04060142980038694, 0.06267204833410906,
+       0.08327674157670475, 0.1019301198172404, 0.1181945319615184,
+       0.1316886384491766, 0.1420961093183821, 0.1491729864726037,
+       0.1527533871307259], dtype=dtype)
+
+  x = tf.constant(
+      [-0.9931285991850949, -0.9639719272779138, -0.9122344282513259,
+       -0.8391169718222188, -0.7463319064601508, -0.6360536807265150,
+       -0.5108670019508271, -0.3737060887154196, -0.2277858511416451,
+       -0.07652652113349733], dtype=dtype)
+
+  h = tf.cast(-dh, dtype=dtype)
+  k = tf.cast(-dk, dtype=dtype)
+  hk = h * k
+
+  # In order to avoid `shape_invariants` argument in the while_loop, set
+  # `bvn` to be a Tensor of zeros of the appropriate shape. The shape
+  # corresponds to the number of options being priced.
+  bvn = tf.zeros_like(hk)
+
+  hs = (h * h + k * k) / 2
+  asr = tf.math.asin(rho)
+
+  def transformed_bvn(hk, hs, asr, x, w):
+    for _ in range(hk.shape.rank):
+      # Shape x.shape + bvn.shape.rank * [1]
+      x = tf.expand_dims(x, axis=-1)
+      w = tf.expand_dims(w, axis=-1)
+    # Shape x.shape + bvn.shape
+    sn1 = tf.math.sin(asr * (-1 * x + 1) / 2)
+    sn2 = tf.math.sin(asr * (1 * x + 1) / 2)
+    # Shape x.shape + bvn.shape
+    res = (w * tf.math.exp((sn1 * hk - hs) / (1 - sn1 * sn1))
+           + w * tf.math.exp((sn2 * hk - hs) / (1 - sn2 * sn2)))
+    # bvn.shape
+    return tf.reduce_sum(res, axis=0)
+
+  bvn = bvn + transformed_bvn(hk, hs, asr, x, w)
+  bvn = bvn * asr / (4 * np.pi)
+  bvn = bvn + _ncdf(-h) * _ncdf(-k)
+
+  return bvn

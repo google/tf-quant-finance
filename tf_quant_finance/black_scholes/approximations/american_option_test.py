@@ -339,5 +339,163 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
                           rtol=5e-3, atol=5e-3,
                           msg=msg)
 
+  @parameterized.parameters(
+      (0.08, 0.12, 0.2, 0.25,
+       [0.03, 0.58, 3.51, 10.34, 20.00, 20.41, 11.25, 4.40, 1.12, 0.18]),
+      (0.12, 0.16, 0.2, 0.25,
+       [0.03, 0.57, 3.49, 10.31, 20.00, 20.23, 11.14, 4.35, 1.11, 0.18]),
+      (0.08, 0.12, 0.4, 0.25,
+       [1.05, 3.26, 7.39, 13.51, 21.26, 21.44, 13.91, 8.27, 4.52, 2.29]),
+      (0.08, 0.12, 0.2, 0.5,
+       [0.21, 1.35, 4.69, 10.98, 20.00, 20.96, 12.63, 6.37, 2.65, 0.92]),
+      (0.08, 0.04, 0.2, 0.25,
+       [0.05, 0.85, 4.44, 11.66, 20.90, 20.00, 10.21, 3.53, 0.79, 0.11]),
+      (0.12, 0.08, 0.2, 0.25,
+       [0.05, 0.84, 4.40, 11.55, 20.69, 20.00, 10.19, 3.51, 0.78, 0.11]),
+      (0.08, 0.04, 0.4, 0.25,
+       [1.29, 3.82, 8.35, 14.80, 22.71, 20.55, 12.94, 7.45, 3.94, 1.94]),
+      (0.08, 0.04, 0.2, 0.5,
+       [0.41, 2.18, 6.50, 13.42, 22.06, 20.00, 10.73, 4.74, 1.72, 0.52]),
+  )
+  def test_bs2002_prices_with_dividends(
+      self, discount_rates, dividend_rates, volatilities, expiries,
+      expected_prices):
+    """Tests Bjerksund Stensland 2002 prices for negative cost of carries."""
+    spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
+    strikes = np.array([100.0] * 10)
+    is_call_options = np.array([True] * 5 + [False] * 5)
+    computed_prices = bjerksund_stensland(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        discount_rates=discount_rates,
+        dividend_rates=dividend_rates,
+        spots=spots,
+        is_call_options=is_call_options,
+        modified_boundary=True,
+        dtype=tf.float64)
+    expected_prices = np.array(expected_prices)
+    with self.subTest(name='ExpectedPrices'):
+      msg = 'Failed: Bjerksund Stensland 2002 with dividends test.'
+      self.assertAllClose(expected_prices, computed_prices,
+                          rtol=5e-3, atol=5e-3,
+                          msg=msg)
+
+  @parameterized.parameters(
+      (0.08, 0.2, 0.25,
+       [20.00, 10.02, 3.20, 0.66, 0.09]),
+      (0.12, 0.2, 0.25,
+       [20.00, 10.00, 2.90, 0.55, 0.07]),
+      (0.08, 0.4, 0.25,
+       [20.30, 12.54, 7.09, 3.69, 1.78]),
+      (0.08, 0.2, 0.5,
+       [20.00, 10.27, 4.15, 1.39, 0.39]),
+  )
+  def test_bs2002_prices_carries_equal_rate(
+      self,
+      discount_rates,
+      volatilities,
+      expiries,
+      expected_prices):
+    """Tests Bjerksund Stensland 2002 prices with no dividends."""
+    spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0])
+    strikes = np.array([100.0] * 5)
+    is_call_options = np.array([False] * 5)
+    computed_prices = bjerksund_stensland(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        discount_rates=discount_rates,
+        spots=spots,
+        is_call_options=is_call_options,
+        modified_boundary=True,
+        dtype=tf.float64)
+    with self.subTest(name='ExpectedPrices'):
+      msg = 'Failed: Bjerksund Stensland 2002 zero carries test.'
+      self.assertAllClose(expected_prices, computed_prices,
+                          rtol=5e-3, atol=5e-3,
+                          msg=msg)
+
+  @parameterized.parameters(
+      (0.08, 0.12, 0.2, 3.0,
+       [2.32, 4.74, 8.47, 13.77, 20.86, 25.64, 20.07, 15.49, 11.80, 8.88]),
+      (0.08, 0.08, 0.2, 3.0,
+       [3.97, 7.23, 11.68, 17.28, 23.95, 22.14, 16.17, 11.68, 8.35, 5.91]),
+      (0.08, 0.04, 0.2, 3.0,
+       [6.88, 11.49, 17.21, 23.84, 31.16, 20.33, 13.47, 8.91, 5.88, 3.87]),
+  )
+  def test_bs2002_prices_long_term1(self, discount_rates, dividend_rates,
+                                    volatilities, expiries, expected_prices):
+    """Tests Bjerksund Stensland 2002 prices for long-term options."""
+    spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0] * 2)
+    strikes = np.array([100.0] * 10)
+    is_call_options = [True] * 5 + [False] * 5
+    computed_prices = bjerksund_stensland(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        discount_rates=discount_rates,
+        dividend_rates=dividend_rates,
+        spots=spots,
+        is_call_options=is_call_options,
+        modified_boundary=True,
+        dtype=tf.float64)
+    with self.subTest(name='ExpectedPrices'):
+      msg = 'Failed: Bjerksund Stensland 2002 long-term 1 test.'
+      self.assertAllClose(expected_prices, computed_prices,
+                          rtol=5e-3, atol=5e-3,
+                          msg=msg)
+
+  @parameterized.parameters(
+      (0.08, 0.0, 0.2, 3.0,
+       [20.00, 11.68, 6.91, 4.13, 2.49])
+  )
+  def test_bs2002_prices_long_term2(self, discount_rates, dividend_rates,
+                                    volatilities, expiries, expected_prices):
+    """Tests Bjerksund Stensland 2002 prices for long-term options."""
+    spots = np.array([80.0, 90.0, 100.0, 110.0, 120.0])
+    strikes = np.array([100.0] * 5)
+    is_call_options = np.array([False] * 5)
+    computed_prices = bjerksund_stensland(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        discount_rates=discount_rates,
+        dividend_rates=dividend_rates,
+        spots=spots,
+        is_call_options=is_call_options,
+        modified_boundary=True,
+        dtype=tf.float64)
+    with self.subTest(name='ExpectedPrices'):
+      msg = 'Failed: Bjerksund Stensland 2002 long-term 2 test.'
+      self.assertAllClose(expected_prices, computed_prices,
+                          rtol=5e-3, atol=5e-3,
+                          msg=msg)
+
+  def test_bs2002_prices_types(self):
+    """Tests Bjerksund Stensland 2002 prices for batched inputs."""
+    discount_rates = tf.constant([0.10, 0.09, 0.08, 0.07, 0.06, 0.05])
+    dividend_rates = tf.constant([0.05, 0.06, 0.07, 0.08, 0.09, 0.10])
+    volatilities = tf.constant([0.10, 0.15, 0.20, 0.25, 0.30, 0.35])
+    expiries = tf.constant([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
+    spots = tf.constant([90.0, 100.0, 110.0, 90.0, 100.0, 110.0])
+    strikes = tf.constant([100.0] * 6)
+    is_call_options = tf.constant([True, True, True, False, False, False])
+    computed_prices = bjerksund_stensland(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        discount_rates=discount_rates,
+        dividend_rates=dividend_rates,
+        spots=spots,
+        is_call_options=is_call_options,
+        modified_boundary=True)
+    expected_prices = [0.0006, 2.9419, 11.2353, 12.2219, 8.8804, 7.8527]
+    with self.subTest(name='ExpectedPrices'):
+      msg = 'Failed: Bjerksund Stensland 2002 type tests.'
+      self.assertAllClose(expected_prices, computed_prices,
+                          rtol=5e-3, atol=5e-3,
+                          msg=msg)
+
 if __name__ == '__main__':
   tf.test.main()

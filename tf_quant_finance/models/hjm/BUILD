@@ -206,10 +206,10 @@ py_test(
 
 py_test(
     name = "calibration_xla_test",
-    timeout = "moderate",
+    timeout = "long",
     srcs = ["calibration_xla_test.py"],
     python_version = "PY3",
-    shard_count = 1,
+    shard_count = 2,
     deps = [
         "//tf_quant_finance",
         # test util,
