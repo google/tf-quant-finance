@@ -12,53 +12,80 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Calibration methods for the Hull-White model."""
+from typing import Callable, Tuple, Union
 
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
+from tf_quant_finance import utils
 from tf_quant_finance.black_scholes import implied_vol
 from tf_quant_finance.black_scholes.implied_vol_utils import UnderlyingDistribution
 from tf_quant_finance.math import make_val_and_grad_fn
 from tf_quant_finance.math import optimizer
 from tf_quant_finance.math import piecewise
+from tf_quant_finance.math import random
 from tf_quant_finance.models.hull_white import cap_floor
-from tf_quant_finance.models.hull_white import one_factor
 from tf_quant_finance.models.hull_white import swaption
 from tf_quant_finance.rates.analytics import swap
 
 
-__all__ = ['calibration_from_swaptions']
+__all__ = [
+    'CalibrationResult',
+    'calibration_from_swaptions',
+    'calibration_from_cap_floors'
+]
 
 
-def calibration_from_swaptions(*,
-                               prices,
-                               expiries,
-                               floating_leg_start_times,
-                               floating_leg_end_times,
-                               fixed_leg_payment_times,
-                               floating_leg_daycount_fractions,
-                               fixed_leg_daycount_fractions,
-                               fixed_leg_coupon,
-                               reference_rate_fn,
-                               mean_reversion,
-                               volatility,
-                               notional=None,
-                               is_payer_swaption=None,
-                               use_analytic_pricing=True,
-                               num_samples=1,
-                               random_type=None,
-                               seed=None,
-                               skip=0,
-                               time_step=None,
-                               volatility_based_calibration=True,
-                               optimizer_fn=None,
-                               mean_reversion_lower_bound=0.001,
-                               mean_reversion_upper_bound=0.5,
-                               volatility_lower_bound=0.00001,
-                               volatility_upper_bound=0.1,
-                               tolerance=1e-6,
-                               maximum_iterations=50,
-                               dtype=None,
-                               name=None):
+@utils.dataclass
+class CalibrationResult:
+  """Collection of calibrated one factor Hull-White parameters.
+
+  For a review of the HullWhite model and the conventions used, please see the
+  docstring for `HullWhiteModel1F`, or for `calibration_from_swaptions` below.
+
+  Attributes:
+    mean_reversion: An instance of `PiecewiseConstant` function specifying the
+      mean-reversion parameter.
+    volatility:  An instance of `PiecewiseConstant` specifying the volatility
+      parameter.
+  """
+  mean_reversion: types.RealTensor
+  volatility: types.RealTensor
+
+
+def calibration_from_swaptions(
+    *,
+    prices: types.RealTensor,
+    expiries: types.RealTensor,
+    floating_leg_start_times: types.RealTensor,
+    floating_leg_end_times: types.RealTensor,
+    fixed_leg_payment_times: types.RealTensor,
+    floating_leg_daycount_fractions: types.RealTensor,
+    fixed_leg_daycount_fractions: types.RealTensor,
+    fixed_leg_coupon: types.RealTensor,
+    reference_rate_fn: Callable[..., types.RealTensor],
+    mean_reversion: Union[types.RealTensor, Callable[..., types.RealTensor]],
+    volatility: Union[types.RealTensor, Callable[..., types.RealTensor]],
+    notional: types.RealTensor = None,
+    is_payer_swaption: types.BoolTensor = None,
+    use_analytic_pricing: bool = True,
+    num_samples: types.IntTensor = 1,
+    random_type: random.RandomType = None,
+    seed: types.IntTensor = None,
+    skip: types.IntTensor = 0,
+    time_step: types.RealTensor = None,
+    volatility_based_calibration: bool = True,
+    optimizer_fn: Callable[..., types.RealTensor] = None,
+    mean_reversion_lower_bound: types.RealTensor = 0.001,
+    mean_reversion_upper_bound: types.RealTensor = 0.5,
+    volatility_lower_bound: types.RealTensor = 0.00001,
+    volatility_upper_bound: types.RealTensor = 0.1,
+    tolerance: types.RealTensor = 1e-6,
+    maximum_iterations: types.IntTensor = 50,
+    dtype: tf.DType = None,
+    name: str = None) -> Tuple[CalibrationResult,
+                               types.BoolTensor,
+                               types.IntTensor]:
   """Calibrates the Hull-White model using European Swaptions.
 
   This function estimates the mean-reversion rate and volatility parameters of
@@ -130,7 +157,7 @@ def calibration_from_swaptions(*,
       use_analytic_pricing=True,
       dtype=dtype)
 
-  calibrated_model = tff.models.hull_white.calibration_from_swaptions(
+  calibrated_parameters = tff.models.hull_white.calibration_from_swaptions(
       prices=prices[:, 0],
       expiries=expiries,
       floating_leg_start_times=float_leg_start_times,
@@ -145,8 +172,8 @@ def calibration_from_swaptions(*,
       volatility=[0.005],  # Initial guess for volatility
       maximum_iterations=50,
       dtype=dtype)
-  # Expected calibrated_model.mean_reversion.values(): [0.03]
-  # Expected calibrated_model.volatility.values(): [0.01]
+  # Expected calibrated_parameters.mean_reversion.values(): [0.03]
+  # Expected calibrated_parameters.volatility.values(): [0.01]
   ````
 
   Args:
@@ -285,12 +312,14 @@ def calibration_from_swaptions(*,
       `hw_swaption_calibration`.
 
   Returns:
-    A Tuple of three elements. The first element is an instance of
-    `HullWhite1F` whose parameters are calibrated to the input
-    swaption prices. The second and third elements contains the optimization
-    status (whether the optimization algorithm succeeded in finding the
-    optimal point based on the specified convergance criteria) and the number
-    of iterations performed.
+    A Tuple of three elements:
+    * The first element is an instance of `CalibrationResult` whose parameters
+      are calibrated to the input swaption prices.
+    * A `Tensor` of optimization status for each batch element (whether the
+      optimization algorithm has found the optimal point based on the specified
+      convergance criteria).
+    * A `Tensor` containing the number of iterations performed by the
+      optimization algorithm.
   """
   name = name or 'hw_swaption_calibration'
   with tf.name_scope(name):
@@ -419,44 +448,45 @@ def calibration_from_swaptions(*,
             calibrated_parameters[num_mean_reversion:], vol_lb, vol_ub),
         dtype=dtype)
 
-    calibrated_model = one_factor.HullWhiteModel1F(
+    calibration_result = CalibrationResult(
         mean_reversion=mean_reversion_calibrated,
-        volatility=volatility_calibrated,
-        initial_discount_rate_fn=reference_rate_fn,
-        dtype=dtype)
+        volatility=volatility_calibrated)
 
-    return (calibrated_model, optimization_result.converged,
+    return (calibration_result, optimization_result.converged,
             optimization_result.num_iterations)
 
 
-def calibration_from_cap_floors(*,
-                                prices,
-                                strikes,
-                                expiries,
-                                maturities,
-                                daycount_fractions,
-                                reference_rate_fn,
-                                mean_reversion,
-                                volatility,
-                                notional=1.0,
-                                # TODO(b/183418183) Allow for dim > 1
-                                dim=1,
-                                is_cap=True,
-                                use_analytic_pricing=True,
-                                num_samples=1,
-                                random_type=None,
-                                seed=None,
-                                skip=0,
-                                time_step=None,
-                                optimizer_fn=None,
-                                mean_reversion_lower_bound=0.001,
-                                mean_reversion_upper_bound=0.5,
-                                volatility_lower_bound=0.00001,
-                                volatility_upper_bound=0.1,
-                                tolerance=1e-6,
-                                maximum_iterations=50,
-                                dtype=None,
-                                name=None):
+def calibration_from_cap_floors(
+    *,
+    prices: types.RealTensor,
+    strikes: types.RealTensor,
+    expiries: types.RealTensor,
+    maturities: types.RealTensor,
+    daycount_fractions: types.RealTensor,
+    reference_rate_fn,
+    mean_reversion: Union[types.RealTensor, Callable[..., types.RealTensor]],
+    volatility: Union[types.RealTensor, Callable[..., types.RealTensor]],
+    notional: types.RealTensor = None,
+    # TODO(b/183418183) Allow for dim > 1
+    dim: int = 1,
+    is_cap: types.BoolTensor = True,
+    use_analytic_pricing: bool = True,
+    num_samples: types.IntTensor = 1,
+    random_type: random.RandomType = None,
+    seed: types.IntTensor = None,
+    skip: types.IntTensor = 0,
+    time_step: types.RealTensor = None,
+    optimizer_fn=None,
+    mean_reversion_lower_bound=0.001,
+    mean_reversion_upper_bound=0.5,
+    volatility_lower_bound: types.RealTensor = 0.00001,
+    volatility_upper_bound: types.RealTensor = 0.1,
+    tolerance: types.RealTensor = 1e-6,
+    maximum_iterations: types.IntTensor = 50,
+    dtype: tf.DType = None,
+    name: str = None) -> Tuple[CalibrationResult,
+                               types.BoolTensor,
+                               types.IntTensor]:
   """Calibrates the Hull-White model using the observed Cap/Floor prices.
 
   This function estimates the mean-reversion rate and volatility parameters of
@@ -679,12 +709,14 @@ def calibration_from_cap_floors(*,
         `hw_capfloor_calibration`.
 
   Returns:
-    A Tuple of three elements. The first element is an instance of
-    `HullWhite1F` whose parameters are calibrated to the input
-    swaption prices. The second and third elements contains the optimization
-    status (whether the optimization algorithm succeeded in finding the
-    optimal point based on the specified convergance criteria) and the number
-    of iterations performed.
+    A Tuple of three elements:
+    * The first element is an instance of `CalibrationResult` whose parameters
+      are calibrated to the input cap/floor prices.
+    * A `Tensor` of optimization status for each batch element (whether the
+      optimization algorithm succeeded in finding the optimal point based on
+      the specified convergance criteria).
+    * A `Tensor` containing the number of iterations performed by the
+      optimization algorithm.
   """
   name = name or 'hw_capfloor_calibration'
   with tf.name_scope(name):
@@ -776,13 +808,11 @@ def calibration_from_cap_floors(*,
                                vol_lb, vol_ub),
         dtype=dtype)
 
-    calibrated_model = one_factor.HullWhiteModel1F(
+    calibration_result = CalibrationResult(
         mean_reversion=mean_reversion_calibrated,
-        volatility=volatility_calibrated,
-        initial_discount_rate_fn=reference_rate_fn,
-        dtype=dtype)
+        volatility=volatility_calibrated)
 
-    return (calibrated_model, optimization_result.converged,
+    return (calibration_result, optimization_result.converged,
             optimization_result.num_iterations)
 
 

@@ -13,20 +13,44 @@
 # limitations under the License.
 """Calibration methods for the HJM model."""
 
+from typing import Callable, Tuple
+
 import numpy as np
 import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
 
+from tf_quant_finance import types
+from tf_quant_finance import utils
 from tf_quant_finance.black_scholes import implied_vol
 from tf_quant_finance.black_scholes.implied_vol_utils import UnderlyingDistribution
 from tf_quant_finance.math import make_val_and_grad_fn
 from tf_quant_finance.math import optimizer
+from tf_quant_finance.math import random
 from tf_quant_finance.models import valuation_method as vm
-from tf_quant_finance.models.hjm.quasi_gaussian_hjm import QuasiGaussianHJM
 from tf_quant_finance.models.hjm.swaption_pricing import price as swaption_price
 from tf_quant_finance.rates.analytics import swap
 
-__all__ = ['calibration_from_swaptions']
+__all__ = [
+    'CalibrationResult',
+    'calibration_from_swaptions'
+]
+
+
+@utils.dataclass
+class CalibrationResult:
+  """Collection of calibrated QuasiGaussianHJM parameters.
+
+  For a review of the HJM model and the conventions used, please see the
+  docstring for `QuasiGaussianHJM`, or for `calibration_from_swaptions` below.
+
+  Attributes:
+    mean_reversion: Rank-1 `Tensor` specifying the mean-reversion parameter.
+    volatility: Rank-1 `Tensor` specifying the volatility parameter.
+    corr_matrix: Rank-1 `Tensor` specifying the correlation matrix parameter.
+  """
+  mean_reversion: types.RealTensor
+  volatility: types.RealTensor
+  corr_matrix: types.RealTensor
 
 
 # TODO(b/182392038): Move this to tff.math module.
@@ -76,44 +100,46 @@ def _correlation_matrix_using_hypersphere_decomposition(num_assets,
 _THETA_UB = 2 * np.pi + 0.01
 
 
-# TODO(b/182392061): The function should return a `NamedTuple`.
-def calibration_from_swaptions(*,
-                               prices,
-                               expiries,
-                               floating_leg_start_times,
-                               floating_leg_end_times,
-                               fixed_leg_payment_times,
-                               floating_leg_daycount_fractions,
-                               fixed_leg_daycount_fractions,
-                               fixed_leg_coupon,
-                               reference_rate_fn,
-                               num_hjm_factors,
-                               mean_reversion,
-                               volatility,
-                               notional=None,
-                               is_payer_swaption=None,
-                               swaption_valuation_method=None,
-                               num_samples=1,
-                               random_type=None,
-                               seed=None,
-                               skip=0,
-                               times=None,
-                               time_step=None,
-                               num_time_steps=None,
-                               curve_times=None,
-                               time_step_finite_difference=None,
-                               num_grid_points_finite_difference=101,
-                               volatility_based_calibration=True,
-                               calibrate_correlation=True,
-                               optimizer_fn=None,
-                               mean_reversion_lower_bound=0.001,
-                               mean_reversion_upper_bound=0.5,
-                               volatility_lower_bound=0.00001,
-                               volatility_upper_bound=0.1,
-                               tolerance=1e-6,
-                               maximum_iterations=50,
-                               dtype=None,
-                               name=None):
+def calibration_from_swaptions(
+    *,
+    prices: types.RealTensor,
+    expiries: types.RealTensor,
+    floating_leg_start_times: types.RealTensor,
+    floating_leg_end_times: types.RealTensor,
+    fixed_leg_payment_times: types.RealTensor,
+    floating_leg_daycount_fractions: types.RealTensor,
+    fixed_leg_daycount_fractions: types.RealTensor,
+    fixed_leg_coupon: types.RealTensor,
+    reference_rate_fn: Callable[..., types.RealTensor],
+    num_hjm_factors: types.RealTensor,
+    mean_reversion: types.RealTensor,
+    volatility: types.RealTensor,
+    notional: types.RealTensor = None,
+    is_payer_swaption: types.BoolTensor = None,
+    swaption_valuation_method: vm.ValuationMethod = None,
+    num_samples: types.IntTensor = 1,
+    random_type: random.RandomType = None,
+    seed: types.IntTensor = None,
+    skip: types.IntTensor = 0,
+    times: types.RealTensor = None,
+    time_step: types.RealTensor = None,
+    num_time_steps: types.IntTensor = None,
+    curve_times: types.RealTensor = None,
+    time_step_finite_difference: types.RealTensor = None,
+    num_grid_points_finite_difference: types.IntTensor = 101,
+    volatility_based_calibration: bool = True,
+    calibrate_correlation: bool = True,
+    optimizer_fn: Callable[..., types.RealTensor] = None,
+    mean_reversion_lower_bound: types.RealTensor = 0.001,
+    mean_reversion_upper_bound: types.RealTensor = 0.5,
+    volatility_lower_bound: types.RealTensor = 0.00001,
+    volatility_upper_bound: types.RealTensor = 0.1,
+    tolerance: types.RealTensor = 1e-6,
+    maximum_iterations: types.IntTensor = 50,
+    dtype: tf.DType = None,
+    name: str = None) -> Tuple[CalibrationResult,
+                               types.BoolTensor,
+                               types.IntTensor]:
   """Calibrates a batch of HJM models using European Swaption prices.
 
   This function estimates the mean-reversion rates, volatility and correlation
@@ -175,7 +201,7 @@ def calibration_from_swaptions(*,
       1.81768802, 0.93210461, 2.13625342, 1.05114573, 2.40921088,
       1.12941064, 2.58857507, 1.37029637, 3.15081683])
 
-  calibrated_model, calibrated_mr, calibrated_vol, calibrated_corr, _, _ = (
+  (calibrated_mr, calibrated_vol, calibrated_corr), _, _ = (
   tff.models.hjm.calibration_from_swaptions(
       prices=prices,
       expiries=expiries,
@@ -367,13 +393,14 @@ def calibration_from_swaptions(*,
         `hjm_swaption_calibration`.
 
   Returns:
-    A Tuple of six elements. The first element is an instance of
-    `QuasiGaussianHJM` whose parameters are calibrated to the input
-    swaption prices. The second, third and fourth elements are the calibrated
-    mean reversion rate, volatility and correlation parameters. The fifth and
-    sixth elements contains the optimization status (whether the optimization
-    algorithm succeeded in finding the optimal point based on the specified
-    convergance criteria) and the number of iterations performed.
+    A Tuple of three elements:
+    * The first element is an instance of `CalibrationResult` whose parameters
+      are calibrated to the input swaption prices.
+    * A `Tensor` of optimization status for each batch element (whether the
+      optimization algorithm has found the optimal point based on the specified
+      convergance criteria).
+    * A `Tensor` containing the number of iterations performed by the
+      optimization algorithm.
   """
   del floating_leg_daycount_fractions
   name = name or 'hjm_swaption_calibration'
@@ -561,8 +588,7 @@ def calibration_from_swaptions(*,
     volatility_calibrated = _to_constrained(
         calibrated_parameters[..., num_hjm_factors:2 * num_hjm_factors], vol_lb,
         vol_ub)
-    volatility_fn_calibrated = _make_hjm_volatility_fn(volatility_calibrated,
-                                                       dtype)
+
     if calibrate_correlation:
       correlation_calibrated = (
           _correlation_matrix_using_hypersphere_decomposition(
@@ -573,16 +599,10 @@ def calibration_from_swaptions(*,
     else:
       correlation_calibrated = None
 
-    calibrated_model = QuasiGaussianHJM(
-        dim=num_hjm_factors,
-        mean_reversion=mean_reversion_calibrated,
-        volatility=volatility_fn_calibrated,
-        initial_discount_rate_fn=reference_rate_fn,
-        corr_matrix=correlation_calibrated,
-        dtype=dtype)
-
-    return (calibrated_model, mean_reversion_calibrated, volatility_calibrated,
-            correlation_calibrated, optimization_result.converged,
+    return (CalibrationResult(mean_reversion=mean_reversion_calibrated,
+                              volatility=volatility_calibrated,
+                              corr_matrix=correlation_calibrated),
+            optimization_result.converged,
             optimization_result.num_iterations)
 
 

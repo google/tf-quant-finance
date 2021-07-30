@@ -138,7 +138,7 @@ class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
 
     valuation_method = tff.models.ValuationMethod.MONTE_CARLO
     def _fn():
-      _, calib_mr, calib_vol, calib_corr, _, _ = (
+      (calib_mr, calib_vol, calib_corr), _, _ = (
           tff.models.hjm.calibration_from_swaptions(
               prices=self.prices[:num_instruments],
               expiries=self.expiries[:num_instruments],
@@ -247,7 +247,7 @@ class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
     fixed_leg_coupon_2d = np.repeat(
         np.expand_dims(self.fixed_leg_coupon, axis=0), 2, axis=0)
     def _fn():
-      _, calib_mr, calib_vol, _, _, _ = (
+      calibration_result, _, _ = (
           tff.models.hjm.calibration_from_swaptions(
               prices=prices_2d,
               expiries=expiries_2d,
@@ -274,6 +274,9 @@ class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
               curve_times=curve_times,
               maximum_iterations=10,
               dtype=dtype))
+      (
+          calib_mr, calib_vol
+      ) = calibration_result.mean_reversion, calibration_result.volatility
       return calib_mr, calib_vol
 
     calib_mr, calib_vol = self.evaluate(_fn())
