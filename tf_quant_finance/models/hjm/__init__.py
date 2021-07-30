@@ -15,6 +15,7 @@
 """HJM model."""
 
 from tf_quant_finance.models.hjm.calibration import calibration_from_swaptions
+from tf_quant_finance.models.hjm.calibration import CalibrationResult
 from tf_quant_finance.models.hjm.cap_floor import cap_floor_price
 from tf_quant_finance.models.hjm.gaussian_hjm import GaussianHJM
 from tf_quant_finance.models.hjm.quasi_gaussian_hjm import QuasiGaussianHJM
@@ -24,6 +25,7 @@ from tensorflow.python.util.all_util import remove_undocumented  # pylint: disab
 
 # pyformat: disable
 _allowed_symbols = [
+    'CalibrationResult',
     'GaussianHJM',
     'QuasiGaussianHJM',
     'bond_option_price',

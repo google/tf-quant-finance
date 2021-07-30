@@ -207,7 +207,7 @@ class HullWhiteCalibrationSwaptionTest(parameterized.TestCase,
     prices = prices + tf.random.normal(
         prices.shape, stddev=noise_size * prices, seed=0, dtype=dtype)
 
-    calibrated_model, _, _ = tff.models.hull_white.calibration_from_swaptions(
+    calibrated_result, _, _ = tff.models.hull_white.calibration_from_swaptions(
         prices=prices[:, 0],
         expiries=self.expiries,
         floating_leg_start_times=self.float_leg_start_times,
@@ -231,8 +231,8 @@ class HullWhiteCalibrationSwaptionTest(parameterized.TestCase,
         dtype=dtype)
     self.assertEqual(prices.dtype, dtype)
     calib_parameters = tf.concat(
-        [calibrated_model.mean_reversion.values(),
-         calibrated_model.volatility.values()], axis=0)
+        [calibrated_result.mean_reversion.values(),
+         calibrated_result.volatility.values()], axis=0)
     calib_parameters = self.evaluate(calib_parameters)
     mr = calib_parameters[:1]
     vol = calib_parameters[1:]
@@ -305,7 +305,7 @@ class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
         dtype=dtype)
 
     # Calibrate the model.
-    calibrated_model, is_converged, _ = (
+    calibrated_result, is_converged, _ = (
         tff.models.hull_white.calibration_from_cap_floors(
             prices=tf.squeeze(prices),
             strikes=strikes,
@@ -327,8 +327,8 @@ class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
             maximum_iterations=200,
             dtype=dtype))
 
-    calibrated_mr = calibrated_model.mean_reversion.values()
-    calibrated_vol = calibrated_model.volatility.values()
+    calibrated_mr = calibrated_result.mean_reversion.values()
+    calibrated_vol = calibrated_result.volatility.values()
 
     calibrated_mr, calibrated_vol = self.evaluate(
         [calibrated_mr, calibrated_vol])

@@ -16,6 +16,7 @@
 
 from tf_quant_finance.models.hull_white.calibration import calibration_from_cap_floors
 from tf_quant_finance.models.hull_white.calibration import calibration_from_swaptions
+from tf_quant_finance.models.hull_white.calibration import CalibrationResult
 from tf_quant_finance.models.hull_white.cap_floor import cap_floor_price
 from tf_quant_finance.models.hull_white.one_factor import HullWhiteModel1F
 from tf_quant_finance.models.hull_white.swaption import bermudan_swaption_price
@@ -26,6 +27,7 @@ from tf_quant_finance.models.hull_white.zero_coupon_bond_option import bond_opti
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
+    'CalibrationResult',
     'HullWhiteModel1F',
     'VectorHullWhiteModel',
     'bermudan_swaption_price',

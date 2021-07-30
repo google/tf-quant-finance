@@ -13,7 +13,7 @@
 # limitations under the License.
 """Calibrates the approximated SABR model parameters using option prices."""
 
-from typing import Callable
+from typing import Callable, Tuple
 
 import tensorflow.compat.v2 as tf
 
@@ -39,13 +39,13 @@ class CalibrationResult:
   """Collection of calibrated SABR parameters.
 
   For a review of the SABR model and the conventions used, please see the
-  docstring for `implied_volatility`, or for `calibration` below.
+  docstring for `SABRModel`, or for `calibration` below.
 
   Attributes:
-    alpha: Rank-1 `Tensor`, specifying the initial volatility levels.
-    beta: Rank-1 `Tensor`, specifying the exponents.
-    volvol: Rank-1 `Tensor`, specifying the vol-vol parameters.
-    rho: Rank-1 `Tensor`, specifying the correlations between the forward and
+    alpha: Rank-1 `Tensor` specifying the initial volatility levels.
+    beta: Rank-1 `Tensor` specifying the exponents.
+    volvol: Rank-1 `Tensor` specifying the vol-vol parameters.
+    rho: Rank-1 `Tensor` specifying the correlations between the forward and
       the stochastic volatility.
   """
   alpha: types.RealTensor
@@ -82,7 +82,9 @@ def calibration(
     maximum_iterations: types.RealTensor = 100,
     validate_args: bool = False,
     dtype: tf.DType = None,
-    name: str = None) -> CalibrationResult:
+    name: str = None) -> Tuple[CalibrationResult,
+                               types.BoolTensor,
+                               types.IntTensor]:
   """Calibrates the SABR model using European option prices.
 
   The SABR model specifies the risk neutral dynamics of the underlying as the
@@ -257,13 +259,15 @@ def calibration(
       Default value: `None`, which maps to the default name 'sabr_calibration'.
 
   Returns:
-    A Tuple of three elements. The first is a `CalibrationResult` holding the
-    calibrated alpha, beta, volvol, and rho, where alpha[i] corresponds to the
-    calibrated `alpha` of the i-th batch, etc.
-    The second and third elements contains the optimization status
-    (whether the optimization algorithm succeeded in finding the optimal point
-    based on the specified convergence criteria) and the number of iterations
-    performed.
+    A Tuple of three elements:
+    * The first is a `CalibrationResult` holding the calibrated alpha, beta,
+      volvol, and rho, where alpha[i] corresponds to the calibrated `alpha` of
+      the i-th batch, etc.
+    * A `Tensor` of optimization status for each batch element (whether the
+      optimization algorithm has found the optimal point based on the specified
+      convergance criteria).
+    * A `Tensor` containing the number of iterations performed by the
+      optimization algorithm.
   """
   if approximation_type is None:
     approximation_type = SabrApproximationType.HAGAN

@@ -93,7 +93,7 @@ class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
                         if use_fd else tff.models.ValuationMethod.MONTE_CARLO)
     @tf.function(experimental_compile=True)
     def _fn():
-      _, calib_mr, calib_vol, calib_corr, _, _ = (
+      (calib_mr, calib_vol, calib_corr), _, _ = (
           tff.models.hjm.calibration_from_swaptions(
               prices=self.prices,
               expiries=self.expiries,
