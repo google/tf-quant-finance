@@ -192,7 +192,7 @@ pip install --user --upgrade artifacts/*.whl
 
 2. [TensorFlow Blog](https://blog.tensorflow.org/): Stay up to date on content from the TensorFlow team and best articles from the community.
 
-3. tf-quant-finance-discuss-external@google.com: Open mailing list for discussion and questions of this library.
+3. tf-quant-finance-discuss@google.com: Open mailing list for discussion and questions of this library.
 
 4. TensorFlow Probability: This library will leverage methods from [TensorFlow Probability](https://www.tensorflow.org/probability) (TFP).
 
