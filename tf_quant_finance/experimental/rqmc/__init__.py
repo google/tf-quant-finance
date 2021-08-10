@@ -15,6 +15,7 @@
 """RQMC support."""
 
 from tf_quant_finance.experimental.rqmc import utils
+from tf_quant_finance.experimental.rqmc.digital_net import random_digital_shift
 from tf_quant_finance.experimental.rqmc.digital_net import random_scrambling_matrices
 from tf_quant_finance.experimental.rqmc.digital_net import sample_digital_net
 from tf_quant_finance.experimental.rqmc.digital_net import scramble_generating_matrices
@@ -26,6 +27,7 @@ from tf_quant_finance.experimental.rqmc.sobol import sobol_generating_matrices
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
+    'random_digital_shift',
     'random_scrambling_matrices',
     'random_scrambling_vectors',
     'sample_digital_net',

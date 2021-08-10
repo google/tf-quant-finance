@@ -38,7 +38,7 @@ def random_scrambling_vectors(generating_vectors: types.IntTensor,
   Args:
     generating_vectors: Positive scalar `Tensor` of integers with rank 1.
     seed: Positive scalar `Tensor` with shape [2] and dtype `int32` used as seed
-      for the random enerator.
+      for the random generator.
     validate_args: Python `bool` indicating whether to validate arguments.
       Default value: `False`.
     dtype: Optional `dtype`. The `dtype` of the output `Tensor` (either

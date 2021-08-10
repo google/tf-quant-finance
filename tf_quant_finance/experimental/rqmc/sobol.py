@@ -229,12 +229,16 @@ def _sobol_generating_matrices(dim: types.IntTensor,
 
   dtype = dtype or tf.int32
 
+  zero = tf.constant(0, dtype=dtype)
   indices = tf.cast(tf.range(0, log_num_results), dtype)
   dimensions = tf.range(0, dim)
 
   # shape: (?, ?)
   directions = tf.convert_to_tensor(
       _INITIAL_DIRECTION_NUMBERS, dtype=dtype, name='direction_numbers')
+  padding = log_num_results - utils.get_shape(directions)[0]
+  padding = tf.math.maximum(zero, padding)
+  directions = tf.pad(directions, [[zero, padding], [zero, zero]])
   # shape: (log_num_results, ?)
   directions = directions[:log_num_results]
   # shape: (log_num_results, dim)

@@ -20,13 +20,52 @@ from tf_quant_finance import types
 from tf_quant_finance.experimental.rqmc import utils
 
 __all__ = [
+    'random_digital_shift',
     'random_scrambling_matrices',
     'sample_digital_net',
     'scramble_generating_matrices',
 ]
 
 
-def random_scrambling_matrices(generating_matrices: types.IntTensor,
+def random_digital_shift(dim: types.IntTensor,
+                         num_digits: types.IntTensor,
+                         seed: int,
+                         validate_args: bool = False,
+                         dtype: tf.DType = None,
+                         name: str = None) -> types.IntTensor:
+  """Returns a `Tensor` drawn from a uniform distribution.
+
+  The result can be can be passed to the `sample_digital_net` function to shift
+  sampled points through a bitwise xor.
+
+  Args:
+    dim: Positive scalar `Tensor` of integers with rank 0. The event size of the
+      sampled points to shift.
+    num_digits: Positive scalar `Tensor` of integers with rank 0. the base-2
+      precision of the sampled points to shift.
+    seed: Positive scalar `Tensor` with shape [2] and dtype `int32` used as seed
+      for the random generator.
+    validate_args: Python `bool` indicating whether to validate arguments.
+      Default value: `False`.
+    dtype: Optional `dtype`. The `dtype` of the output `Tensor` (either
+      `tf.int32` or `tf.int64`).
+      Default value: `None` which maps to `tf.int32`.
+    name: Python `str` name prefixed to ops created by this function.
+      Default value: `None` which maps to `random_digital_shift`.
+
+  Returns:
+    A `Tensor` with `shape` `(dim)`.
+  """
+
+  return random_stateless_uniform((dim),
+                                  num_digits,
+                                  seed,
+                                  validate_args=validate_args,
+                                  dtype=dtype,
+                                  name=name or 'random_digital_shift')
+
+
+def random_scrambling_matrices(dim: types.IntTensor,
                                num_digits: types.IntTensor,
                                seed: int,
                                validate_args: bool = False,
@@ -34,64 +73,92 @@ def random_scrambling_matrices(generating_matrices: types.IntTensor,
                                name: str = None) -> types.IntTensor:
   """Returns a `Tensor` drawn from a uniform distribution.
 
-  The returned `Tensor` can be can be passed to the
-  `scramble_generating_matrices` function to randomize the specified
-  `generating_matrices`.
+  The result can be can be passed to the `scramble_generating_matrices` function
+  to randomize a given `generating_matrices`.
 
   Args:
-    generating_matrices: Positive scalar `Tensor` of integers with rank 2.
+    dim: Positive scalar `Tensor` of integers with rank 0. The event size of
+      points which can be sampled from the generating matrices to scramble.
     num_digits: Positive scalar `Tensor` of integers with rank 0. the base-2
-      precision of the points which can be sampled from `generating_matrices`.
+      precision of the points which can be sampled from the generating matrices
+      to scramble.
     seed: Positive scalar `Tensor` with shape [2] and dtype `int32` used as seed
-      for the random enerator.
+      for the random generator.
     validate_args: Python `bool` indicating whether to validate arguments.
       Default value: `False`.
     dtype: Optional `dtype`. The `dtype` of the output `Tensor` (either
       `tf.int32` or `tf.int64`).
-      Default value: `None` which maps to `dtype` of generating_matrices.
+      Default value: `None` which maps to `tf.int32`.
     name: Python `str` name prefixed to ops created by this function.
       Default value: `None` which maps to `random_scrambling_matrices`.
 
   Returns:
-    A `Tensor` with the same `shape` as `generating_matrices`.
+    A `Tensor` with `shape` `(dim, num_digits)`.
   """
 
-  with tf.name_scope(name or 'random_scrambling_matrices'):
-    dtype = dtype or generating_matrices.dtype
+  return random_stateless_uniform((dim, num_digits),
+                                  num_digits,
+                                  seed,
+                                  validate_args=validate_args,
+                                  dtype=dtype,
+                                  name=name or 'random_scrambling_matrices')
 
-    generating_matrices = tf.convert_to_tensor(
-        generating_matrices, name='generating_matrices')
+
+def random_stateless_uniform(shape: types.IntTensor,
+                             num_digits: types.IntTensor,
+                             seed: int,
+                             validate_args: bool = False,
+                             dtype: tf.DType = None,
+                             name: str = None) -> types.IntTensor:
+  """Returns a `Tensor` drawn from a uniform distribution with a given `shape`.
+
+  Args:
+    shape: Positive scalar `Tensor` of integers with rank 1. The shape of the
+      returned `Tensor`.
+    num_digits: Positive scalar `Tensor` of integers with rank 0. the base-2
+      precision of the points which can be sampled from `generating_matrices`.
+    seed: Positive scalar `Tensor` with shape [2] and dtype `int32` used as seed
+      for the random generator.
+    validate_args: Python `bool` indicating whether to validate arguments.
+      Default value: `False`.
+    dtype: Optional `dtype`. The `dtype` of the output `Tensor` (either
+      `tf.int32` or `tf.int64`).
+      Default value: `None` which maps to `tf.int32`.
+    name: Python `str` name prefixed to ops created by this function.
+      Default value: `None` which maps to `random_stateless_uniform`.
+
+  Returns:
+    A `Tensor` with the requested `shape`.
+  """
+
+  with tf.name_scope(name or 'random_stateless_uniform'):
+    dtype = dtype or tf.int32
+
+    shape = tf.convert_to_tensor(shape, dtype=dtype, name='dim')
     num_digits = tf.convert_to_tensor(
         num_digits, dtype=dtype, name='num_digits')
 
     control_deps = []
     if validate_args:
       control_deps.append(
-          tf.debugging.assert_equal(
-              tf.rank(generating_matrices),
-              2,
-              message='generating_matrices must have rank 2'))
+          tf.debugging.assert_positive(shape, message='shape must be positive'))
       control_deps.append(
           tf.debugging.assert_positive(
               num_digits, message='num_digits must be positive'))
 
     with tf.control_dependencies(control_deps):
-      shape = utils.get_shape(generating_matrices)
-
       minval = tf.cast(utils.exp2(num_digits - 1), dtype=dtype)
       maxval = tf.cast(utils.exp2(num_digits), dtype=dtype)
 
-      return tf.random.stateless_uniform((shape[0], num_digits),
-                                         seed,
-                                         minval=minval,
-                                         maxval=maxval,
-                                         dtype=dtype)
+      return tf.random.stateless_uniform(
+          shape, seed, minval=minval, maxval=maxval, dtype=dtype)
 
 
 def sample_digital_net(generating_matrices: types.IntTensor,
                        num_results: types.IntTensor,
                        num_digits: types.IntTensor,
                        sequence_indices: types.IntTensor = None,
+                       scrambling_matrices: types.IntTensor = None,
                        digital_shift: types.IntTensor = None,
                        apply_tent_transform: bool = False,
                        validate_args: bool = False,
@@ -110,9 +177,13 @@ def sample_digital_net(generating_matrices: types.IntTensor,
       The elements of the sequence to return specified by their position in the
       sequence.
       Default value: `None` which corresponds to the `[0, num_results)` range.
-    digital_shift: Optional positive scalar `Tensor` of integers with the shape
-      (`num_results`, `dim`) where `dim = tf.shape(generating_matrices)[0]`. The
-      digital shift to apply to all the points via a bitwise xor.
+    scrambling_matrices: Optional positive scalar `Tensor` of integers with the
+      same shape as `generating_matrices`. The left matrix scramble to apply to
+      the generating matrices.
+      Default value: `None`.
+    digital_shift: Optional positive scalar `Tensor` of integers with shape
+      (`dim`) where `dim = tf.shape(generating_matrices)[0]`. The digital shift
+      to apply to all the sampled points via a bitwise xor.
       Default value: `None`.
     apply_tent_transform: Python `bool` indicating whether to apply a tent
       transform to the sampled points.
@@ -135,6 +206,9 @@ def sample_digital_net(generating_matrices: types.IntTensor,
     # shape: (dim, log_num_results)
     generating_matrices = tf.convert_to_tensor(
         generating_matrices, name='generating_matrices')
+    if scrambling_matrices is not None:
+      scrambling_matrices = tf.convert_to_tensor(
+          scrambling_matrices, name='scrambling_matrices')
 
     dim = utils.get_shape(generating_matrices)[0]
     int_dtype = generating_matrices.dtype
@@ -156,6 +230,25 @@ def sample_digital_net(generating_matrices: types.IntTensor,
               tf.rank(generating_matrices),
               2,
               message='generating_matrices must have rank 2'))
+      if scrambling_matrices is not None:
+        control_deps.append(
+            tf.debugging.assert_equal(
+                utils.get_shape(scrambling_matrices),
+                utils.get_shape(generating_matrices),
+                message='scrambling_matrices must have the same shape as ' +
+                'generating_matrices'))
+      if digital_shift is not None:
+        control_deps.append(
+            tf.debugging.assert_equal(
+                tf.rank(digital_shift),
+                1,
+                message='digital_shift must have rank 1'))
+        control_deps.append(
+            tf.debugging.assert_equal(
+                tf.size(digital_shift),
+                dim,
+                message='digital_shift must have size ' +
+                'tf.shape(generating_matrices)[0]'))
       control_deps.append(
           tf.debugging.assert_positive(
               num_results, message='num_results must be positive'))
@@ -169,10 +262,10 @@ def sample_digital_net(generating_matrices: types.IntTensor,
               message='log2(num_results) must be less than 32'))
 
     with tf.control_dependencies(control_deps):
-      # shape: (num_results, dim)
+      # shape: (dim)
       if digital_shift is None:
         digital_shift = tf.zeros(
-            shape=(num_results, dim), dtype=int_dtype, name='digital_shift')
+            shape=(dim), dtype=int_dtype, name='digital_shift')
       else:
         digital_shift = tf.cast(digital_shift, int_dtype, name='digital_shift')
 
@@ -181,6 +274,14 @@ def sample_digital_net(generating_matrices: types.IntTensor,
         sequence_indices = tf.range(0, num_results)
       sequence_indices = tf.cast(
           sequence_indices, int_dtype, name='sequence_indices')
+
+      if scrambling_matrices is not None:
+        generating_matrices = scramble_generating_matrices(
+            generating_matrices,
+            scrambling_matrices,
+            num_digits,
+            validate_args=validate_args,
+            dtype=int_dtype)
 
       # shape: (1, dim, log_num_results)
       generating_matrices = tf.expand_dims(generating_matrices, axis=0)
@@ -208,7 +309,9 @@ def sample_digital_net(generating_matrices: types.IntTensor,
           loop_body_fn,
           loop_vars=(
               # shape: (num_samples, dim)
-              tf.gather(digital_shift, sequence_indices, axis=0),
+              tf.repeat(
+                  tf.expand_dims(digital_shift, 0), tf.size(sequence_indices),
+                  0),
               # shape: ()
               tf.constant(0, dtype=int_dtype)),
           maximum_iterations=tf.cast(log_num_results, tf.int32))
@@ -281,6 +384,7 @@ def scramble_generating_matrices(generating_matrices: types.IntTensor,
               num_digits, message='num_digits must be positive'))
 
     with tf.control_dependencies(control_deps):
+
       def loop_predicate_fn(matrix, shift):
         del matrix
         return shift < num_digits

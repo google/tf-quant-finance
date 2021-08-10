@@ -27,48 +27,37 @@ class DigitalNetTest(tf.test.TestCase):
 
   def test_random_scrambling_matrices(self):
     dim = 6
-    num_results = 8
-    num_digits = 3  # ceil(log2(num_results))
+    num_digits = 3
     seed = (2, 3)
 
-    for dtype in [tf.int32, tf.int64]:
-      generating_matrices = rqmc.sobol_generating_matrices(
-          dim, num_results, num_digits, dtype=dtype)
+    actual = rqmc.random_scrambling_matrices(
+        dim, num_digits, seed, validate_args=True)
 
-      actual = rqmc.random_scrambling_matrices(
-          generating_matrices, num_digits, seed, validate_args=True)
+    power = tf.constant(num_digits)
+    minval = rqmc.utils.exp2(power - 1)
+    maxval = rqmc.utils.exp2(power)
 
-      power = tf.constant(num_digits, dtype=dtype)
-      minval = rqmc.utils.exp2(power - 1)
-      maxval = rqmc.utils.exp2(power)
-
-      self.assertEqual(actual.shape, generating_matrices.shape)
-      self.assertEqual(actual.dtype, dtype)
-      self.assertAllLess(actual, maxval)
-      self.assertAllGreaterEqual(actual, minval)
+    self.assertEqual(actual.shape[0], dim)
+    self.assertEqual(actual.shape[1], num_digits)
+    self.assertEqual(actual.dtype, tf.int32)
+    self.assertAllLess(actual, maxval)
+    self.assertAllGreaterEqual(actual, minval)
 
   def test_random_scrambling_matrices_with_dtype(self):
     dim = 6
-    num_results = 8
-    num_digits = 3  # ceil(log2(num_results))
+    num_digits = 3
     seed = (2, 3)
-
-    generating_matrices = rqmc.sobol_generating_matrices(
-        dim, num_results, num_digits)
 
     for dtype in [tf.int32, tf.int64]:
       actual = rqmc.random_scrambling_matrices(
-          generating_matrices,
-          num_digits,
-          seed,
-          dtype=dtype,
-          validate_args=True)
+          dim, num_digits, seed, dtype=dtype, validate_args=True)
 
       power = tf.constant(num_digits, dtype=dtype)
       minval = rqmc.utils.exp2(power - 1)
       maxval = rqmc.utils.exp2(power)
 
-      self.assertEqual(actual.shape, generating_matrices.shape)
+      self.assertEqual(actual.shape[0], dim)
+      self.assertEqual(actual.shape[1], num_digits)
       self.assertEqual(actual.dtype, dtype)
       self.assertAllLess(actual, maxval)
       self.assertAllGreaterEqual(actual, minval)
@@ -212,7 +201,7 @@ class DigitalNetTest(tf.test.TestCase):
           dim, num_results, num_digits, dtype=dtype)
 
       scrambling_matrices = rqmc.random_scrambling_matrices(
-          generating_matrices, num_digits, seed)
+          dim, num_digits, seed)
 
       actual = rqmc.scramble_generating_matrices(
           generating_matrices,
@@ -261,8 +250,7 @@ class DigitalNetTest(tf.test.TestCase):
     generating_matrices = rqmc.sobol_generating_matrices(
         dim, num_results, num_digits)
 
-    scrambling_matrices = rqmc.random_scrambling_matrices(
-        generating_matrices, num_digits, seed)
+    scrambling_matrices = rqmc.random_scrambling_matrices(dim, num_digits, seed)
 
     for dtype in [tf.int32, tf.int64]:
       actual = rqmc.scramble_generating_matrices(
