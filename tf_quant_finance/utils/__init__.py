@@ -15,11 +15,18 @@
 """Utilities module."""
 
 from tf_quant_finance.utils.dataclass import dataclass
+from tf_quant_finance.utils.shape_utils import broadcast_tensors
+from tf_quant_finance.utils.shape_utils import common_shape
+from tf_quant_finance.utils.shape_utils import get_shape
 from tf_quant_finance.utils.tf_functions import iterate_nested
+
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     'dataclass',
+    'broadcast_tensors',
+    'common_shape',
+    'get_shape',
     'iterate_nested'
 ]
 

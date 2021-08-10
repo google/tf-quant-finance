@@ -14,8 +14,8 @@
 # limitations under the License.
 """Functions to deal with tf.function objects."""
 
-from typing import Any, Dict, Tuple, Union, Iterator, List, Optional
 import dataclasses
+from typing import Any, Dict, Tuple, Union, Iterator, List, Optional
 
 # Dataclasses do not have a specific base type but do have a common interface
 # to convert them to dictionaries. We treat them as non-opaque objects whose
