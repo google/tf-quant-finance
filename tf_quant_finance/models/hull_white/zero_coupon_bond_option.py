@@ -13,11 +13,21 @@
 # limitations under the License.
 """Pricing of zero coupon bond options using Hull-White model."""
 
+from typing import Callable, Union
+
 import numpy as np
 import tensorflow.compat.v2 as tf
+
+from tf_quant_finance import types
+from tf_quant_finance import utils as tff_utils
+from tf_quant_finance.math import random
 from tf_quant_finance.models import utils
 from tf_quant_finance.models.hjm import zero_coupon_bond_option_util
-from tf_quant_finance.models.hull_white import vector_hull_white
+from tf_quant_finance.models.hull_white import one_factor
+
+__all__ = [
+    'bond_option_price'
+]
 
 
 def _ncdf(x):
@@ -28,24 +38,23 @@ def _ncdf(x):
 _SQRT_2 = np.sqrt(2.0, dtype=np.float64)
 
 
-def bond_option_price(*,
-                      strikes,
-                      expiries,
-                      maturities,
-                      discount_rate_fn,
-                      dim,
-                      mean_reversion,
-                      volatility,
-                      # TODO(b/159040541) Add correlation as an input.
-                      is_call_options=True,
-                      use_analytic_pricing=True,
-                      num_samples=1,
-                      random_type=None,
-                      seed=None,
-                      skip=0,
-                      time_step=None,
-                      dtype=None,
-                      name=None):
+def bond_option_price(
+    *,
+    strikes: types.RealTensor,
+    expiries: types.RealTensor,
+    maturities: types.RealTensor,
+    discount_rate_fn: Callable[..., types.RealTensor],
+    mean_reversion: Union[types.RealTensor, Callable[..., types.RealTensor]],
+    volatility: Union[types.RealTensor, Callable[..., types.RealTensor]],
+    is_call_options: types.BoolTensor = True,
+    use_analytic_pricing: bool = True,
+    num_samples: types.IntTensor = 1,
+    random_type: random.RandomType = None,
+    seed: types.IntTensor = None,
+    skip: types.IntTensor = 0,
+    time_step: types.RealTensor = None,
+    dtype: tf.DType = None,
+    name: str = None) -> types.RealTensor:
   """Calculates European bond option prices using the Hull-White model.
 
   Bond options are fixed income securities which give the holder a right to
@@ -95,27 +104,23 @@ def bond_option_price(*,
     maturities: A real `Tensor` of the same dtype and compatible shape as
       `strikes`.  The time to maturity of the underlying zero coupon bonds.
     discount_rate_fn: A Python callable that accepts expiry time as a real
-      `Tensor` and returns `Tensor` of either shape `input_shape` or
-      `input_shape + [dim]`. Computes the zero coupon bond yield at the present
-      time for the input expiry time.
-    dim: A Python scalar which corresponds to the number of Hull-White Models
-      to be used for pricing.
-    mean_reversion: A real positive `Tensor` of shape `[dim]` or a Python
-      callable. The callable can be one of the following:
+      `Tensor` and returns a `Tensor` of the same shape as the input Computes
+      the zero coupon bond yield at the present time for the input expiry time.
+    mean_reversion: A real positive scalar `Tensor` or a Python callable. The
+      callable can be one of the following:
       (a) A left-continuous piecewise constant object (e.g.,
       `tff.math.piecewise.PiecewiseConstantFunc`) that has a property
       `is_piecewise_constant` set to `True`. In this case the object should
       have a method `jump_locations(self)` that returns a `Tensor` of shape
-      `[dim, num_jumps]` or `[num_jumps]`. In the first case,
-      `mean_reversion(t)` should return a `Tensor` of shape `[dim] + t.shape`,
-      and in the second, `t.shape + [dim]`, where `t` is a rank 1 `Tensor` of
-      the same `dtype` as the output. See example in the class docstring.
+      `[num_jumps]`. The return value of `mean_reversion(t)` should return a
+      `Tensor` of shape `t.shape`, `t` is a rank 1 `Tensor` of the same `dtype`
+      as the output. See example in the class docstring.
       (b) A callable that accepts scalars (stands for time `t`) and returns a
-      `Tensor` of shape `[dim]`.
+      scalar `Tensor` of the same `dtype` as `strikes`.
       Corresponds to the mean reversion rate.
     volatility: A real positive `Tensor` of the same `dtype` as
       `mean_reversion` or a callable with the same specs as above.
-      Corresponds to the lond run price variance.
+      Corresponds to the long run price variance.
     is_call_options: A boolean `Tensor` of a shape compatible with
       `strikes`. Indicates whether the option is a call (if True) or a put
       (if False). If not supplied, call options are assumed.
@@ -157,7 +162,7 @@ def bond_option_price(*,
       `hw_bond_option_price`.
 
   Returns:
-    A `Tensor` of real dtype and shape  `strikes.shape + [dim]` containing the
+    A `Tensor` of real dtype and shape  `strikes.shape` containing the
     computed option prices.
   """
   name = name or 'hw_bond_option_price'
@@ -171,8 +176,7 @@ def bond_option_price(*,
     is_call_options = tf.convert_to_tensor(is_call_options, dtype=tf.bool,
                                            name='is_call_options')
 
-    model = vector_hull_white.VectorHullWhiteModel(
-        dim,
+    model = one_factor.HullWhiteModel1F(
         mean_reversion=mean_reversion,
         volatility=volatility,
         initial_discount_rate_fn=discount_rate_fn,
@@ -180,7 +184,7 @@ def bond_option_price(*,
 
     if use_analytic_pricing:
       return _analytic_valuation(
-          discount_rate_fn, model, strikes, expiries, maturities, dim,
+          discount_rate_fn, model, strikes, expiries, maturities,
           is_call_options)
 
     if time_step is None:
@@ -196,62 +200,49 @@ def bond_option_price(*,
           seed=seed,
           skip=skip)
 
-    return zero_coupon_bond_option_util.options_price_from_samples(
+    # Shape batch_shape + [1]
+    prices = zero_coupon_bond_option_util.options_price_from_samples(
         strikes, expiries, maturities, is_call_options,
         sample_discount_curve_paths_fn, num_samples,
         time_step, dtype=dtype)
+    # Shape batch_shape
+    return tf.squeeze(prices, axis=-1)
 
 
 def _analytic_valuation(discount_rate_fn, model, strikes, expiries, maturities,
-                        dim, is_call_options):
+                        is_call_options):
   """Performs analytic valuation."""
-  def _discount_rate_fn(t):
-    r = tf.convert_to_tensor(discount_rate_fn(t), dtype=strikes.dtype,
-                             name='discount_rate_fn')
-    if r.shape.rank == t.shape.rank:
-      r = tf.expand_dims(r, axis=-1)
-    return r
-  # Shape `expiry.shape + [dim]`
-  discount_rates_expiries = _discount_rate_fn(expiries)
-  # Move last dimension (corresponding to dim) to the front
-  expiries_expand = tf.expand_dims(expiries, axis=-1)
-  discount_rates_expiries = tf.math.exp(
-      -discount_rates_expiries * expiries_expand)
-  input_shape = expiries.shape
+  # Shape `expiry.shape`
+  discount_rates_expiries = discount_rate_fn(expiries)
+  discount_factor_expiries = tf.math.exp(
+      -discount_rates_expiries * expiries)
+  input_shape = tff_utils.common_shape(strikes, expiries, maturities)
   variance = _bond_option_variance(
       model, tf.reshape(expiries, shape=[-1]), tf.reshape(maturities, [-1]))
-  variance = tf.reshape(variance, [dim] + input_shape)
-  # Make `dim` as the last dimension and return.
-  # Shape `expiries.shape + [dim]`
-  variance = tf.transpose(
-      variance,
-      perm=list(range(1, variance.shape.rank)) + [0])
-  # Move last dimension (corresponding to dim) to the front
-  discount_rates_maturities = _discount_rate_fn(maturities)
-  maturities_expand = tf.expand_dims(maturities, axis=-1)
-  # Shape `expiries.shape + [dim]`
+  # Reshape to original shape
+  variance = tf.reshape(variance, input_shape)
+  discount_rates_maturities = discount_rate_fn(maturities)
+  # Shape `expiries.shape`
   discount_factor_maturity = tf.math.exp(-discount_rates_maturities
-                                         * maturities_expand)
-  forward_bond_price = discount_factor_maturity / discount_rates_expiries
+                                         * maturities)
+  forward_bond_price = discount_factor_maturity / discount_factor_expiries
 
   sqrt_variance = tf.math.sqrt(variance)
-  strikes_expand = tf.expand_dims(strikes, axis=-1)
-  # Shape `expiries.shape + [dim]`
-  log_moneyness = tf.math.log(forward_bond_price / strikes_expand)
+  # Shape `expiries.shape`
+  log_moneyness = tf.math.log(forward_bond_price / strikes)
   d1 = tf.math.divide_no_nan(log_moneyness + 0.5 * variance, sqrt_variance)
   d2 = d1 - tf.math.sqrt(variance)
   option_value_call = (discount_factor_maturity * _ncdf(d1)
-                       - strikes_expand * discount_rates_expiries* _ncdf(d2))
-  option_value_put = (strikes_expand * discount_rates_expiries * _ncdf(-d2)
+                       - strikes * discount_factor_expiries* _ncdf(d2))
+  option_value_put = (strikes * discount_factor_expiries * _ncdf(-d2)
                       - discount_factor_maturity * _ncdf(-d1))
 
-  is_call_options = tf.expand_dims(is_call_options, axis=-1)
   intrinsic_value = tf.where(
       is_call_options,
-      tf.math.maximum(forward_bond_price - strikes_expand, 0),
-      tf.math.maximum(strikes_expand - forward_bond_price, 0))
+      tf.math.maximum(forward_bond_price - strikes, 0),
+      tf.math.maximum(strikes - forward_bond_price, 0))
   option_value = tf.where(
-      maturities_expand < expiries_expand, tf.zeros_like(maturities_expand),
+      maturities < expiries, tf.zeros_like(maturities),
       tf.where(sqrt_variance > 0.0,
                tf.where(is_call_options, option_value_call, option_value_put),
                intrinsic_value))
@@ -284,33 +275,32 @@ def _bond_option_variance(model, option_expiry, bond_maturity):
   mean_reversion = model.mean_reversion(option_expiry)
   volatility = model.volatility(option_expiry)
 
-  option_expiry = tf.repeat(tf.expand_dims(option_expiry, axis=0),
-                            model.dim(), axis=0)
-  bond_maturity = tf.repeat(tf.expand_dims(bond_maturity, axis=0),
-                            model.dim(), axis=0)
-
+  # Shape [num_times]
   var_between_vol_knots = model._variance_int(model._padded_knots,
                                               model._jump_locations,
                                               model._jump_values_vol,
-                                              model._jump_values_mr)
+                                              model._jump_values_mr)[0]
+  # Shape [num_times]
   varx_at_vol_knots = tf.concat(
-      [model._zero_padding,
+      [tf.zeros([1], dtype=var_between_vol_knots.dtype),
        utils.cumsum_using_matvec(var_between_vol_knots)],
-      axis=1)
-
-  time_index = tf.searchsorted(model._jump_locations, option_expiry)
+      axis=-1)
+  # Shape [num_times + 1]
+  time_index = tf.searchsorted(model._jump_locations[0], option_expiry)
+  # Shape [1, num_times + 1]
   vn = tf.concat(
       [model._zero_padding,
-       model._jump_locations], axis=1)
+       model._jump_locations], axis=-1)
 
+  # Shape [num_times]
   var_expiry = model._variance_int(
-      tf.gather(vn, time_index, batch_dims=1), option_expiry,
-      volatility, mean_reversion)
+      tf.gather(vn, time_index, axis=-1), option_expiry,
+      volatility, mean_reversion)[0]
   var_expiry = var_expiry + tf.gather(
-      varx_at_vol_knots, time_index, batch_dims=1)
+      varx_at_vol_knots, time_index)
   var_expiry = var_expiry * (
-      tf.math.exp(-mean_reversion*option_expiry) - tf.math.exp(
+      tf.math.exp(-mean_reversion * option_expiry) - tf.math.exp(
           -mean_reversion * bond_maturity))**2 / mean_reversion**2
   # gpylint: enable=protected-access
-  # shape [dim, num_times]
+  # shape [num_times]
   return var_expiry

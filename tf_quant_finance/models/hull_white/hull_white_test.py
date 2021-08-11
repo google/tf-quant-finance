@@ -33,7 +33,7 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
     self.volatility = [0.01, 0.02]
     self.volatility_time_dep_1d = [0.01, 0.02, 0.01]
     def instant_forward_rate_1d_fn(t):
-      return 0.01 * tf.expand_dims(tf.ones_like(t), axis=-1)
+      return 0.01 * tf.ones_like(t)
     self.instant_forward_rate_1d_fn = instant_forward_rate_1d_fn
     def instant_forward_rate_2d_fn(t):
       return 0.01 * tf.ones(t.shape.as_list() + [2], dtype=t.dtype)
@@ -191,12 +191,10 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
     for dtype in [tf.float32, tf.float64]:
       def discount_fn(x):
         return 0.01 * tf.ones_like(x, dtype=dtype)  # pylint: disable=cell-var-from-loop
-      mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
-          [], values=[self.mean_reversion[0]], dtype=dtype)
       volatility = tff.math.piecewise.PiecewiseConstantFunc(
           [0.1, 2.0], values=self.volatility_time_dep_1d, dtype=dtype)
       process = tff.models.hull_white.HullWhiteModel1F(
-          mean_reversion=mean_reversion,
+          mean_reversion=self.mean_reversion[0],
           volatility=volatility,
           initial_discount_rate_fn=discount_fn,
           dtype=dtype)
@@ -347,9 +345,9 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
   def test_mean_variance_correlation_generic_2d(self):
     """Tests model with generic parameters in 2 dimensions."""
     for dtype in [tf.float32, tf.float64]:
-      # Mean reversion without batch dimesnion
       mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
-          [0.1, 2.0], values=3 * [self.mean_reversion], dtype=dtype)
+          2 * [[0.1, 2.0]], values=[3 * [self.mean_reversion[0]],
+                                    3 * [self.mean_reversion[0]]], dtype=dtype)
       # Volatility with batch dimesnion
       volatility = tff.math.piecewise.PiecewiseConstantFunc(
           [[0.1, 0.2, 0.5], [0.1, 2.0, 3.0]],
@@ -388,9 +386,9 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
   def test_invalid_batch_size_piecewise(self):
     """Tests that the batch dimension should be [2] if it is not empty."""
     dtype = tf.float64
-    # Batch shape is [1]. Should be [] or [2]
+    # Batch shape is [1]. Should be [2]
     mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
-        [[0.1, 2.0]], values=[3 * [self.mean_reversion]], dtype=dtype)
+        [[0.1, 2.0]], values=[3 * [self.mean_reversion[0]]], dtype=dtype)
     # Volatility with batch dimesnion
     volatility = self.volatility
     with self.assertRaises(ValueError):

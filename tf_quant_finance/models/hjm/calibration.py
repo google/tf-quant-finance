@@ -564,7 +564,7 @@ def calibration_from_swaptions(
           curve_times=curve_times,
           time_step_finite_difference=time_step_finite_difference,
           num_grid_points_finite_difference=num_grid_points_finite_difference,
-          dtype=dtype)[..., 0]
+          dtype=dtype)
 
       if volatility_based_calibration:
         model_values = _price_to_normal_vol(model_values, swap_rate, annuity)

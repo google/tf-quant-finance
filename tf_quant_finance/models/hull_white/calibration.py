@@ -67,7 +67,7 @@ def calibration_from_swaptions(
     mean_reversion: Union[types.RealTensor, Callable[..., types.RealTensor]],
     volatility: Union[types.RealTensor, Callable[..., types.RealTensor]],
     notional: types.RealTensor = None,
-    is_payer_swaption: types.BoolTensor = None,
+    is_payer_swaption: types.BoolTensor = True,
     use_analytic_pricing: bool = True,
     num_samples: types.IntTensor = 1,
     random_type: random.RandomType = None,
@@ -203,25 +203,24 @@ def calibration_from_swaptions(
       as `fixed_leg_payment_times`. The fixed rate for each payment in the
       fixed leg.
     reference_rate_fn: A Python callable that accepts expiry time as a real
-      `Tensor` and returns a `Tensor` of shape either `input_shape` or
-      `input_shape + [1]`. Returns the continuously compounded zero rate at the
-      present time for the input expiry time.
-    mean_reversion: A real positive scalar `Tensor` or an Python callable. The
-      callable should satisfy the following:
+      `Tensor` and returns a `Tensor` of either shape `input_shape` or
+      `input_shape`. Returns the continuously compounded zero rate at
+      the present time for the input expiry time.
+    mean_reversion: A real positive scalar `Tensor` or a Python callable. The
+      callable can be one of the following:
       (a) A left-continuous piecewise constant object (e.g.,
       `tff.math.piecewise.PiecewiseConstantFunc`) that has a property
       `is_piecewise_constant` set to `True`. In this case the object should
       have a method `jump_locations(self)` that returns a `Tensor` of shape
-      `[num_jumps]` and `values(self)` that returns a `Tensor` of shape
-      `[num_jumps + 1]`. The callable, `mean_reversion(t)` should return a
-      `Tensor` of shape `t.shape`, where `t` is a rank 1 `Tensor` of
-      the same `dtype` as the output.
-      Corresponds to the mean reversion rate to be calibrated. The input
-      `Tensor` or the `Tensor` `mean_reversion.values()` is also used as the
-      initial point for calibration.
-    volatility: A real positive scalar `Tensor` of the same `dtype` as
+      `[num_jumps]`. The return value of `mean_reversion(t)` should return a
+      `Tensor` of shape `t.shape`, `t` is a rank 1 `Tensor` of the same `dtype`
+      as the output. See example in the class docstring.
+      (b) A callable that accepts scalars (stands for time `t`) and returns a
+      scalar `Tensor` of the same `dtype` as `strikes`.
+      Corresponds to the mean reversion rate.
+    volatility: A real positive `Tensor` of the same `dtype` as
       `mean_reversion` or a callable with the same specs as above.
-      Corresponds to the Hull-White volatility parameter to be calibrated.
+      Corresponds to the long run price variance.
     notional: An optional `Tensor` of same dtype and compatible shape as
       `strikes`specifying the notional amount for the underlying swap.
        Default value: None in which case the notional is set to 1.
@@ -403,7 +402,6 @@ def calibration_from_swaptions(
           fixed_leg_daycount_fractions=fixed_leg_daycount_fractions,
           fixed_leg_coupon=fixed_leg_coupon,
           reference_rate_fn=reference_rate_fn,
-          dim=1,
           mean_reversion=mean_reversion_param,
           volatility=volatility_param,
           notional=notional,
@@ -414,7 +412,7 @@ def calibration_from_swaptions(
           seed=seed,
           skip=skip,
           time_step=time_step,
-          dtype=dtype)[:, 0]
+          dtype=dtype)
 
       if volatility_based_calibration:
         model_values = implied_vol(
@@ -467,8 +465,6 @@ def calibration_from_cap_floors(
     mean_reversion: Union[types.RealTensor, Callable[..., types.RealTensor]],
     volatility: Union[types.RealTensor, Callable[..., types.RealTensor]],
     notional: types.RealTensor = None,
-    # TODO(b/183418183) Allow for dim > 1
-    dim: int = 1,
     is_cap: types.BoolTensor = True,
     use_analytic_pricing: bool = True,
     num_samples: types.IntTensor = 1,
@@ -541,7 +537,6 @@ def calibration_from_cap_floors(
       daycount_fractions=daycount_fractions,
       reference_rate_fn=zero_rate_fn,
       notional=1.0,
-      dim=1,
       mean_reversion=expected_mr,
       volatility=expected_vol,
       is_cap=tf.expand_dims(is_cap, axis=1),
@@ -560,7 +555,6 @@ def calibration_from_cap_floors(
           mean_reversion=[0.3],
           volatility=[0.02],
           notional=1.0,
-          dim=1,
           is_cap=tf.expand_dims(is_cap, axis=1),
           use_analytic_pricing=True,
           optimizer_fn=None,
@@ -604,33 +598,27 @@ def calibration_from_cap_floors(
       fractions associated with the underlying forward rate of the j-th
       caplet/floorlet of the i-th cap/floor.
     reference_rate_fn: A Python callable that accepts expiry time as a real
-      `Tensor` and returns a `Tensor` of the same shape and dtype, representing
-      the continuously compounded zero rate at the present time for the input
-      expiry time.
-    mean_reversion: A real positive `Tensor` of shape broadcastable to `[dim]`,
-      or a Python callable. The callable can be one of the following:
+      `Tensor` and returns a `Tensor` of either shape `input_shape` or
+      `input_shape`. Returns the continuously compounded zero rate at
+      the present time for the input expiry time.
+    mean_reversion: A real positive scalar `Tensor` or a Python callable. The
+      callable can be one of the following:
       (a) A left-continuous piecewise constant object (e.g.,
       `tff.math.piecewise.PiecewiseConstantFunc`) that has a property
       `is_piecewise_constant` set to `True`. In this case the object should
       have a method `jump_locations(self)` that returns a `Tensor` of shape
-      `[dim, num_jumps]` or `[num_jumps]`. In the first case,
-      `mean_reversion(t)` should return a `Tensor` of shape `[dim] + t.shape`,
-      and in the second, `t.shape + [dim]`, where `t` is a rank 1 `Tensor` of
-      the same `dtype` as the output. See example in the class docstring.
+      `[num_jumps]`. The return value of `mean_reversion(t)` should return a
+      `Tensor` of shape `t.shape`, `t` is a rank 1 `Tensor` of the same `dtype`
+      as the output. See example in the class docstring.
       (b) A callable that accepts scalars (stands for time `t`) and returns a
-      `Tensor` of shape `[dim]`.
-      Corresponds to the *initial estimate* of the mean reversion rate for the
-      calibration.
+      scalar `Tensor` of the same `dtype` as `strikes`.
+      Corresponds to the mean reversion rate.
     volatility: A real positive `Tensor` of the same `dtype` as
       `mean_reversion` or a callable with the same specs as above.
-      Corresponds to the *initial estimate* of the volatility for the
-      calibration.
+      Corresponds to the long run price variance.
     notional: A real `Tensor` broadcast to [num_capfloors], such that
       `notional[i]` is the notional amount for the i-th cap/floor.
-    dim: A Python scalar which corresponds to the number of Hull-White Models to
-      be used for pricing.
-      Default value: The default value is `1`.
-      Currently, dim > 1 is not yet implemented.
+
     is_cap: A boolean tensor broadcastable to [num_capfloors], such that
       `is_cap[i]` represents whether or not the i-th instrument is a cap (True)
       or floor (False).
@@ -775,7 +763,6 @@ def calibration_from_cap_floors(
           maturities=maturities,
           daycount_fractions=daycount_fractions,
           reference_rate_fn=reference_rate_fn,
-          dim=dim,
           mean_reversion=mean_reversion_param,
           volatility=volatility_param,
           notional=notional,
@@ -786,7 +773,7 @@ def calibration_from_cap_floors(
           seed=seed,
           skip=skip,
           time_step=time_step,
-          dtype=dtype)[:, 0]
+          dtype=dtype)
 
       return tf.math.reduce_mean(
           (_scale(model_values, target_lb, target_ub) - scaled_target)**2)

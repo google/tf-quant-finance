@@ -16,7 +16,16 @@
 # Lint as: python3
 """One factor Hull-White model with time-dependent parameters."""
 
+from typing import Callable, Union
+
+import tensorflow.compat.v2 as tf
+
+from tf_quant_finance import types
 from tf_quant_finance.models.hull_white import vector_hull_white
+
+__all__ = [
+    'HullWhiteModel1F'
+]
 
 
 class HullWhiteModel1F(vector_hull_white.VectorHullWhiteModel):
@@ -87,17 +96,18 @@ class HullWhiteModel1F(vector_hull_white.VectorHullWhiteModel):
     [1]: D. Brigo, F. Mercurio. Interest Rate Models. 2007.
   """
 
-  def __init__(self,
-               mean_reversion,
-               volatility,
-               initial_discount_rate_fn,
-               dtype=None,
-               name=None):
+  def __init__(
+      self,
+      mean_reversion: Union[types.RealTensor, Callable[..., types.RealTensor]],
+      volatility: Union[types.RealTensor, Callable[..., types.RealTensor]],
+      initial_discount_rate_fn: Callable[..., types.RealTensor],
+      dtype: tf.DType = None,
+      name: str = None):
     """Initializes Hull-White Model.
 
     Args:
-      mean_reversion: A real positive `Tensor` of shape `[1]` or a Python
-        callable. The callable can be one of the following:
+      mean_reversion: A real positive scalar `Tensor` or a Python callable. The
+        callable can be one of the following:
           (a) A left-continuous piecewise constant object (e.g.,
           `tff.math.piecewise.PiecewiseConstantFunc`) that has a property
           `is_piecewise_constant` set to `True`. In this case the object
@@ -107,23 +117,23 @@ class HullWhiteModel1F(vector_hull_white.VectorHullWhiteModel):
           where `t` is a rank 1 `Tensor` of the same `dtype` as the output.
           See example in the class docstring.
          (b) A callable that accepts scalars (stands for time `t`) and returns a
-         `Tensor` of shape `[1]`.
+         scalar `Tensor` of the same `dtype` as the input.
         Corresponds to the mean reversion rate.
-      volatility: A real positive `Tensor` of the same `dtype` as
+      volatility: A real positive scalar `Tensor` of the same `dtype` as
         `mean_reversion` or a callable with the same specs as above.
         Corresponds to the lond run price variance.
       initial_discount_rate_fn: A Python callable that accepts expiry time as a
         real `Tensor` of the same `dtype` as `mean_reversion` and returns
-        a `Tensor` of either shape `input_shape` or `input_shape + [1]`.
-        Corresponds to the initial discount rates at time `t=0` such that
-        P(0,t) = exp(-y(t) * t) where P(0,t) denotes the initial discount bond
-        prices.
+        a `Tensor` of either shape `input_shape`. Corresponds to the initial
+        discount rates at time `t=0` such that
+        `P(0,t) = exp(-y(t) * t)` where `P(0,t)` denotes the initial discount
+        bond prices.
       dtype: The default dtype to use when converting values to `Tensor`s.
         Default value: `None` which maps to `tf.float32`.
       name: Python string. The name to give to the ops created by this class.
         Default value: `None` which maps to the default name `hull_white_model`.
     """
-    name = name or "hull_white_one_factor"
+    name = name or 'hull_white_one_factor'
     super(HullWhiteModel1F, self).__init__(
         1, mean_reversion, volatility, initial_discount_rate_fn,
         corr_matrix=None, dtype=dtype, name=name)

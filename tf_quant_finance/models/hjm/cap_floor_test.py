@@ -63,9 +63,9 @@ class HJMCapFloorTest(tf.test.TestCase):
         seed=[42, 42],
         dtype=dtype)
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [1, 1])
+    self.assertAllEqual(price.shape, [])
     price = self.evaluate(price)
-    self.assertAllClose(price, [[0.4072088281493774]],
+    self.assertAllClose(price, 0.4072088281493774,
                         rtol=error_tol, atol=error_tol)
 
   def test_correctness_time_dep_1d(self):
@@ -97,9 +97,9 @@ class HJMCapFloorTest(tf.test.TestCase):
         seed=[42, 42],
         dtype=dtype)
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [1, 1])
+    self.assertAllEqual(price.shape, [])
     price = self.evaluate(price)
-    self.assertAllClose(price, [[0.2394242699989869]], rtol=error_tol,
+    self.assertAllClose(price, 0.2394242699989869, rtol=error_tol,
                         atol=error_tol)
 
   def test_1d_batch(self):
@@ -131,10 +131,10 @@ class HJMCapFloorTest(tf.test.TestCase):
         seed=[42, 42],
         dtype=dtype)
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [3, 1])
+    self.assertAllEqual(price.shape, [3])
     price = self.evaluate(price)
-    self.assertAllClose(price, [[0.4072088281493774], [0.4072088281493774],
-                                [0.4072088281493774]],
+    self.assertAllClose(price, [0.4072088281493774, 0.4072088281493774,
+                                0.4072088281493774],
                         rtol=error_tol, atol=error_tol)
 
   def test_2d_batch(self):
@@ -168,10 +168,10 @@ class HJMCapFloorTest(tf.test.TestCase):
         seed=[1, 2],
         dtype=dtype)
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [2, 2, 1])
+    self.assertAllEqual(price.shape, [2, 2])
     price = self.evaluate(price)
-    expected = [[[0.4072088281493774], [0.4072088281493774]],
-                [[0.4072088281493774], [0.4072088281493774]]]
+    expected = [[0.4072088281493774, 0.4072088281493774],
+                [0.4072088281493774, 0.4072088281493774]]
     self.assertAllClose(price, expected, rtol=error_tol, atol=error_tol)
 
   def test_correctness_2_factor(self):
@@ -196,9 +196,9 @@ class HJMCapFloorTest(tf.test.TestCase):
         seed=[1, 2],
         dtype=dtype)
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [1, 1])
+    self.assertAllEqual(price.shape, [])
     price = self.evaluate(price)
-    self.assertAllClose(price, [[0.45446611]], rtol=error_tol, atol=error_tol)
+    self.assertAllClose(price, 0.45446611, rtol=error_tol, atol=error_tol)
 
   def test_mixed_1d_batch_2_factor(self):
     """Tests mixed 1d batch with constant parameters with 2 factors."""
@@ -229,9 +229,9 @@ class HJMCapFloorTest(tf.test.TestCase):
         seed=[4, 2],
         dtype=dtype)
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [3, 1])
+    self.assertAllEqual(price.shape, [3])
     price = self.evaluate(price)
-    expected = [[0.45291683], [0.45291683], [0.45291683]]
+    expected = [0.45291683, 0.45291683, 0.45291683]
     self.assertAllClose(price, expected, rtol=error_tol, atol=error_tol)
 
   def test_correctness_2_factor_hull_white_consistency(self):
@@ -276,7 +276,6 @@ class HJMCapFloorTest(tf.test.TestCase):
         maturities=self.maturities,
         daycount_fractions=self.daycount_fractions,
         notional=100.0,
-        dim=1,
         mean_reversion=[mu],
         volatility=[np.sqrt(vol1**2 + vol2**2)],
         reference_rate_fn=discount_rate_fn,
@@ -318,9 +317,9 @@ class HJMCapFloorTest(tf.test.TestCase):
         seed=[6, 7],
         dtype=dtype)
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [3, 1])
+    self.assertAllEqual(price.shape, [3])
     price = self.evaluate(price)
-    expected = [[0.78964927], [0.29312759], [0.29312759]]
+    expected = [0.78964927, 0.29312759, 0.29312759]
     self.assertAllClose(price, expected, rtol=error_tol, atol=error_tol)
 
 

@@ -26,6 +26,7 @@ py_library(
         "//tf_quant_finance/math/random_ops",
         "//tf_quant_finance/models:generic_ito_process",
         "//tf_quant_finance/models:utils",
+        "//tf_quant_finance/types",
         # tensorflow dep,
     ],
 )
@@ -56,6 +57,7 @@ py_library(
         "//tf_quant_finance/math/random_ops",
         "//tf_quant_finance/models:generic_ito_process",
         "//tf_quant_finance/models:utils",
+        "//tf_quant_finance/types",
         # tensorflow dep,
     ],
 )
@@ -82,6 +84,8 @@ py_library(
     srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/models:utils",
+        "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
         # tensorflow dep,
     ],
 )
@@ -118,6 +122,8 @@ py_library(
     srcs = ["cap_floor.py"],
     deps = [
         ":zero_coupon_bond_option",
+        "//tf_quant_finance/math/random_ops",
+        "//tf_quant_finance/types",
         # tensorflow dep,
     ],
 )
@@ -142,6 +148,7 @@ py_library(
     srcs = ["swaption_util.py"],
     deps = [
         "//tf_quant_finance/models:utils",
+        "//tf_quant_finance/types",
         # tensorflow dep,
     ],
 )
@@ -154,6 +161,8 @@ py_library(
         ":quasi_gaussian_hjm",
         ":swaption_util",
         "//tf_quant_finance/math",
+        "//tf_quant_finance/math/random_ops",
+        "//tf_quant_finance/types",
         # tensorflow dep,
     ],
 )
@@ -163,7 +172,7 @@ py_test(
     timeout = "long",
     srcs = ["swaption_pricing_test.py"],
     python_version = "PY3",
-    shard_count = 5,
+    shard_count = 8,
     deps = [
         "//tf_quant_finance",
         # test util,

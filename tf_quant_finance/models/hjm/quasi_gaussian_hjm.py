@@ -15,12 +15,20 @@
 
 """Multi-Factor Quasi-Gaussian HJM Model."""
 
+from typing import Callable, Union, Tuple
+
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
 from tf_quant_finance.math import gradient
+from tf_quant_finance.math import random
 from tf_quant_finance.models import euler_sampling
 from tf_quant_finance.models import generic_ito_process
 from tf_quant_finance.models import utils
+
+__all__ = [
+    'QuasiGaussianHJM'
+]
 
 
 class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
@@ -106,15 +114,16 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
     Volume II: Term Structure Models.
   """
 
-  def __init__(self,
-               dim,
-               mean_reversion,
-               volatility,
-               initial_discount_rate_fn,
-               corr_matrix=None,
-               validate_args=False,
-               dtype=None,
-               name=None):
+  def __init__(
+      self,
+      dim: int,
+      mean_reversion: types.RealTensor,
+      volatility: Union[types.RealTensor, Callable[..., types.RealTensor]],
+      initial_discount_rate_fn: Callable[..., types.RealTensor],
+      corr_matrix: types.RealTensor = None,
+      validate_args: bool = False,
+      dtype: tf.DType = None,
+      name: str = None):
     """Initializes a batch of HJM models.
 
     Args:
@@ -277,15 +286,16 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
     super(QuasiGaussianHJM, self).__init__(
         self._dim, _drift_fn, _vol_fn, self._dtype, self._name)
 
-  def sample_paths(self,
-                   times,
-                   num_samples,
-                   time_step,
-                   num_time_steps=None,
-                   random_type=None,
-                   seed=None,
-                   skip=0,
-                   name=None):
+  def sample_paths(
+      self,
+      times: types.RealTensor,
+      num_samples: types.IntTensor,
+      time_step: types.RealTensor,
+      num_time_steps: types.IntTensor = None,
+      random_type: random.RandomType = None,
+      seed: types.IntTensor = None,
+      skip: types.IntTensor = 0,
+      name: str = None) -> types.RealTensor:
     """Returns a sample of short rate paths from the HJM process.
 
     Uses Euler sampling for simulating the short rate paths. The code closely
@@ -354,16 +364,18 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
           times, time_step, num_time_steps, num_samples, random_type, skip,
           seed)
 
-  def sample_discount_curve_paths(self,
-                                  times,
-                                  curve_times,
-                                  num_samples,
-                                  time_step,
-                                  num_time_steps=None,
-                                  random_type=None,
-                                  seed=None,
-                                  skip=0,
-                                  name=None):
+  def sample_discount_curve_paths(
+      self,
+      times: types.RealTensor,
+      curve_times: types.RealTensor,
+      num_samples: types.IntTensor,
+      time_step: types.RealTensor,
+      num_time_steps: types.IntTensor = None,
+      random_type: random.RandomType = None,
+      seed: types.IntTensor = None,
+      skip: types.IntTensor = 0,
+      name: str = None
+      ) -> Tuple[types.RealTensor, types.RealTensor, types.RealTensor]:
     """Returns a sample of simulated discount curves for the Hull-white model.
 
     Args:

@@ -29,8 +29,8 @@ from tensorflow.python.framework import test_util  # pylint: disable=g-direct-te
 class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
 
   def setUp(self):
-    self.mean_reversion_1d = [0.03]
-    self.volatility_1d = [0.01]
+    self.mean_reversion_1d = 0.03
+    self.volatility_1d = 0.01
     self.volatility_time_dep_1d = [0.01, 0.02]
     self.mean_reversion_2d = [0.03, 0.03]
     self.volatility_2d = [0.01, 0.015]
@@ -76,7 +76,7 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         self.float_leg_end_times) - np.array(self.float_leg_start_times)
     self.fixed_leg_daycount_fractions = self.float_leg_daycount_fractions
     self.fixed_leg_coupon = 0.011 * np.ones_like(self.fixed_leg_payment_times)
-    zero_rate_fn = lambda x: 0.01 * tf.expand_dims(tf.ones_like(x), axis=-1)
+    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x)
     self.zero_rate_fn = zero_rate_fn
 
     super(HullWhiteBermudanSwaptionTest, self).setUp()
@@ -112,7 +112,6 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         fixed_leg_coupon=self.fixed_leg_coupon[0],
         reference_rate_fn=self.zero_rate_fn,
         notional=100.,
-        dim=1,
         mean_reversion=self.mean_reversion_1d,
         volatility=self.volatility_1d,
         num_samples=10000,
@@ -125,9 +124,9 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         dtype=dtype)
 
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [1])
+    self.assertAllEqual(price.shape, [])
     price = self.evaluate(price)
-    self.assertAllClose(price, [expected], rtol=tol, atol=tol)
+    self.assertAllClose(price, expected, rtol=tol, atol=tol)
 
   @parameterized.named_parameters(
       {
@@ -159,7 +158,6 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         fixed_leg_coupon=self.fixed_leg_coupon,
         reference_rate_fn=self.zero_rate_fn,
         notional=100.,
-        dim=1,
         mean_reversion=self.mean_reversion_1d,
         volatility=self.volatility_1d,
         num_samples=50000,
@@ -195,17 +193,14 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
 
     price_berm = tff.models.hull_white.bermudan_swaption_price(
         exercise_times=[self.exercise_times[0][0]],
-        floating_leg_start_times=[self.float_leg_start_times[0][0]],
-        floating_leg_end_times=[self.float_leg_end_times[0][0]],
-        fixed_leg_payment_times=[self.fixed_leg_payment_times[0][0]],
-        floating_leg_daycount_fractions=[
-            self.float_leg_daycount_fractions[0][0]
-        ],
-        fixed_leg_daycount_fractions=[self.fixed_leg_daycount_fractions[0][0]],
-        fixed_leg_coupon=[self.fixed_leg_coupon[0][0]],
+        floating_leg_start_times=self.float_leg_start_times[0][0],
+        floating_leg_end_times=self.float_leg_end_times[0][0],
+        fixed_leg_payment_times=self.fixed_leg_payment_times[0][0],
+        floating_leg_daycount_fractions=self.float_leg_daycount_fractions[0][0],
+        fixed_leg_daycount_fractions=self.fixed_leg_daycount_fractions[0][0],
+        fixed_leg_coupon=self.fixed_leg_coupon[0][0],
         reference_rate_fn=self.zero_rate_fn,
         notional=100.,
-        dim=1,
         mean_reversion=self.mean_reversion_1d,
         volatility=self.volatility_1d,
         num_samples=50000,
@@ -218,7 +213,7 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         dtype=dtype)
 
     price_euro = tff.models.hull_white.swaption_price(
-        expiries=[self.exercise_times[0][0]],
+        expiries=self.exercise_times[0][0],
         floating_leg_start_times=self.float_leg_start_times[0][0],
         floating_leg_end_times=self.float_leg_end_times[0][0],
         fixed_leg_payment_times=self.fixed_leg_payment_times[0][0],
@@ -227,12 +222,11 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         fixed_leg_coupon=self.fixed_leg_coupon[0][0],
         reference_rate_fn=self.zero_rate_fn,
         notional=100.,
-        dim=1,
         mean_reversion=self.mean_reversion_1d,
         volatility=self.volatility_1d,
         dtype=dtype)
 
-    self.assertAllClose(self.evaluate(price_berm), self.evaluate(price_euro)[0],
+    self.assertAllClose(self.evaluate(price_berm), self.evaluate(price_euro),
                         rtol=1e-3, atol=1e-3)
 
   @parameterized.named_parameters(
@@ -281,7 +275,6 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         fixed_leg_coupon=fixed_leg_coupon,
         reference_rate_fn=self.zero_rate_fn,
         notional=100.,
-        dim=1,
         mean_reversion=self.mean_reversion_1d,
         volatility=self.volatility_1d,
         num_samples=10000,

@@ -45,13 +45,13 @@ def get_shape(
     x: A tensor of any shape and `dtype`
     name: Python string. The name to give to the ops created by this function.
       Default value: `None` which maps to the default name
-      `prefer_static_shape`.
+      `get_shape`.
 
   Returns:
     A shape of `x` which a list, if the shape is fully defined, or a `Tensor`
     for dynamically shaped `x`.
   """
-  name = 'prefer_static_shape' if name is None else name
+  name = 'get_shape' if name is None else name
   with tf.name_scope(name):
     x = tf.convert_to_tensor(x)
     is_fully_defined = x.shape.is_fully_defined()

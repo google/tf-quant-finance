@@ -84,11 +84,11 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
       return price
 
     if use_xla:
-      price = self.evaluate(tf.xla.experimental.compile(_fn))[0]
+      price = self.evaluate(tf.function(_fn, jit_compile=True)())
     else:
       price = self.evaluate(_fn())
     self.assertAllClose(
-        price, [[0.7163243383624043]], rtol=error_tol, atol=error_tol)
+        price, [0.7163243383624043], rtol=error_tol, atol=error_tol)
 
   def test_receiver_1d(self):
     """Test model with constant parameters in 1 dimension."""
@@ -122,10 +122,10 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         dtype=dtype)
 
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [1, 1])
+    self.assertAllEqual(price.shape, [1])
     price = self.evaluate(price)
     self.assertAllClose(
-        price, [[0.813482544626056]], rtol=error_tol, atol=error_tol)
+        price, [0.813482544626056], rtol=error_tol, atol=error_tol)
 
   def test_time_dep_1d(self):
     """Tests model with time-dependent parameters in 1 dimension."""
@@ -166,10 +166,10 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         dtype=dtype)
 
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [1, 1])
+    self.assertAllEqual(price.shape, [1])
     price = self.evaluate(price)
     self.assertAllClose(
-        price, [[0.5593057004094042]], rtol=error_tol, atol=error_tol)
+        price, [0.5593057004094042], rtol=error_tol, atol=error_tol)
 
   @parameterized.named_parameters(
       {
@@ -208,10 +208,10 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
             (4), dtype=t.dtype))
       mean_reversion = [[0.03], [0.03], [0.03], [0.03]]
       volatility = [[0.02], [0.02], [0.02], [0.02]]
-      output_shape = [4, 2, 1]
+      output_shape = [4, 2]
     else:
       zero_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
-      output_shape = [2, 1]
+      output_shape = [2]
 
     fixed_leg_daycount_fractions = 0.25 * np.ones_like(fixed_leg_payment_times)
     fixed_leg_coupon = 0.011 * np.ones_like(fixed_leg_payment_times)
@@ -272,10 +272,10 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         dtype=dtype)
 
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [2, 1])
+    self.assertAllEqual(price.shape, [2])
     price = self.evaluate(price)
     self.assertAllClose(
-        price, [[0.7163243383624043], [2 * 0.7163243383624043]],
+        price, [0.7163243383624043, 2 * 0.7163243383624043],
         rtol=error_tol,
         atol=error_tol)
 
@@ -313,14 +313,11 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         dtype=dtype)
 
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [2, 2, 1])
+    self.assertAllEqual(price.shape, [2, 2])
     price = self.evaluate(price)
-    expected = [
-        0.7163243383624043, 0.7163243383624043, 0.7163243383624043,
-        0.7163243383624043
-    ]
-    self.assertAllClose(
-        price, tf.reshape(expected, (2, 2, 1)), rtol=error_tol, atol=error_tol)
+    expected = [[0.7163243383624043, 0.7163243383624043],
+                [0.7163243383624043, 0.7163243383624043]]
+    self.assertAllClose(price, expected, rtol=error_tol, atol=error_tol)
 
   def test_correctness_2_factor(self):
     """Tests model with constant parameters in 2 dimensions."""
@@ -353,9 +350,9 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         dtype=dtype)
 
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [1, 1])
+    self.assertAllEqual(price.shape, [1])
     price = self.evaluate(price)
-    self.assertAllClose(price, [[0.802226]], rtol=error_tol, atol=error_tol)
+    self.assertAllClose(price, [0.802226], rtol=error_tol, atol=error_tol)
 
   @parameterized.named_parameters(
       {
@@ -425,7 +422,6 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         fixed_leg_coupon=fixed_leg_coupon,
         reference_rate_fn=zero_rate_fn,
         notional=100.,
-        dim=1,
         mean_reversion=[mu],
         volatility=[eff_vol],
         use_analytic_pricing=True,
@@ -491,7 +487,6 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         fixed_leg_coupon=fixed_leg_coupon,
         reference_rate_fn=zero_rate_fn,
         notional=100.,
-        dim=1,
         mean_reversion=[mu],
         volatility=[eff_vol],
         use_analytic_pricing=True,
@@ -549,12 +544,12 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
       return price
 
     if use_xla:
-      price = self.evaluate(tf.xla.experimental.compile(_fn))[0]
+      price = self.evaluate(tf.function(_fn, jit_compile=True)())
     else:
       price = self.evaluate(_fn())
     quantlib_price = 0.5900860719515227
     self.assertAllClose(
-        price, [[quantlib_price]], rtol=error_tol, atol=error_tol)
+        price, [quantlib_price], rtol=error_tol, atol=error_tol)
 
   def test_correctness_2_factor_batch_fd(self):
     """Tests finite difference valuation for a batch."""
@@ -593,10 +588,10 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
 
     quantlib_price = [0.5900860719515227, 0.8029012153434956]
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [2, 1])
+    self.assertAllEqual(price.shape, [2])
     price = self.evaluate(price)
     self.assertAllClose(
-        price, [[quantlib_price[0]], [quantlib_price[1]]],
+        price, [quantlib_price[0], quantlib_price[1]],
         rtol=error_tol,
         atol=error_tol)
 
@@ -637,10 +632,10 @@ class HJMSwaptionTest(parameterized.TestCase, tf.test.TestCase):
 
     very_approximate_benchmark = 0.56020399
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [2, 1])
+    self.assertAllEqual(price.shape, [2])
     price = self.evaluate(price)
     self.assertAllClose(
-        price, [[very_approximate_benchmark], [very_approximate_benchmark]],
+        price, [very_approximate_benchmark, very_approximate_benchmark],
         rtol=error_tol,
         atol=error_tol)
 

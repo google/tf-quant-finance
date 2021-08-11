@@ -15,14 +15,21 @@
 
 """Vector of correlated Hull-White models with time-dependent parameters."""
 
+from typing import Callable, Union, Tuple
+
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
 from tf_quant_finance.math import gradient
 from tf_quant_finance.math import piecewise
-from tf_quant_finance.math import random_ops as random
+from tf_quant_finance.math import random
 from tf_quant_finance.models import euler_sampling
 from tf_quant_finance.models import generic_ito_process
 from tf_quant_finance.models import utils
+
+__all__ = [
+    'VectorHullWhiteModel'
+]
 
 
 class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
@@ -129,14 +136,15 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
     Volume II: Term Structure Models.
   """
 
-  def __init__(self,
-               dim,
-               mean_reversion,
-               volatility,
-               initial_discount_rate_fn,
-               corr_matrix=None,
-               dtype=None,
-               name=None):
+  def __init__(
+      self,
+      dim: int,
+      mean_reversion: Union[types.RealTensor, Callable[..., types.RealTensor]],
+      volatility: Union[types.RealTensor, Callable[..., types.RealTensor]],
+      initial_discount_rate_fn: Callable[..., types.RealTensor],
+      corr_matrix: types.RealTensor = None,
+      dtype: tf.DType = None,
+      name: str = None):
     """Initializes the Correlated Hull-White Model.
 
     Args:
@@ -148,10 +156,10 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
           `tff.math.piecewise.PiecewiseConstantFunc`) that has a property
           `is_piecewise_constant` set to `True`. In this case the object
           should have a method `jump_locations(self)` that returns a
-          `Tensor` of shape `[dim, num_jumps]` or `[num_jumps]`
-          In the first case, `mean_reversion(t)` should return a `Tensor`
-          of shape `[dim] + t.shape`, and in the second, `t.shape + [dim]`,
-          where `t` is a rank 1 `Tensor` of the same `dtype` as the output.
+          `Tensor` of shape `[dim, num_jumps]`. `mean_reversion(t)` should
+          return a `Tensor` of shape `[dim, num_points]` where `t` is either a
+          rank 1 `Tensor` of shape [num_points] or a `Tensor` of shape
+          `[dim, num_points]`. Here `num_points` is arbitrary number of points.
           See example in the class docstring.
          (b) A callable that accepts scalars (stands for time `t`) and returns a
          `Tensor` of shape `[dim]`.
@@ -172,8 +180,8 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
           `is_piecewise_constant` set to `True`. In this case the object
           should have a method `jump_locations(self)` that returns a
           `Tensor` of shape `[num_jumps]`. `corr_matrix(t)` should return a
-          `Tensor` of shape `t.shape + [dim]`, where `t` is a rank 1 `Tensor`
-          of the same `dtype` as the output.
+          `Tensor` of shape `t.shape + [dim, dim]`, where `t` is a rank 1
+          `Tensor` of the same `dtype` as the output.
          (b) A callable that accepts scalars (stands for time `t`) and returns a
          `Tensor` of shape `[dim, dim]`.
         Corresponds to the correlation matrix `Rho`.
@@ -196,6 +204,8 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       # If the parameter is callable but not a piecewise constant use
       # generic sampling method (e.g., Euler).
       self._sample_with_generic = False
+      # A flag to identify whether all parameters are piecewise constants
+      self._is_piecewise_constant = True
       def _instant_forward_rate_fn(t):
         t = tf.convert_to_tensor(t, dtype=self._dtype)
         def _log_zero_coupon_bond(x):
@@ -226,27 +236,39 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
 
       self._instant_forward_rate_fn = _instant_forward_rate_fn
       self._initial_discount_rate_fn = _initial_discount_rate_fn
-      self._mean_reversion, sample_with_generic = _input_type(
+      (
+          self._mean_reversion, sample_with_generic, is_piecewise_constant
+      ) = _input_type(
           mean_reversion, dim=dim, dtype=dtype, name='mean_reversion')
 
       # Update flag to whether to sample with a generic sampler.
       self._sample_with_generic |= sample_with_generic
+      # Update flag to whether all parameters are piecewise constant.
+      self._is_piecewise_constant &= is_piecewise_constant
       # Get the volatility type
-      self._volatility, sample_with_generic = _input_type(
+      (
+          self._volatility, sample_with_generic, is_piecewise_constant
+      ) = _input_type(
           volatility, dim=dim, dtype=dtype, name='volatility')
 
       # Update flag to whether to sample with a generic sampler.
       self._sample_with_generic |= sample_with_generic
+      # Update flag to whether all parameters are piecewise constant.
+      self._is_piecewise_constant &= is_piecewise_constant
       if corr_matrix is not None:
         # Get correlation matrix type
-        self._corr_matrix, sample_with_generic = _input_type(
+        (
+            self._corr_matrix, sample_with_generic, is_piecewise_constant
+        ) = _input_type(
             corr_matrix, dim=dim, dtype=dtype, name='corr_matrix')
         # Update flag to whether to sample with a generic sampler.
         self._sample_with_generic |= sample_with_generic
+        # Update flag to whether all parameters are piecewise constant.
+        self._is_piecewise_constant &= is_piecewise_constant
       else:
         self._corr_matrix = None
 
-      if not self._sample_with_generic:
+      if self._is_piecewise_constant:
         self._exact_discretization_setup(dim)
 
     # Volatility function
@@ -285,24 +307,27 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                                                self._dtype, name)
 
   @property
-  def mean_reversion(self):
+  def mean_reversion(
+      self) -> Union[types.RealTensor, Callable[..., types.RealTensor]]:
     return self._mean_reversion
 
   @property
-  def volatility(self):
+  def volatility(
+      self) -> Union[types.RealTensor, Callable[..., types.RealTensor]]:
     return self._volatility
 
-  def sample_paths(self,
-                   times,
-                   num_samples=1,
-                   random_type=None,
-                   seed=None,
-                   skip=0,
-                   time_step=None,
-                   times_grid=None,
-                   normal_draws=None,
-                   validate_args=False,
-                   name=None):
+  def sample_paths(
+      self,
+      times: types.RealTensor,
+      num_samples: types.IntTensor,
+      random_type: random.RandomType = None,
+      seed: types.IntTensor = None,
+      skip: types.IntTensor = 0,
+      time_step: types.RealTensor = None,
+      times_grid: types.RealTensor = None,
+      normal_draws: types.RealTensor = None,
+      validate_args: bool = False,
+      name: str = None) -> types.RealTensor:
     """Returns a sample of paths from the correlated Hull-White process.
 
     Uses exact sampling if `self.mean_reversion` is constant and
@@ -425,17 +450,18 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
 
   def sample_discount_curve_paths(
       self,
-      times,
-      curve_times,
-      num_samples=1,
-      random_type=None,
-      seed=None,
-      skip=0,
-      time_step=None,
-      times_grid=None,
-      normal_draws=None,
-      validate_args=False,
-      name=None):
+      times: types.RealTensor,
+      curve_times: types.RealTensor,
+      num_samples: types.IntTensor = 1,
+      random_type: random.RandomType = None,
+      seed: types.IntTensor = None,
+      skip: types.IntTensor = 0,
+      time_step: types.RealTensor = None,
+      times_grid: types.RealTensor = None,
+      normal_draws: types.RealTensor = None,
+      validate_args: bool = False,
+      name: str = None
+      ) -> Tuple[types.RealTensor, types.RealTensor]:
     """Returns a sample of simulated discount curves for the Hull-white model.
 
     ### References:
@@ -511,7 +537,13 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       tf.errors.InvalidArgumentError: If `normal_draws` is supplied and the
         number of time steps implied by `times_grid` or `times_step` is
         mismatched.
+        (e) If any of the parameters `mean_reversion`, `volatility`,
+          `corr_matrix` is a generic callable.
     """
+    # Parameters must be piecewise constants for now
+    if not self._is_piecewise_constant:
+      raise ValueError('All paramaters `mean_reversion`, `volatility`, and '
+                       '`corr_matrix`must be piecewise constant functions.')
     name = name or self._name + '_sample_discount_curve_paths'
     with tf.name_scope(name):
       times = tf.convert_to_tensor(times, self._dtype, name='times')
@@ -559,7 +591,12 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                                        mean_reversion, short_rate,
                                        y_t), rate_paths
 
-  def discount_bond_price(self, short_rate, times, maturities, name=None):
+  def discount_bond_price(
+      self,
+      short_rate: types.RealTensor,
+      times: types.RealTensor,
+      maturities: types.RealTensor,
+      name: str = None) -> types.RealTensor:
     """Returns zero-coupon bond prices `P(t,T)` conditional on `r(t)`.
 
     Args:
@@ -597,7 +634,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
           times, maturities, mean_reversion, short_rate, y_t)
       return values
 
-  def instant_forward_rate(self, t):
+  def instant_forward_rate(self, t: types.RealTensor) -> types.RealTensor:
     """Returns the instantaneous forward rate."""
     return self._instant_forward_rate_fn(t)
 
@@ -762,23 +799,43 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   def _exact_discretization_setup(self, dim):
     """Initial setup for efficient computations."""
     self._zero_padding = tf.zeros((dim, 1), dtype=self._dtype)
-    self._jump_locations = tf.concat(
-        [self._volatility.jump_locations(),
-         self._mean_reversion.jump_locations()], axis=-1)
-    self._jump_values_vol = self._volatility(self._jump_locations)
-    self._jump_values_mr = self._mean_reversion(self._jump_locations)
-    if dim == 1:
-      self._padded_knots = tf.concat([
-          self._zero_padding,
-          tf.expand_dims(self._jump_locations[:-1], axis=0)
-      ], axis=1)
-      self._jump_values_vol = tf.expand_dims(self._jump_values_vol, axis=0)
-      self._jump_values_mr = tf.expand_dims(self._jump_values_mr, axis=0)
-      self._jump_locations = tf.expand_dims(self._jump_locations, axis=0)
-
+    # Shape [dim, num_vol_jumps]
+    volatility_jumps = self._zero_padding + self._volatility.jump_locations()
+    # Shape [dim, num_mean_rev_jumps]
+    mean_reversion_jumps = (self._zero_padding
+                            + self._mean_reversion.jump_locations())
+    if self._corr_matrix is None:
+      self._jump_locations = tf.concat(
+          [volatility_jumps,
+           mean_reversion_jumps], axis=-1)
     else:
-      self._padded_knots = tf.concat(
-          [self._zero_padding, self._jump_locations[:, :-1]], axis=1)
+      # Shape [dim, num_corr_jumps]
+      corr_matrix_jumps = (self._zero_padding
+                           + self._corr_matrix.jump_locations())
+      self._jump_locations = tf.concat(
+          [volatility_jumps,
+           mean_reversion_jumps,
+           corr_matrix_jumps], axis=-1)
+    self._jump_locations = tf.sort(self._jump_locations)
+    # Shape [dim, num_points]
+    if dim > 1:
+      self._jump_values_vol = self._volatility(self._jump_locations)
+    else:
+      # Allow piecewise constant functions with no batch_shape when dim == 1
+      self._jump_values_vol = (self._zero_padding
+                               + self._volatility(self._jump_locations[0]))
+    # Shape [dim, num_points]
+    if dim > 1:
+      self._jump_values_mr = self._mean_reversion(self._jump_locations)
+    else:
+      # Allow piecewise constant functions with no batch_shape when dim == 1
+      self._jump_values_mr = (self._zero_padding
+                              + self._mean_reversion(self._jump_locations[0]))
+    # Shape [dim, num_points]
+    self._padded_knots = tf.concat([
+        self._zero_padding,
+        self._jump_locations[..., :-1]
+    ], axis=1)
 
   def _compute_yt(self, t, mr_t, sigma_t):
     """Computes y(t) as described in [1], section 10.1.6.1."""
@@ -884,13 +941,14 @@ def _get_parameters(times, *params):
   """Gets parameter values at at specified `times`."""
   res = []
   for param in params:
-    if isinstance(param, piecewise.PiecewiseConstantFunc):
+    if hasattr(param, 'is_piecewise_constant') and param.is_piecewise_constant:
       jump_locations = param.jump_locations()
-      if len(jump_locations.shape) > 1:
-        # If `jump_locations` has batch dimension, transpose the result
+      if jump_locations.shape.rank > 1:
         # Shape [num_times, dim]
         res.append(tf.transpose(param(times)))
       else:
+        # When rank is 1, this means that this is a correlation matrix parameter
+        # and no transpose is necessary
         # Shape [num_times, dim]
         res.append(param(times))
     elif callable(param):
@@ -960,14 +1018,16 @@ def _input_type(param, dim, dtype, name):
   # If the parameter is callable but not a piecewise constant use
   # generic sampling method (e.g., Euler).
   sample_with_generic = False
+  is_piecewise_constant = True
   if hasattr(param, 'is_piecewise_constant'):
     if param.is_piecewise_constant:
-      jumps_shape = param.jump_locations().shape
-      if len(jumps_shape) > 2:
+      jump_locations = param.jump_locations()
+      jumps_shape = jump_locations.shape
+      if jumps_shape.rank > 2:
         raise ValueError(
             'Batch rank of `jump_locations` should be `1` for all piecewise '
             'constant arguments but {} instead'.format(len(jumps_shape[:-1])))
-      if len(jumps_shape) == 2:
+      if jumps_shape.rank == 2:
         if dim != jumps_shape[0]:
           raise ValueError(
               'Batch shape of `jump_locations` should be either empty or '
@@ -975,21 +1035,28 @@ def _input_type(param, dim, dtype, name):
       if name == 'mean_reversion' and jumps_shape[0] > 0:
         # Exact discretization currently not supported with time-dependent mr
         sample_with_generic = True
-      return param, sample_with_generic
+      return param, sample_with_generic, is_piecewise_constant
     else:
+      is_piecewise_constant = False
       sample_with_generic = True
   elif callable(param):
+    is_piecewise_constant = False
     sample_with_generic = True
   else:
     # Otherwise, input is a `Tensor`, return a `PiecewiseConstantFunc`.
     param = tf.convert_to_tensor(param, dtype=dtype, name=name)
     param_shape = param.shape.as_list()
     param_rank = param.shape.rank
-    if param_shape[-1] != dim:
-      # This is an error, we need as many parameters as the number of `dim`
-      raise ValueError(
-          'Length of {} ({}) should be the same as `dims`({}).'.format(
-              name, param_shape[0], dim))
+    # If `param` is not a scalar, check that it is of correct shape
+    if param_shape:
+      if param_shape[-1] != dim:
+        # This is an error, we need as many parameters as the number of `dim`
+        raise ValueError(
+            'Length of {} ({}) should be the same as `dims`({}).'.format(
+                name, param_shape[0], dim))
+    else:
+      # Broadcast scalar to shape [1]
+      param = param[tf.newaxis]
     if param_rank == 2:
       # This is when the parameter is a correlation matrix
       jump_locations = []
@@ -1001,4 +1068,4 @@ def _input_type(param, dim, dtype, name):
         jump_locations=jump_locations, values=values,
         dtype=dtype)
 
-  return param, sample_with_generic
+  return param, sample_with_generic, is_piecewise_constant

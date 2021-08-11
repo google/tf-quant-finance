@@ -13,29 +13,37 @@
 # limitations under the License.
 """Pricing of Interest rate Caps/Floors using Heath-Jarrow-Morton model."""
 
+from typing import Callable, Union
+
 import tensorflow.compat.v2 as tf
+
+from tf_quant_finance import types
+from tf_quant_finance.math import random
 from tf_quant_finance.models.hjm import zero_coupon_bond_option as zcb
 
+__all__ = ['cap_floor_price']
 
-def cap_floor_price(*,
-                    strikes,
-                    expiries,
-                    maturities,
-                    daycount_fractions,
-                    reference_rate_fn,
-                    dim,
-                    mean_reversion,
-                    volatility,
-                    corr_matrix=None,
-                    notional=1.0,
-                    is_cap=True,
-                    num_samples=1,
-                    random_type=None,
-                    seed=None,
-                    skip=0,
-                    time_step=None,
-                    dtype=None,
-                    name=None):
+
+def cap_floor_price(
+    *,
+    strikes: types.RealTensor,
+    expiries: types.RealTensor,
+    maturities: types.RealTensor,
+    daycount_fractions: types.RealTensor,
+    reference_rate_fn: Callable[..., types.RealTensor],
+    dim: int,
+    mean_reversion: types.RealTensor,
+    volatility: Union[types.RealTensor, Callable[..., types.RealTensor]],
+    corr_matrix: types.RealTensor = None,
+    notional: types.RealTensor = 1.0,
+    is_cap: types.BoolTensor = True,
+    num_samples: types.IntTensor = 1,
+    random_type: random.RandomType = None,
+    seed: types.IntTensor = None,
+    skip: types.IntTensor = 0,
+    time_step: types.RealTensor = None,
+    dtype: tf.DType = None,
+    name: str = None) -> types.RealTensor:
   """Calculates the prices of interest rate Caps/Floors using the HJM model.
 
   An interest Cap (or Floor) is a portfolio of call (or put) options where the
@@ -175,7 +183,7 @@ def cap_floor_price(*,
         `hjm_cap_floor_price`.
 
   Returns:
-    A `Tensor` of real dtype and shape  strikes.shape[:-1] + [dim] containing
+    A `Tensor` of real dtype and shape  strikes.shape[:-1] containing
     the computed option prices. For caplets that have reset in the past
     (expiries<0), the function sets the corresponding caplet prices to 0.0.
   """
@@ -193,7 +201,7 @@ def cap_floor_price(*,
     is_call_options = ~is_cap
     bond_option_strikes = 1.0 / (1.0 + daycount_fractions * strikes)
 
-    # The dimension of `caplet_prices` is going to be strikes.shape + [dim]
+    # The dimension of `caplet_prices` is going to be strikes.shape
     caplet_prices = zcb.bond_option_price(
         strikes=bond_option_strikes,
         expiries=expiries,
@@ -212,18 +220,10 @@ def cap_floor_price(*,
         dtype=dtype,
         name=name + '_bond_option')
 
-    # Make sure we have the proper output shape when single cap is valued.
-    keep_dims = expiries.shape.rank <= 1
-
-    # Expand dims because `caplet_prices` has an additional dimension.
-    expiries = tf.expand_dims(expiries, axis=-1)
-    strikes = tf.expand_dims(strikes, axis=-1)
-    daycount_fractions = tf.expand_dims(daycount_fractions, axis=-1)
     caplet_prices = tf.where(
         expiries < 0.0, tf.zeros_like(expiries), caplet_prices)
 
-    axis_to_aggregate = caplet_prices.shape.rank - 2
     cap_prices = tf.math.reduce_sum(
         notional * (1.0 + daycount_fractions * strikes) * caplet_prices,
-        axis=axis_to_aggregate, keepdims=keep_dims)
+        axis=-1)
     return cap_prices

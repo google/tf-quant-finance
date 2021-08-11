@@ -173,7 +173,7 @@ class SwaptionTest(tf.test.TestCase, parameterized.TestCase):
         swap, self._expiry_date_batch, config=self._swaption_config,
         dtype=dtype)
     price = self.evaluate(swaption.price(self._market))
-    np.testing.assert_allclose(price, [[1.38594754], [1.38594754]], atol=1e-6)
+    np.testing.assert_allclose(price, [1.38594754, 1.38594754], atol=1e-6)
 
   @parameterized.named_parameters(
       ('DoublePrecision', np.float64),
@@ -192,7 +192,7 @@ class SwaptionTest(tf.test.TestCase, parameterized.TestCase):
         [self._swaption_proto, self._swaption_proto],
         config=self._swaption_config)
     price = self.evaluate(swaption[0].price(self._market))
-    np.testing.assert_allclose(price, [[1.38594754], [1.38594754]], atol=1e-6)
+    np.testing.assert_allclose(price, [1.38594754, 1.38594754], atol=1e-6)
 
 if __name__ == '__main__':
   tf.test.main()

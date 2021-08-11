@@ -204,7 +204,7 @@ class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
 
     prices = self.evaluate(prices)
     self.assertAllClose(
-        prices[:, 0], self.prices[:num_instruments], rtol=0.1, atol=0.1)
+        prices, self.prices[:num_instruments], rtol=0.1, atol=0.1)
 
   @parameterized.named_parameters(
       {
@@ -307,7 +307,7 @@ class HJMCalibrationTest(parameterized.TestCase, tf.test.TestCase):
 
     prices = self.evaluate(prices)
     with self.subTest('CalibratedPrices'):
-      self.assertAllClose(prices[..., 0], prices_2d, rtol=0.1, atol=0.1)
+      self.assertAllClose(prices, prices_2d, rtol=0.1, atol=0.1)
 
 
 if __name__ == '__main__':
