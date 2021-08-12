@@ -462,8 +462,8 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
 
       self.assertEqual(paths.dtype, dtype)
 
-  def test_sample_shape_mismatch(self):
-    """Error is raised if `dim` is mismatched with the one from normal_draws."""
+  def test_wrong_times(self):
+    """Error is raised if `times` or `times_grid` is not increasing."""
     dtype = tf.float64
     def drift_fn(_, x):
       return tf.zeros_like(x)
@@ -471,7 +471,21 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
     def vol_fn(_, x):
       return tf.expand_dims(tf.ones_like(x), -1)
 
-    with self.subTest('WrongNumTimeSteps'):
+    with self.subTest('WrongTimes'):
+      with self.assertRaises(tf.errors.InvalidArgumentError):
+        times_grid = [0.1, 0.5, 1.0]
+        normal_draws = tf.random.stateless_normal(
+            shape=[100, 5, 1], seed=[1, 1], dtype=dtype)
+        self.evaluate(
+            euler_sampling.sample(
+                dim=1, drift_fn=drift_fn, volatility_fn=vol_fn,
+                times=[0.1, 0.5, 1.0],
+                normal_draws=normal_draws,
+                times_grid=times_grid,
+                seed=42,
+                validate_args=True,
+                dtype=dtype))
+    with self.subTest('WrongTimesGrid'):
       with self.assertRaises(tf.errors.InvalidArgumentError):
         times_grid = [0.1, 0.5, 1.0]
         normal_draws = tf.random.stateless_normal(
@@ -486,19 +500,36 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
                 validate_args=True,
                 dtype=dtype))
 
-    with self.subTest('WrongDim'):
-      with self.assertRaises(ValueError):
-        times_grid = [0.1, 0.5, 1.0]
-        normal_draws = tf.random.normal(
-            shape=[100, 3, 2], dtype=dtype)
-        euler_sampling.sample(
+  def test_sample_shape_mismatch(self):
+    """Error is raised if `dim` is mismatched with the one from normal_draws."""
+    dtype = tf.float64
+    def drift_fn(_, x):
+      return tf.zeros_like(x)
+
+    def vol_fn(_, x):
+      return tf.expand_dims(tf.ones_like(x), -1)
+
+    with self.subTest('WrongTimes'):
+      with self.assertRaises(tf.errors.InvalidArgumentError):
+        self.evaluate(
+            euler_sampling.sample(
+                dim=1, drift_fn=drift_fn, volatility_fn=vol_fn,
+                times=[0.1, 0.5, 2.0, 1.0],
+                time_step=0.01,
+                seed=42,
+                validate_args=True,
+                dtype=dtype))
+
+    with self.subTest('WrongTimesGrid'):
+      with self.assertRaises(tf.errors.InvalidArgumentError):
+        times_grid = [0.1, 0.5, 1.0, 1.0]
+        self.evaluate(euler_sampling.sample(
             dim=1, drift_fn=drift_fn, volatility_fn=vol_fn,
             times=[0.1, 0.5, 1.0],
-            normal_draws=normal_draws,
             times_grid=times_grid,
             seed=42,
-            validate_args=False,  # Should always check for the correct `dim`
-            dtype=dtype)
+            validate_args=True,
+            dtype=dtype))
 
 if __name__ == '__main__':
   tf.test.main()

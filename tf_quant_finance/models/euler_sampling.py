@@ -14,31 +14,37 @@
 # limitations under the License.
 """The Euler sampling method for ito processes."""
 
+from typing import Callable, List
+
 import tensorflow.compat.v2 as tf
+
+from tf_quant_finance import types
+from tf_quant_finance import utils as tff_utils
 from tf_quant_finance.math import custom_loops
-from tf_quant_finance.math import random_ops as random
+from tf_quant_finance.math import random
 from tf_quant_finance.models import utils
 
 
-def sample(dim,
-           drift_fn,
-           volatility_fn,
-           times,
-           time_step=None,
-           num_time_steps=None,
-           num_samples=1,
-           initial_state=None,
-           random_type=None,
-           seed=None,
-           swap_memory=True,
-           skip=0,
-           precompute_normal_draws=True,
-           times_grid=None,
-           normal_draws=None,
-           watch_params=None,
-           validate_args=False,
-           dtype=None,
-           name=None):
+def sample(dim: int,
+           drift_fn: Callable[..., types.RealTensor],
+           volatility_fn: Callable[..., types.RealTensor],
+           times: types.RealTensor,
+           time_step: types.RealTensor = None,
+           num_time_steps: types.IntTensor = None,
+           num_samples: types.IntTensor = 1,
+           initial_state: types.RealTensor = None,
+           random_type: random.RandomType = None,
+           seed: types.IntTensor = None,
+           swap_memory: bool = True,
+           skip: types.IntTensor = 0,
+           precompute_normal_draws: bool = True,
+           times_grid: types.RealTensor = None,
+           normal_draws: types.RealTensor = None,
+           watch_params: List[types.RealTensor] = None,
+           validate_args: bool = False,
+           tolerance: types.RealTensor = None,
+           dtype: tf.DType = None,
+           name: str = None) -> types.RealTensor:
   """Returns a sample paths from the process using Euler method.
 
   For an Ito process,
@@ -192,11 +198,19 @@ def sample(dim,
       Note the the function becomes differentiable onlhy wrt to these `Tensor`s
       and the `initial_state`. The gradient wrt any other `Tensor` is set to be
       zero.
-    validate_args: Python `bool`. When `True` and `normal_draws` are supplied,
-      checks that `tf.shape(normal_draws)[1]` is equal to `num_time_steps` that
-      is either supplied as an argument or computed from `time_step`.
+    validate_args: Python `bool`. When `True` performs multiple checks:
+      * That `times`  are increasing with the minimum increments of the
+        specified tolerance.
+      * If `normal_draws` are supplied, checks that `normal_draws.shape[1]` is
+      equal to `num_time_steps` that is either supplied as an argument or
+      computed from `time_step`.
       When `False` invalid dimension may silently render incorrect outputs.
       Default value: `False`.
+    tolerance: A non-negative scalar `Tensor` specifying the minimum tolerance
+      for discernible times on the time grid. Times that are closer than the
+      tolerance are perceived to be the same.
+      Default value: `None` which maps to `1-e6` if the for single precision
+        `dtype` and `1e-10` for double precision `dtype`.
     dtype: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
       Default value: None which means that the dtype implied by `times` is
       used.
@@ -220,12 +234,22 @@ def sample(dim,
     times = tf.convert_to_tensor(times, dtype=dtype)
     if dtype is None:
       dtype = times.dtype
+    asserts = []
+    if tolerance is None:
+      tolerance = 1e-10 if dtype == tf.float64 else 1e-6
+    tolerance = tf.convert_to_tensor(tolerance, dtype=dtype)
+    if validate_args:
+      asserts.append(
+          tf.assert_greater(
+              times[1:], times[:-1] + tolerance,
+              message='`times` increments should be greater '
+                      'than tolerance {0}'.format(tolerance)))
     if initial_state is None:
       initial_state = tf.zeros(dim, dtype=dtype)
     initial_state = tf.convert_to_tensor(initial_state, dtype=dtype,
                                          name='initial_state')
-    batch_shape = tf.shape(initial_state)[:-2]
-    num_requested_times = tf.shape(times)[0]
+    batch_shape = tff_utils.get_shape(initial_state)[:-2]
+    num_requested_times = tff_utils.get_shape(times)[0]
     # Create a time grid for the Euler scheme.
     if num_time_steps is not None and time_step is not None:
       raise ValueError(
@@ -246,12 +270,20 @@ def sample(dim,
     else:
       times_grid = tf.convert_to_tensor(times_grid, dtype=dtype,
                                         name='times_grid')
+      if validate_args:
+        asserts.append(
+            tf.assert_greater(
+                times_grid[1:], times_grid[:-1] + tolerance,
+                message='`times_grid` increments should be greater '
+                        'than tolerance {0}'.format(tolerance)))
     times, keep_mask, time_indices = utils.prepare_grid(
         times=times,
         time_step=time_step,
         num_time_steps=num_time_steps,
         times_grid=times_grid,
+        tolerance=tolerance,
         dtype=dtype)
+
     if normal_draws is not None:
       normal_draws = tf.convert_to_tensor(normal_draws, dtype=dtype,
                                           name='normal_draws')
@@ -268,13 +300,14 @@ def sample(dim,
             '`dim` should be equal to `normal_draws.shape[2]` but are '
             '{0} and {1} respectively'.format(dim, draws_dim))
       if validate_args:
-        draws_times = tf.shape(normal_draws)[0]
-        asserts = tf.assert_equal(
+        draws_times = tff_utils.get_shape(normal_draws)[0]
+        asserts.append(tf.assert_equal(
             draws_times, tf.shape(keep_mask)[0] - 1,
             message='`num_time_steps` should be equal to '
-                    '`tf.shape(normal_draws)[1]`')
-        with tf.compat.v1.control_dependencies([asserts]):
-          normal_draws = tf.identity(normal_draws)
+                    '`tf.shape(normal_draws)[1]`'))
+    if validate_args:
+      with tf.control_dependencies(asserts):
+        times = tf.identity(times)
     if watch_params is not None:
       watch_params = [tf.convert_to_tensor(param, dtype=dtype)
                       for param in watch_params]
@@ -322,10 +355,7 @@ def _sample(*,
   sqrt_dt = tf.sqrt(dt)
   # current_state.shape = batch_shape + [num_samples, dim]
   current_state = initial_state + tf.zeros([num_samples, dim], dtype=dtype)
-  if dt.shape.is_fully_defined():
-    steps_num = dt.shape.as_list()[-1]
-  else:
-    steps_num = tf.shape(dt)[-1]
+  steps_num = tff_utils.get_shape(dt)[-1]
   wiener_mean = None
   if normal_draws is None:
     # In order to use low-discrepancy random_type we need to generate the
@@ -351,14 +381,15 @@ def _sample(*,
   if watch_params is None:
     # Use while_loop if `watch_params` is not passed
     return  _while_loop(
-        dim=dim, batch_shape=batch_shape, steps_num=steps_num,
+        steps_num=steps_num,
         current_state=current_state,
         drift_fn=drift_fn, volatility_fn=volatility_fn, wiener_mean=wiener_mean,
         num_samples=num_samples, times=times,
         dt=dt, sqrt_dt=sqrt_dt, keep_mask=keep_mask,
         num_requested_times=num_requested_times,
         swap_memory=swap_memory,
-        random_type=random_type, seed=seed, normal_draws=normal_draws)
+        random_type=random_type, seed=seed, normal_draws=normal_draws,
+        dtype=dtype)
   else:
     # Use custom for_loop if `watch_params` is specified
     return _for_loop(
@@ -371,11 +402,27 @@ def _sample(*,
         random_type=random_type, seed=seed, normal_draws=normal_draws)
 
 
-def _while_loop(*, dim, batch_shape, steps_num, current_state,
+def _while_loop(*, steps_num, current_state,
                 drift_fn, volatility_fn, wiener_mean,
                 num_samples, times, dt, sqrt_dt, num_requested_times,
-                keep_mask, swap_memory, random_type, seed, normal_draws):
+                keep_mask, swap_memory, random_type, seed, normal_draws, dtype):
   """Smaple paths using tf.while_loop."""
+
+  written_count = 0
+  if isinstance(num_requested_times, int) and num_requested_times == 1:
+    result = current_state
+    record_samples = False
+  else:
+    element_shape = current_state.shape
+    result = tf.TensorArray(dtype=dtype,
+                            size=num_requested_times,
+                            element_shape=element_shape,
+                            clear_after_read=False)
+    record_samples = True
+    # Include initial state, if necessary
+    result = result.write(written_count, current_state)
+  written_count += tf.cast(keep_mask[0], dtype=tf.int32)
+  # Define sampling while_loop body function
   cond_fn = lambda i, *args: i < steps_num
   def step_fn(i, written_count, current_state, result):
     return _euler_step(
@@ -393,24 +440,22 @@ def _while_loop(*, dim, batch_shape, steps_num, current_state,
         keep_mask=keep_mask,
         random_type=random_type,
         seed=seed,
-        normal_draws=normal_draws)
-  # Include initial state, if necessary
-  result_shape = tf.concat(
-      [batch_shape, [num_samples, num_requested_times, dim]], axis=0)
-  result = tf.zeros(result_shape, dtype=current_state.dtype)
-  result = utils.maybe_update_along_axis(
-      tensor=result,
-      do_update=keep_mask[0],
-      ind=0,
-      axis=result.shape.rank - 2,
-      new_tensor=tf.expand_dims(current_state, axis=-2))
-  written_count = tf.cast(keep_mask[0], dtype=tf.int32)
+        normal_draws=normal_draws,
+        record_samples=record_samples)
   # Sample paths
   _, _, _, result = tf.while_loop(
       cond_fn, step_fn, (0, written_count, current_state, result),
       maximum_iterations=steps_num,
       swap_memory=swap_memory)
-  return result
+  if isinstance(num_requested_times, int) and num_requested_times == 1:
+    # shape batch_shape + [num_samples, 1, dim]
+    return tf.expand_dims(result, axis=-2)
+  # Shape [num_time_points] + batch_shape + [num_samples, dim]
+  result = result.stack()
+  # transpose to shape batch_shape + [num_samples, num_time_points, dim]
+  n = result.shape.rank
+  perm = list(range(1, n-1)) + [0, n - 1]
+  return tf.transpose(result, perm)
 
 
 def _for_loop(*, batch_shape, steps_num, current_state,
@@ -420,7 +465,7 @@ def _for_loop(*, batch_shape, steps_num, current_state,
   """Smaple paths using custom for_loop."""
   del batch_shape
   num_time_points = time_indices.shape.as_list()[-1]
-  if num_time_points == 1:
+  if isinstance(num_time_points, int) and num_time_points == 1:
     iter_nums = steps_num
   else:
     iter_nums = time_indices
@@ -431,7 +476,7 @@ def _for_loop(*, batch_shape, steps_num, current_state,
         i=i,
         written_count=0,
         current_state=current_state,
-        result=tf.expand_dims(current_state, axis=-2),
+        result=current_state,
         drift_fn=drift_fn,
         volatility_fn=volatility_fn,
         wiener_mean=wiener_mean,
@@ -442,7 +487,8 @@ def _for_loop(*, batch_shape, steps_num, current_state,
         keep_mask=keep_mask,
         random_type=random_type,
         seed=seed,
-        normal_draws=normal_draws)
+        normal_draws=normal_draws,
+        record_samples=False)
     return [next_state]
   result = custom_loops.for_loop(
       body_fn=step_fn,
@@ -458,10 +504,11 @@ def _for_loop(*, batch_shape, steps_num, current_state,
   return tf.transpose(result, perm)
 
 
-def _euler_step(*, i, written_count, current_state, result,
+def _euler_step(*, i, written_count, current_state,
                 drift_fn, volatility_fn, wiener_mean,
                 num_samples, times, dt, sqrt_dt, keep_mask,
-                random_type, seed, normal_draws):
+                random_type, seed, normal_draws, result,
+                record_samples):
   """Performs one step of Euler scheme."""
   current_time = times[i + 1]
   written_count = tf.cast(written_count, tf.int32)
@@ -475,13 +522,12 @@ def _euler_step(*, i, written_count, current_state, result,
   dt_inc = dt[i] * drift_fn(current_time, current_state)  # pylint: disable=not-callable
   dw_inc = tf.linalg.matvec(volatility_fn(current_time, current_state), dw)  # pylint: disable=not-callable
   next_state = current_state + dt_inc + dw_inc
-  result = utils.maybe_update_along_axis(
-      tensor=result,
-      do_update=keep_mask[i + 1],
-      ind=written_count,
-      axis=result.shape.rank - 2,
-      new_tensor=tf.expand_dims(next_state, axis=-2))
+  if record_samples:
+    result = result.write(written_count, next_state)
+  else:
+    result = next_state
   written_count += tf.cast(keep_mask[i + 1], dtype=tf.int32)
+
   return i + 1, written_count, next_state, result
 
 
