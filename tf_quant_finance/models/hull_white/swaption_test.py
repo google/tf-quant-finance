@@ -229,10 +229,10 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         mean_reversion=self.mean_reversion_1d,
         volatility=self.volatility_1d,
         use_analytic_pricing=use_analytic_pricing,
-        num_samples=500000,
+        num_samples=500_000,
         time_step=0.1,
-        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
-        seed=0,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        seed=[4, 2],
         dtype=dtype)
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [2])
@@ -248,7 +248,7 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
       }, {
           'testcase_name': 'simulation',
           'use_analytic_pricing': False,
-          'error_tol': 1e-3,
+          'error_tol': 1e-2,
       })
   def test_1d_batch_1d_notional(self, use_analytic_pricing, error_tol):
     """Tests 1-d batch with different notionals."""
@@ -267,10 +267,10 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         mean_reversion=self.mean_reversion_1d,
         volatility=self.volatility_1d,
         use_analytic_pricing=use_analytic_pricing,
-        num_samples=500000,
+        num_samples=100_000,
         time_step=0.1,
-        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
-        seed=0,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        seed=[4, 2],
         dtype=dtype)
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [2])
@@ -307,8 +307,8 @@ class HullWhiteSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         use_analytic_pricing=use_analytic_pricing,
         num_samples=500000,
         time_step=0.1,
-        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
-        seed=0,
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        seed=[4, 2],
         dtype=dtype)
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [2, 2])

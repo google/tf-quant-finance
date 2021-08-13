@@ -101,6 +101,8 @@ py_library(
         "//tf_quant_finance/math:custom_loops",
         "//tf_quant_finance/math:gradient",
         "//tf_quant_finance/math/random_ops",
+        "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
         # tensorflow dep,
     ],
 )

@@ -22,6 +22,7 @@ py_library(
         "//tf_quant_finance/models:generic_ito_process",
         "//tf_quant_finance/models:utils",
         "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
         # tensorflow dep,
     ],
 )

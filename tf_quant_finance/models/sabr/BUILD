@@ -21,6 +21,8 @@ py_library(
         "//tf_quant_finance/math/random_ops",
         "//tf_quant_finance/math/root_search:newton",
         "//tf_quant_finance/models:euler_sampling",
+        "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
         # tensorflow dep,
     ],
 )

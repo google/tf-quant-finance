@@ -14,7 +14,7 @@
 # limitations under the License.
 """The Euler sampling method for ito processes."""
 
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 import tensorflow.compat.v2 as tf
 
@@ -25,26 +25,27 @@ from tf_quant_finance.math import random
 from tf_quant_finance.models import utils
 
 
-def sample(dim: int,
-           drift_fn: Callable[..., types.RealTensor],
-           volatility_fn: Callable[..., types.RealTensor],
-           times: types.RealTensor,
-           time_step: types.RealTensor = None,
-           num_time_steps: types.IntTensor = None,
-           num_samples: types.IntTensor = 1,
-           initial_state: types.RealTensor = None,
-           random_type: random.RandomType = None,
-           seed: types.IntTensor = None,
-           swap_memory: bool = True,
-           skip: types.IntTensor = 0,
-           precompute_normal_draws: bool = True,
-           times_grid: types.RealTensor = None,
-           normal_draws: types.RealTensor = None,
-           watch_params: List[types.RealTensor] = None,
-           validate_args: bool = False,
-           tolerance: types.RealTensor = None,
-           dtype: tf.DType = None,
-           name: str = None) -> types.RealTensor:
+def sample(
+    dim: int,
+    drift_fn: Callable[..., types.RealTensor],
+    volatility_fn: Callable[..., types.RealTensor],
+    times: types.RealTensor,
+    time_step: Optional[types.RealTensor] = None,
+    num_time_steps: Optional[types.IntTensor] = None,
+    num_samples: types.IntTensor = 1,
+    initial_state: Optional[types.RealTensor] = None,
+    random_type: Optional[random.RandomType] = None,
+    seed: Optional[types.IntTensor] = None,
+    swap_memory: bool = True,
+    skip: types.IntTensor = 0,
+    precompute_normal_draws: bool = True,
+    times_grid: Optional[types.RealTensor] = None,
+    normal_draws: Optional[types.RealTensor] = None,
+    watch_params: Optional[List[types.RealTensor]] = None,
+    validate_args: bool = False,
+    tolerance: Optional[types.RealTensor] = None,
+    dtype: Optional[tf.DType] = None,
+    name: Optional[str] = None) -> types.RealTensor:
   """Returns a sample paths from the process using Euler method.
 
   For an Ito process,
@@ -406,24 +407,30 @@ def _while_loop(*, steps_num, current_state,
                 drift_fn, volatility_fn, wiener_mean,
                 num_samples, times, dt, sqrt_dt, num_requested_times,
                 keep_mask, swap_memory, random_type, seed, normal_draws, dtype):
-  """Smaple paths using tf.while_loop."""
-
+  """Sample paths using tf.while_loop."""
   written_count = 0
   if isinstance(num_requested_times, int) and num_requested_times == 1:
-    result = current_state
     record_samples = False
+    result = current_state
   else:
+    # If more than one sample has to be recorded, create a TensorArray
+    record_samples = True
     element_shape = current_state.shape
     result = tf.TensorArray(dtype=dtype,
                             size=num_requested_times,
                             element_shape=element_shape,
                             clear_after_read=False)
-    record_samples = True
     # Include initial state, if necessary
     result = result.write(written_count, current_state)
   written_count += tf.cast(keep_mask[0], dtype=tf.int32)
   # Define sampling while_loop body function
-  cond_fn = lambda i, *args: i < steps_num
+  def cond_fn(i, written_count, *args):
+    # It can happen that `times_grid[-1] > times[-1]` in which case we have
+    # to terminate when `written_count` reaches `num_requested_times`
+    del args
+    return tf.math.logical_and(i < steps_num,
+                               written_count < num_requested_times)
+
   def step_fn(i, written_count, current_state, result):
     return _euler_step(
         i=i,
@@ -447,7 +454,7 @@ def _while_loop(*, steps_num, current_state,
       cond_fn, step_fn, (0, written_count, current_state, result),
       maximum_iterations=steps_num,
       swap_memory=swap_memory)
-  if isinstance(num_requested_times, int) and num_requested_times == 1:
+  if not record_samples:
     # shape batch_shape + [num_samples, 1, dim]
     return tf.expand_dims(result, axis=-2)
   # Shape [num_time_points] + batch_shape + [num_samples, dim]
@@ -462,9 +469,9 @@ def _for_loop(*, batch_shape, steps_num, current_state,
               drift_fn, volatility_fn, wiener_mean, watch_params,
               num_samples, times, dt, sqrt_dt, time_indices,
               keep_mask, random_type, seed, normal_draws):
-  """Smaple paths using custom for_loop."""
+  """Sample paths using custom for_loop."""
   del batch_shape
-  num_time_points = time_indices.shape.as_list()[-1]
+  num_time_points = time_indices.shape.as_list()[:-1]
   if isinstance(num_time_points, int) and num_time_points == 1:
     iter_nums = steps_num
   else:

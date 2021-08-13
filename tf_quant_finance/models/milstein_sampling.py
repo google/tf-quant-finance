@@ -16,10 +16,13 @@
 
 import functools
 import math
+from typing import Callable, List, Optional
 
 import numpy as np
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
+from tf_quant_finance import utils as tff_utils
 from tf_quant_finance.math import custom_loops
 from tf_quant_finance.math import gradient
 from tf_quant_finance.math import random_ops as random
@@ -30,25 +33,26 @@ _PI = math.pi
 _SQRT_2 = np.sqrt(2.)
 
 
-def sample(*,
-           dim,
-           drift_fn,
-           volatility_fn,
-           times,
-           time_step=None,
-           num_time_steps=None,
-           num_samples=1,
-           initial_state=None,
-           grad_volatility_fn=None,
-           random_type=None,
-           seed=None,
-           swap_memory=True,
-           skip=0,
-           precompute_normal_draws=True,
-           watch_params=None,
-           stratonovich_order=5,
-           dtype=None,
-           name=None):
+def sample(
+    *,
+    dim: int,
+    drift_fn: Callable[..., types.RealTensor],
+    volatility_fn: Callable[..., types.RealTensor],
+    times: types.RealTensor,
+    time_step: Optional[types.RealTensor] = None,
+    num_time_steps: Optional[types.IntTensor] = None,
+    num_samples: types.IntTensor = 1,
+    initial_state: Optional[types.RealTensor] = None,
+    grad_volatility_fn: Optional[Callable[..., List[types.RealTensor]]] = None,
+    random_type: Optional[random.RandomType] = None,
+    seed: Optional[types.IntTensor] = None,
+    swap_memory: bool = True,
+    skip: types.IntTensor = 0,
+    precompute_normal_draws: bool = True,
+    watch_params: Optional[List[types.RealTensor]] = None,
+    stratonovich_order: int = 5,
+    dtype: Optional[tf.DType] = None,
+    name: Optional[str] = None) -> types.RealTensor:
   r"""Returns a sample paths from the process using the Milstein method.
 
   For an Ito process,
@@ -188,7 +192,7 @@ def sample(*,
       initial_state = tf.zeros(dim, dtype=dtype)
     initial_state = tf.convert_to_tensor(
         initial_state, dtype=dtype, name='initial_state')
-    num_requested_times = tf.shape(times)[0]
+    num_requested_times = tff_utils.get_shape(times)[0]
     # Create a time grid for the Milstein scheme.
     if num_time_steps is not None and time_step is not None:
       raise ValueError('Only one of either `num_time_steps` or `time_step` '
@@ -323,7 +327,8 @@ def _sample(*, dim, drift_fn, volatility_fn, grad_volatility_fn, times,
         normal_draws=normal_draws,
         input_gradients=input_gradients,
         stratonovich_order=stratonovich_order,
-        aux_normal_draws=aux_normal_draws)
+        aux_normal_draws=aux_normal_draws,
+        dtype=dtype)
   else:
     # Use custom for_loop if `watch_params` is specified
     return _for_loop(
@@ -353,10 +358,30 @@ def _while_loop(*, dim, steps_num, current_state, drift_fn, volatility_fn,
                 grad_volatility_fn, wiener_mean, num_samples, times, dt,
                 sqrt_dt, time_step, num_requested_times, keep_mask, swap_memory,
                 random_type, seed, normal_draws, input_gradients,
-                stratonovich_order, aux_normal_draws):
-  """Smaple paths using tf.while_loop."""
-  cond_fn = lambda i, *args: i < steps_num
-
+                stratonovich_order, aux_normal_draws, dtype):
+  """Sample paths using tf.while_loop."""
+  written_count = 0
+  if isinstance(num_requested_times, int) and num_requested_times == 1:
+    record_samples = False
+    result = current_state
+  else:
+    # If more than one sample has to be recorded, create a TensorArray
+    record_samples = True
+    element_shape = current_state.shape
+    result = tf.TensorArray(dtype=dtype,
+                            size=num_requested_times,
+                            element_shape=element_shape,
+                            clear_after_read=False)
+    # Include initial state, if necessary
+    result = result.write(written_count, current_state)
+  written_count += tf.cast(keep_mask[0], dtype=tf.int32)
+  # Define sampling while_loop body function
+  def cond_fn(i, written_count, *args):
+    # It can happen that `times_grid[-1] > times[-1]` in which case we have
+    # to terminate when `written_count` reaches `num_requested_times`
+    del args
+    return tf.math.logical_and(i < steps_num,
+                               written_count < num_requested_times)
   def step_fn(i, written_count, current_state, result):
     return _milstein_step(
         dim=dim,
@@ -378,27 +403,26 @@ def _while_loop(*, dim, steps_num, current_state, drift_fn, volatility_fn,
         normal_draws=normal_draws,
         input_gradients=input_gradients,
         stratonovich_order=stratonovich_order,
-        aux_normal_draws=aux_normal_draws)
+        aux_normal_draws=aux_normal_draws,
+        record_samples=record_samples)
 
   maximum_iterations = (
       tf.cast(1. / time_step, dtype=tf.int32) + tf.size(times))
-  # Include initial state, if necessary
-  result = tf.zeros((num_samples, num_requested_times, dim),
-                    dtype=current_state.dtype)
-  result = utils.maybe_update_along_axis(
-      tensor=result,
-      do_update=keep_mask[0],
-      ind=0,
-      axis=1,
-      new_tensor=tf.expand_dims(current_state, axis=1))
-  written_count = tf.cast(keep_mask[0], dtype=tf.int32)
   # Sample paths
   _, _, _, result = tf.while_loop(
       cond_fn,
       step_fn, (0, written_count, current_state, result),
       maximum_iterations=maximum_iterations,
       swap_memory=swap_memory)
-  return result
+  if not record_samples:
+    # shape [num_samples, 1, dim]
+    return tf.expand_dims(result, axis=-2)
+  # Shape [num_time_points] + [num_samples, dim]
+  result = result.stack()
+  # transpose to shape [num_samples, num_time_points, dim]
+  n = result.shape.rank
+  perm = list(range(1, n-1)) + [0, n - 1]
+  return tf.transpose(result, perm)
 
 
 def _for_loop(*, dim, steps_num, current_state, drift_fn, volatility_fn,
@@ -436,7 +460,8 @@ def _for_loop(*, dim, steps_num, current_state, drift_fn, volatility_fn,
         normal_draws=normal_draws,
         input_gradients=input_gradients,
         stratonovich_order=stratonovich_order,
-        aux_normal_draws=aux_normal_draws)
+        aux_normal_draws=aux_normal_draws,
+        record_samples=False)
     return [next_state]
 
   result = custom_loops.for_loop(
@@ -573,7 +598,7 @@ def _milstein_step(*, dim, i, written_count, current_state, result, drift_fn,
                    volatility_fn, grad_volatility_fn, wiener_mean, num_samples,
                    times, dt, sqrt_dt, keep_mask, random_type, seed,
                    normal_draws, input_gradients, stratonovich_order,
-                   aux_normal_draws):
+                   aux_normal_draws, record_samples):
   """Performs one step of Milstein scheme."""
   current_time = times[i + 1]
   written_count = tf.cast(written_count, tf.int32)
@@ -639,14 +664,12 @@ def _milstein_step(*, dim, i, written_count, current_state, result, drift_fn,
         grad_vol=grad_vol,
         stratonovich_draws=stratonovich_draws,
         stratonovich_order=stratonovich_order)
-
-  result = utils.maybe_update_along_axis(
-      tensor=result,
-      do_update=keep_mask[i + 1],
-      ind=written_count,
-      axis=1,
-      new_tensor=tf.expand_dims(next_state, axis=1))
+  if record_samples:
+    result = result.write(written_count, next_state)
+  else:
+    result = next_state
   written_count += tf.cast(keep_mask[i + 1], dtype=tf.int32)
+
   return i + 1, written_count, next_state, result
 
 

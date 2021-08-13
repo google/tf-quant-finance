@@ -442,7 +442,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       y_t = tf.expand_dims(y_t, axis=self._batch_rank + 1)
 
       # Reshape `times` and `curve_times` so that they have the dimensions of
-      # ([num_smaples,num_curve_times,num_sim_times]).
+      # ([num_samples,num_curve_times,num_sim_times]).
       num_curve_nodes = tf.shape(curve_times)[0]
       num_sim_steps = tf.shape(times)[0]
       times = tf.reshape(times, (1, 1, num_sim_steps))

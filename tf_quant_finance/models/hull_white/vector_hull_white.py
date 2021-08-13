@@ -15,11 +15,12 @@
 
 """Vector of correlated Hull-White models with time-dependent parameters."""
 
-from typing import Callable, Union, Tuple
+from typing import Callable, Union, Tuple, Optional
 
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import types
+from tf_quant_finance import utils as tff_utils
 from tf_quant_finance.math import gradient
 from tf_quant_finance.math import piecewise
 from tf_quant_finance.math import random
@@ -142,9 +143,9 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       mean_reversion: Union[types.RealTensor, Callable[..., types.RealTensor]],
       volatility: Union[types.RealTensor, Callable[..., types.RealTensor]],
       initial_discount_rate_fn: Callable[..., types.RealTensor],
-      corr_matrix: types.RealTensor = None,
-      dtype: tf.DType = None,
-      name: str = None):
+      corr_matrix: Optional[types.RealTensor] = None,
+      dtype: Optional[tf.DType] = None,
+      name: Optional[str] = None):
     """Initializes the Correlated Hull-White Model.
 
     Args:
@@ -320,14 +321,14 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       self,
       times: types.RealTensor,
       num_samples: types.IntTensor,
-      random_type: random.RandomType = None,
-      seed: types.IntTensor = None,
+      random_type: Optional[random.RandomType] = None,
+      seed: Optional[types.IntTensor] = None,
       skip: types.IntTensor = 0,
-      time_step: types.RealTensor = None,
-      times_grid: types.RealTensor = None,
-      normal_draws: types.RealTensor = None,
+      time_step: Optional[types.RealTensor] = None,
+      times_grid: Optional[types.RealTensor] = None,
+      normal_draws: Optional[types.RealTensor] = None,
       validate_args: bool = False,
-      name: str = None) -> types.RealTensor:
+      name: Optional[str] = None) -> types.RealTensor:
     """Returns a sample of paths from the correlated Hull-White process.
 
     Uses exact sampling if `self.mean_reversion` is constant and
@@ -453,14 +454,14 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       times: types.RealTensor,
       curve_times: types.RealTensor,
       num_samples: types.IntTensor = 1,
-      random_type: random.RandomType = None,
-      seed: types.IntTensor = None,
+      random_type: Optional[random.RandomType] = None,
+      seed: Optional[types.IntTensor] = None,
       skip: types.IntTensor = 0,
-      time_step: types.RealTensor = None,
-      times_grid: types.RealTensor = None,
-      normal_draws: types.RealTensor = None,
+      time_step: Optional[types.RealTensor] = None,
+      times_grid: Optional[types.RealTensor] = None,
+      normal_draws: Optional[types.RealTensor] = None,
       validate_args: bool = False,
-      name: str = None
+      name: Optional[str] = None
       ) -> Tuple[types.RealTensor, types.RealTensor]:
     """Returns a sample of simulated discount curves for the Hull-white model.
 
@@ -649,7 +650,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                     validate_args=False):
     """Returns a sample of paths from the process."""
     # Note: all the notations below are the same as in [1].
-    num_requested_times = tf.shape(times)[0]
+    num_requested_times = tff_utils.get_shape(times)[0]
     params = [self._mean_reversion, self._volatility]
     if self._corr_matrix is not None:
       params = params + [self._corr_matrix]
@@ -709,10 +710,33 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
     if self._dim == 1:
       mean_reversion = tf.expand_dims(mean_reversion, axis=0)
 
-    cond_fn = lambda i, *args: i < tf.size(dt)
-    def body_fn(i, written_count,
-                current_x,
-                rate_paths):
+    # Initial state
+    initial_x = tf.zeros((num_samples, self._dim), dtype=self._dtype)
+    f0_t = self._instant_forward_rate_fn(times[0])
+    # Prepare results format
+    written_count = 0
+    if isinstance(num_requested_times, int) and num_requested_times == 1:
+      record_samples = False
+      rate_paths = initial_x + f0_t
+    else:
+      # If more than one sample has to be recorded, create a TensorArray
+      record_samples = True
+      element_shape = initial_x.shape
+      rate_paths = tf.TensorArray(dtype=times.dtype,
+                                  size=num_requested_times,
+                                  element_shape=element_shape,
+                                  clear_after_read=False)
+      # Include initial state, if necessary
+      rate_paths = rate_paths.write(written_count, initial_x + f0_t)
+    written_count += tf.cast(keep_mask[0], dtype=tf.int32)
+    # Define sampling while_loop body function
+    def cond_fn(i, written_count, *args):
+      # It can happen that `times_grid[-1] > times[-1]` in which case we have
+      # to terminate when `written_count` reaches `num_requested_times`
+      del args
+      return tf.math.logical_and(i < tf.size(dt),
+                                 written_count < num_requested_times)
+    def body_fn(i, written_count, current_x, rate_paths):
       """Simulate hull-white process to the next time point."""
       if normal_draws is None:
         normals = random.mv_normal_sample(
@@ -736,32 +760,26 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       f_0_t = self._instant_forward_rate_fn(times[i + 1])
 
       # Update `rate_paths`
-      rate_paths = utils.maybe_update_along_axis(
-          tensor=rate_paths,
-          do_update=keep_mask[i + 1],
-          ind=written_count,
-          axis=1,
-          new_tensor=tf.expand_dims(next_x, axis=1) + f_0_t)
+      if record_samples:
+        rate_paths = rate_paths.write(written_count, next_x + f_0_t)
+      else:
+        rate_paths = next_x + f_0_t
       written_count += tf.cast(keep_mask[i + 1], dtype=tf.int32)
       return (i + 1, written_count, next_x, rate_paths)
 
-    rate_paths = tf.zeros((num_samples, num_requested_times, self._dim),
-                          dtype=self._dtype)
-    # Include initial state, if necessary
-    f0_t = self._instant_forward_rate_fn(times[0])
-    rate_paths = utils.maybe_update_along_axis(
-        tensor=rate_paths,
-        do_update=keep_mask[0],
-        ind=0,
-        axis=1,
-        new_tensor=f0_t)
-    written_count = tf.cast(keep_mask[0], dtype=tf.int32)
-    initial_x = tf.zeros((num_samples, self._dim), dtype=self._dtype)
     # TODO(b/157232803): Use tf.cumsum instead?
+    # Sample paths
     _, _, _, rate_paths = tf.while_loop(
         cond_fn, body_fn, (0, written_count, initial_x, rate_paths))
-
-    return rate_paths
+    if not record_samples:
+      # shape [num_samples, 1, dim]
+      return tf.expand_dims(rate_paths, axis=-2)
+    # Shape [num_time_points] + [num_samples, dim]
+    rate_paths = rate_paths.stack()
+    # transpose to shape [num_samples, num_time_points, dim]
+    n = rate_paths.shape.rank
+    perm = list(range(1, n-1)) + [0, n - 1]
+    return tf.transpose(rate_paths, perm)
 
   def _bond_reconstitution(self,
                            times,

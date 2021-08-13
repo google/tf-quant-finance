@@ -133,6 +133,45 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
     with self.subTest('Covariance'):
       self.assertAllClose(covars, expected_covars, rtol=1e-2, atol=1e-2)
 
+  def test_times_grid_long(self):
+    """Tests paths properties for Wiener process (dX = dW)."""
+    dtype = tf.float64
+
+    def drift_fn(_, x):
+      return tf.zeros_like(x)
+
+    def vol_fn(_, x):
+      return tf.expand_dims(tf.ones_like(x), -1)
+
+    times = np.array([0.1, 0.2, 0.3])
+    num_samples = 10000
+    times_grid = tf.linspace(tf.constant(0.0, dtype=dtype), 0.32, 33)
+    # Use antithetic sampling
+    normal_draws = tf.random.stateless_normal(
+        shape=[5000, 32, 1],
+        seed=[1, 42],
+        dtype=dtype)
+    normal_draws = tf.concat([normal_draws, -normal_draws], axis=0)
+
+    paths = euler_sampling.sample(
+        dim=1, drift_fn=drift_fn, volatility_fn=vol_fn,
+        times=times,
+        num_samples=num_samples,
+        normal_draws=normal_draws,
+        times_grid=times_grid,
+        seed=[1, 42])
+    with self.subTest('Shape'):
+      self.assertAllEqual(paths.shape.as_list(), [num_samples, 3, 1])
+    paths = self.evaluate(paths)
+    means = np.mean(paths, axis=0).reshape([-1])
+    covars = np.cov(paths.reshape([num_samples, -1]), rowvar=False)
+    expected_means = np.zeros((3,))
+    expected_covars = np.minimum(times.reshape([-1, 1]), times.reshape([1, -1]))
+    with self.subTest('Means'):
+      self.assertAllClose(means, expected_means, rtol=1e-2, atol=1e-2)
+    with self.subTest('Covariance'):
+      self.assertAllClose(covars, expected_covars, rtol=1e-2, atol=1e-2)
+
   @parameterized.named_parameters(
       {
           'testcase_name': 'NonBatch',

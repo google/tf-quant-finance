@@ -15,12 +15,13 @@
 
 """Heston model with piecewise constant parameters."""
 
-from typing import Union, Callable
+from typing import Union, Callable, Optional
 
 import numpy as np
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import types
+from tf_quant_finance import utils as tff_utils
 from tf_quant_finance.math import piecewise
 from tf_quant_finance.math import random_ops as random
 from tf_quant_finance.models import generic_ito_process
@@ -91,8 +92,8 @@ class HestonModel(generic_ito_process.GenericItoProcess):
                theta: _CallableOrTensor,
                volvol: _CallableOrTensor,
                rho: _CallableOrTensor,
-               dtype: tf.DType = None,
-               name: str = None):
+               dtype: Optional[tf.DType] = None,
+               name: Optional[str] = None):
     """Initializes the Heston Model.
 
     #### References:
@@ -178,12 +179,12 @@ class HestonModel(generic_ito_process.GenericItoProcess):
                    times: types.RealTensor,
                    initial_state: types.RealTensor,
                    num_samples: types.IntTensor = 1,
-                   random_type: random.RandomType = None,
-                   seed: types.RealTensor = None,
-                   time_step: types.RealTensor = None,
+                   random_type: Optional[random.RandomType] = None,
+                   seed: Optional[types.RealTensor] = None,
+                   time_step: Optional[types.RealTensor] = None,
                    skip: types.IntTensor = 0,
                    tolerance: types.RealTensor = 1e-6,
-                   name: str = None) -> types.RealTensor:
+                   name: Optional[str] = None) -> types.RealTensor:
     """Returns a sample of paths from the process.
 
     Using Quadratic-Exponential (QE) method described in [1] generates samples
@@ -247,7 +248,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       current_vol = (
           tf.convert_to_tensor(initial_state[..., 1], dtype=self._dtype)
           + tf.zeros([num_samples], dtype=self._dtype))
-      num_requested_times = times.shape[0]
+      num_requested_times = tff_utils.get_shape(times)[0]
       times, keep_mask = _prepare_grid(
           times, time_step, times.dtype,
           self._mean_reversion, self._theta, self._volvol, self._rho)
@@ -295,7 +296,38 @@ class HestonModel(generic_ito_process.GenericItoProcess):
           dtype=self.dtype(), skip=skip)
     else:
       normal_draws = None
-    cond_fn = lambda i, *args: i < steps_num
+    # Prepare results format
+    written_count = 0
+    if isinstance(num_requested_times, int) and num_requested_times == 1:
+      record_samples = False
+      log_spot_paths = current_log_spot
+      vol_paths = current_vol
+    else:
+      # If more than one sample has to be recorded, create a TensorArray
+      record_samples = True
+      element_shape = current_log_spot.shape
+      log_spot_paths = tf.TensorArray(
+          dtype=times.dtype,
+          size=num_requested_times,
+          element_shape=element_shape,
+          clear_after_read=False)
+      vol_paths = tf.TensorArray(
+          dtype=times.dtype,
+          size=num_requested_times,
+          element_shape=element_shape,
+          clear_after_read=False)
+      # Include initial state, if necessary
+      log_spot_paths = log_spot_paths.write(written_count, current_log_spot)
+      vol_paths = vol_paths.write(written_count, current_vol)
+    written_count += tf.cast(keep_mask[0], dtype=tf.int32)
+    # Define sampling while_loop body function
+    # Define sampling while_loop body function
+    def cond_fn(i, written_count, *args):
+      # It can happen that `times_grid[-1] > times[-1]` in which case we have
+      # to terminate when `written_count` reaches `num_requested_times`
+      del args
+      return tf.math.logical_and(i < steps_num,
+                                 written_count < num_requested_times)
     def body_fn(i, written_count, current_vol, current_log_spot, vol_paths,
                 log_spot_paths):
       """Simulate Heston process to the next time point."""
@@ -323,38 +355,42 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       next_log_spot = tf.cond(time_step > tolerance,
                               _next_log_spot_fn,
                               lambda: current_log_spot)
-      # Update volatility paths
-      vol_paths = utils.maybe_update_along_axis(
-          tensor=vol_paths,
-          do_update=keep_mask[i + 1],
-          ind=written_count,
-          axis=1,
-          new_tensor=tf.expand_dims(next_vol, axis=1))
-      # Update log-spot paths
-      log_spot_paths = utils.maybe_update_along_axis(
-          tensor=log_spot_paths,
-          do_update=keep_mask[i + 1],
-          ind=written_count,
-          axis=1,
-          new_tensor=tf.expand_dims(next_log_spot, axis=1))
+      if record_samples:
+        # Update volatility paths
+        vol_paths = vol_paths.write(written_count, next_vol)
+        # Update log-spot paths
+        log_spot_paths = log_spot_paths.write(written_count, next_log_spot)
+      else:
+        vol_paths = next_vol
+        log_spot_paths = next_log_spot
       written_count += tf.cast(keep_mask[i + 1], dtype=tf.int32)
       return (i + 1, written_count,
               next_vol, next_log_spot, vol_paths, log_spot_paths)
-
-    shape = (num_samples, num_requested_times)
-    log_spot_paths = tf.zeros(shape, dtype=self._dtype)
-    vol_paths = tf.zeros(shape, dtype=self._dtype)
+    # Sample paths
     _, _, _, _, vol_paths, log_spot_paths = tf.while_loop(
         cond_fn, body_fn, (0, 0, current_vol, current_log_spot,
                            vol_paths, log_spot_paths),
         maximum_iterations=steps_num)
+    if not record_samples:
+      # shape [num_samples, 1]
+      vol_paths = tf.expand_dims(vol_paths, axis=-1)
+      log_spot_paths = tf.expand_dims(log_spot_paths, axis=-1)
+      # shape [num_samples, 1, 1]
+      return tf.stack([log_spot_paths, vol_paths], -1)
+    # Shape [num_time_points] + [num_samples]
+    vol_paths = vol_paths.stack()
+    log_spot_paths = log_spot_paths.stack()
+    # transpose to shape [num_samples, num_time_points]
+    vol_paths = tf.transpose(vol_paths)
+    log_spot_paths = tf.transpose(log_spot_paths)
+    # Shape [num_samples, num_time_points, 2]
     return tf.stack([log_spot_paths, vol_paths], -1)
 
   def expected_total_variance(
       self,
       future_times: types.RealTensor,
       initial_var: types.RealTensor,
-      name: str = None) -> types.RealTensor:
+      name: Optional[str] = None) -> types.RealTensor:
     """Computes the expected variance of the process up to `future_time`.
 
     The Heston model affords a closed form expression for its expected variance:
