@@ -15,6 +15,7 @@
 """Tests for Sobol."""
 
 import tensorflow.compat.v2 as tf
+import tensorflow_probability as tfp
 import tf_quant_finance as tff
 
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
@@ -24,6 +25,41 @@ rqmc = tff.experimental.rqmc
 
 @test_util.run_all_in_graph_and_eager_modes
 class SobolTest(tf.test.TestCase):
+
+  def test_normal_integral_mean_and_var_correctly_estimated(self):
+    n = int(1000)
+    # This test is almost identical to the test with the same name found in
+    # nomisma_quant_finance/math/random_ops/sobol/sobol_test.py. The only
+    # difference is the need to remove point (0, 0) which is sampled by default.
+    dtype = tf.float64
+    mu_p = tf.constant([-1., 1.], dtype=dtype)
+    mu_q = tf.constant([0., 0.], dtype=dtype)
+    sigma_p = tf.constant([0.5, 0.5], dtype=dtype)
+    sigma_q = tf.constant([1., 1.], dtype=dtype)
+    p = tfp.distributions.Normal(loc=mu_p, scale=sigma_p)
+    q = tfp.distributions.Normal(loc=mu_q, scale=sigma_q)
+
+    cdf_sample = rqmc.sample_sobol(
+        2, n + 1, sequence_indices=tf.range(1, n + 1), dtype=dtype)
+    q_sample = q.quantile(cdf_sample)
+
+    # Compute E_p[X].
+    e_x = tf.reduce_mean(q_sample * p.prob(q_sample) / q.prob(q_sample), 0)
+
+    # Compute E_p[X^2 - E_p[X]^2].
+    e_x2 = tf.reduce_mean(
+        q_sample**2 * p.prob(q_sample) / q.prob(q_sample) - e_x**2, 0)
+    stddev = tf.sqrt(e_x2)
+
+    # Keep the tolerance levels the same as in monte_carlo_test.py.
+    with self.subTest('Shape'):
+      self.assertEqual(p.batch_shape, e_x.shape)
+    with self.subTest('Mean'):
+      self.assertAllClose(
+          self.evaluate(p.mean()), self.evaluate(e_x), rtol=0.01)
+    with self.subTest('Variance'):
+      self.assertAllClose(
+          self.evaluate(p.stddev()), self.evaluate(stddev), rtol=0.02)
 
   def test_sample_sobol(self):
 

@@ -81,6 +81,7 @@ py_test(
         "//tf_quant_finance",
         # test util,
         # tensorflow dep,
+        # tensorflow_probability dep,
     ],
 )
 
