@@ -19,7 +19,7 @@ import tf_quant_finance as tff
 
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
-rqmc = tff.experimental.rqmc
+qmc = tff.math.qmc
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -30,12 +30,12 @@ class DigitalNetTest(tf.test.TestCase):
     num_digits = 3
     seed = (2, 3)
 
-    actual = rqmc.random_digital_shift(
+    actual = qmc.random_digital_shift(
         dim, num_digits, seed, validate_args=True)
 
     power = tf.constant(num_digits)
-    minval = rqmc.utils.exp2(power - 1)
-    maxval = rqmc.utils.exp2(power)
+    minval = qmc.utils.exp2(power - 1)
+    maxval = qmc.utils.exp2(power)
 
     with self.subTest('Shape'):
       self.assertEqual(actual.shape, (dim))
@@ -52,12 +52,12 @@ class DigitalNetTest(tf.test.TestCase):
     seed = (2, 3)
 
     for dtype in [tf.int32, tf.int64]:
-      actual = rqmc.random_digital_shift(
+      actual = qmc.random_digital_shift(
           dim, num_digits, seed, dtype=dtype, validate_args=True)
 
       power = tf.constant(num_digits, dtype=dtype)
-      minval = rqmc.utils.exp2(power - 1)
-      maxval = rqmc.utils.exp2(power)
+      minval = qmc.utils.exp2(power - 1)
+      maxval = qmc.utils.exp2(power)
 
       with self.subTest('Shape'):
         self.assertEqual(actual.shape, (dim))
@@ -73,12 +73,12 @@ class DigitalNetTest(tf.test.TestCase):
     num_digits = 3
     seed = (2, 3)
 
-    actual = rqmc.random_scrambling_matrices(
+    actual = qmc.random_scrambling_matrices(
         dim, num_digits, seed, validate_args=True)
 
     power = tf.constant(num_digits)
-    minval = rqmc.utils.exp2(power - 1)
-    maxval = rqmc.utils.exp2(power)
+    minval = qmc.utils.exp2(power - 1)
+    maxval = qmc.utils.exp2(power)
 
     with self.subTest('Shape'):
       self.assertEqual(actual.shape, (dim, num_digits))
@@ -95,12 +95,12 @@ class DigitalNetTest(tf.test.TestCase):
     seed = (2, 3)
 
     for dtype in [tf.int32, tf.int64]:
-      actual = rqmc.random_scrambling_matrices(
+      actual = qmc.random_scrambling_matrices(
           dim, num_digits, seed, dtype=dtype, validate_args=True)
 
       power = tf.constant(num_digits, dtype=dtype)
-      minval = rqmc.utils.exp2(power - 1)
-      maxval = rqmc.utils.exp2(power)
+      minval = qmc.utils.exp2(power - 1)
+      maxval = qmc.utils.exp2(power)
 
       with self.subTest('Shape'):
         self.assertEqual(actual.shape, (dim, num_digits))
@@ -148,8 +148,8 @@ class DigitalNetTest(tf.test.TestCase):
                               [0.21875, 0.84375, 0.09375, 0.53125, 0.40625]],
                              dtype=tf.float32)
 
-      actual = rqmc.sample_digital_net(
-          rqmc.sobol_generating_matrices(
+      actual = qmc.sample_digital_net(
+          qmc.sobol_generating_matrices(
               dim, num_results, num_digits, dtype=dtype),
           num_results,
           num_digits,
@@ -176,8 +176,8 @@ class DigitalNetTest(tf.test.TestCase):
                             [0.21875, 0.84375, 0.09375, 0.53125, 0.40625]],
                            dtype=tf.float32)
 
-    actual = rqmc.sample_digital_net(
-        rqmc.sobol_generating_matrices(dim, num_results, num_digits),
+    actual = qmc.sample_digital_net(
+        qmc.sobol_generating_matrices(dim, num_results, num_digits),
         num_results,
         num_digits,
         sequence_indices=tf.constant(indices, dtype=tf.int64),
@@ -204,8 +204,8 @@ class DigitalNetTest(tf.test.TestCase):
                             [0.25, 0.25, 0.25, 0.75, 0.25, 0.75]],
                            dtype=tf.float32)
 
-    actual = rqmc.sample_digital_net(
-        rqmc.sobol_generating_matrices(dim, num_results, num_digits),
+    actual = qmc.sample_digital_net(
+        qmc.sobol_generating_matrices(dim, num_results, num_digits),
         num_results,
         num_digits,
         apply_tent_transform=True,
@@ -222,7 +222,7 @@ class DigitalNetTest(tf.test.TestCase):
     num_results = 6
     num_digits = 3  # ceil(log2(num_results))
 
-    generating_matrices = rqmc.sobol_generating_matrices(
+    generating_matrices = qmc.sobol_generating_matrices(
         dim, num_results, num_digits)
 
     for dtype in [tf.float32, tf.float64]:
@@ -234,7 +234,7 @@ class DigitalNetTest(tf.test.TestCase):
                               [0.625, 0.125, 0.875, 0.625, 0.625]],
                              dtype=dtype)
 
-      actual = rqmc.sample_digital_net(
+      actual = qmc.sample_digital_net(
           generating_matrices,
           num_results,
           num_digits,
@@ -254,13 +254,13 @@ class DigitalNetTest(tf.test.TestCase):
     seed = (2, 3)
 
     for dtype in [tf.int32, tf.int64]:
-      generating_matrices = rqmc.sobol_generating_matrices(
+      generating_matrices = qmc.sobol_generating_matrices(
           dim, num_results, num_digits, dtype=dtype)
 
-      scrambling_matrices = rqmc.random_scrambling_matrices(
+      scrambling_matrices = qmc.random_scrambling_matrices(
           dim, num_digits, seed)
 
-      actual = rqmc.scramble_generating_matrices(
+      actual = qmc.scramble_generating_matrices(
           generating_matrices,
           scrambling_matrices,
           num_digits,
@@ -277,17 +277,17 @@ class DigitalNetTest(tf.test.TestCase):
     num_digits = 3  # ceil(log2(num_results))
 
     for dtype in [tf.int32, tf.int64]:
-      generating_matrices = rqmc.sobol_generating_matrices(
+      generating_matrices = qmc.sobol_generating_matrices(
           dim, num_results, num_digits, dtype=dtype)
 
       # All scrambling matrices values are between 2^{num_digits - 1} (incl.)
       # and 2^{num_digits} (excl.). Scrambling using matrices for which all
       # values are set to 2^{num_digits - 1} should be a no-op.
       min_scrambling_matrices = tf.broadcast_to(
-          rqmc.utils.exp2(tf.cast(num_digits, dtype) - 1),
+          qmc.utils.exp2(tf.cast(num_digits, dtype) - 1),
           shape=generating_matrices.shape)
 
-      actual = rqmc.scramble_generating_matrices(
+      actual = qmc.scramble_generating_matrices(
           generating_matrices,
           min_scrambling_matrices,
           num_digits,
@@ -308,13 +308,13 @@ class DigitalNetTest(tf.test.TestCase):
     num_digits = 3  # ceil(log2(num_results))
     seed = (2, 3)
 
-    generating_matrices = rqmc.sobol_generating_matrices(
+    generating_matrices = qmc.sobol_generating_matrices(
         dim, num_results, num_digits)
 
-    scrambling_matrices = rqmc.random_scrambling_matrices(dim, num_digits, seed)
+    scrambling_matrices = qmc.random_scrambling_matrices(dim, num_digits, seed)
 
     for dtype in [tf.int32, tf.int64]:
-      actual = rqmc.scramble_generating_matrices(
+      actual = qmc.scramble_generating_matrices(
           generating_matrices,
           scrambling_matrices,
           num_digits,

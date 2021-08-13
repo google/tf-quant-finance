@@ -17,8 +17,8 @@
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import types
-from tf_quant_finance.experimental.rqmc import digital_net
-from tf_quant_finance.experimental.rqmc import utils
+from tf_quant_finance.math.qmc import digital_net
+from tf_quant_finance.math.qmc import utils
 from tf_quant_finance.math.random_ops import sobol
 
 __all__ = [
@@ -271,13 +271,14 @@ def _sobol_generating_matrices(dim: types.IntTensor,
     # shape: (dim, log_num_results)
     column_values = tf.gather(matrices, [column], axis=1)
 
-    # Columns whose index is smaller than the degree of the primitive polynomial
-    # are obtained from direction numbers and thus should not be updated.
-    # During a given iteration, only the next n columns (where n is the degree
-    # of the primitive polynomial) should be updated.
     # shape: (dim, log_num_results)
     should_be_updated = tf.logical_and(
+        # Columns whose index is smaller than the degree of the primitive
+        # polynomial are obtained from direction numbers and should not be
+        # updated.
         tf.less_equal(tf.math.maximum(degree, column + 1), indices),
+        # During a given iteration, only the next n columns (where n is the
+        # degree of the primitive polynomial) should be updated.
         tf.less_equal(indices, column + degree))
 
     # shape: (dim, log_num_results)

@@ -19,6 +19,7 @@ py_library(
         "//tf_quant_finance/math/interpolation",
         "//tf_quant_finance/math/optimizer",
         "//tf_quant_finance/math/pde",
+        "//tf_quant_finance/math/qmc",
         "//tf_quant_finance/math/random_ops",
         "//tf_quant_finance/math/root_search",
     ],

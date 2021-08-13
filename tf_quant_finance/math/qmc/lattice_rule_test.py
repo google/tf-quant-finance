@@ -19,7 +19,7 @@ import tf_quant_finance as tff
 
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
-rqmc = tff.experimental.rqmc
+qmc = tff.math.qmc
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -40,7 +40,7 @@ class LatticeRuleTest(tf.test.TestCase):
       generating_vectors = self.generating_vectors(dtype=dtype)
       seed = (2, 3)
 
-      actual = rqmc.random_scrambling_vectors(
+      actual = qmc.random_scrambling_vectors(
           generating_vectors, seed, validate_args=True)
 
       self.assertEqual(actual.shape, generating_vectors.shape)
@@ -53,7 +53,7 @@ class LatticeRuleTest(tf.test.TestCase):
     seed = (2, 3)
 
     for dtype in [tf.float32, tf.float64]:
-      actual = rqmc.random_scrambling_vectors(
+      actual = qmc.random_scrambling_vectors(
           generating_vectors, seed, dtype=dtype, validate_args=True)
 
       self.assertEqual(actual.shape, generating_vectors.shape)
@@ -82,7 +82,7 @@ class LatticeRuleTest(tf.test.TestCase):
                            dtype=tf.float32)
 
     for dtype in [tf.int32, tf.int64]:
-      actual = rqmc.sample_lattice_rule(
+      actual = qmc.sample_lattice_rule(
           self.generating_vectors(dtype=dtype), 6, 16, validate_args=True)
 
       self.assertAllClose(
@@ -100,7 +100,7 @@ class LatticeRuleTest(tf.test.TestCase):
                             [0.8750, 0.6250, 0.8750, 0.3750, 0.1250, 0.8750]],
                            dtype=tf.float32)
 
-    actual = rqmc.sample_lattice_rule(
+    actual = qmc.sample_lattice_rule(
         self.generating_vectors(),
         6,
         16,
@@ -125,7 +125,7 @@ class LatticeRuleTest(tf.test.TestCase):
                            dtype=tf.float32)
 
     for dtype in [tf.float32, tf.float64]:
-      actual = rqmc.sample_lattice_rule(
+      actual = qmc.sample_lattice_rule(
           generating_vectors,
           5,
           8,
@@ -155,7 +155,7 @@ class LatticeRuleTest(tf.test.TestCase):
                            dtype=tf.float32)
 
     for dtype in [tf.float32, tf.float64]:
-      actual = rqmc.sample_lattice_rule(
+      actual = qmc.sample_lattice_rule(
           generating_vectors,
           5,
           8,
@@ -178,7 +178,7 @@ class LatticeRuleTest(tf.test.TestCase):
                             [0.250, 0.750, 0.250, 0.750, 0.250]],
                            dtype=tf.float32)
 
-    actual = rqmc.sample_lattice_rule(
+    actual = qmc.sample_lattice_rule(
         self.generating_vectors(),
         5,
         8,
@@ -202,7 +202,7 @@ class LatticeRuleTest(tf.test.TestCase):
                               [0.875, 0.625, 0.875, 0.375, 0.125]],
                              dtype=dtype)
 
-      actual = rqmc.sample_lattice_rule(
+      actual = qmc.sample_lattice_rule(
           self.generating_vectors(), 5, 8, validate_args=True, dtype=dtype)
 
       self.assertAllClose(

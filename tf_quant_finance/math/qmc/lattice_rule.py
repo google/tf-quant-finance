@@ -12,12 +12,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Support for lattice rules."""
+"""Support for lattice rules.
+
+This module enables sampling of a lattice rule from a set of generating vectors.
+A generating vector is a binary vector with shape `(n,)` implemented as a scalar
+`Tensor` with shape `(1,)` by multiplexing the bits of the vector into integers
+using MSB 0 bit numbering.
+
+In mathematical terms, the `Tensor` `T` representing a generating vector `V`
+with shape `(n,)` is obtained by applying the following formula:
+`T[0] = sum(V[i] * 2^(n - 1 - i); 0 <= i < n)`
+
+With this convention, a set of `N` generating vectors with shape `(n)` is
+implemented as a single integer `Tensor` with shape `(N)`.
+"""
 
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import types
-from tf_quant_finance.experimental.rqmc import utils
+from tf_quant_finance.math.qmc import utils
 
 __all__ = [
     'random_scrambling_vectors',

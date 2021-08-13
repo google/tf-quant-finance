@@ -5,7 +5,7 @@ licenses(["notice"])
 package(default_visibility = ["//tf_quant_finance:__subpackages__"])
 
 py_library(
-    name = "rqmc",
+    name = "qmc",
     srcs = ["__init__.py"],
     srcs_version = "PY3",
     deps = [

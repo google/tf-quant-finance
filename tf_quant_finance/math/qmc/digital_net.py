@@ -12,12 +12,28 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Support for digital nets."""
+"""Support for digital nets.
+
+This module enables sampling of a digital net from a set of generating matrices.
+A generating matrix is a binary matrix with shape `(m, n)` implemented as a
+scalar `Tensor` of integers with shape `(1, n)` by multiplexing the bits of each
+column using MSB 0 bit numbering.
+
+In mathematical terms, the `Tensor` `T` representing a generating matrix `M`
+with shape `(m, n)` is obtained by applying the following formula:
+`T[0,j] = sum(M[i,j] * 2^(n - 1 - i); 0 <= i < n)`
+
+For instance, the representation of the identity matrix of size 5 is:
+`[[16, 8, 4, 2, 1]]`.
+
+With this convention, a set of `N` generating matrices with shape `(m, n)` is
+implemented as a single scalar `Tensor` of integers with shape `(N, n)`.
+"""
 
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import types
-from tf_quant_finance.experimental.rqmc import utils
+from tf_quant_finance.math.qmc import utils
 
 __all__ = [
     'random_digital_shift',
@@ -223,6 +239,11 @@ def sample_digital_net(generating_matrices: types.IntTensor,
         tf.math.ceil(utils.log2(tf.cast(num_results, tf.float32))), int_dtype,
         'log_num_results')
 
+    # shape: (num_samples,)
+    if sequence_indices is not None:
+      sequence_indices = tf.cast(
+          sequence_indices, int_dtype, name='sequence_indices')
+
     control_deps = []
     if validate_args:
       control_deps.append(
@@ -230,6 +251,29 @@ def sample_digital_net(generating_matrices: types.IntTensor,
               tf.rank(generating_matrices),
               2,
               message='generating_matrices must have rank 2'))
+      control_deps.append(
+          tf.debugging.assert_positive(
+              num_results, message='num_results must be positive'))
+      control_deps.append(
+          tf.debugging.assert_positive(
+              num_digits, message='num_digits must be positive'))
+      control_deps.append(
+          tf.debugging.assert_less(
+              log_num_results,
+              tf.cast(32, int_dtype),
+              message='log2(num_results) must be less than 32'))
+      if sequence_indices is not None:
+        control_deps.append(
+            tf.debugging.assert_equal(
+                tf.rank(sequence_indices),
+                1,
+                message='sequence_indices must have rank 1'))
+        control_deps.append(
+            tf.debugging.assert_less(
+                sequence_indices,
+                num_results,
+                message='values in sequence_indices must be less than num_results'
+            ))
       if scrambling_matrices is not None:
         control_deps.append(
             tf.debugging.assert_equal(
@@ -249,17 +293,11 @@ def sample_digital_net(generating_matrices: types.IntTensor,
                 dim,
                 message='digital_shift must have size ' +
                 'tf.shape(generating_matrices)[0]'))
-      control_deps.append(
-          tf.debugging.assert_positive(
-              num_results, message='num_results must be positive'))
-      control_deps.append(
-          tf.debugging.assert_positive(
-              num_digits, message='num_digits must be positive'))
-      control_deps.append(
-          tf.debugging.assert_less(
-              log_num_results,
-              tf.cast(32, int_dtype),
-              message='log2(num_results) must be less than 32'))
+
+    # shape: (num_samples,)
+    if sequence_indices is None:
+      sequence_indices = tf.range(
+          0, num_results, dtype=int_dtype, name='sequence_indices')
 
     with tf.control_dependencies(control_deps):
       # shape: (dim)
@@ -268,12 +306,6 @@ def sample_digital_net(generating_matrices: types.IntTensor,
             shape=(dim), dtype=int_dtype, name='digital_shift')
       else:
         digital_shift = tf.cast(digital_shift, int_dtype, name='digital_shift')
-
-      # shape: (num_samples,)
-      if sequence_indices is None:
-        sequence_indices = tf.range(0, num_results)
-      sequence_indices = tf.cast(
-          sequence_indices, int_dtype, name='sequence_indices')
 
       if scrambling_matrices is not None:
         generating_matrices = scramble_generating_matrices(

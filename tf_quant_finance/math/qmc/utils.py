@@ -86,7 +86,7 @@ def tent_transform(value: types.FloatTensor) -> types.FloatTensor:
 
 def filter_tensor(value: types.IntTensor, bit_mask: types.IntTensor,
                   bit_index: types.IntTensor) -> types.IntTensor:
-  r"""Filters an input `Tensor` based on bit sets in a mask `Tensor`.
+  r"""Filters an input `Tensor` based on bits set in a mask `Tensor`.
 
   Args:
     value: Scalar `Tensor` of integers.

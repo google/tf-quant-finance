@@ -12,14 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for RQMC utils."""
+"""Tests for Quasi Monte-Carlo utils."""
 
 import tensorflow.compat.v2 as tf
 import tf_quant_finance as tff
 
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
-utils = tff.experimental.rqmc.utils
+utils = tff.math.qmc.utils
 
 
 @test_util.run_all_in_graph_and_eager_modes
