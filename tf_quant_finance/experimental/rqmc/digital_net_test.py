@@ -25,6 +25,49 @@ rqmc = tff.experimental.rqmc
 @test_util.run_all_in_graph_and_eager_modes
 class DigitalNetTest(tf.test.TestCase):
 
+  def test_random_digital_shift(self):
+    dim = 6
+    num_digits = 3
+    seed = (2, 3)
+
+    actual = rqmc.random_digital_shift(
+        dim, num_digits, seed, validate_args=True)
+
+    power = tf.constant(num_digits)
+    minval = rqmc.utils.exp2(power - 1)
+    maxval = rqmc.utils.exp2(power)
+
+    with self.subTest('Shape'):
+      self.assertEqual(actual.shape, (dim))
+    with self.subTest('DType'):
+      self.assertEqual(actual.dtype, tf.int32)
+    with self.subTest('Max Value'):
+      self.assertAllLess(actual, maxval)
+    with self.subTest('Min Value'):
+      self.assertAllGreaterEqual(actual, minval)
+
+  def test_random_digital_shift_with_dtype(self):
+    dim = 6
+    num_digits = 3
+    seed = (2, 3)
+
+    for dtype in [tf.int32, tf.int64]:
+      actual = rqmc.random_digital_shift(
+          dim, num_digits, seed, dtype=dtype, validate_args=True)
+
+      power = tf.constant(num_digits, dtype=dtype)
+      minval = rqmc.utils.exp2(power - 1)
+      maxval = rqmc.utils.exp2(power)
+
+      with self.subTest('Shape'):
+        self.assertEqual(actual.shape, (dim))
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, dtype)
+      with self.subTest('Max Value'):
+        self.assertAllLess(actual, maxval)
+      with self.subTest('Min Value'):
+        self.assertAllGreaterEqual(actual, minval)
+
   def test_random_scrambling_matrices(self):
     dim = 6
     num_digits = 3
@@ -37,11 +80,14 @@ class DigitalNetTest(tf.test.TestCase):
     minval = rqmc.utils.exp2(power - 1)
     maxval = rqmc.utils.exp2(power)
 
-    self.assertEqual(actual.shape[0], dim)
-    self.assertEqual(actual.shape[1], num_digits)
-    self.assertEqual(actual.dtype, tf.int32)
-    self.assertAllLess(actual, maxval)
-    self.assertAllGreaterEqual(actual, minval)
+    with self.subTest('Shape'):
+      self.assertEqual(actual.shape, (dim, num_digits))
+    with self.subTest('DType'):
+      self.assertEqual(actual.dtype, tf.int32)
+    with self.subTest('Max Value'):
+      self.assertAllLess(actual, maxval)
+    with self.subTest('Min Value'):
+      self.assertAllGreaterEqual(actual, minval)
 
   def test_random_scrambling_matrices_with_dtype(self):
     dim = 6
@@ -56,11 +102,14 @@ class DigitalNetTest(tf.test.TestCase):
       minval = rqmc.utils.exp2(power - 1)
       maxval = rqmc.utils.exp2(power)
 
-      self.assertEqual(actual.shape[0], dim)
-      self.assertEqual(actual.shape[1], num_digits)
-      self.assertEqual(actual.dtype, dtype)
-      self.assertAllLess(actual, maxval)
-      self.assertAllGreaterEqual(actual, minval)
+      with self.subTest('Shape'):
+        self.assertEqual(actual.shape, (dim, num_digits))
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, dtype)
+      with self.subTest('Max Value'):
+        self.assertAllLess(actual, maxval)
+      with self.subTest('Min Value'):
+        self.assertAllGreaterEqual(actual, minval)
 
   def test_sample_digital_net(self):
     dim = 5
@@ -106,9 +155,11 @@ class DigitalNetTest(tf.test.TestCase):
           num_digits,
           validate_args=True)
 
-      self.assertAllClose(
-          self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
-      self.assertEqual(actual.dtype, expected.dtype)
+      with self.subTest('Values'):
+        self.assertAllClose(
+            self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, expected.dtype)
 
   def test_sample_digital_net_with_sequence_indices(self):
     dim = 5
@@ -132,9 +183,11 @@ class DigitalNetTest(tf.test.TestCase):
         sequence_indices=tf.constant(indices, dtype=tf.int64),
         validate_args=True)
 
-    self.assertAllClose(
-        self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
-    self.assertEqual(actual.dtype, expected.dtype)
+    with self.subTest('Values'):
+      self.assertAllClose(
+          self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
+    with self.subTest('DType'):
+      self.assertEqual(actual.dtype, expected.dtype)
 
   def test_sample_sobol_with_tent_transform(self):
     dim = 6
@@ -158,9 +211,11 @@ class DigitalNetTest(tf.test.TestCase):
         apply_tent_transform=True,
         validate_args=True)
 
-    self.assertAllClose(
-        self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
-    self.assertEqual(actual.dtype, expected.dtype)
+    with self.subTest('Values'):
+      self.assertAllClose(
+          self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
+    with self.subTest('DType'):
+      self.assertEqual(actual.dtype, expected.dtype)
 
   def test_sample_digital_net_with_dtype(self):
     dim = 5
@@ -186,9 +241,11 @@ class DigitalNetTest(tf.test.TestCase):
           validate_args=True,
           dtype=dtype)
 
-      self.assertAllClose(
-          self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
-      self.assertEqual(actual.dtype, expected.dtype)
+      with self.subTest('Values'):
+        self.assertAllClose(
+            self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, expected.dtype)
 
   def test_scramble_generating_matrices(self):
     dim = 6
@@ -209,8 +266,10 @@ class DigitalNetTest(tf.test.TestCase):
           num_digits,
           validate_args=True)
 
-      self.assertEqual(actual.shape, generating_matrices.shape)
-      self.assertEqual(actual.dtype, dtype)
+      with self.subTest('Shape'):
+        self.assertEqual(actual.shape, generating_matrices.shape)
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, dtype)
 
   def test_scramble_generating_matrices_with_minimum_scrambling_matrices(self):
     dim = 6
@@ -235,11 +294,13 @@ class DigitalNetTest(tf.test.TestCase):
           dtype=dtype,
           validate_args=True)
 
-      print('Actual: ', actual)
-      self.assertEqual(actual.shape, generating_matrices.shape)
-      self.assertEqual(actual.dtype, generating_matrices.dtype)
-      self.assertAllEqual(
-          self.evaluate(actual), self.evaluate(generating_matrices))
+      with self.subTest('Shape'):
+        self.assertEqual(actual.shape, generating_matrices.shape)
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, generating_matrices.dtype)
+      with self.subTest('Values'):
+        self.assertAllEqual(
+            self.evaluate(actual), self.evaluate(generating_matrices))
 
   def test_scramble_generating_matrices_with_dtype(self):
     dim = 6
@@ -260,8 +321,10 @@ class DigitalNetTest(tf.test.TestCase):
           dtype=dtype,
           validate_args=True)
 
-      self.assertEqual(actual.shape, generating_matrices.shape)
-      self.assertEqual(actual.dtype, dtype)
+      with self.subTest('Shape'):
+        self.assertEqual(actual.shape, generating_matrices.shape)
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, dtype)
 
 
 if __name__ == '__main__':

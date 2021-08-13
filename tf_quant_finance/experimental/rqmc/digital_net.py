@@ -57,7 +57,7 @@ def random_digital_shift(dim: types.IntTensor,
     A `Tensor` with `shape` `(dim)`.
   """
 
-  return random_stateless_uniform((dim),
+  return random_stateless_uniform((dim,),
                                   num_digits,
                                   seed,
                                   validate_args=validate_args,
