@@ -27,6 +27,18 @@ def exp2(value: types.IntTensor) -> types.IntTensor:
   Args:
     value: Positive scalar `Tensor` of integers.
 
+  #### Examples
+
+  ```python
+  import tensorflow as tf
+  import tf_quant_finance as tff
+
+  # Example: Computing the base-2 exponentiation of a range.
+
+  tff.math.qmc.utils.exp2(tf.range(0, 5))
+  # ==> tf.Tensor([1, 2, 4, 8, 16], shape=(5,), dtype=int32)
+  ```
+
   Returns:
     `Tensor` with the same `shape` and `dtype` as `value` equal to `1 << value`.
   """
@@ -45,6 +57,16 @@ def exp2(value: types.IntTensor) -> types.IntTensor:
 
 def log2(value: types.FloatTensor) -> types.FloatTensor:
   r"""Returns the point-wise base-2 logarithm a given `Tensor`.
+
+  ```python
+  import tensorflow as tf
+  import tf_quant_finance as tff
+
+  # Example: Computing the base-2 logarithm of a given vector.
+
+  tff.math.qmc.utils.log2(tf.constant([1, 2, 4, 8, 16], dtype=tf.float32))
+  # ==> tf.Tensor([0., 1., 2., 3., 4.], shape=(5,), dtype=float32)
+  ```
 
   Args:
     value: Positive scalar `Tensor` of real values.
@@ -73,6 +95,18 @@ def get_shape(
 def tent_transform(value: types.FloatTensor) -> types.FloatTensor:
   r"""Returns the tent transform of a given `Tensor`.
 
+  #### Examples
+
+  ```python
+  import tensorflow as tf
+  import tf_quant_finance as tff
+
+  # Example: Commputing the tent transform of a given vector.
+
+  tff.math.qmc.utils.tent_transform(tf.constant([0, .2, .4, .6, .8, 1]))
+  # ==> tf.Tensor([0, .4, .8, .8, .4, 0.], shape=(4,), dtype=float32)
+  ```
+
   Args:
     value: Scalar `Tensor` of real values in the `[0, 1)` range.
 
@@ -87,6 +121,21 @@ def tent_transform(value: types.FloatTensor) -> types.FloatTensor:
 def filter_tensor(value: types.IntTensor, bit_mask: types.IntTensor,
                   bit_index: types.IntTensor) -> types.IntTensor:
   r"""Filters an input `Tensor` based on bits set in a mask `Tensor`.
+
+  #### Examples
+
+  ```python
+  import tensorflow as tf
+  import tf_quant_finance as tff
+
+  # Example: Filtering a given vector based on a mask.
+
+  tff.math.qmc.utils.filter_tensor(
+      tf.constant([5, 6, 7, 8]),
+      tf.constant([1, 2, 3, 4]),
+      tf.constant([1, 1, 2, 2]))
+  # ==> tf.Tensor([0, 6, 0, 8], shape=(4,), dtype=int32)
+  ```
 
   Args:
     value: Scalar `Tensor` of integers.

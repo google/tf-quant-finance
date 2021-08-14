@@ -33,12 +33,12 @@ from tf_quant_finance import types
 from tf_quant_finance.math.qmc import utils
 
 __all__ = [
+    'lattice_rule_sample',
     'random_scrambling_vectors',
-    'sample_lattice_rule',
 ]
 
 
-def random_scrambling_vectors(generating_vectors: types.IntTensor,
+def random_scrambling_vectors(dim: types.IntTensor,
                               seed: int,
                               validate_args: bool = False,
                               dtype: tf.DType = None,
@@ -48,8 +48,23 @@ def random_scrambling_vectors(generating_vectors: types.IntTensor,
   The returned `Tensor` can be can be added to the specified
   `generating_vectors` in order to randomize it.
 
+  #### Examples
+
+  ```python
+  import tf_quant_finance as tff
+
+  # Example: Creating random vectors which can scramble 2D generating vectors.
+
+  dim = 2
+  seed = (2, 3)
+
+  tff.math.qmc.random_scrambling_vectors(dim, seed=seed)
+  # ==> tf.Tensor([0.17481351, 0.9780868], shape=(2,), dtype=float32)
+  ```
+
   Args:
-    generating_vectors: Positive scalar `Tensor` of integers with rank 1.
+    dim: Positive scalar `Tensor` of integers with rank 0. The event size of
+      points which can be sampled from the generating vectors to scramble.
     seed: Positive scalar `Tensor` with shape [2] and dtype `int32` used as seed
       for the random generator.
     validate_args: Python `bool` indicating whether to validate arguments.
@@ -61,29 +76,28 @@ def random_scrambling_vectors(generating_vectors: types.IntTensor,
       Default value: `None` which maps to `random_scrambling_vectors`.
 
   Returns:
-    A `Tensor` of real values between 0 (incl.) and 1 (excl.) with the same
-    `shape` as `generating_vectors`.
+    A `Tensor` of real values between 0 (incl.) and 1 (excl.) with `shape`
+    `(dim,)`.
   """
 
   with tf.name_scope(name or 'random_scrambling_vectors'):
     control_deps = []
     if validate_args:
       control_deps.append(
-          tf.debugging.assert_equal(
-              tf.rank(generating_vectors),
-              1,
-              message='generating_vectors must have rank 1'))
+          tf.debugging.assert_positive(
+              dim,
+              message='dim must be positive'))
 
     with tf.control_dependencies(control_deps):
       return tf.random.stateless_uniform(
-          utils.get_shape(generating_vectors),
+          (dim,),
           seed,
           minval=0.,
           maxval=1.,
           dtype=dtype or tf.float32)
 
 
-def sample_lattice_rule(generating_vectors: types.IntTensor,
+def lattice_rule_sample(generating_vectors: types.IntTensor,
                         dim: types.IntTensor,
                         num_results: types.IntTensor,
                         sequence_indices: types.IntTensor = None,
@@ -93,6 +107,31 @@ def sample_lattice_rule(generating_vectors: types.IntTensor,
                         dtype: tf.DType = None,
                         name: str = None) -> types.RealTensor:
   r"""Constructs a lattice rule from a generating vector.
+
+  #### Examples
+
+  ```python
+  import tensorflow as tf
+  import tf_quant_finance as tff
+
+  # Example: Sampling 1,000 points from 2D generating vectors.
+
+  generating_vectors = tf.constant([1, 387275, 314993, 50301], dtype=tf.int32)
+
+  dim = 2
+  num_results = 1000
+
+  tff.math.qmc.lattice_rule_sample(generating_vectors, dim, num_results)
+  # ==> tf.Tensor([
+  #             [0.,         0.        ],
+  #             [0.001,      0.2749939 ],
+  #             [0.002,      0.5499878 ],
+  #             ...
+  #             [0.99700004, 0.1689148 ],
+  #             [0.998,      0.4439087 ],
+  #             [0.9990001,  0.7189026 ],
+  #         ], shape=(1000, 2), dtype=float32)
+  ```
 
   Args:
     generating_vectors: Positive scalar `Tensor` of integers with rank 1

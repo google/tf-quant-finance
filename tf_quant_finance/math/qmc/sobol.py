@@ -41,6 +41,28 @@ def sobol_sample(dim: types.IntTensor,
                  name: str = None) -> types.RealTensor:
   r"""Samples points from the Sobol sequence.
 
+  #### Examples
+
+  ```python
+  import tf_quant_finance as tff
+
+  # Example: Sampling 1,000 points from the 2D Sobol sequence.
+
+  dim = 2
+  num_results = 1000
+
+  tff.math.qmc.sobol_sample(dim, num_results)
+  # ==> tf.Tensor([
+  #             [0.,         0.        ],
+  #             [0.5,        0.5       ],
+  #             [0.25,       0.75      ],
+  #             ...
+  #             [0.65527344, 0.9736328 ],
+  #             [0.40527344, 0.7236328 ],
+  #             [0.90527344, 0.22363281],
+  #         ], shape=(1000, 2), dtype=float32)
+  ```
+
   Args:
     dim: Positive scalar `Tensor` of integers with rank 0. The event size of the
       sampled points.
@@ -97,7 +119,7 @@ def sobol_sample(dim: types.IntTensor,
           validate_args=validate_args)
 
     # shape: (num_results, dim)
-    return digital_net.sample_digital_net(
+    return digital_net.digital_net_sample(
         generating_matrices,
         num_results,
         num_digits,
@@ -115,6 +137,26 @@ def sobol_generating_matrices(dim: types.IntTensor,
                               dtype: tf.DType = None,
                               name: str = None) -> types.IntTensor:
   r"""Returns Sobol generating matrices.
+
+  #### Examples
+
+  ```python
+  import tf_quant_finance as tff
+
+  # Example: Creating the 4D Sobol generating matrices.
+
+  dim = 4
+  num_results = 500
+  num_digits = 9
+
+  tff.math.qmc.sobol_generating_matrices(dim, num_results, num_digits)
+  # ==> tf.Tensor([
+  #             [256, 128,  64,  32,  16,   8,   4,   2,   1],
+  #             [256, 384, 320, 480, 272, 408, 340, 510, 257],
+  #             [256, 384, 192, 288, 464, 184, 284, 394, 209],
+  #             [256, 384,  64, 160, 496, 232, 324, 294, 433],
+  #         ], shape=(4, 9), dtype=int32)
+  ```
 
   Args:
     dim: Positive scalar `Tensor` of integers with rank 0. The event size of

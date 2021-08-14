@@ -15,26 +15,26 @@
 """RQMC support."""
 
 from tf_quant_finance.math.qmc import utils
+from tf_quant_finance.math.qmc.digital_net import digital_net_sample
 from tf_quant_finance.math.qmc.digital_net import random_digital_shift
 from tf_quant_finance.math.qmc.digital_net import random_scrambling_matrices
-from tf_quant_finance.math.qmc.digital_net import sample_digital_net
 from tf_quant_finance.math.qmc.digital_net import scramble_generating_matrices
+from tf_quant_finance.math.qmc.lattice_rule import lattice_rule_sample
 from tf_quant_finance.math.qmc.lattice_rule import random_scrambling_vectors
-from tf_quant_finance.math.qmc.lattice_rule import sample_lattice_rule
 from tf_quant_finance.math.qmc.sobol import sobol_generating_matrices
 from tf_quant_finance.math.qmc.sobol import sobol_sample
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
+    'digital_net_sample',
+    'lattice_rule_sample',
     'random_digital_shift',
     'random_scrambling_matrices',
     'random_scrambling_vectors',
-    'sample_digital_net',
-    'sample_lattice_rule',
-    'sobol_sample',
     'scramble_generating_matrices',
     'sobol_generating_matrices',
+    'sobol_sample',
     'utils',
 ]
 

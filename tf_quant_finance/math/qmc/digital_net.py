@@ -36,9 +36,9 @@ from tf_quant_finance import types
 from tf_quant_finance.math.qmc import utils
 
 __all__ = [
+    'digital_net_sample',
     'random_digital_shift',
     'random_scrambling_matrices',
-    'sample_digital_net',
     'scramble_generating_matrices',
 ]
 
@@ -53,6 +53,21 @@ def random_digital_shift(dim: types.IntTensor,
 
   The result can be can be passed to the `sample_digital_net` function to shift
   sampled points through a bitwise xor.
+
+  #### Examples
+
+  ```python
+  import tf_quant_finance as tff
+
+  # Example: Creating a Digital shift which can randomize sampled 2D points.
+
+  dim = 2
+  num_digits = 10
+  seed = (2, 3)
+
+  tff.math.qmc.random_digital_shift(dim, num_digits, seed=seed)
+  # ==> tf.Tensor([586, 1011], shape=(2,), dtype=int32)
+  ```
 
   Args:
     dim: Positive scalar `Tensor` of integers with rank 0. The event size of the
@@ -70,15 +85,15 @@ def random_digital_shift(dim: types.IntTensor,
       Default value: `None` which maps to `random_digital_shift`.
 
   Returns:
-    A `Tensor` with `shape` `(dim)`.
+    A `Tensor` with `shape` `(dim,)`.
   """
 
-  return random_stateless_uniform((dim,),
-                                  num_digits,
-                                  seed,
-                                  validate_args=validate_args,
-                                  dtype=dtype,
-                                  name=name or 'random_digital_shift')
+  return _random_stateless_uniform((dim,),
+                                   num_digits,
+                                   seed,
+                                   validate_args=validate_args,
+                                   dtype=dtype,
+                                   name=name or 'random_digital_shift')
 
 
 def random_scrambling_matrices(dim: types.IntTensor,
@@ -91,6 +106,24 @@ def random_scrambling_matrices(dim: types.IntTensor,
 
   The result can be can be passed to the `scramble_generating_matrices` function
   to randomize a given `generating_matrices`.
+
+  #### Examples
+
+  ```python
+  import tf_quant_finance as tff
+
+  # Example: Creating random matrices which can scramble 2D generating matrices.
+
+  dim = 2
+  num_digits = 10
+  seed = (2, 3)
+
+  tff.math.qmc.random_scrambling_matrices(dim, num_digits, seed=seed)
+  # ==> tf.Tensor([
+  #             [586, 1011, 896,  818, 550, 1009, 880, 855,  686, 758],
+  #             [872,  958, 870, 1000, 963,  919, 994, 583, 1007, 739],
+  #         ], shape=(2, 10), dtype=int32)
+  ```
 
   Args:
     dim: Positive scalar `Tensor` of integers with rank 0. The event size of
@@ -112,20 +145,20 @@ def random_scrambling_matrices(dim: types.IntTensor,
     A `Tensor` with `shape` `(dim, num_digits)`.
   """
 
-  return random_stateless_uniform((dim, num_digits),
-                                  num_digits,
-                                  seed,
-                                  validate_args=validate_args,
-                                  dtype=dtype,
-                                  name=name or 'random_scrambling_matrices')
+  return _random_stateless_uniform((dim, num_digits),
+                                   num_digits,
+                                   seed,
+                                   validate_args=validate_args,
+                                   dtype=dtype,
+                                   name=name or 'random_scrambling_matrices')
 
 
-def random_stateless_uniform(shape: types.IntTensor,
-                             num_digits: types.IntTensor,
-                             seed: int,
-                             validate_args: bool = False,
-                             dtype: tf.DType = None,
-                             name: str = None) -> types.IntTensor:
+def _random_stateless_uniform(shape: types.IntTensor,
+                              num_digits: types.IntTensor,
+                              seed: int,
+                              validate_args: bool = False,
+                              dtype: tf.DType = None,
+                              name: str = None) -> types.IntTensor:
   """Returns a `Tensor` drawn from a uniform distribution with a given `shape`.
 
   Args:
@@ -170,7 +203,7 @@ def random_stateless_uniform(shape: types.IntTensor,
           shape, seed, minval=minval, maxval=maxval, dtype=dtype)
 
 
-def sample_digital_net(generating_matrices: types.IntTensor,
+def digital_net_sample(generating_matrices: types.IntTensor,
                        num_results: types.IntTensor,
                        num_digits: types.IntTensor,
                        sequence_indices: types.IntTensor = None,
@@ -181,6 +214,32 @@ def sample_digital_net(generating_matrices: types.IntTensor,
                        dtype: tf.DType = None,
                        name: str = None) -> types.IntTensor:
   r"""Constructs a digital net from a generating matrix.
+
+  #### Examples
+
+  ```python
+  import tf_quant_finance as tff
+
+  # Example: Sampling 1,000 points from 2D Sobol generating matrices.
+
+  dim = 2
+  num_results = 1000
+  num_digits = 10
+
+  tff.math.qmc.digital_net_sample(
+      tff.math.qmc.sobol_generating_matrices(dim, num_results, num_digits),
+      num_results,
+      num_digits)
+  # ==> tf.Tensor([
+  #             [0.,         0.        ],
+  #             [0.5,        0.5       ],
+  #             [0.25,       0.75      ],
+  #             ...
+  #             [0.65527344, 0.9736328 ],
+  #             [0.40527344, 0.7236328 ],
+  #             [0.90527344, 0.22363281],
+  #         ], shape=(1000, 2), dtype=float32)
+  ```
 
   Args:
     generating_matrices: Positive scalar `Tensor` of integers with rank 2. The
@@ -368,6 +427,28 @@ def scramble_generating_matrices(generating_matrices: types.IntTensor,
                                  dtype: tf.DType = None,
                                  name: str = None):
   r"""Scrambles a generating matrix.
+
+  #### Examples
+
+  ```python
+  import tf_quant_finance as tff
+
+  # Example: Scrambling the 2D Sobol generating matrices.
+
+  dim = 2
+  num_results = 1000
+  num_digits = 10
+  seed = (2, 3)
+
+  tff.math.qmc.scramble_generating_matrices(
+      tff.math.qmc.sobol_generating_matrices(dim, num_results, num_digits),
+      tff.math.qmc.random_scrambling_matrices(dim, num_digits, seed=seed),
+      num_digits)
+  # ==> tf.Tensor([
+  #             [586, 505, 224, 102,  34,  31,  13,   6,   2,   1],
+  #             [872, 695, 945, 531, 852, 663, 898, 568, 875, 693],
+  #         ], shape=(2, 10), dtype=int32)
+  ```
 
   Args:
     generating_matrices: Positive scalar `Tensor` of integers.

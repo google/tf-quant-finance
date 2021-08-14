@@ -30,8 +30,7 @@ class DigitalNetTest(tf.test.TestCase):
     num_digits = 3
     seed = (2, 3)
 
-    actual = qmc.random_digital_shift(
-        dim, num_digits, seed, validate_args=True)
+    actual = qmc.random_digital_shift(dim, num_digits, seed, validate_args=True)
 
     power = tf.constant(num_digits)
     minval = qmc.utils.exp2(power - 1)
@@ -111,7 +110,7 @@ class DigitalNetTest(tf.test.TestCase):
       with self.subTest('Min Value'):
         self.assertAllGreaterEqual(actual, minval)
 
-  def test_sample_digital_net(self):
+  def test_digital_net_sample(self):
     dim = 5
     num_results = 29
     num_digits = 5  # ceil(log2(num_results))
@@ -148,7 +147,7 @@ class DigitalNetTest(tf.test.TestCase):
                               [0.21875, 0.84375, 0.09375, 0.53125, 0.40625]],
                              dtype=tf.float32)
 
-      actual = qmc.sample_digital_net(
+      actual = qmc.digital_net_sample(
           qmc.sobol_generating_matrices(
               dim, num_results, num_digits, dtype=dtype),
           num_results,
@@ -161,7 +160,7 @@ class DigitalNetTest(tf.test.TestCase):
       with self.subTest('DType'):
         self.assertEqual(actual.dtype, expected.dtype)
 
-  def test_sample_digital_net_with_sequence_indices(self):
+  def test_digital_net_sample_with_sequence_indices(self):
     dim = 5
     num_results = 29
     num_digits = 5  # ceil(log2(num_results))
@@ -176,7 +175,7 @@ class DigitalNetTest(tf.test.TestCase):
                             [0.21875, 0.84375, 0.09375, 0.53125, 0.40625]],
                            dtype=tf.float32)
 
-    actual = qmc.sample_digital_net(
+    actual = qmc.digital_net_sample(
         qmc.sobol_generating_matrices(dim, num_results, num_digits),
         num_results,
         num_digits,
@@ -204,7 +203,7 @@ class DigitalNetTest(tf.test.TestCase):
                             [0.25, 0.25, 0.25, 0.75, 0.25, 0.75]],
                            dtype=tf.float32)
 
-    actual = qmc.sample_digital_net(
+    actual = qmc.digital_net_sample(
         qmc.sobol_generating_matrices(dim, num_results, num_digits),
         num_results,
         num_digits,
@@ -217,13 +216,13 @@ class DigitalNetTest(tf.test.TestCase):
     with self.subTest('DType'):
       self.assertEqual(actual.dtype, expected.dtype)
 
-  def test_sample_digital_net_with_dtype(self):
+  def test_digital_net_sample_with_dtype(self):
     dim = 5
     num_results = 6
     num_digits = 3  # ceil(log2(num_results))
 
-    generating_matrices = qmc.sobol_generating_matrices(
-        dim, num_results, num_digits)
+    generating_matrices = qmc.sobol_generating_matrices(dim, num_results,
+                                                        num_digits)
 
     for dtype in [tf.float32, tf.float64]:
       expected = tf.constant([[0.000, 0.000, 0.000, 0.000, 0.000],
@@ -234,7 +233,7 @@ class DigitalNetTest(tf.test.TestCase):
                               [0.625, 0.125, 0.875, 0.625, 0.625]],
                              dtype=dtype)
 
-      actual = qmc.sample_digital_net(
+      actual = qmc.digital_net_sample(
           generating_matrices,
           num_results,
           num_digits,
@@ -308,8 +307,8 @@ class DigitalNetTest(tf.test.TestCase):
     num_digits = 3  # ceil(log2(num_results))
     seed = (2, 3)
 
-    generating_matrices = qmc.sobol_generating_matrices(
-        dim, num_results, num_digits)
+    generating_matrices = qmc.sobol_generating_matrices(dim, num_results,
+                                                        num_digits)
 
     scrambling_matrices = qmc.random_scrambling_matrices(dim, num_digits, seed)
 
