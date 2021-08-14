@@ -39,7 +39,7 @@ class SobolTest(tf.test.TestCase):
     p = tfp.distributions.Normal(loc=mu_p, scale=sigma_p)
     q = tfp.distributions.Normal(loc=mu_q, scale=sigma_q)
 
-    cdf_sample = qmc.sample_sobol(
+    cdf_sample = qmc.sobol_sample(
         2, n + 1, sequence_indices=tf.range(1, n + 1), dtype=dtype)
     q_sample = q.quantile(cdf_sample)
 
@@ -61,7 +61,7 @@ class SobolTest(tf.test.TestCase):
       self.assertAllClose(
           self.evaluate(p.stddev()), self.evaluate(stddev), rtol=0.02)
 
-  def test_sample_sobol(self):
+  def test_sobol_sample(self):
 
     expected = tf.constant([[0.00000, 0.00000, 0.00000, 0.00000, 0.00000],
                             [0.50000, 0.50000, 0.50000, 0.50000, 0.50000],
@@ -94,13 +94,13 @@ class SobolTest(tf.test.TestCase):
                             [0.21875, 0.84375, 0.09375, 0.53125, 0.40625]],
                            dtype=tf.float32)
 
-    actual = qmc.sample_sobol(5, 29, validate_args=True)
+    actual = qmc.sobol_sample(5, 29, validate_args=True)
 
     self.assertAllClose(
         self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
     self.assertEqual(actual.dtype, expected.dtype)
 
-  def test_sample_sobol_with_sequence_indices(self):
+  def test_sobol_sample_with_sequence_indices(self):
     indices = [1, 3, 10, 15, 19, 24, 28]
 
     expected = tf.constant([[0.50000, 0.50000, 0.50000, 0.50000, 0.50000],
@@ -112,7 +112,7 @@ class SobolTest(tf.test.TestCase):
                             [0.21875, 0.84375, 0.09375, 0.53125, 0.40625]],
                            dtype=tf.float32)
 
-    actual = qmc.sample_sobol(
+    actual = qmc.sobol_sample(
         5,
         29,
         sequence_indices=tf.constant(indices, dtype=tf.int64),
@@ -122,7 +122,7 @@ class SobolTest(tf.test.TestCase):
         self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
     self.assertEqual(actual.dtype, expected.dtype)
 
-  def test_sample_sobol_with_tent_transform(self):
+  def test_sobol_sample_with_tent_transform(self):
 
     expected = tf.constant([[0.00, 0.00, 0.00, 0.00, 0.00, 0.00],
                             [1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
@@ -134,14 +134,14 @@ class SobolTest(tf.test.TestCase):
                             [0.25, 0.25, 0.25, 0.75, 0.25, 0.75]],
                            dtype=tf.float32)
 
-    actual = qmc.sample_sobol(
+    actual = qmc.sobol_sample(
         6, 8, apply_tent_transform=True, validate_args=True)
 
     self.assertAllClose(
         self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
     self.assertEqual(actual.dtype, expected.dtype)
 
-  def test_sample_sobol_with_dtype(self):
+  def test_sobol_sample_with_dtype(self):
 
     for dtype in [tf.float32, tf.float64]:
       expected = tf.constant([[0.000, 0.000, 0.000, 0.000, 0.000, 0.000],
@@ -154,7 +154,7 @@ class SobolTest(tf.test.TestCase):
                               [0.875, 0.875, 0.125, 0.375, 0.875, 0.625]],
                              dtype=dtype)
 
-      actual = qmc.sample_sobol(6, 8, validate_args=True, dtype=dtype)
+      actual = qmc.sobol_sample(6, 8, validate_args=True, dtype=dtype)
 
       self.assertAllClose(
           self.evaluate(actual), self.evaluate(expected), rtol=1e-6)

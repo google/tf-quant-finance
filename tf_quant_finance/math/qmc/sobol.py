@@ -22,7 +22,7 @@ from tf_quant_finance.math.qmc import utils
 from tf_quant_finance.math.random_ops import sobol
 
 __all__ = [
-    'sample_sobol',
+    'sobol_sample',
     'sobol_generating_matrices',
 ]
 
@@ -30,7 +30,7 @@ __all__ = [
  _INITIAL_DIRECTION_NUMBERS) = sobol.load_data()
 
 
-def sample_sobol(dim: types.IntTensor,
+def sobol_sample(dim: types.IntTensor,
                  num_results: types.IntTensor,
                  sequence_indices: types.IntTensor = None,
                  digital_shift: types.IntTensor = None,
@@ -65,7 +65,7 @@ def sample_sobol(dim: types.IntTensor,
       `float32` or `float64`).
       Default value: `None` which maps to `float32`.
     name: Python `str` name prefixed to ops created by this function.
-      Default value: `None` which maps to `sample_sobol`.
+      Default value: `None` which maps to `sobol_sample`.
 
   Returns:
     A `Tensor` of samples from  the Sobol sequence with `shape`
@@ -73,7 +73,7 @@ def sample_sobol(dim: types.IntTensor,
     size(sequence_indices))` and `dim = tf.shape(generating_matrices)[0]`.
   """
 
-  with tf.name_scope(name or 'sample_sobol'):
+  with tf.name_scope(name or 'sobol_sample'):
     dtype = dtype or tf.float32
 
     num_digits = tf.cast(
