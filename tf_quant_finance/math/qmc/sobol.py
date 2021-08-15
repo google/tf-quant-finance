@@ -302,14 +302,64 @@ def _sobol_generating_matrices(dim: types.IntTensor,
       tf.math.floor(utils.log2(tf.cast(polynomial, dtype=tf.float32))),
       dtype=dtype)
 
+  # The values of the `i`-th generating matrix (i.e. the `i`-th row of the
+  # output tensor) are calculated using the formulas below.
+
+  # If `col < degree`, the value is obtained from the direction numbers:
+  #
+  #   matrix[col] = directions[col] << num_digits - 1 - col
+  #
+  # where:
+  #   `directions` are the direction numbers.
+
+  # shape: (dim, log_num_results)
+  initial_matrices = tf.bitwise.left_shift(
+      directions,
+      tf.cast(tf.expand_dims(num_digits - 1 - indices, axis=0), dtype))
+
+  # If `degree <= col < log_num_results`, the value is obtained using the
+  # following recurrence:
+  #
+  #   matrix[col] = (matrix[col - degree] >> degree)
+  #               ^ (matrix[col - (degree - 0)] * (polynomial >> 0) & 1))
+  #               ^ (matrix[col - (degree - 1]) * (polynomial >> 1) & 1))
+  #               ^ (matrix[col - (degree - 2]) * (polynomial >> 2) & 1))
+  #               ^ ...
+  #               ^ (matrix[col - 2] * (polynomial >> (degree - 2)) & 1))
+  #               ^ (matrix[col - 1] * (polynomial >> (degree - 1)) & 1))
+  #
+  # where:
+  #  `polynomial` is the `i`-th primitive polynomial, and `degree` its degree.
+  #
+  # This recurrence normally requires three nested loops:
+  # - One on the matrix index (i.e. `i`);
+  # - One on the matrix column (i.e. `col`);
+  # - One for the recurrence.
+  #
+  # The number of iterations applied by the innermost loop depends on both `i`
+  # (through `degree`) and `col`. These dependencies must be removed in order
+  # to vectorize the calculation on GPUs.
+  #
+  # For this, we relax the constraint on `col` and apply the recurrence for
+  # `col < log_num_results`. We then add this constraint back by filtering
+  # out values which should not be updated with `tf.where`. With this approach,
+  # the algorithm can be reduced to a single explicit while-loop on `col`. Some
+  # calculations are wasted since their results are thrown away, but those are
+  # essentially free on GPUs due to vectorization.
+  #
+  # Note that `column` in the implementation below does not correspond to `col`.
+  # Instead, it is the innermost loop index and ranges from `col - degree` to
+  # `col - 1` after filtering.
+
   def loop_predicate_fn(matrix_values, column):
     del matrix_values
     return column < log_num_results - 1
 
+  # Loop invariant:
+  #   At the end of the iteration for column `column`, values for columns `0` to
+  #   `column` have been calculated. Values for other columns are only partially
+  #   calculated.
   def loop_body_fn(matrices, column):
-    # Loop invariant: At the end of the iteration, all values from column 0 to
-    # `column` have been calculated.
-
     # shape: (dim, log_num_results)
     column_values = tf.gather(matrices, [column], axis=1)
 
@@ -319,7 +369,7 @@ def _sobol_generating_matrices(dim: types.IntTensor,
         # polynomial are obtained from direction numbers and should not be
         # updated.
         tf.less_equal(tf.math.maximum(degree, column + 1), indices),
-        # During a given iteration, only the next n columns (where n is the
+        # During a given iteration, only the next `n` columns (where `n` is the
         # degree of the primitive polynomial) should be updated.
         tf.less_equal(indices, column + degree))
 
@@ -335,11 +385,6 @@ def _sobol_generating_matrices(dim: types.IntTensor,
     returned_matrices = tf.where(should_be_updated, updated_matrices, matrices)
 
     return (returned_matrices, column + 1)
-
-  # shape: (dim, log_num_results)
-  initial_matrices = tf.bitwise.left_shift(
-      directions,
-      tf.cast(tf.expand_dims(num_digits - 1 - indices, axis=0), dtype))
 
   matrices, _ = tf.while_loop(
       loop_predicate_fn,

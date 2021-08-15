@@ -146,7 +146,7 @@ def filter_tensor(value: types.IntTensor, bit_mask: types.IntTensor,
 
   Returns:
     `Tensor` with the same `shape` as `value` equal to `value` if the
-    `bit_index`th bit in `LSB 0` order is set in `bit_mask`, or `zero`
+    `bit_index`-th bit in `LSB 0` order is set in `bit_mask`, or `zero`
     otherwise i.e.: `value * (1 & (bit_mask >>> bit_index))`
   """
 
