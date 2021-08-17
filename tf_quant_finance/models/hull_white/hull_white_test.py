@@ -248,7 +248,7 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
           random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
           seed=[1, 2])
     if use_xla:
-      paths = self.evaluate(tf.xla.experimental.compile(fn))[0]
+      paths = self.evaluate(tf.function(fn, jit_compile=True)())
     else:
       paths = self.evaluate(fn())
     with self.subTest('Dtype'):

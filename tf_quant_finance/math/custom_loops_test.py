@@ -258,12 +258,10 @@ class ForLoopWithCustomGradientTest(parameterized.TestCase, tf.test.TestCase):
                                     5 * sigma_np**4 * x], axis=0)
       expected_grad = np.sum(expected_fwd_grad)
       with self.subTest("ParamsForwardGradXLA"):
-        fwd_grad = tf.xla.experimental.compile(
-            tf.function(fwd_grad_fn), [sigma])[0]
+        fwd_grad = tf.function(fwd_grad_fn, jit_compile=True)(sigma)
         self.assertAllClose(fwd_grad, expected_fwd_grad)
       with self.subTest("ParamsValueAndGradXLA"):
-        val, grad = tf.xla.experimental.compile(
-            tf.function(value_and_gradient), [sigma])
+        val, grad = tf.function(value_and_gradient, jit_compile=True)(sigma)
         self.assertAllClose(expected_val, val)
         self.assertAllClose(grad, expected_grad)
       with self.subTest("ParamsForwardGrad"):
@@ -288,12 +286,12 @@ class ForLoopWithCustomGradientTest(parameterized.TestCase, tf.test.TestCase):
                                     sigma_np**5 * np.ones_like(x)], axis=0)
       expected_grad = np.sum(expected_fwd_grad, axis=0)
       with self.subTest("StateForwardGradXLA"):
-        fwd_grad = tf.xla.experimental.compile(
-            tf.function(state_fwd_grad_fn), [initial_state])[0]
+        fwd_grad = tf.function(state_fwd_grad_fn,
+                               jit_compile=True)(initial_state)
         self.assertAllClose(fwd_grad, expected_fwd_grad)
       with self.subTest("StateValueAndGradXLA"):
-        val, grad = tf.xla.experimental.compile(
-            tf.function(state_value_and_gradient), [initial_state])
+        val, grad = tf.function(state_value_and_gradient,
+                                jit_compile=True)(initial_state)
         self.assertAllClose(expected_val, val)
         self.assertAllClose(grad, expected_grad)
       with self.subTest("StateForwardGrad"):
