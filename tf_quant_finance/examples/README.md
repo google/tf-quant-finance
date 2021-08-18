@@ -7,7 +7,7 @@ In order to start the examples on [Google Colab](https://colab.research.google.c
 issues, connect to a GPU runtime (Runtime -> Change runtime type -> Choose
 GPU in Hardware accelerator section).
 
-To experiment with custom VM instances and the latest GPu accelerators, consider running the  on [AI Platform Notebooks](https://cloud.google.com/ai-platform-notebooks/).
+To experiment with custom VM instances and the latest GPU accelerators, consider running this on [AI Platform Notebooks](https://cloud.google.com/ai-platform-notebooks/).
 
 List of examples:
 
