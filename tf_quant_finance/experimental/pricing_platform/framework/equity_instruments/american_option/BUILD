@@ -30,7 +30,6 @@ py_library(
         "//tf_quant_finance/experimental/pricing_platform/framework/core:types",
         "//tf_quant_finance/experimental/pricing_platform/framework/equity_instruments:utils",
         "//tf_quant_finance/experimental/pricing_platform/framework/market_data:utils",
-        # dataclasses dep,
         # tensorflow dep,
     ],
 )

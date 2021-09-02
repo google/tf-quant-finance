@@ -28,7 +28,6 @@ py_library(
         "//tf_quant_finance/experimental/pricing_platform/framework/market_data:utils",
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos",
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos:period_py_pb2",
-        # dataclasses dep,
         # tensorflow dep,
     ],
 )

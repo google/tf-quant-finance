@@ -39,7 +39,6 @@ py_library(
     deps = [
         ":currencies",
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos",
-        # dataclasses dep,
     ],
 )
 
@@ -58,7 +57,6 @@ py_library(
     srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos",
-        # dataclasses dep,
         # tensorflow dep,
     ],
 )

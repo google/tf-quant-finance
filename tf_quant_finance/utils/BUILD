@@ -20,7 +20,6 @@ py_library(
     srcs = ["tf_functions.py"],
     srcs_version = "PY3",
     deps = [
-        # dataclasses dep,
         # numpy dep,
         # tensorflow dep,
     ],
@@ -34,7 +33,6 @@ py_test(
     deps = [
         "//tf_quant_finance",
         # test util,
-        # dataclasses dep,
         # numpy dep,
         # tensorflow dep,
     ],

@@ -29,7 +29,6 @@ py_library(
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos",
         "//tf_quant_finance/math",
         "//tf_quant_finance/models/hull_white",
-        # dataclasses dep,
         # tensorflow dep,
     ],
 )
