@@ -69,7 +69,7 @@ def _correlation_matrix_using_hypersphere_decomposition(num_assets,
   https://papers.ssrn.com/sol3/Delivery.cfm/SSRN_ID1969689_code1760921.pdf?abstractid=1969689&mirid=1
 
   Args:
-    num_assets: A integer `Tensor` specifying the number of correlated assets.
+    num_assets: An integer `Tensor` specifying the number of correlated assets.
     thetas: A real `Tensor` of shape `[num_assets * (num_assets - 1)]`
       specifying the angles used for the construction of the correlation matrix.
     dtype: The default dtype to use when converting values to `Tensor`s.
