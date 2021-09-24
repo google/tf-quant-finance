@@ -239,7 +239,7 @@ For a simple instructive example of implementation of this method, see
       keyword arguments and returns a `Tensor` with shape that broadcasts
       with `[dim]`.
     8. 'constant_coeff': A callable returning the coefficient of the
-      linear homogenous term (i.e. `r(t,x)` above). Same spec as above.
+      linear homogeneous term (i.e. `r(t,x)` above). Same spec as above.
       The `one_step_fn` callable returns a 2-tuple containing the next
       coordinate grid, next values grid.
 * <b>`boundary_conditions`</b>: A list of size `dim` containing boundary conditions.
@@ -378,7 +378,7 @@ For a simple instructive example of implementation of this method, see
       keyword arguments and returns a `Tensor` with shape that broadcasts
       with `[dim]`.
     7. 'constant_coeff': A callable returning the coefficient of the
-      linear homogenous term (i.e. `r(t,x)` above). Same spec as above.
+      linear homogeneous term (i.e. `r(t,x)` above). Same spec as above.
       The `one_step_fn` callable returns a 2-tuple containing the next
       coordinate grid, next values grid.
 * <b>`boundary_conditions`</b>: A list of size `dim` containing boundary conditions.

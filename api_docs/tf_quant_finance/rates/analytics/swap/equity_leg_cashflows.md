@@ -66,7 +66,7 @@ equity_leg_cashflows(forward_prices, spots, notional, dividends,
 * <b>`dividends`</b>:  A `Tensor` of the same `dtype` as `forward_prices` and of
   compatible shape. Discrete dividends paid at the leg reset times.
   Default value: None which maps to zero dividend.
-* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
   Default value: None which maps to the default dtype inferred from
   `forward_prices`.
 * <b>`name`</b>: Python str. The name to give to the ops created by this function.

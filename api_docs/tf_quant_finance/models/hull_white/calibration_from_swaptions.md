@@ -267,7 +267,6 @@ calibrated_parameters = tff.models.hull_white.calibration_from_swaptions(
 
 
 #### Returns:
-
 A Tuple of three elements:
 * The first element is an instance of `CalibrationResult` whose parameters
   are calibrated to the input swaption prices.

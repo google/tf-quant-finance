@@ -119,7 +119,7 @@ def cap_floor_price(
       shape) of the options to be priced and the shape of the output. For an
       N-dimensional input `Tensor`, the first N-1 dimensions correspond to the
       batch dimension, i.e., the distinct caps and floors and the last dimension
-      correspond to the caplets or floorlets contained with an intrument.
+      correspond to the caplets or floorlets contained with an instrument.
     expiries: A real `Tensor` of the same dtype and compatible shape as
       `strikes`.  The reset time of each caplet (or floorlet).
     maturities: A real `Tensor` of the same dtype and compatible shape as

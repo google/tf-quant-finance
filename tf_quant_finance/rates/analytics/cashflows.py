@@ -50,7 +50,7 @@ def present_value(cashflows,
     discount_factors: A `Tensor` of the same `dtype` as `cashflows` and of
       compatible shape. The set of discount factors corresponding to the
       cashflows.
-    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+    dtype: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
       Default value: None which maps to the default dtype inferred from
       `cashflows`.
     name: Python str. The name to give to the ops created by this function.
@@ -137,7 +137,7 @@ def pv_from_yields(cashflows,
       `k-1` where `k` is the number of related cashflows.
       Default value: None. This implies that all the cashflows are treated as a
         single group.
-    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+    dtype: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
       Default value: None which maps to the default dtype inferred from
       `cashflows`.
     name: Python str. The name to give to the ops created by this function.
@@ -246,7 +246,7 @@ def yields_from_pv(cashflows,
       iterations is exhausted or the tolerance is reached (whichever is
       earlier). Supply `None` to remove the limit on the number of iterations.
       Default value: 10.
-    dtype: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+    dtype: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
       Default value: None which maps to the default dtype inferred from
       `cashflows`.
     name: Python str. The name to give to the ops created by this function.

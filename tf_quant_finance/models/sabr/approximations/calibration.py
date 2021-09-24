@@ -166,7 +166,7 @@ def calibration(
       num_strikes] specifying whether or not the prices correspond to a call
       option (=True) or a put option (=False).
     beta: Real `Tensor` of shape [batch_size], specifying the initial estimate
-      of the model `beta`. Values must satisify 0 <= `beta` <= 1
+      of the model `beta`. Values must satisfy 0 <= `beta` <= 1
     volvol: Real `Tensor` of shape [batch_size], specifying the initial estimate
       of the vol-vol parameter. Values must satisfy `0 <= volvol`.
     rho: Real `Tensor` of shape [batch_size], specifying the initial estimate of
@@ -209,7 +209,7 @@ def calibration(
     beta_upper_bound: Only used if `calibrate_beta` is True. Real `Tensor`
       compatible with that of `beta`, specifying the upper bound for the
       calibrated value.
-      Defalut value: 1.0
+      Default value: 1.0
     volvol_lower_bound: Real `Tensor` compatible with that of `volvol`,
       specifying the lower bound for the calibrated value.
       Default value: 0.0.
@@ -251,7 +251,7 @@ def calibration(
     validate_args: Boolean value indicating whether or not to validate the shape
       and values of the input arguments, at the potential expense of performance
       degredation.
-      Defalut value: False.
+      Default value: False.
     dtype: The default dtype to use when converting values to `Tensor`s.
       Default value: `None`, which means that default dtypes inferred by
         TensorFlow are used.

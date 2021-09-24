@@ -272,7 +272,7 @@ def prepare_grid(*, times, time_step, dtype, tolerance=None,
         tf.math.maximum(time_indices - 1, 0))
   # Create a boolean mask to identify the iterations that have to be recorded.
   # Use `tf.scatter_nd` because it handles duplicates. Also we first create
-  # an int64 Tensor and then create a boolean mask becase scatter_nd with
+  # an int64 Tensor and then create a boolean mask because scatter_nd with
   # booleans is currently not supported on GPUs.
   mask = tf.scatter_nd(
       indices=tf.expand_dims(tf.cast(time_indices, dtype=tf.int64), axis=1),

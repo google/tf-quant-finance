@@ -221,7 +221,7 @@ tff.models.hjm.calibration_from_swaptions(
   input is ignored during analytic valuation.
   Default value: `None`.
 * <b>`num_time_steps`</b>: An optional scalar integer `Tensor` - a total number of
-  time steps during Monte Carlo simulations. The maximal distance betwen
+  time steps during Monte Carlo simulations. The maximal distance between
   points in grid is bounded by
   `times[-1] / (num_time_steps - times.shape[0])`.
   Either this or `time_step` should be supplied when the valuation method
@@ -298,7 +298,6 @@ tff.models.hjm.calibration_from_swaptions(
 
 
 #### Returns:
-
 A Tuple of three elements:
 * The first element is an instance of `CalibrationResult` whose parameters
   are calibrated to the input swaption prices.

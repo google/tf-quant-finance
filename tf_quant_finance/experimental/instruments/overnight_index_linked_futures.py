@@ -42,7 +42,7 @@ class OvernightIndexLinkedFutures:
 
   `R = [Product[(1 + tau_i * r_i), 1 <= i <= N] - 1] / Sum[tau_i, 1 <= i <= N]`
 
-  If R is evaulated based on the arithmetic average of the realized index
+  If R is evaluated based on the arithmetic average of the realized index
   during the reference period, then:
 
   `R = Sum(r_i, 1 <= i <= N)  / N`

@@ -108,7 +108,7 @@ tf_quant_finance.black_scholes.approximations.bjerksund_stensland(
   (if False). If not supplied, call options are assumed.
 * <b>`modified_boundary`</b>: Python `bool`. Indicates whether the Bjerksund-Stensland
   1993 algorithm (single boundary) if False or Bjerksund-Stensland 2002
-  algoritm (modified boundary) if True, is to be used.
+  algorithm (modified boundary) if True, is to be used.
 * <b>`dtype`</b>: Optional `tf.DType`. If supplied, the dtype to be used for conversion
   of any supplied non-`Tensor` arguments to `Tensor`.
   Default value: `None` which maps to the default dtype inferred by

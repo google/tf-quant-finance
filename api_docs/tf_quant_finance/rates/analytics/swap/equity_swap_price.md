@@ -104,7 +104,7 @@ forward_rates(df_start_dates, df_end_dates, daycount_fractions,
   `batch_shape`. Indicates whether the swap holder is equity holder or
   receiver.
   Default value: None which means that all swaps are equity reiver swaps.
-* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
   Default value: None which maps to the default dtype inferred from
   `rate_leg_coupon_rates`.
 * <b>`name`</b>: Python str. The name to give to the ops created by this function.

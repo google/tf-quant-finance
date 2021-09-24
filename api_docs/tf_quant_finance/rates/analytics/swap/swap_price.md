@@ -67,7 +67,7 @@ swap_price(pay_leg_cashflows=pay_leg_cashflows,
 * <b>`receive_leg_discount_factors`</b>: A `Tensor` of the same `dtype` as
   `receive_leg_cashflows` and of compatible shape. Discount factors for each
   cashflow of the receive leg.
-* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
   Default value: None which maps to the default dtype inferred from
   `pay_leg_cashflows`.
 * <b>`name`</b>: Python str. The name to give to the ops created by this function.

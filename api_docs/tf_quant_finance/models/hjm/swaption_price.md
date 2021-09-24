@@ -149,7 +149,7 @@ price = tff.models.hjm.swaption_price(
   method is Monte Carlo.
   Default Value: `None`.
 * <b>`num_time_steps`</b>: An optional scalar integer `Tensor` - a total number of
-  time steps during Monte Carlo simulations. The maximal distance betwen
+  time steps during Monte Carlo simulations. The maximal distance between
   points in grid is bounded by
   `times[-1] / (num_time_steps - times.shape[0])`.
   Either this or `time_step` should be supplied when the valuation method

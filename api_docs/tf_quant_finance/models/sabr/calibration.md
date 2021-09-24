@@ -120,7 +120,7 @@ models, is_converged, _ = tff.models.sabr.approximations.calibration(
   num_strikes] specifying whether or not the prices correspond to a call
   option (=True) or a put option (=False).
 * <b>`beta`</b>: Real `Tensor` of shape [batch_size], specifying the initial estimate
-  of the model `beta`. Values must satisify 0 <= `beta` <= 1
+  of the model `beta`. Values must satisfy 0 <= `beta` <= 1
 * <b>`volvol`</b>: Real `Tensor` of shape [batch_size], specifying the initial estimate
   of the vol-vol parameter. Values must satisfy `0 <= volvol`.
 * <b>`rho`</b>: Real `Tensor` of shape [batch_size], specifying the initial estimate of
@@ -163,7 +163,7 @@ models, is_converged, _ = tff.models.sabr.approximations.calibration(
 * <b>`beta_upper_bound`</b>: Only used if `calibrate_beta` is True. Real `Tensor`
   compatible with that of `beta`, specifying the upper bound for the
   calibrated value.
-  Defalut value: 1.0
+  Default value: 1.0
 * <b>`volvol_lower_bound`</b>: Real `Tensor` compatible with that of `volvol`,
   specifying the lower bound for the calibrated value.
   Default value: 0.0.
@@ -205,7 +205,7 @@ models, is_converged, _ = tff.models.sabr.approximations.calibration(
 * <b>`validate_args`</b>: Boolean value indicating whether or not to validate the shape
   and values of the input arguments, at the potential expense of performance
   degredation.
-  Defalut value: False.
+  Default value: False.
 * <b>`dtype`</b>: The default dtype to use when converting values to `Tensor`s.
   Default value: `None`, which means that default dtypes inferred by
     TensorFlow are used.
@@ -214,7 +214,6 @@ models, is_converged, _ = tff.models.sabr.approximations.calibration(
 
 
 #### Returns:
-
 A Tuple of three elements:
 * The first is a `CalibrationResult` holding the calibrated alpha, beta,
   volvol, and rho, where alpha[i] corresponds to the calibrated `alpha` of

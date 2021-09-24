@@ -362,7 +362,7 @@ def _sample(*,
     # In order to use low-discrepancy random_type we need to generate the
     # sequence of independent random normals upfront. We also precompute random
     # numbers for stateless random type in order to ensure independent samples
-    # for multiple function calls whith different seeds.
+    # for multiple function calls with different seeds.
     if precompute_normal_draws or random_type in (
         random.RandomType.SOBOL,
         random.RandomType.HALTON,

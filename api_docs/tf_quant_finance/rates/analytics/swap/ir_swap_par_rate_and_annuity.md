@@ -57,7 +57,7 @@ tf_quant_finance.rates.analytics.swap.ir_swap_par_rate_and_annuity(
   `Tensor` and returns a `Tensor` of shape `input_shape + [dim]`. Returns
   the continuously compounded zero rate at the present time for the input
   expiry time.
-* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the input and ouput `Tensor`s.
+* <b>`dtype`</b>: `tf.Dtype`. If supplied the dtype for the input and output `Tensor`s.
   Default value: None which maps to the default dtype inferred from
     `floating_leg_start_times`.
 * <b>`name`</b>: Python str. The name to give to the ops created by this function.

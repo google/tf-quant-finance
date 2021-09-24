@@ -298,14 +298,14 @@ class InterestRateSwap(instrument.Instrument):
       cls, proto_list: List[ir_swap.InterestRateSwap],
       config: InterestRateSwapConfig = None) -> List["InterestRateSwap"]:
     proto_dict = proto_utils.from_protos_v2(proto_list, config)
-    intruments = []
+    instruments = []
     for kwargs in proto_dict.values():
       # Convert coupon and rest frequencies to the period tensors
       proto_utils.update_frequency(kwargs["pay_leg"])
       proto_utils.update_frequency(kwargs["receive_leg"])
       # Create an instrument
-      intruments.append(cls(**kwargs))
-    return intruments
+      instruments.append(cls(**kwargs))
+    return instruments
 
   @classmethod
   def group_protos(
@@ -373,7 +373,7 @@ class InterestRateSwap(instrument.Instrument):
 
   def pay_leg(self) -> Union[cashflow_streams.FloatingCashflowStream,
                              cashflow_streams.FixedCashflowStream]:
-    """Returs pay leg cahsflow stream object."""
+    """Returns pay leg cahsflow stream object."""
     return self._pay_leg
 
   def receive_leg(self) -> Union[cashflow_streams.FloatingCashflowStream,

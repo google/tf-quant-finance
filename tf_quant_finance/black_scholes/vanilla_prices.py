@@ -349,7 +349,7 @@ def barrier_price(*,
             is_knock_out, 1) + is_call_options
 
     # Masks select the appropriate terms for integral approximations
-    # Integrals are seperated by algebraic terms and probability
+    # Integrals are separated by algebraic terms and probability
     # distribution terms. This give 12 different terms per matrix
     # (6 integrals, 2 terms each)
     # shape = [8, 12]

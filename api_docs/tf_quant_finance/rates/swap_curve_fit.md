@@ -162,7 +162,7 @@ results = swap_curve_fit(float_leg_start_times, float_leg_end_times,
 * <b>`fixed_leg_start_times`</b>: List of `Tensor`s. Each `Tensor` must be either of
   shape `batch_shape  + [n_i]` or `[n_i]` and of the same real dtype.
   `n_i` may be of different sizes. All elements must have the same `dtype`
-  as `float_leg_start_times`. Each `Tensor` represents the begining of the
+  as `float_leg_start_times`. Each `Tensor` represents the beginning of the
   accrual period fixed coupon.
 * <b>`fixed_leg_end_times`</b>: List of `Tensor`s of shapes and `dtype` compatible with
   `fixed_leg_start_times`. All elements must have the same `dtype` as

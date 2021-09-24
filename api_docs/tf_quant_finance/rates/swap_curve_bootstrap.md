@@ -161,7 +161,7 @@ results = swap_curve_bootstrap(float_leg_start_times, float_leg_end_times,
   accrual period for the forward rate which determines the floating payment.
 * <b>`fixed_leg_start_times`</b>: List of `Tensor`s. Each `Tensor` must be of rank 1
   and of the same real dtype. They may be of different sizes. Each `Tensor`
-  represents the begining of the accrual period fixed coupon.
+  represents the beginning of the accrual period fixed coupon.
 * <b>`fixed_leg_end_times`</b>: List of `Tensor`s. Each `Tensor` must be of the same
   shape and type as `fixed_leg_start_times`. Each `Tensor` represents the
   end of the accrual period for the fixed coupon.

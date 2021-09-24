@@ -253,7 +253,7 @@ def _analytic_valuation(discount_rate_fn, model, strikes, expiries, maturities,
 def _bond_option_variance(model, option_expiry, bond_maturity):
   """Computes black equivalent variance for bond options.
 
-  Black equivalent variance is definied as the variance to use in the Black
+  Black equivalent variance is defined as the variance to use in the Black
   formula to obtain the model implied price of European bond options.
 
   Args:

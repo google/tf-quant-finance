@@ -50,7 +50,7 @@ tf_quant_finance.experimental.instruments.RateCurve(
 * <b>`valuation_date`</b>: A scalar `DateTensor` specifying the valuation (or
   settlement) date for the curve.
 * <b>`compounding`</b>: Optional scalar `Tensor` of dtype int32 specifying the
-  componding frequency of the input rates. Use compounding=0 for
+  compounding frequency of the input rates. Use compounding=0 for
   continuously compounded rates. If compounding is different than 0, then
   rates are converted to continuously componded rates to perform
   interpolation.

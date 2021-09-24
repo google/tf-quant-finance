@@ -72,7 +72,7 @@ to an independent volatility to find.
   not supplied, call options are assumed.
   Default value: None.
 * <b>`initial_volatilities`</b>: A real `Tensor` of the same shape and dtype as
-  `forwards`. The starting postions for Newton's method.
+  `forwards`. The starting positions for Newton's method.
   Default value: None. If not supplied, the starting point is chosen using
     the Stefanica-Radoicic scheme. See `polya_approx.implied_vol` for
     details.

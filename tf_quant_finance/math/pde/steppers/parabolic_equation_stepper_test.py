@@ -925,7 +925,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
         sizes=[1000],
         dtype=np.float64))
 
-    initial = tf.math.exp(grid[0])  # Initial condtion
+    initial = tf.math.exp(grid[0])  # Initial condition
     time_step = 0.01
     final_t = 0.5
 
@@ -1007,7 +1007,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
         sizes=[100],
         dtype=np.float64))
 
-    initial_values = tf.math.exp(grid[0])  # Initial condtion
+    initial_values = tf.math.exp(grid[0])  # Initial condition
     time_step = 0.001
     final_t = 0.1
     if default_bc == 'left':

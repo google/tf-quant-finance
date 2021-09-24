@@ -91,7 +91,7 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
 
     Args:
       use_time_grid: A boolean to indicate whther `times_grid` is supplied.
-      supply_normal_draws: A boolean to indicate whther `normal_draws` is
+      supply_normal_draws: A boolean to indicate whether `normal_draws` is
         supplied.
     """
     dtype = tf.float64
@@ -284,7 +284,7 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
 
     def drift_fn(t, x):
       del t
-      # `x` is expeceted to be of shape [num_processes] + sample_shape + [dim]
+      # `x` is expected to be of shape [num_processes] + sample_shape + [dim]
       # We need to expand rank of rates to
       # `[num_processes] + extra_rank * [1] + [1]`
       expand_rank = x.shape.rank - 2
@@ -397,7 +397,7 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
 
     def drift_fn(t, x):
       del t
-      # `x` is expeceted to be of shape [batch_size] + sample_shape + [dim]
+      # `x` is expected to be of shape [batch_size] + sample_shape + [dim]
       # We need to expand rank of rates to [batch_size] + extra_rank * [1] + [1]
       expand_rank = x.shape.rank - 2
       rates_expand = tf.reshape(
@@ -407,7 +407,7 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
 
     def vol_fn(t, x):
       del t
-      # `x` is expeceted to be of shape [batch_size] + sample_shape + [dim]
+      # `x` is expected to be of shape [batch_size] + sample_shape + [dim]
       # As before, need to expand rank of volatilities to
       # `[batch_size] + extra_rank * [1] + [1]`
       expand_rank = x.shape.rank - 2

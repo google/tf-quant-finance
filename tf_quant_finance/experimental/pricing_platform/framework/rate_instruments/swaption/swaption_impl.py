@@ -249,12 +249,12 @@ class Swaption(instrument.Instrument):
       proto_list: List[swaption_proto.Swaption],
       config: SwaptionConfig = None) -> List["Swaption"]:
     prepare_swaptions = proto_utils.from_protos(proto_list, config)
-    intruments = []
+    instruments = []
     for kwargs in prepare_swaptions.values():
       kwargs["swap"] = interest_rate_swap.InterestRateSwap.from_protos(
           kwargs["swap"])[0]
-      intruments.append(cls(**kwargs))
-    return intruments
+      instruments.append(cls(**kwargs))
+    return instruments
 
   @classmethod
   def group_protos(

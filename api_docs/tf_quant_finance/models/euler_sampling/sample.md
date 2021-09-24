@@ -130,7 +130,7 @@ https://en.wikipedia.org/wiki/Euler-Maruyama_method
   Either this or `num_time_steps` should be supplied.
   Default value: `None`.
 * <b>`num_time_steps`</b>: An optional Scalar integer `Tensor` - a total number of time
-  steps performed by the algorithm. The maximal distance betwen points in
+  steps performed by the algorithm. The maximal distance between points in
   grid is bounded by `times[-1] / (num_time_steps - times.shape[0])`.
   Either this or `time_step` should be supplied.
   Default value: `None`.

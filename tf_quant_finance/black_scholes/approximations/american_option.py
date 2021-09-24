@@ -430,7 +430,7 @@ def bjerksund_stensland(*,
       (if False). If not supplied, call options are assumed.
     modified_boundary: Python `bool`. Indicates whether the Bjerksund-Stensland
       1993 algorithm (single boundary) if False or Bjerksund-Stensland 2002
-      algoritm (modified boundary) if True, is to be used.
+      algorithm (modified boundary) if True, is to be used.
     dtype: Optional `tf.DType`. If supplied, the dtype to be used for conversion
       of any supplied non-`Tensor` arguments to `Tensor`.
       Default value: `None` which maps to the default dtype inferred by
@@ -716,7 +716,7 @@ def _cbnd(dh, dk, rho):
     A `Tensor` of cumulative distribution function values.
 
   #### References:
-  [1] Genz, A., Numerical Computation of Rectanglar Bivariate and Trivariate
+  [1] Genz, A., Numerical Computation of Rectangular Bivariate and Trivariate
         Normal and t Probabilities, 2004
     http://www.math.wsu.edu/faculty/genz/papers/bvnt.pdf
   """

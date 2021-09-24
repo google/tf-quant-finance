@@ -282,7 +282,7 @@ class RandomTest(parameterized.TestCase, tf.test.TestCase):
           covariance, decimal=1)
 
   def test_antithetic_sample_requires_even_dim(self):
-    """Error is trigerred if the first dim of sample_shape is odd."""
+    """Error is triggered if the first dim of sample_shape is odd."""
     mean = np.array([[1.0, 0.1], [0.1, 1.0]])
     scale = np.array([[0.4, -0.1], [0.22, 1.38]])
     sample_shape = [11, 100]

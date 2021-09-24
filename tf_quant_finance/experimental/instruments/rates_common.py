@@ -132,7 +132,7 @@ class DayCountConvention(enum.Enum):
   # Actual/360 day count basis
   ACTUAL_360 = 1
 
-  # Acutal/365 day count basis
+  # Actual/365 day count basis
   ACTUAL_365 = 2
 
   # 30/360 ISDA day count basis

@@ -70,7 +70,7 @@ class JoinedItoProcessTest(tf.test.TestCase):
                         expected_var, rtol=1e-3, atol=1e-3)
 
   def test_invalid_processes(self):
-    """Tests that all proceses should be `ItoProcess`es."""
+    """Tests that all processes should be `ItoProcess`es."""
     def drift_fn(t, x):
       del t, x
       return -1. / 2
@@ -83,7 +83,7 @@ class JoinedItoProcessTest(tf.test.TestCase):
       tff.models.JoinedItoProcess([process, lambda x: x], [[1.0], [1.0]])
 
   def test_inconsistent_dtype(self):
-    """Tests that all proceses should have the same dtype."""
+    """Tests that all processes should have the same dtype."""
     def drift_fn(t, x):
       del t, x
       return -1. / 2

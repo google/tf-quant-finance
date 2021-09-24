@@ -324,7 +324,7 @@ num_processes = 3
 
 def drift_fn(t, x):
   del t
-  # `x` is expeceted to be of shape [num_processes] + sample_shape + [dim]
+  # `x` is expected to be of shape [num_processes] + sample_shape + [dim]
   # We need to expand rank of rates to
   # `[num_processes] + extra_rank * [1] + [1]`
   expand_rank = x.shape.rank - 2
@@ -335,7 +335,7 @@ def drift_fn(t, x):
 
 def vol_fn(t, x):
   del t
-  # `x` is expeceted to be of shape [num_processes] + sample_shape + [dim]
+  # `x` is expected to be of shape [num_processes] + sample_shape + [dim]
   # As before, need to expand rank of volatilities to
   # `[num_processes] + extra_rank * [1] + [1]`
   expand_rank = x.shape.rank - 2
@@ -434,7 +434,7 @@ process.fd_solver_backward(
       keyword arguments and returns a `Tensor` with shape that broadcasts
       with `[dim]`.
     8. 'constant_coeff': A callable returning the coefficient of the
-      linear homogenous term (i.e. `r(t,x)` above). Same spec as above.
+      linear homogeneous term (i.e. `r(t,x)` above). Same spec as above.
       The `one_step_fn` callable returns a 2-tuple containing the next
       coordinate grid, next values grid.
 * <b>`boundary_conditions`</b>: The boundary conditions. Only rectangular boundary
@@ -613,7 +613,7 @@ For a simple instructive example of implementation of this method, see
       keyword arguments and returns a `Tensor` with shape that broadcasts
       with `[dim]`.
     7. 'constant_coeff': A callable returning the coefficient of the
-      linear homogenous term (i.e. `r(t,x)` above). Same spec as above.
+      linear homogeneous term (i.e. `r(t,x)` above). Same spec as above.
       The `one_step_fn` callable returns a 2-tuple containing the next
       coordinate grid, next values grid.
 * <b>`boundary_conditions`</b>: The boundary conditions. Only rectangular boundary

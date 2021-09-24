@@ -136,7 +136,7 @@ def discount_factors_and_bond_prices_from_samples(
     discount_factors = tf.math.exp(-cumul_rdt)
 
   # Make discount factors the same shape as `p_t_tau`. This involves adding
-  # an extra dimenstion (corresponding to `curve_times`).
+  # an extra dimension (corresponding to `curve_times`).
   discount_factors = tf.expand_dims(discount_factors, axis=model_batch_rank + 1)
 
   # tf.repeat is needed because we will use gather_nd later on this tensor.

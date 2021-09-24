@@ -230,7 +230,7 @@ def _apply_mixed_term_explicitly(
     upper = 1 if has_default_upper_boundary[dim] else 0
     paddings += [[lower, upper]]
 
-  # Pad defualt boundaries with zeros
+  # Pad default boundaries with zeros
   values_with_boundaries = tf.pad(values_with_boundaries, paddings=paddings)
 
   def create_trimming_shifts(dim1_shift, dim2_shift):
