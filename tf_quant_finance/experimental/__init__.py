@@ -20,7 +20,6 @@ from tf_quant_finance.experimental import local_stochastic_volatility
 from tf_quant_finance.experimental import local_volatility
 from tf_quant_finance.experimental import lsm_algorithm
 from tf_quant_finance.experimental import pricing_platform
-from tf_quant_finance.experimental import rqmc
 from tf_quant_finance.experimental import svi
 import tf_quant_finance.experimental.io
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
@@ -33,7 +32,6 @@ _allowed_symbols = [
     "pricing_platform",
     "local_stochastic_volatility",
     "local_volatility",
-    "rqmc",
     "svi",
 ]
 

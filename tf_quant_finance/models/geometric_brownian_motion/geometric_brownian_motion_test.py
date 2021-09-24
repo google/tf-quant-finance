@@ -864,7 +864,7 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     def sample_fn():
       return process.sample_paths(
           times=[0.1, 0.5, 1.0], initial_state=2.0, num_samples=10000)
-    samples = tf.xla.experimental.compile(sample_fn)[0]
+    samples = tf.function(sample_fn, jit_compile=True)()
     log_s = tf.math.log(samples)
     mean = tf.reduce_mean(log_s, axis=0)
     expected_mean = ((process._mean - process._volatility**2 / 2)

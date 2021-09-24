@@ -24,6 +24,8 @@ py_library(
         "//tf_quant_finance/math/random_ops",
         "//tf_quant_finance/models:generic_ito_process",
         "//tf_quant_finance/models:utils",
+        "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
         # tensorflow dep,
     ],
 )
@@ -56,9 +58,12 @@ py_library(
     name = "zero_coupon_bond_option",
     srcs = ["zero_coupon_bond_option.py"],
     deps = [
-        ":vector_hull_white",
+        ":one_factor",
+        "//tf_quant_finance/math/random_ops",
         "//tf_quant_finance/models:utils",
         "//tf_quant_finance/models/hjm:zero_coupon_bond_option_util",
+        "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
         # numpy dep,
         # tensorflow dep,
     ],
@@ -87,6 +92,8 @@ py_library(
     deps = [
         ":vector_hull_white",
         ":zero_coupon_bond_option",
+        "//tf_quant_finance/math/random_ops",
+        "//tf_quant_finance/types",
     ],
 )
 
@@ -111,9 +118,11 @@ py_library(
     name = "swaption",
     srcs = ["swaption.py"],
     deps = [
-        ":vector_hull_white",
+        ":one_factor",
         ":zero_coupon_bond_option",
+        "//tf_quant_finance/math/random_ops",
         "//tf_quant_finance/models/hjm:swaption_util",
+        "//tf_quant_finance/types",
     ],
 )
 
@@ -127,10 +136,12 @@ py_library(
         "//tf_quant_finance/math:gradient",
         "//tf_quant_finance/math:piecewise",
         "//tf_quant_finance/math/optimizer",
+        "//tf_quant_finance/math/random_ops",
         "//tf_quant_finance/math/root_search",
         "//tf_quant_finance/models/hjm:swaption_util",
         "//tf_quant_finance/models/longstaff_schwartz:lsm",
         "//tf_quant_finance/rates/analytics:swap",
+        "//tf_quant_finance/types",
     ],
 )
 

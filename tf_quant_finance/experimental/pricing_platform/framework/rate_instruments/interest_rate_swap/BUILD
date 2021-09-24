@@ -29,7 +29,6 @@ py_library(
         "//tf_quant_finance/experimental/pricing_platform/framework/rate_instruments:coupon_specs",
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos",
         "//tf_quant_finance/math",
-        # dataclasses dep,
         # tensorflow dep,
     ],
 )

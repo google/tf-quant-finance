@@ -57,9 +57,9 @@ class HJMBondOptionTest(tf.test.TestCase):
         dtype=dtype,
         seed=[1, 2])
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [1, 1])
+    self.assertAllEqual(price.shape, [1])
     price = self.evaluate(price)
-    self.assertAllClose(price, [[0.02817777]], rtol=error_tol, atol=error_tol)
+    self.assertAllClose(price, [0.02817777], rtol=error_tol, atol=error_tol)
 
   def test_correctness_time_dep_1d(self):
     """Tests model with piecewise constant volatility in 1 dimension."""
@@ -92,9 +92,9 @@ class HJMBondOptionTest(tf.test.TestCase):
         dtype=dtype,
         seed=[1, 2])
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [1, 1])
+    self.assertAllEqual(price.shape, [1])
     price = self.evaluate(price)
-    self.assertAllClose(price, [[0.02237839]], rtol=error_tol, atol=error_tol)
+    self.assertAllClose(price, [0.02237839], rtol=error_tol, atol=error_tol)
 
   def test_1d_batch(self):
     """Tests model with 1d batch of options."""
@@ -119,10 +119,10 @@ class HJMBondOptionTest(tf.test.TestCase):
         dtype=dtype,
         seed=[1, 2])
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [3, 1])
+    self.assertAllEqual(price.shape, [3])
     price = self.evaluate(price)
     self.assertAllClose(
-        price, [[0.02817777], [0.02817777], [0.02817777]],
+        price, [0.02817777, 0.02817777, 0.02817777],
         rtol=error_tol,
         atol=error_tol)
 
@@ -149,9 +149,9 @@ class HJMBondOptionTest(tf.test.TestCase):
         dtype=dtype,
         seed=[1, 2])
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [2, 2, 1])
+    self.assertAllEqual(price.shape, [2, 2])
     price = self.evaluate(price)
-    expected = [[[0.02817777], [0.02817777]], [[0.02042677], [0.02042677]]]
+    expected = [[0.02817777, 0.02817777], [0.02042677, 0.02042677]]
     self.assertAllClose(price, expected, rtol=error_tol, atol=error_tol)
 
   def test_correctness_2_factor(self):
@@ -177,9 +177,9 @@ class HJMBondOptionTest(tf.test.TestCase):
         dtype=dtype,
         seed=[1, 2])
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [1, 1])
+    self.assertAllEqual(price.shape, [1])
     price = self.evaluate(price)
-    self.assertAllClose(price, [[0.03111126]], rtol=error_tol, atol=error_tol)
+    self.assertAllClose(price, [0.03111126], rtol=error_tol, atol=error_tol)
 
   def test_correctness_2_factor_with_correlation(self):
     """Tests model with constant parameters with 2 correlated factors."""
@@ -205,9 +205,9 @@ class HJMBondOptionTest(tf.test.TestCase):
         dtype=dtype,
         seed=[1, 2])
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [1, 1])
+    self.assertAllEqual(price.shape, [1])
     price = self.evaluate(price)
-    self.assertAllClose(price, [[0.036809]], rtol=error_tol, atol=error_tol)
+    self.assertAllClose(price, [0.036809], rtol=error_tol, atol=error_tol)
 
   def test_correctness_2_factor_hull_white_consistency(self):
     """Test that under certain conditions HJM matches analytic HW results.
@@ -253,9 +253,8 @@ class HJMBondOptionTest(tf.test.TestCase):
         strikes=strikes,
         expiries=expiries,
         maturities=maturities,
-        dim=1,
-        mean_reversion=[mu],
-        volatility=[np.sqrt(vol1**2 + vol2**2 + 2.0 * rho * vol1 * vol2)],
+        mean_reversion=mu,
+        volatility=np.sqrt(vol1**2 + vol2**2 + 2.0 * rho * vol1 * vol2),
         discount_rate_fn=discount_rate_fn,
         use_analytic_pricing=True,
         dtype=dtype)
@@ -286,9 +285,9 @@ class HJMBondOptionTest(tf.test.TestCase):
         dtype=dtype,
         seed=[1, 2])
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [3, 1])
+    self.assertAllEqual(price.shape, [3])
     price = self.evaluate(price)
-    expected = [[0.03115176], [0.03789011], [0.02266191]]
+    expected = [0.03115176, 0.03789011, 0.02266191]
     self.assertAllClose(price, expected, rtol=error_tol, atol=error_tol)
 
   def test_call_put(self):
@@ -315,9 +314,9 @@ class HJMBondOptionTest(tf.test.TestCase):
         dtype=dtype,
         seed=[1, 2])
     self.assertEqual(price.dtype, dtype)
-    self.assertAllEqual(price.shape, [3, 1])
+    self.assertAllEqual(price.shape, [3])
     price = self.evaluate(price)
-    expected = [[0.03620415], [0.03279728], [0.01784987]]
+    expected = [0.03620415, 0.03279728, 0.01784987]
     self.assertAllClose(price, expected, rtol=error_tol, atol=error_tol)
 
 

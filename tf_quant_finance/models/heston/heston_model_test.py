@@ -33,9 +33,8 @@ class HestonModelTest(parameterized.TestCase, tf.test.TestCase):
   def test_volatility(self):
     """Tests volatility stays close to its mean for small vol of vol."""
     theta = 0.05
-    process = HestonModel(
-        mean_reversion=1.0, theta=theta, volvol=0.00001,
-        rho=-0.0, dtype=np.float64)
+    process = HestonModel(mean_reversion=1.0, theta=theta, volvol=0.00001,
+                          rho=-0.0, dtype=np.float64)
     years = 1.0
     times = np.linspace(0.0, years, int(365 * years))
     num_samples = 2
@@ -48,15 +47,13 @@ class HestonModelTest(parameterized.TestCase, tf.test.TestCase):
     # For small values of volvol, volatility should stay close to theta
     volatility_trace = self.evaluate(paths)[..., 1]
     max_deviation = np.max(abs(volatility_trace[:, 50:] - theta))
-    self.assertAlmostEqual(
-        max_deviation, 0.0, places=2)
+    self.assertAlmostEqual(max_deviation, 0.0, places=2)
 
   def test_state(self):
     """Tests state behaves like GBM for small vol of vol."""
     theta = 1.0
-    process = HestonModel(
-        mean_reversion=1.0, theta=theta, volvol=0.00001,
-        rho=-0.0, dtype=np.float64)
+    process = HestonModel(mean_reversion=1.0, theta=theta, volvol=0.00001,
+                          rho=-0.0, dtype=np.float64)
     times = [0.0, 0.5, 1.0]
     num_samples = 1000
     start_value = 100
@@ -108,7 +105,7 @@ class HestonModelTest(parameterized.TestCase, tf.test.TestCase):
     mean_reversion = 10.0
     theta = 0.04
     dtype = tf.float64
-    process = tff.models.HestonModel(
+    process = HestonModel(
         mean_reversion=mean_reversion,
         theta=theta,
         volvol=volvol,
@@ -243,8 +240,8 @@ class HestonModelTest(parameterized.TestCase, tf.test.TestCase):
         initial_state=initial_state,
         time_step=0.01,
         num_samples=1000,
-        random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
-        seed=42)
+        random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
+        seed=[1, 42])
     self.assertEqual(samples.shape, [1000, 2, 2])
     log_spots = samples[:, -1, 0]
     monte_carlo_price = (
@@ -274,6 +271,114 @@ class HestonModelTest(parameterized.TestCase, tf.test.TestCase):
 
     self.assertAllClose(monte_carlo_price, pde_price, atol=0.1, rtol=0.1)
 
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'SamplePathsWithNumTimeStep',
+          'use_num_time_step': True,
+          'use_time_grid': False,
+          'supply_normal_draws': False,
+      }, {
+          'testcase_name': 'SamplePathsWithGrid',
+          'use_num_time_step': False,
+          'use_time_grid': True,
+          'supply_normal_draws': False,
+      }, {
+          'testcase_name': 'SamplePathsWithGridAndDraws',
+          'use_num_time_step': False,
+          'use_time_grid': True,
+          'supply_normal_draws': True,
+      })
+  def test_compare_monte_carlo_to_european_option(
+      self, use_num_time_step, use_time_grid, supply_normal_draws):
+    dtype = tf.float64
+    mean_reversion_value = 0.3
+    theta = 0.05
+    volvol = 0.02
+    rho = 0.1
+    maturity_time = 1.0
+    initial_log_spot = 3.0
+    initial_vol = 0.05
+    strike = 15
+    discounting = 0.5
+
+    mean_reversion = tff.math.piecewise.PiecewiseConstantFunc(
+        jump_locations=[0.1, 0.2],
+        values=[mean_reversion_value, mean_reversion_value,
+                mean_reversion_value], dtype=dtype)
+
+    heston = HestonModel(mean_reversion=mean_reversion, theta=theta,
+                         volvol=volvol, rho=rho, dtype=dtype)
+
+    times = [maturity_time / 2, maturity_time]
+    num_samples = 10000
+    time_step = None
+    times_grid = None
+    num_time_steps = None
+    normal_draws = None
+    seed = [1, 42]
+
+    if use_num_time_step:
+      num_time_steps = 100
+    else:
+      time_step = 0.01
+    if use_time_grid:
+      times_grid = tf.constant(np.linspace(0.0, 1.0, 101), dtype=dtype)
+    if supply_normal_draws:
+      num_samples = 1
+      # Use antithetic sampling
+      normal_draws = tf.random.stateless_normal(
+          shape=[5000, 100, 2],
+          seed=seed,
+          dtype=dtype)
+      normal_draws = tf.concat([normal_draws, -normal_draws], axis=0)
+    random_type = tff.math.random.RandomType.STATELESS_ANTITHETIC
+
+    initial_state = np.array([initial_log_spot, initial_vol])
+    samples = heston.sample_paths(
+        times=times,
+        initial_state=initial_state,
+        time_step=time_step,
+        num_samples=num_samples,
+        random_type=random_type,
+        seed=seed,
+        num_time_steps=num_time_steps,
+        normal_draws=normal_draws,
+        times_grid=times_grid)
+    self.assertEqual(samples.shape, [10000, 2, 2])
+    log_spots = samples[:, -1, 0]
+    monte_carlo_price = (
+        np.exp(-discounting * maturity_time) *
+        tf.math.reduce_mean(
+            tf.nn.relu(tf.math.exp(log_spots) * np.exp(
+                discounting * maturity_time) - strike)))
+
+    # Calulating European option price using above parameters
+    dtype = np.float64
+    variances = initial_vol
+    discount_rates = discounting
+    expiries = maturity_time
+    mean_reversion = mean_reversion_value
+
+    spots = np.exp(initial_log_spot)
+    forwards = None
+
+    european_option_price = self.evaluate(
+        tff.models.heston.approximations.european_option_price(
+            mean_reversion=mean_reversion,
+            theta=theta,
+            volvol=volvol,
+            rho=rho,
+            variances=variances,
+            forwards=forwards,
+            spots=spots,
+            expiries=expiries,
+            strikes=strike,
+            discount_rates=discount_rates,
+            dtype=dtype))
+
+    # Comparing monte carlo and european option price
+    self.assertAllClose(
+        monte_carlo_price, european_option_price, atol=0.1, rtol=0.1)
 
 if __name__ == '__main__':
   tf.test.main()

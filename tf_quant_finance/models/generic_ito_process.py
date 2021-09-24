@@ -281,10 +281,10 @@ class GenericItoProcess(ito_process.ItoProcess):
     name = name or (self._name + '_sample_path')
     with tf.name_scope(name):
       return euler_sampling.sample(
-          self._dim,
-          self._drift_fn,
-          self._volatility_fn,
-          times,
+          dim=self._dim,
+          drift_fn=self._drift_fn,
+          volatility_fn=self._volatility_fn,
+          times=times,
           num_samples=num_samples,
           initial_state=initial_state,
           random_type=random_type,

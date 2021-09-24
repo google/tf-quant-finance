@@ -13,10 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """European swaptions."""
+import dataclasses
 
 from typing import Any, Dict, List, Optional, Union
 
-import dataclasses
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import datetime as dateslib
@@ -335,7 +335,6 @@ class Swaption(instrument.Instrument):
         is_payer_swaption=is_payer_swaption,
         use_analytic_pricing=True,
         notional=notional,
-        dim=1,
         mean_reversion=self._config.model_params.mean_reversion,
         volatility=self._config.model_params.volatility,
         dtype=self._dtype)

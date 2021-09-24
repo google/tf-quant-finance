@@ -30,8 +30,8 @@ class HullWhiteCalibrationSwaptionTest(parameterized.TestCase,
                                        tf.test.TestCase):
 
   def setUp(self):
-    self.mean_reversion = [0.03]
-    self.volatility = [0.01]
+    self.mean_reversion = 0.03
+    self.volatility = 0.01
     self.volatility_low = [0.002]
     self.volatility_high = [0.05]
     self.volatility_time_dep = [0.01, 0.015]
@@ -186,7 +186,7 @@ class HullWhiteCalibrationSwaptionTest(parameterized.TestCase,
     """Tests calibration with constant parameters."""
     dtype = tf.float64
 
-    zero_rate_fn = lambda x: 0.01 * tf.expand_dims(tf.ones_like(x), axis=-1)
+    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x)
     prices = tff.models.hull_white.swaption_price(
         expiries=self.expiries,
         floating_leg_start_times=self.float_leg_start_times,
@@ -197,7 +197,6 @@ class HullWhiteCalibrationSwaptionTest(parameterized.TestCase,
         fixed_leg_coupon=self.fixed_leg_coupon,
         reference_rate_fn=zero_rate_fn,
         notional=100.,
-        dim=1,
         mean_reversion=self.mean_reversion,
         volatility=hw_vol,
         use_analytic_pricing=True,
@@ -208,7 +207,7 @@ class HullWhiteCalibrationSwaptionTest(parameterized.TestCase,
         prices.shape, stddev=noise_size * prices, seed=0, dtype=dtype)
 
     calibrated_result, _, _ = tff.models.hull_white.calibration_from_swaptions(
-        prices=prices[:, 0],
+        prices=prices,
         expiries=self.expiries,
         floating_leg_start_times=self.float_leg_start_times,
         floating_leg_end_times=self.float_leg_end_times,
@@ -297,7 +296,6 @@ class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
         daycount_fractions=daycount_fractions,
         reference_rate_fn=zero_rate_fn,
         notional=1.0,
-        dim=1,
         mean_reversion=expected_mr,
         volatility=expected_vol,
         is_cap=tf.expand_dims(is_cap, axis=1),
@@ -307,7 +305,7 @@ class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
     # Calibrate the model.
     calibrated_result, is_converged, _ = (
         tff.models.hull_white.calibration_from_cap_floors(
-            prices=tf.squeeze(prices),
+            prices=prices,
             strikes=strikes,
             expiries=expiries,
             maturities=maturities,
@@ -316,7 +314,6 @@ class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
             mean_reversion=[0.3],
             volatility=[0.02],
             notional=1.0,
-            dim=1,
             is_cap=tf.expand_dims(is_cap, axis=1),
             use_analytic_pricing=True,
             optimizer_fn=None,
@@ -421,7 +418,7 @@ class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
     dtype = tf.float64
 
     # Setup - generate some observed prices using the model.
-    zero_rate_fn = lambda x: 0.01 * tf.expand_dims(tf.ones_like(x), axis=-1)
+    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x)
     prices = tff.models.hull_white.cap_floor_price(
         strikes=self.strikes,
         expiries=self.expiries,
@@ -429,7 +426,6 @@ class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
         daycount_fractions=self.daycount_fractions,
         reference_rate_fn=zero_rate_fn,
         notional=1.0,
-        dim=1,
         mean_reversion=[expected_mr],
         volatility=[expected_vol],
         is_cap=tf.expand_dims(self.is_cap, axis=1),
@@ -442,7 +438,7 @@ class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
     # Calibrate the model.
     calibrated_model, is_converged, _ = (
         tff.models.hull_white.calibration_from_cap_floors(
-            prices=tf.squeeze(prices),
+            prices=prices,
             strikes=self.strikes,
             expiries=self.expiries,
             maturities=self.maturities,
@@ -451,7 +447,6 @@ class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
             mean_reversion=[0.4],
             volatility=[0.02],
             notional=1.0,
-            dim=1,
             is_cap=tf.expand_dims(self.is_cap, axis=1),
             use_analytic_pricing=use_analytic_pricing,
             optimizer_fn=optimizer_fn,
@@ -486,7 +481,7 @@ class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
         jump_locations=[0.5, 2.0], values=[0.01, 0.015, 0.02], dtype=dtype)
 
     # Setup - generate some observed prices using the model.
-    zero_rate_fn = lambda x: 0.01 * tf.expand_dims(tf.ones_like(x), axis=-1)
+    zero_rate_fn = lambda x: 0.01 * tf.ones_like(x)
     prices = tff.models.hull_white.cap_floor_price(
         strikes=self.strikes,
         expiries=self.expiries,
@@ -494,7 +489,6 @@ class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
         daycount_fractions=self.daycount_fractions,
         reference_rate_fn=zero_rate_fn,
         notional=1.0,
-        dim=1,
         mean_reversion=[expected_mr],
         volatility=volatility,
         is_cap=tf.expand_dims(self.is_cap, axis=1),
@@ -508,7 +502,7 @@ class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
     # Calibrate the model.
     calibrated_model, is_converged, _ = (
         tff.models.hull_white.calibration_from_cap_floors(
-            prices=tf.squeeze(prices),
+            prices=prices,
             strikes=self.strikes,
             expiries=self.expiries,
             maturities=self.maturities,
@@ -517,7 +511,6 @@ class HullWhiteCalibrationCapFloorTest(parameterized.TestCase,
             mean_reversion=[0.4],
             volatility=volatility,
             notional=1.0,
-            dim=1,
             is_cap=tf.expand_dims(self.is_cap, axis=1),
             use_analytic_pricing=False,
             num_samples=250,

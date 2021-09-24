@@ -748,9 +748,8 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
           is_knock_out=samples[8],
           is_call_options=samples[9])[0]
 
-    @tf.function
     def xla_compiled_op(samples):
-      return tf.xla.experimental.compile(price_barriers_option, samples)
+      return tf.function(price_barriers_option, jit_compile=True)(samples)
 
     price = xla_compiled_op([
         volatilities, strikes, expiries, spots, discount_rates,

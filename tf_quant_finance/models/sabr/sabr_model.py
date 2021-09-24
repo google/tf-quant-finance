@@ -39,11 +39,20 @@ default to Euler sampling.
   https://ssrn.com/abstract=946405 or http://dx.doi.org/10.2139/ssrn.946405
 """
 
+from typing import Optional
+
 import tensorflow.compat.v2 as tf
+
+from tf_quant_finance import types
+from tf_quant_finance import utils as tff_utils
 from tf_quant_finance.math import random_ops as random
 from tf_quant_finance.math.root_search.newton import root_finder
 from tf_quant_finance.models import generic_ito_process
 from tf_quant_finance.models import utils
+
+__all__ = [
+    'SabrModel'
+]
 
 
 class SabrModel(generic_ito_process.GenericItoProcess):
@@ -106,15 +115,15 @@ class SabrModel(generic_ito_process.GenericItoProcess):
   """
 
   def __init__(self,
-               beta,
-               volvol,
-               rho=0,
-               shift=0,
-               enable_unbiased_sampling=False,
-               psi_threshold=2,
-               ncx2_cdf_truncation=10,
-               dtype=None,
-               name=None):
+               beta: types.RealTensor,
+               volvol: types.RealTensor,
+               rho: types.RealTensor = 0,
+               shift: types.RealTensor = 0,
+               enable_unbiased_sampling: bool = False,
+               psi_threshold: types.RealTensor = 2,
+               ncx2_cdf_truncation: int = 10,
+               dtype: Optional[tf.DType] = None,
+               name: Optional[str] = None):
     """Initializes the SABR Model.
 
     Args:
@@ -248,16 +257,17 @@ class SabrModel(generic_ito_process.GenericItoProcess):
                                     self._name)
 
   def sample_paths(self,
-                   initial_forward,
-                   initial_volatility,
-                   times,
-                   time_step,
-                   num_samples=1,
-                   random_type=None,
-                   seed=None,
-                   name=None,
-                   validate_args=False,
-                   precompute_normal_draws=True):
+                   initial_forward: types.RealTensor,
+                   initial_volatility: types.RealTensor,
+                   times: types.RealTensor,
+                   time_step: types.RealTensor,
+                   num_samples: types.RealTensor = 1,
+                   random_type: Optional[random.RandomType] = None,
+                   seed: Optional[types.IntTensor] = None,
+                   skip: types.IntTensor = 0,
+                   validate_args: bool = False,
+                   precompute_normal_draws: bool = True,
+                   name: Optional[str] = None):
     """Returns a sample of paths from the process.
 
     Generates samples of paths from the process at the specified time points.
@@ -277,10 +287,18 @@ class SabrModel(generic_ito_process.GenericItoProcess):
       random_type: Enum value of `RandomType`. The type of (quasi)-random number
         generator to use to generate the paths.
         Default value: None which maps to the standard pseudo-random numbers.
-      seed: Python `int`. The random seed to use. If not supplied, no seed is
-        set.
-      name: str. The name to give this op. If not supplied, default name of
-        `sample_paths` is used.
+      seed: Seed for the random number generator. The seed is
+        only relevant if `random_type` is one of
+        `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
+          STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
+        `HALTON_RANDOMIZED` the seed should be an Python integer. For
+        `STATELESS` and  `STATELESS_ANTITHETIC` must be supplied as an integer
+        `Tensor` of shape `[2]`.
+        Default value: `None` which means no seed is set.
+      skip: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
+        Halton sequence to skip. Used only when `random_type` is 'SOBOL',
+        'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
+        Default value: `0`.
       validate_args: Python `bool`. When `True`, input `Tensor's` are checked
         for validity despite possibly degrading runtime performance. The checks
         verify that `times` is strictly increasing. When `False` invalid inputs
@@ -290,6 +308,8 @@ class SabrModel(generic_ito_process.GenericItoProcess):
         For `HALTON` and `SOBOL` random types the increments are always
         precomputed. While the resulting graph consumes more memory, the
         performance gains might be significant. Default value: `True`.
+      name: str. The name to give this op. If not supplied, default name of
+        `sample_paths` is used.
 
     Returns:
       A `Tensor`s of shape [num_samples, k, 2] where `k` is the size of the
@@ -297,12 +317,8 @@ class SabrModel(generic_ito_process.GenericItoProcess):
       whereas the second values in `Tensor` are the simulated volatility
       trajectories `V(t)`.
     """
-    default_name = self._name + '_sample_path'
-
-    with tf.compat.v1.name_scope(
-        name,
-        default_name=default_name,
-        values=[initial_forward, initial_volatility, times, time_step]):
+    name = name or self._name + '_sample_path'
+    with tf.name_scope(name):
       initial_forward = tf.convert_to_tensor(
           initial_forward, self._dtype, name='initial_forward')
       initial_volatility = tf.convert_to_tensor(
@@ -322,15 +338,16 @@ class SabrModel(generic_ito_process.GenericItoProcess):
             _is_callable(self._rho) or self._beta == 1):
           paths = self._sabr_sample_paths(initial_forward, initial_volatility,
                                           times, time_step, num_samples,
-                                          random_type, seed, name,
-                                          precompute_normal_draws)
+                                          random_type, seed,
+                                          precompute_normal_draws,
+                                          skip=skip)
         else:
           paths = super(SabrModel, self).sample_paths(
               times,
               num_samples, [initial_forward, initial_volatility],
               random_type,
               seed,
-              name=default_name,
+              skip=skip,
               time_step=time_step,
               precompute_normal_draws=precompute_normal_draws)
 
@@ -340,9 +357,33 @@ class SabrModel(generic_ito_process.GenericItoProcess):
         return tf.concat([forwards, volatilities], axis=-1)
 
   def _sabr_sample_paths(self, initial_forward, initial_volatility, times,
-                         time_step, num_samples, random_type, seed, name,
-                         precompute_normal_draws):
+                         time_step, num_samples, random_type, seed,
+                         precompute_normal_draws, skip):
     """Returns a sample of paths from the process."""
+    num_requested_times = tff_utils.get_shape(times)[0]
+    # Prepare results format
+    forward = tf.zeros(
+        shape=(num_samples,), dtype=self._dtype) + initial_forward
+    vol = tf.zeros(shape=(num_samples,), dtype=self._dtype) + initial_volatility
+    if isinstance(num_requested_times, int) and num_requested_times == 1:
+      record_samples = False
+      forward_paths = forward
+      vol_paths = vol
+    else:
+      # If more than one sample has to be recorded, create a TensorArray
+      record_samples = True
+      element_shape = forward.shape
+      forward_paths = tf.TensorArray(
+          dtype=times.dtype,
+          size=num_requested_times,
+          element_shape=element_shape,
+          clear_after_read=False)
+      vol_paths = tf.TensorArray(
+          dtype=times.dtype,
+          size=num_requested_times,
+          element_shape=element_shape,
+          clear_after_read=False)
+    # Define sampling while_loop body function
     cond_fn = lambda index, *args: index < tf.size(times)
 
     # In order to use low-discrepancy random_type we need to generate the
@@ -365,6 +406,7 @@ class SabrModel(generic_ito_process.GenericItoProcess):
           num_sample_paths=num_samples,
           random_type=random_type,
           seed=seed,
+          skip=skip,
           dtype=self._dtype)
     else:
       normal_draws = None
@@ -374,40 +416,42 @@ class SabrModel(generic_ito_process.GenericItoProcess):
       """Simulate Sabr process to the next time point."""
       forward, vol, normal_draws_index = self._propagate_to_time(
           forward, vol, current_time, times[index], time_step, random_type,
-          seed, normal_draws, normal_draws_index)
-
+          seed, normal_draws, normal_draws_index, num_time_steps)
       # Always update paths in outer loop.
-      forward_paths = utils.maybe_update_along_axis(
-          tensor=forward_paths,
-          do_update=True,
-          ind=index,
-          axis=1,
-          new_tensor=tf.expand_dims(forward, axis=1))
-      vol_paths = utils.maybe_update_along_axis(
-          tensor=vol_paths,
-          do_update=True,
-          ind=index,
-          axis=1,
-          new_tensor=tf.expand_dims(vol, axis=1))
+      if record_samples:
+        # Update volatility paths
+        vol_paths = vol_paths.write(index, vol)
+        # Update forward paths
+        forward_paths = forward_paths.write(index, forward)
+      else:
+        vol_paths = vol
+        forward_paths = forward
       return index + 1, times[
           index], forward, vol, forward_paths, vol_paths, normal_draws_index
-
-    shape = (num_samples, times.shape[0])
-    forward_paths = tf.zeros(shape, dtype=self._dtype)
-    vol_paths = tf.zeros(shape, dtype=self._dtype)
-    forward = tf.zeros(
-        shape=(num_samples,), dtype=self._dtype) + initial_forward
-    vol = tf.zeros(shape=(num_samples,), dtype=self._dtype) + initial_volatility
     start_time = tf.constant(0, dtype=self._dtype)
-    _, _, _, _, forward_paths, vol_paths, _ = tf.compat.v1.while_loop(
+    # Sample paths
+    _, _, _, _, forward_paths, vol_paths, _ = tf.while_loop(
         cond_fn,
         body_fn, (0, start_time, forward, vol, forward_paths, vol_paths, 0),
         maximum_iterations=tf.size(times))
+    if not record_samples:
+      # shape [num_samples, 1]
+      vol_paths = tf.expand_dims(vol_paths, axis=-1)
+      forward_paths = tf.expand_dims(forward_paths, axis=-1)
+      # shape [num_samples, 1, 1]
+      return tf.stack([forward_paths, vol_paths], -1)
+    # Shape [num_time_points] + [num_samples]
+    vol_paths = vol_paths.stack()
+    forward_paths = forward_paths.stack()
+    # transpose to shape [num_samples, num_time_points]
+    vol_paths = tf.transpose(vol_paths)
+    forward_paths = tf.transpose(forward_paths)
+    # Shape [num_samples, num_time_points, 2]
     return tf.stack([forward_paths, vol_paths], -1)
 
   def _propagate_to_time(self, start_forward, start_vol, start_time, end_time,
                          time_step, random_type, seed, normal_draws,
-                         normal_draws_index):
+                         normal_draws_index, num_time_steps):
     cond_fn = lambda t, *args: t < end_time
 
     def body_fn(current_time, forward, vol, normal_draws_index):
@@ -427,7 +471,7 @@ class SabrModel(generic_ito_process.GenericItoProcess):
       z = random_numbers[2]
 
       time_to_end = end_time - current_time
-      dt = tf.compat.v2.where(time_to_end <= time_step, time_to_end, time_step)
+      dt = tf.where(time_to_end <= time_step, time_to_end, time_step)
 
       next_vol = self._sample_next_volatilities(vol, dt, dwv)
       iv = self._sample_integrated_variance(vol, next_vol, dt)
@@ -435,10 +479,10 @@ class SabrModel(generic_ito_process.GenericItoProcess):
                                            z)
 
       return current_time + dt, next_forward, next_vol, normal_draws_index + 1
-
     _, next_forward, next_vol, normal_draws_index = tf.while_loop(
         cond_fn, body_fn,
-        (start_time, start_forward, start_vol, normal_draws_index))
+        (start_time, start_forward, start_vol, normal_draws_index),
+        maximum_iterations=num_time_steps)
     return next_forward, next_vol, normal_draws_index
 
   def _sample_next_volatilities(self, vol, dt, dwv):

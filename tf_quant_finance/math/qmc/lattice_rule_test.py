@@ -19,7 +19,7 @@ import tf_quant_finance as tff
 
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
-rqmc = tff.experimental.rqmc
+qmc = tff.math.qmc
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -36,32 +36,38 @@ class LatticeRuleTest(tf.test.TestCase):
     return tf.constant(self.generating_vectors_values, dtype=dtype)
 
   def test_random_scrambling_vectors(self):
-    for dtype in [tf.int32, tf.int64]:
-      generating_vectors = self.generating_vectors(dtype=dtype)
-      seed = (2, 3)
+    dim = 20
+    seed = (2, 3)
 
-      actual = rqmc.random_scrambling_vectors(
-          generating_vectors, seed, validate_args=True)
+    actual = qmc.random_scrambling_vectors(dim, seed, validate_args=True)
 
-      self.assertEqual(actual.shape, generating_vectors.shape)
+    with self.subTest('Shape'):
+      self.assertEqual(actual.shape, (dim,))
+    with self.subTest('DType'):
       self.assertEqual(actual.dtype, tf.float32)
+    with self.subTest('Min Value'):
       self.assertAllLess(actual, tf.ones(shape=(), dtype=tf.float32))
+    with self.subTest('Max Value'):
       self.assertAllGreaterEqual(actual, tf.zeros(shape=(), dtype=tf.float32))
 
   def test_random_scrambling_vectors_with_dtype(self):
-    generating_vectors = self.generating_vectors()
+    dim = 20
     seed = (2, 3)
 
     for dtype in [tf.float32, tf.float64]:
-      actual = rqmc.random_scrambling_vectors(
-          generating_vectors, seed, dtype=dtype, validate_args=True)
+      actual = qmc.random_scrambling_vectors(
+          dim, seed, dtype=dtype, validate_args=True)
 
-      self.assertEqual(actual.shape, generating_vectors.shape)
-      self.assertEqual(actual.dtype, dtype)
-      self.assertAllLess(actual, tf.ones(shape=(), dtype=dtype))
-      self.assertAllGreaterEqual(actual, tf.zeros(shape=(), dtype=dtype))
+      with self.subTest('Shape'):
+        self.assertEqual(actual.shape, (dim,))
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, dtype)
+      with self.subTest('Min Value'):
+        self.assertAllLess(actual, tf.ones(shape=(), dtype=dtype))
+      with self.subTest('Max Value'):
+        self.assertAllGreaterEqual(actual, tf.zeros(shape=(), dtype=dtype))
 
-  def test_sample_lattice_rule(self):
+  def test_lattice_rule_sample(self):
 
     expected = tf.constant([[0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
                             [0.0625, 0.6875, 0.0625, 0.8125, 0.4375, 0.5625],
@@ -82,14 +88,16 @@ class LatticeRuleTest(tf.test.TestCase):
                            dtype=tf.float32)
 
     for dtype in [tf.int32, tf.int64]:
-      actual = rqmc.sample_lattice_rule(
+      actual = qmc.lattice_rule_sample(
           self.generating_vectors(dtype=dtype), 6, 16, validate_args=True)
 
-      self.assertAllClose(
-          self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
-      self.assertEqual(actual.dtype, expected.dtype)
+      with self.subTest('Values'):
+        self.assertAllClose(
+            self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, expected.dtype)
 
-  def test_sample_lattice_rule_with_sequence_indices(self):
+  def test_lattice_rule_sample_with_sequence_indices(self):
     indices = [2, 3, 6, 9, 11, 14]
 
     expected = tf.constant([[0.1250, 0.3750, 0.1250, 0.6250, 0.8750, 0.1250],
@@ -100,18 +108,20 @@ class LatticeRuleTest(tf.test.TestCase):
                             [0.8750, 0.6250, 0.8750, 0.3750, 0.1250, 0.8750]],
                            dtype=tf.float32)
 
-    actual = rqmc.sample_lattice_rule(
+    actual = qmc.lattice_rule_sample(
         self.generating_vectors(),
         6,
         16,
         sequence_indices=tf.constant(indices, dtype=tf.int32),
         validate_args=True)
 
-    self.assertAllClose(
-        self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
-    self.assertEqual(actual.dtype, expected.dtype)
+    with self.subTest('Values'):
+      self.assertAllClose(
+          self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
+    with self.subTest('DType'):
+      self.assertEqual(actual.dtype, expected.dtype)
 
-  def test_sample_lattice_rule_with_zero_additive_shift(self):
+  def test_lattice_rule_sample_with_zero_additive_shift(self):
     generating_vectors = self.generating_vectors()
 
     expected = tf.constant([[0.000, 0.000, 0.000, 0.000, 0.000],
@@ -125,18 +135,20 @@ class LatticeRuleTest(tf.test.TestCase):
                            dtype=tf.float32)
 
     for dtype in [tf.float32, tf.float64]:
-      actual = rqmc.sample_lattice_rule(
+      actual = qmc.lattice_rule_sample(
           generating_vectors,
           5,
           8,
           additive_shift=tf.zeros_like(generating_vectors, dtype=dtype),
           validate_args=True)
 
-      self.assertAllClose(
-          self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
-      self.assertEqual(actual.dtype, expected.dtype)
+      with self.subTest('Values'):
+        self.assertAllClose(
+            self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, expected.dtype)
 
-  def test_sample_lattice_rule_with_non_zero_additive_shift(self):
+  def test_lattice_rule_sample_with_non_zero_additive_shift(self):
     generating_vectors = self.generating_vectors()
 
     additive_shift = [
@@ -155,18 +167,20 @@ class LatticeRuleTest(tf.test.TestCase):
                            dtype=tf.float32)
 
     for dtype in [tf.float32, tf.float64]:
-      actual = rqmc.sample_lattice_rule(
+      actual = qmc.lattice_rule_sample(
           generating_vectors,
           5,
           8,
           additive_shift=tf.constant(additive_shift, dtype=dtype),
           validate_args=True)
 
-      self.assertAllClose(
-          self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
-      self.assertEqual(actual.dtype, expected.dtype)
+      with self.subTest('Values'):
+        self.assertAllClose(
+            self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, expected.dtype)
 
-  def test_sample_lattice_rule_with_tent_transform(self):
+  def test_lattice_rule_sample_with_tent_transform(self):
 
     expected = tf.constant([[0.000, 0.000, 0.000, 0.000, 0.000],
                             [0.250, 0.750, 0.250, 0.750, 0.250],
@@ -178,18 +192,21 @@ class LatticeRuleTest(tf.test.TestCase):
                             [0.250, 0.750, 0.250, 0.750, 0.250]],
                            dtype=tf.float32)
 
-    actual = rqmc.sample_lattice_rule(
+    actual = qmc.lattice_rule_sample(
         self.generating_vectors(),
         5,
         8,
         apply_tent_transform=True,
         validate_args=True)
 
-    self.assertAllClose(
-        self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
-    self.assertEqual(actual.dtype, expected.dtype)
+    with self.subTest('Values'):
+      self.assertAllClose(
+          self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
+    with self.subTest('DType'):
+      self.assertEqual(actual.dtype, expected.dtype)
 
-  def test_sample_lattice_rule_with_dtype(self):
+  def test_lattice_rule_sample_with_dtype(self):
+    generating_vectors = self.generating_vectors()
 
     for dtype in [tf.float32, tf.float64]:
       expected = tf.constant([[0.000, 0.000, 0.000, 0.000, 0.000],
@@ -202,12 +219,14 @@ class LatticeRuleTest(tf.test.TestCase):
                               [0.875, 0.625, 0.875, 0.375, 0.125]],
                              dtype=dtype)
 
-      actual = rqmc.sample_lattice_rule(
-          self.generating_vectors(), 5, 8, validate_args=True, dtype=dtype)
+      actual = qmc.lattice_rule_sample(
+          generating_vectors, 5, 8, validate_args=True, dtype=dtype)
 
-      self.assertAllClose(
-          self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
-      self.assertEqual(actual.dtype, dtype)
+      with self.subTest('Values'):
+        self.assertAllClose(
+            self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, dtype)
 
 
 if __name__ == '__main__':

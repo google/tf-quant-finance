@@ -10,6 +10,7 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":dataclass",
+        ":shape_utils",
         ":tf_functions",
     ],
 )
@@ -19,7 +20,6 @@ py_library(
     srcs = ["tf_functions.py"],
     srcs_version = "PY3",
     deps = [
-        # dataclasses dep,
         # numpy dep,
         # tensorflow dep,
     ],
@@ -33,7 +33,6 @@ py_test(
     deps = [
         "//tf_quant_finance",
         # test util,
-        # dataclasses dep,
         # numpy dep,
         # tensorflow dep,
     ],
@@ -50,6 +49,28 @@ py_test(
     size = "small",
     srcs = ["dataclass_test.py"],
     python_version = "PY3",
+    deps = [
+        "//tf_quant_finance",
+        # test util,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "shape_utils",
+    srcs = ["shape_utils.py"],
+    srcs_version = "PY3",
+    deps = [
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "shape_utils_test",
+    size = "small",
+    srcs = ["shape_utils_test.py"],
+    python_version = "PY3",
+    shard_count = 2,
     deps = [
         "//tf_quant_finance",
         # test util,

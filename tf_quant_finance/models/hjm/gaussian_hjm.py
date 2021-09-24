@@ -14,13 +14,19 @@
 # limitations under the License.
 """Multi-Factor Gaussian HJM Model."""
 
+from typing import Callable, Union
+
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
 from tf_quant_finance.math import gradient
 from tf_quant_finance.math import piecewise
+from tf_quant_finance.math import random
 from tf_quant_finance.models import euler_sampling
 from tf_quant_finance.models import utils
 from tf_quant_finance.models.hjm import quasi_gaussian_hjm
+
+__all__ = ['GaussianHJM']
 
 
 class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
@@ -116,14 +122,15 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
     Volume II: Term Structure Models.
   """
 
-  def __init__(self,
-               dim,
-               mean_reversion,
-               volatility,
-               initial_discount_rate_fn,
-               corr_matrix=None,
-               dtype=None,
-               name=None):
+  def __init__(
+      self,
+      dim: int,
+      mean_reversion: types.RealTensor,
+      volatility: Union[types.RealTensor, Callable[..., types.RealTensor]],
+      initial_discount_rate_fn,
+      corr_matrix: types.RealTensor = None,
+      dtype: tf.DType = None,
+      name: str = None):
     """Initializes the HJM model.
 
     Args:
@@ -220,15 +227,16 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
       super(quasi_gaussian_hjm.QuasiGaussianHJM,
             self).__init__(dim, _drift_fn, _vol_fn, self._dtype, self._name)
 
-  def sample_paths(self,
-                   times,
-                   num_samples,
-                   time_step=None,
-                   num_time_steps=None,
-                   random_type=None,
-                   seed=None,
-                   skip=0,
-                   name=None):
+  def sample_paths(
+      self,
+      times: types.RealTensor,
+      num_samples: types.IntTensor,
+      time_step: types.RealTensor = None,
+      num_time_steps: types.IntTensor = None,
+      random_type: random.RandomType = None,
+      seed: types.IntTensor = None,
+      skip: types.IntTensor = 0,
+      name: str = None) -> types.RealTensor:
     """Returns a sample of short rate paths from the HJM process.
 
     Uses Euler sampling for simulating the short rate paths.
@@ -295,7 +303,7 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
       return self._sample_paths(times, time_step, num_time_steps, num_samples,
                                 random_type, skip, seed)
 
-  def state_y(self, t):
+  def state_y(self, t: types.RealTensor, name: str = None) -> types.RealTensor:
     """Computes the state variable `y(t)` for tha Gaussian HJM Model.
 
     For Gaussian HJM model, the state parameter y(t), can be analytically
@@ -306,48 +314,58 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
 
     Args:
       t: A rank 1 real `Tensor` of shape `[num_times]` specifying the time `t`.
+      name: Python string. The name to give to the ops created by this function.
+        Default value: `None` which maps to the default name `state_y`.
 
     Returns:
       A real `Tensor` of shape [self._factors, self._factors, num_times]
       containing the computed y_ij(t).
     """
-    t = tf.convert_to_tensor(t, dtype=self._dtype)
-    t_shape = tf.shape(t)
-    t = tf.broadcast_to(t, tf.concat([[self._dim], t_shape], axis=0))
-    time_index = tf.searchsorted(self._jump_locations, t)
-    # create a matrix k2(i,j) = k(i) + k(j)
-    mr2 = tf.expand_dims(self._mean_reversion, axis=-1)
-    # Add a dimension corresponding to `num_times`
-    mr2 = tf.expand_dims(mr2 + tf.transpose(mr2), axis=-1)
+    name = name or 'state_y'
+    with tf.name_scope(name):
+      t = tf.convert_to_tensor(t, dtype=self._dtype)
+      t_shape = tf.shape(t)
+      t = tf.broadcast_to(t, tf.concat([[self._dim], t_shape], axis=0))
+      time_index = tf.searchsorted(self._jump_locations, t)
+      # create a matrix k2(i,j) = k(i) + k(j)
+      mr2 = tf.expand_dims(self._mean_reversion, axis=-1)
+      # Add a dimension corresponding to `num_times`
+      mr2 = tf.expand_dims(mr2 + tf.transpose(mr2), axis=-1)
 
-    def _integrate_volatility_squared(vol, l_limit, u_limit):
-      # create sigma2_ij = sigma_i * sigma_j
-      vol = tf.expand_dims(vol, axis=-2)
-      vol_squared = tf.expand_dims(self._rho, axis=-1) * (
-          vol * tf.transpose(vol, perm=[1, 0, 2]))
-      return vol_squared / mr2 * (tf.math.exp(mr2 * u_limit) - tf.math.exp(
-          mr2 * l_limit))
+      def _integrate_volatility_squared(vol, l_limit, u_limit):
+        # create sigma2_ij = sigma_i * sigma_j
+        vol = tf.expand_dims(vol, axis=-2)
+        vol_squared = tf.expand_dims(self._rho, axis=-1) * (
+            vol * tf.transpose(vol, perm=[1, 0, 2]))
+        return vol_squared / mr2 * (tf.math.exp(mr2 * u_limit) - tf.math.exp(
+            mr2 * l_limit))
 
-    is_constant_vol = tf.math.equal(tf.shape(self._jump_values_vol)[-1], 0)
-    v_squared_between_vol_knots = tf.cond(
-        is_constant_vol,
-        lambda: tf.zeros(shape=(self._dim, self._dim, 0), dtype=self._dtype),
-        lambda: _integrate_volatility_squared(  # pylint: disable=g-long-lambda
-            self._jump_values_vol, self._padded_knots, self._jump_locations))
-    v_squared_at_vol_knots = tf.concat([
-        tf.zeros((self._dim, self._dim, 1), dtype=self._dtype),
-        utils.cumsum_using_matvec(v_squared_between_vol_knots)
-    ], axis=-1)
+      is_constant_vol = tf.math.equal(tf.shape(self._jump_values_vol)[-1], 0)
+      v_squared_between_vol_knots = tf.cond(
+          is_constant_vol,
+          lambda: tf.zeros(shape=(self._dim, self._dim, 0), dtype=self._dtype),
+          lambda: _integrate_volatility_squared(  # pylint: disable=g-long-lambda
+              self._jump_values_vol, self._padded_knots, self._jump_locations))
+      v_squared_at_vol_knots = tf.concat([
+          tf.zeros((self._dim, self._dim, 1), dtype=self._dtype),
+          utils.cumsum_using_matvec(v_squared_between_vol_knots)
+      ], axis=-1)
 
-    vn = tf.concat([self._zero_padding, self._jump_locations], axis=1)
+      vn = tf.concat([self._zero_padding, self._jump_locations], axis=1)
 
-    v_squared_t = _integrate_volatility_squared(
-        self._volatility(t), tf.gather(vn, time_index, batch_dims=1), t)
-    v_squared_t += tf.gather(v_squared_at_vol_knots, time_index, batch_dims=-1)
+      v_squared_t = _integrate_volatility_squared(
+          self._volatility(t), tf.gather(vn, time_index, batch_dims=1), t)
+      v_squared_t += tf.gather(v_squared_at_vol_knots, time_index,
+                               batch_dims=-1)
 
-    return tf.math.exp(-mr2 * t) * v_squared_t
+      return tf.math.exp(-mr2 * t) * v_squared_t
 
-  def discount_bond_price(self, state, times, maturities, name=None):
+  def discount_bond_price(
+      self,
+      state: types.RealTensor,
+      times: types.RealTensor,
+      maturities: types.RealTensor,
+      name: str = None) -> types.RealTensor:
     """Returns zero-coupon bond prices `P(t,T)` conditional on `x(t)`.
 
     Args:

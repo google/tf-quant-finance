@@ -13,19 +13,28 @@
 # limitations under the License.
 """Collection of utility functions for pricing swaptions."""
 
+from typing import Callable, Tuple
+
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
 from tf_quant_finance.models import utils
+
+__all__ = [
+    'discount_factors_and_bond_prices_from_samples'
+]
 
 
 def discount_factors_and_bond_prices_from_samples(
-    expiries,
-    payment_times,
-    sample_discount_curve_paths_fn,
-    num_samples,
-    times=None,
-    curve_times=None,
-    dtype=None):
+    expiries: types.RealTensor,
+    payment_times: types.RealTensor,
+    sample_discount_curve_paths_fn: Callable[..., Tuple[types.RealTensor,
+                                                        types.RealTensor,
+                                                        types.RealTensor]],
+    num_samples: types.IntTensor,
+    times: types.RealTensor = None,
+    curve_times: types.RealTensor = None,
+    dtype: tf.DType = None) -> Tuple[types.RealTensor, types.RealTensor]:
   """Utility function to compute the discount factors and the bond prices.
 
   Args:
@@ -46,7 +55,8 @@ def discount_factors_and_bond_prices_from_samples(
         maturities at which the discount curve is to be computed at each
         simulation time.
       3) num_samples: Positive scalar integer specifying the number of paths to
-        draw.  Returns three `Tensor`s, the first being a N-D tensor of shape
+        draw.
+      Returns three `Tensor`s, the first being a N-D tensor of shape
         `model_batch_shape + [num_samples, m, k, d]` containing the simulated
         zero coupon bond curves, the second being a `Tensor` of shape
         `model_batch_shape + [num_samples, k, d]` containing the simulated

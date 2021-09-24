@@ -13,45 +13,53 @@
 # limitations under the License.
 """Pricing of Interest rate Swaptions using the Hull-White model."""
 
+from typing import Callable, Union
+
 import numpy as np
 import tensorflow.compat.v2 as tf
+
+from tf_quant_finance import types
 from tf_quant_finance.math import pde
+from tf_quant_finance.math import random
 from tf_quant_finance.math.interpolation import linear
 from tf_quant_finance.math.root_search import brent
 from tf_quant_finance.models import utils
 from tf_quant_finance.models.hjm import swaption_util
-from tf_quant_finance.models.hull_white import vector_hull_white
+from tf_quant_finance.models.hull_white import one_factor
 from tf_quant_finance.models.hull_white import zero_coupon_bond_option as zcb
 from tf_quant_finance.models.longstaff_schwartz import lsm
 
-__all__ = ['swaption_price', 'bermudan_swaption_price']
+__all__ = [
+    'swaption_price',
+    'bermudan_swaption_price'
+]
 
 # Points smaller than this are merged together in FD time grid
 _PDE_TIME_GRID_TOL = 1e-7
 
 
-def swaption_price(*,
-                   expiries,
-                   floating_leg_start_times,
-                   floating_leg_end_times,
-                   fixed_leg_payment_times,
-                   floating_leg_daycount_fractions,
-                   fixed_leg_daycount_fractions,
-                   fixed_leg_coupon,
-                   reference_rate_fn,
-                   dim,
-                   mean_reversion,
-                   volatility,
-                   notional=None,
-                   is_payer_swaption=None,
-                   use_analytic_pricing=True,
-                   num_samples=1,
-                   random_type=None,
-                   seed=None,
-                   skip=0,
-                   time_step=None,
-                   dtype=None,
-                   name=None):
+def swaption_price(
+    *,
+    expiries: types.RealTensor,
+    floating_leg_start_times: types.RealTensor,
+    floating_leg_end_times: types.RealTensor,
+    fixed_leg_payment_times: types.RealTensor,
+    floating_leg_daycount_fractions: types.RealTensor,
+    fixed_leg_daycount_fractions: types.RealTensor,
+    fixed_leg_coupon: types.RealTensor,
+    reference_rate_fn: Callable[..., types.RealTensor],
+    mean_reversion: Union[types.RealTensor, Callable[..., types.RealTensor]],
+    volatility: Union[types.RealTensor, Callable[..., types.RealTensor]],
+    notional: types.RealTensor = None,
+    is_payer_swaption: types.BoolTensor = True,
+    use_analytic_pricing: bool = True,
+    num_samples: types.IntTensor = 100,
+    random_type: random.RandomType = None,
+    seed: types.IntTensor = None,
+    skip: types.IntTensor = 0,
+    time_step: types.RealTensor = None,
+    dtype: tf.DType = None,
+    name: str = None) -> types.RealTensor:
   """Calculates the price of European Swaptions using the Hull-White model.
 
   A European Swaption is a contract that gives the holder an option to enter a
@@ -108,7 +116,7 @@ def swaption_price(*,
       mean_reversion=[0.03],
       volatility=[0.02],
       dtype=dtype)
-  # Expected value: [[0.7163243383624043], [1.4031415262337608]] # shape = (2,1)
+  # Expected value: [0.7163243383624043, 1.4031415262337608] # shape = (2,1)
   ````
 
   Args:
@@ -138,22 +146,19 @@ def swaption_price(*,
       fixed leg.
     reference_rate_fn: A Python callable that accepts expiry time as a real
       `Tensor` and returns a `Tensor` of either shape `input_shape` or
-      `input_shape + [dim]`. Returns the continuously compounded zero rate at
+      `input_shape`. Returns the continuously compounded zero rate at
       the present time for the input expiry time.
-    dim: A Python scalar which corresponds to the number of Hull-White Models
-      to be used for pricing.
-    mean_reversion: A real positive `Tensor` of shape `[dim]` or a Python
-      callable. The callable can be one of the following:
+    mean_reversion: A real positive scalar `Tensor` or a Python callable. The
+      callable can be one of the following:
       (a) A left-continuous piecewise constant object (e.g.,
       `tff.math.piecewise.PiecewiseConstantFunc`) that has a property
       `is_piecewise_constant` set to `True`. In this case the object should
       have a method `jump_locations(self)` that returns a `Tensor` of shape
-      `[dim, num_jumps]` or `[num_jumps]`. In the first case,
-      `mean_reversion(t)` should return a `Tensor` of shape `[dim] + t.shape`,
-      and in the second, `t.shape + [dim]`, where `t` is a rank 1 `Tensor` of
-      the same `dtype` as the output. See example in the class docstring.
+      `[num_jumps]`. The return value of `mean_reversion(t)` should return a
+      `Tensor` of shape `t.shape`, `t` is a rank 1 `Tensor` of the same `dtype`
+      as the output. See example in the class docstring.
       (b) A callable that accepts scalars (stands for time `t`) and returns a
-      `Tensor` of shape `[dim]`.
+      scalar `Tensor` of the same `dtype` as `strikes`.
       Corresponds to the mean reversion rate.
     volatility: A real positive `Tensor` of the same `dtype` as
       `mean_reversion` or a callable with the same specs as above.
@@ -203,7 +208,7 @@ def swaption_price(*,
       `hw_swaption_price`.
 
   Returns:
-    A `Tensor` of real dtype and shape  expiries.shape + [dim] containing the
+    A `Tensor` of real dtype and shape  `expiries.shape` containing the
     computed swaption prices. For swaptions that have. reset in the past
     (expiries<0), the function sets the corresponding option prices to 0.0.
   """
@@ -225,23 +230,16 @@ def swaption_price(*,
     fixed_leg_coupon = tf.convert_to_tensor(
         fixed_leg_coupon, dtype=dtype, name='fixed_leg_coupon')
     notional = tf.convert_to_tensor(notional, dtype=dtype, name='notional')
-    notional = tf.expand_dims(
-        tf.broadcast_to(notional, expiries.shape), axis=-1)
-    if is_payer_swaption is None:
-      is_payer_swaption = True
     is_payer_swaption = tf.convert_to_tensor(
         is_payer_swaption, dtype=tf.bool, name='is_payer_swaption')
-
-    output_shape = expiries.shape.as_list() + [dim]
-    # Add a dimension corresponding to multiple cashflows in a swap
-    if expiries.shape.rank == fixed_leg_payment_times.shape.rank - 1:
-      expiries = tf.expand_dims(expiries, axis=-1)
-    elif expiries.shape.rank < fixed_leg_payment_times.shape.rank - 1:
+    if expiries.shape.rank < fixed_leg_payment_times.shape.rank - 1:
       raise ValueError('Swaption expiries not specified for all swaptions '
                        'in the batch. Expected rank {} but received {}.'.format(
                            fixed_leg_payment_times.shape.rank - 1,
                            expiries.shape.rank))
-
+    # Add a dimension corresponding to multiple cashflows in a swap
+    # Shape batch_shape + [1]
+    expiries = tf.expand_dims(expiries, axis=-1)
     # Expected shape: batch_shape + [m], same as fixed_leg_payment_times.shape
     # We need to explicitly use tf.repeat because we need to price
     # batch_shape + [m] bond options with different strikes along the last
@@ -254,8 +252,8 @@ def swaption_price(*,
                                  float_leg_end_times, fixed_leg_payment_times,
                                  fixed_leg_daycount_fractions,
                                  fixed_leg_coupon, reference_rate_fn,
-                                 dim, mean_reversion, volatility, notional,
-                                 is_payer_swaption, output_shape, dtype,
+                                 mean_reversion, volatility, notional,
+                                 is_payer_swaption, dtype,
                                  name + '_analytic_valuation')
 
     if time_step is None:
@@ -263,8 +261,7 @@ def swaption_price(*,
                        'based bond option valuation.')
 
     # Monte-Carlo pricing
-    model = vector_hull_white.VectorHullWhiteModel(
-        dim,
+    model = one_factor.HullWhiteModel1F(
         mean_reversion,
         volatility,
         initial_discount_rate_fn=reference_rate_fn,
@@ -290,6 +287,7 @@ def swaption_price(*,
         [sim_times, tf.range(time_step, longest_expiry, time_step)], axis=0)
     sim_times = tf.sort(sim_times, name='sort_sim_times')
 
+    # Shapes batch_shape + [num_samples, num_times, 1]
     payoff_discount_factors, payoff_bond_price = (
         swaption_util.discount_factors_and_bond_prices_from_samples(
             expiries=expiries,
@@ -298,49 +296,46 @@ def swaption_price(*,
             num_samples=num_samples,
             times=sim_times,
             dtype=dtype))
-
     # Add an axis corresponding to `dim`
-    fixed_leg_pv = tf.expand_dims(
-        fixed_leg_coupon * fixed_leg_daycount_fractions,
-        axis=-1) * payoff_bond_price
-    # Sum fixed coupon payments within each swap
-    fixed_leg_pv = tf.math.reduce_sum(fixed_leg_pv, axis=-2)
-    float_leg_pv = 1.0 - payoff_bond_price[..., -1, :]
-    payoff_swap = payoff_discount_factors[..., -1, :] * (
+    fixed_leg_pv = (fixed_leg_coupon * fixed_leg_daycount_fractions
+                    * tf.squeeze(payoff_bond_price, axis=-1))
+    # Sum fixed coupon payments within each swap.
+    # Shape batch_shape + [num_samples]
+    fixed_leg_pv = tf.math.reduce_sum(fixed_leg_pv, axis=-1)
+    float_leg_pv = 1.0 - tf.squeeze(payoff_bond_price, axis=-1)[..., -1]
+    payoff_swap = tf.squeeze(payoff_discount_factors, axis=-1)[..., -1] * (
         float_leg_pv - fixed_leg_pv)
     payoff_swap = tf.where(is_payer_swaption, payoff_swap, -1.0 * payoff_swap)
     payoff_swaption = tf.math.maximum(payoff_swap, 0.0)
-    option_value = tf.reshape(
-        tf.math.reduce_mean(payoff_swaption, axis=0), output_shape)
-
+    option_value = tf.math.reduce_mean(payoff_swaption, axis=0)
     return notional * option_value
 
 
-def bermudan_swaption_price(*,
-                            exercise_times,
-                            floating_leg_start_times,
-                            floating_leg_end_times,
-                            fixed_leg_payment_times,
-                            floating_leg_daycount_fractions,
-                            fixed_leg_daycount_fractions,
-                            fixed_leg_coupon,
-                            reference_rate_fn,
-                            dim,
-                            mean_reversion,
-                            volatility,
-                            notional=None,
-                            is_payer_swaption=None,
-                            use_finite_difference=False,
-                            lsm_basis=None,
-                            num_samples=100,
-                            random_type=None,
-                            seed=None,
-                            skip=0,
-                            time_step=None,
-                            time_step_finite_difference=None,
-                            num_grid_points_finite_difference=100,
-                            dtype=None,
-                            name=None):
+def bermudan_swaption_price(
+    *,
+    exercise_times: types.RealTensor,
+    floating_leg_start_times: types.RealTensor,
+    floating_leg_end_times: types.RealTensor,
+    fixed_leg_payment_times: types.RealTensor,
+    floating_leg_daycount_fractions: types.RealTensor,
+    fixed_leg_daycount_fractions: types.RealTensor,
+    fixed_leg_coupon: types.RealTensor,
+    reference_rate_fn: Callable[..., types.RealTensor],
+    mean_reversion: Union[types.RealTensor, Callable[..., types.RealTensor]],
+    volatility: Union[types.RealTensor, Callable[..., types.RealTensor]],
+    notional: types.RealTensor = None,
+    is_payer_swaption: types.BoolTensor = True,
+    use_finite_difference: bool = False,
+    lsm_basis: Callable[..., types.RealTensor] = None,
+    num_samples: types.IntTensor = 100,
+    random_type: random.RandomType = None,
+    seed: types.IntTensor = None,
+    skip: types.IntTensor = 0,
+    time_step: types.RealTensor = None,
+    time_step_finite_difference: types.IntTensor = None,
+    num_grid_points_finite_difference: types.IntTensor = 101,
+    dtype: tf.DType = None,
+    name: str = None) -> types.RealTensor:
   """Calculates the price of Bermudan Swaptions using the Hull-White model.
 
   A Bermudan Swaption is a contract that gives the holder an option to enter a
@@ -420,7 +415,6 @@ def bermudan_swaption_price(*,
       fixed_leg_coupon=fixed_leg_coupon,
       reference_rate_fn=zero_rate_fn,
       notional=100.,
-      dim=1,
       mean_reversion=[0.03],
       volatility=[0.01],
       num_samples=1000000,
@@ -432,7 +426,7 @@ def bermudan_swaption_price(*,
   ````
 
   Args:
-    exercise_times: A real `Tensor` of any shape `batch_shape + [num_exercise]`
+    exercise_times: A real `Tensor` of any shape `[batch_size, num_exercise]`
       `and real dtype. The times corresponding to exercise dates of the
       swaptions. `num_exercise` corresponds to the number of exercise dates for
       the Bermudan swaption. The shape of this input determines the number (and
@@ -463,22 +457,19 @@ def bermudan_swaption_price(*,
       fixed leg.
     reference_rate_fn: A Python callable that accepts expiry time as a real
       `Tensor` and returns a `Tensor` of either shape `input_shape` or
-      `input_shape + [dim]`. Returns the continuously compounded zero rate at
+      `input_shape`. Returns the continuously compounded zero rate at
       the present time for the input expiry time.
-    dim: A Python scalar which corresponds to the number of Hull-White Models
-      to be used for pricing.
-    mean_reversion: A real positive `Tensor` of shape `[dim]` or a Python
-      callable. The callable can be one of the following:
+    mean_reversion: A real positive scalar `Tensor` or a Python callable. The
+      callable can be one of the following:
       (a) A left-continuous piecewise constant object (e.g.,
       `tff.math.piecewise.PiecewiseConstantFunc`) that has a property
       `is_piecewise_constant` set to `True`. In this case the object should
       have a method `jump_locations(self)` that returns a `Tensor` of shape
-      `[dim, num_jumps]` or `[num_jumps]`. In the first case,
-      `mean_reversion(t)` should return a `Tensor` of shape `[dim] + t.shape`,
-      and in the second, `t.shape + [dim]`, where `t` is a rank 1 `Tensor` of
-      the same `dtype` as the output. See example in the class docstring.
+      `[num_jumps]`. The return value of `mean_reversion(t)` should return a
+      `Tensor` of shape `t.shape`, `t` is a rank 1 `Tensor` of the same `dtype`
+      as the output. See example in the class docstring.
       (b) A callable that accepts scalars (stands for time `t`) and returns a
-      `Tensor` of shape `[dim]`.
+      scalar `Tensor` of the same `dtype` as `strikes`.
       Corresponds to the mean reversion rate.
     volatility: A real positive `Tensor` of the same `dtype` as
       `mean_reversion` or a callable with the same specs as above.
@@ -542,7 +533,7 @@ def bermudan_swaption_price(*,
       `hw_bermudan_swaption_price`.
 
   Returns:
-    A `Tensor` of real dtype and shape  batch_shape + [dim] containing the
+    A `Tensor` of real dtype and shape  `[batch_size]` containing the
     computed swaption prices.
 
   Raises:
@@ -551,10 +542,7 @@ def bermudan_swaption_price(*,
     specified for all swaptions.
     (b) `ValueError` if `time_step` is not specified for Monte-Carlo
     simulations.
-    (c) `ValueError` if `dim` > 1.
   """
-  if dim > 1:
-    raise ValueError('dim > 1 is currently not supported.')
 
   name = name or 'hw_bermudan_swaption_price'
   del floating_leg_daycount_fractions, floating_leg_start_times
@@ -571,8 +559,7 @@ def bermudan_swaption_price(*,
     fixed_leg_coupon = tf.convert_to_tensor(
         fixed_leg_coupon, dtype=dtype, name='fixed_leg_coupon')
     notional = tf.convert_to_tensor(notional, dtype=dtype, name='notional')
-    if is_payer_swaption is None:
-      is_payer_swaption = True
+    is_payer_swaption = True
     is_payer_swaption = tf.convert_to_tensor(
         is_payer_swaption, dtype=tf.bool, name='is_payer_swaption')
 
@@ -581,27 +568,24 @@ def bermudan_swaption_price(*,
     else:
       basis_fn = lsm_basis
 
-    batch_shape = exercise_times.shape.as_list()[:-1] or [1]
+    batch_shape = exercise_times.shape.as_list()[:-1]
     unique_exercise_times, exercise_time_index = tf.unique(
         tf.reshape(exercise_times, shape=[-1]))
     exercise_time_index = tf.reshape(
         exercise_time_index, shape=exercise_times.shape)
 
-    # Add a dimension corresponding to multiple cashflows in a swap
-    if exercise_times.shape.rank == fixed_leg_payment_times.shape.rank - 1:
-      exercise_times = tf.expand_dims(exercise_times, axis=-1)
-    elif exercise_times.shape.rank < fixed_leg_payment_times.shape.rank - 1:
+    if exercise_times.shape.rank < fixed_leg_payment_times.shape.rank - 1:
       raise ValueError('Swaption exercise times not specified for all '
                        'swaptions in the batch. Expected rank '
                        '{} but received {}.'.format(
                            fixed_leg_payment_times.shape.rank - 1,
                            exercise_times.shape.rank))
-
+    # Add a dimension corresponding to multiple cashflows in a swap
+    exercise_times = tf.expand_dims(exercise_times, axis=-1)
     exercise_times = tf.repeat(
         exercise_times, tf.shape(fixed_leg_payment_times)[-1], axis=-1)
 
-    model = vector_hull_white.VectorHullWhiteModel(
-        dim,
+    model = one_factor.HullWhiteModel1F(
         mean_reversion,
         volatility,
         initial_discount_rate_fn=reference_rate_fn,
@@ -675,12 +659,12 @@ def bermudan_swaption_price(*,
 
     gather_index = _prepare_indices_ijjk(
         tf.range(0, num_samples), curve_time_index, sim_time_index,
-        tf.range(0, dim))
+        tf.range(0, 1))
 
     # TODO(b/167421126): Replace `tf.gather_nd` with `tf.gather`.
     payoff_bond_price_builder = tf.gather_nd(p_t_tau, gather_index)
     payoff_bond_price = tf.reshape(
-        payoff_bond_price_builder, [num_samples] + maturities_shape + [dim])
+        payoff_bond_price_builder, [num_samples] + maturities_shape + [1])
 
     # Add an axis corresponding to `dim`
     fixed_leg_pv = tf.expand_dims(
@@ -715,7 +699,11 @@ def bermudan_swaption_price(*,
       del rt
       result = tf.where(is_exercise_time[time_index] > 0,
                         tf.nn.relu(payoff_swap[time_index]), 0.0)
-      return tf.reshape(result, shape=[num_samples] + batch_shape)
+      if batch_shape:
+        return result
+      else:
+        # Currently LSM requires payoff to return a Tensor of rank 2
+        return tf.expand_dims(result, axis=-1)
 
     discount_factors_simulated = tf.gather(
         discount_factors_simulated, sim_time_index, axis=2)
@@ -726,8 +714,13 @@ def bermudan_swaption_price(*,
         basis_fn,
         discount_factors=discount_factors_simulated[:, -1:, :, 0],
         dtype=dtype)
-
-    return notional * option_value
+    # Shape [batch_size]
+    option_value = notional * option_value
+    if batch_shape:
+      return option_value
+    else:
+      # Shape []
+      return tf.squeeze(option_value)
 
 
 def _jamshidian_decomposition(hw_model,
@@ -780,43 +773,43 @@ def _jamshidian_decomposition(hw_model,
   Args:
     hw_model: An instance of `VectorHullWhiteModel`. The model used for the
       valuation.
-    expiries: A real `Tensor` of any shape and dtype. The time to expiration of
-      the swaptions.
-    maturities: A real `Tensor` of same shape and dtype as `expiries`. The
+    expiries: A real `Tensor` of shape `batch_shape + [n]`, where `n` denotes
+      the number of payments in the fixed leg of the underlying swaps. The time
+      to expiration of the swaptions.
+    maturities: A real `Tensor` of the same shape and dtype as `expiries`. The
       payment times for fixed payments of the underlying swaptions.
-    coefficients: A real `Tensor` of shape `expiries.shape + [n]` where `n`
-      denotes the number of payments in the fixed leg of the underlying swaps.
+    coefficients: A real `Tensor` of the same shape and dtype as `expiries`
     dtype: The default dtype to use when converting values to `Tensor`s.
     name: Python string. The name to give to the ops created by this function.
       Default value: `None` which maps to the default name
       `jamshidian_decomposition`.
 
   Returns:
-    A real `Tensor` of shape expiries.shape + [dim] containing the forward
-    bond prices computed at the breakeven short rate using the Jamshidian
-    decomposition. `dim` stands for the dimensionality of the Hull-White
-    process.
+    A real `Tensor` of shape `expiries.shape + [1]` containing the forward bond
+    prices computed at the breakeven short rate using the Jamshidian
+    decomposition.
   """
 
-  name = name or 'jamshidian_decomposition'
   with tf.name_scope(name):
-    dim = hw_model.dim()
+    # Shape ` batch_shape + [n, 1]`
     coefficients = tf.expand_dims(coefficients, axis=-1)
-
     def _zero_fun(x):
       # Get P(t0, t, r(t0)).
+      # batch_shape + [n, 1]
       p_t0_t = hw_model.discount_bond_price(x, expiries, maturities)
-      # return_value.shape = batch_shape + [1] + [dim]
+      # return_value.shape = batch_shape + [1, 1]
       return_value = tf.reduce_sum(
           coefficients * p_t0_t, axis=-2, keepdims=True) + [1.0]
       return return_value
 
-    swap_shape = expiries.shape.as_list()[:-1] + [1] + [dim]
+    # batch_shape + [1, 1]
+    swap_shape = expiries.shape.as_list()[:-1] + [1] + [1]
     lower_bound = -1 * tf.ones(swap_shape, dtype=dtype)
     upper_bound = 1 * tf.ones(swap_shape, dtype=dtype)
     # Solve Eq.(1)
     brent_results = brent.brentq(_zero_fun, lower_bound, upper_bound)
     breakeven_short_rate = brent_results.estimated_root
+    # Shape `batch_shape + [n, 1]`
     return hw_model.discount_bond_price(breakeven_short_rate, expiries,
                                         maturities)
 
@@ -944,8 +937,8 @@ def _map_payoff_to_sim_times(indices, payoff, num_samples):
 def _analytic_valuation(expiries, floating_leg_start_times,
                         floating_leg_end_times, fixed_leg_payment_times,
                         fixed_leg_daycount_fractions, fixed_leg_coupon,
-                        reference_rate_fn, dim, mean_reversion, volatility,
-                        notional, is_payer_swaption, output_shape,
+                        reference_rate_fn, mean_reversion, volatility,
+                        notional, is_payer_swaption,
                         dtype, name):
   """Helper function for analytic valuation."""
   # The below inputs are needed for midcurve swaptions
@@ -955,31 +948,26 @@ def _analytic_valuation(expiries, floating_leg_start_times,
                                tf.convert_to_tensor(False, dtype=tf.bool),
                                tf.convert_to_tensor(True, dtype=tf.bool))
 
-    model = vector_hull_white.VectorHullWhiteModel(
-        dim,
+    model = one_factor.HullWhiteModel1F(
         mean_reversion,
         volatility,
         initial_discount_rate_fn=reference_rate_fn,
         dtype=dtype)
     coefficients = fixed_leg_daycount_fractions * fixed_leg_coupon
-    # Shape `expiries.shape + [num_payments]`
+    # Shape `batch_shape + [num_payments]`
     jamshidian_coefficients = tf.concat([
         -coefficients[..., :-1],
         tf.expand_dims(-1.0 - coefficients[..., -1], axis=-1)], axis=-1)
+    # Shape `batch_shape`
     breakeven_bond_option_strikes = _jamshidian_decomposition(
         model, expiries,
         fixed_leg_payment_times, jamshidian_coefficients, dtype,
-        name=name + '_jamshidian_decomposition')
-    bond_strike_rank = breakeven_bond_option_strikes.shape.rank
-    perm = [bond_strike_rank-1] + list(range(0, bond_strike_rank - 1))
-    breakeven_bond_option_strikes = tf.transpose(
-        breakeven_bond_option_strikes, perm=perm)
+        name=name + '_jamshidian_decomposition')[..., 0]
     bond_option_prices = zcb.bond_option_price(
         strikes=breakeven_bond_option_strikes,
         expiries=expiries,
         maturities=fixed_leg_payment_times,
         discount_rate_fn=reference_rate_fn,
-        dim=dim,
         mean_reversion=mean_reversion,
         volatility=volatility,
         is_call_options=is_call_options,
@@ -988,16 +976,11 @@ def _analytic_valuation(expiries, floating_leg_start_times,
         name=name + '_bond_option')
 
     # Now compute P(T0, TN) + sum_i (c_i * tau_i * P(T0, Ti))
-    # bond_option_prices.shape = [dim] + batch_shape + [m] + [dim], where `m`
+    # bond_option_prices.shape = batch_shape + [m], where `m`
     # denotes the number of fixed payments for the underlying swaps.
-    swaption_values = (
-        tf.reduce_sum(
-            bond_option_prices * tf.expand_dims(coefficients, axis=-1),
-            axis=-2) + bond_option_prices[..., -1, :])
-    swaption_shape = swaption_values.shape
-    gather_index = _prepare_swaption_indices(swaption_shape.as_list())
-    swaption_values = tf.reshape(
-        tf.gather_nd(swaption_values, gather_index), output_shape)
+    # Shape `batch_shape`
+    swaption_values = (tf.reduce_sum(bond_option_prices * coefficients, axis=-1)
+                       + bond_option_prices[..., -1])
     return notional * swaption_values
 
 
@@ -1067,7 +1050,7 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
     maturities_index = tf.searchsorted(
         unique_maturities, tf.reshape(maturities, [-1]))
 
-    # gather_index.shape = (num_grid_points*np.cumprod(maturities_shape), 3)
+    # gather_index.shape = (num_grid_points * np.cumprod(maturities_shape), 3)
     gather_index = _prepare_indices_ijj(
         tf.range(0, num_grid_points_fd), exercise_times_index,
         maturities_index)

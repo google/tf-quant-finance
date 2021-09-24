@@ -13,28 +13,38 @@
 # limitations under the License.
 """Pricing of zero coupon bond options using Heath-Jarrow-Morton model."""
 
+from typing import Callable, Union
+
 import tensorflow.compat.v2 as tf
+
+from tf_quant_finance import types
+from tf_quant_finance.math import random
 from tf_quant_finance.models.hjm import quasi_gaussian_hjm
 from tf_quant_finance.models.hjm import zero_coupon_bond_option_util
 
+__all__ = [
+    'bond_option_price'
+]
 
-def bond_option_price(*,
-                      strikes,
-                      expiries,
-                      maturities,
-                      discount_rate_fn,
-                      dim,
-                      mean_reversion,
-                      volatility,
-                      corr_matrix=None,
-                      is_call_options=True,
-                      num_samples=1,
-                      random_type=None,
-                      seed=None,
-                      skip=0,
-                      time_step=None,
-                      dtype=None,
-                      name=None):
+
+def bond_option_price(
+    *,
+    strikes: types.RealTensor,
+    expiries: types.RealTensor,
+    maturities: types.RealTensor,
+    discount_rate_fn: Callable[..., types.RealTensor],
+    dim: int,
+    mean_reversion: types.RealTensor,
+    volatility: Union[types.RealTensor, Callable[..., types.RealTensor]],
+    corr_matrix: types.RealTensor = None,
+    is_call_options: types.BoolTensor = True,
+    num_samples: types.IntTensor = 1,
+    random_type: random.RandomType = None,
+    seed: types.IntTensor = None,
+    skip: types.IntTensor = 0,
+    time_step: types.RealTensor = None,
+    dtype: tf.DType = None,
+    name: str = None) -> types.RealTensor:
   """Calculates European bond option prices using the HJM model.
 
   Bond options are fixed income securities which give the holder a right to
@@ -133,7 +143,7 @@ def bond_option_price(*,
         `hw_bond_option_price`.
 
   Returns:
-    A `Tensor` of real dtype and shape  `strikes.shape + [1]` containing the
+    A `Tensor` of real dtype and shape  `strikes.shape` containing the
     computed option prices.
   """
   if time_step is None:
@@ -171,7 +181,8 @@ def bond_option_price(*,
       r_t = tf.expand_dims(r_t, axis=-1)
       return p_t_tau, r_t
 
-    return zero_coupon_bond_option_util.options_price_from_samples(
+    # Shape batch_shape + [1]
+    prices = zero_coupon_bond_option_util.options_price_from_samples(
         strikes,
         expiries,
         maturities,
@@ -180,3 +191,5 @@ def bond_option_price(*,
         num_samples,
         time_step,
         dtype=dtype)
+    # Shape batch_shape
+    return tf.squeeze(prices, axis=-1)

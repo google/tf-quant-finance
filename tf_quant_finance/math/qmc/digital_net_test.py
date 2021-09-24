@@ -19,61 +19,98 @@ import tf_quant_finance as tff
 
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
-rqmc = tff.experimental.rqmc
+qmc = tff.math.qmc
 
 
 @test_util.run_all_in_graph_and_eager_modes
 class DigitalNetTest(tf.test.TestCase):
 
-  def test_random_scrambling_matrices(self):
+  def test_random_digital_shift(self):
     dim = 6
-    num_results = 8
-    num_digits = 3  # ceil(log2(num_results))
+    num_digits = 3
+    seed = (2, 3)
+
+    actual = qmc.random_digital_shift(dim, num_digits, seed, validate_args=True)
+
+    power = tf.constant(num_digits)
+    minval = qmc.utils.exp2(power - 1)
+    maxval = qmc.utils.exp2(power)
+
+    with self.subTest('Shape'):
+      self.assertEqual(actual.shape, (dim))
+    with self.subTest('DType'):
+      self.assertEqual(actual.dtype, tf.int32)
+    with self.subTest('Max Value'):
+      self.assertAllLess(actual, maxval)
+    with self.subTest('Min Value'):
+      self.assertAllGreaterEqual(actual, minval)
+
+  def test_random_digital_shift_with_dtype(self):
+    dim = 6
+    num_digits = 3
     seed = (2, 3)
 
     for dtype in [tf.int32, tf.int64]:
-      generating_matrices = rqmc.sobol_generating_matrices(
-          dim, num_results, num_digits, dtype=dtype)
-
-      actual = rqmc.random_scrambling_matrices(
-          generating_matrices, num_digits, seed, validate_args=True)
+      actual = qmc.random_digital_shift(
+          dim, num_digits, seed, dtype=dtype, validate_args=True)
 
       power = tf.constant(num_digits, dtype=dtype)
-      minval = rqmc.utils.exp2(power - 1)
-      maxval = rqmc.utils.exp2(power)
+      minval = qmc.utils.exp2(power - 1)
+      maxval = qmc.utils.exp2(power)
 
-      self.assertEqual(actual.shape, generating_matrices.shape)
-      self.assertEqual(actual.dtype, dtype)
+      with self.subTest('Shape'):
+        self.assertEqual(actual.shape, (dim))
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, dtype)
+      with self.subTest('Max Value'):
+        self.assertAllLess(actual, maxval)
+      with self.subTest('Min Value'):
+        self.assertAllGreaterEqual(actual, minval)
+
+  def test_random_scrambling_matrices(self):
+    dim = 6
+    num_digits = 3
+    seed = (2, 3)
+
+    actual = qmc.random_scrambling_matrices(
+        dim, num_digits, seed, validate_args=True)
+
+    power = tf.constant(num_digits)
+    minval = qmc.utils.exp2(power - 1)
+    maxval = qmc.utils.exp2(power)
+
+    with self.subTest('Shape'):
+      self.assertEqual(actual.shape, (dim, num_digits))
+    with self.subTest('DType'):
+      self.assertEqual(actual.dtype, tf.int32)
+    with self.subTest('Max Value'):
       self.assertAllLess(actual, maxval)
+    with self.subTest('Min Value'):
       self.assertAllGreaterEqual(actual, minval)
 
   def test_random_scrambling_matrices_with_dtype(self):
     dim = 6
-    num_results = 8
-    num_digits = 3  # ceil(log2(num_results))
+    num_digits = 3
     seed = (2, 3)
 
-    generating_matrices = rqmc.sobol_generating_matrices(
-        dim, num_results, num_digits)
-
     for dtype in [tf.int32, tf.int64]:
-      actual = rqmc.random_scrambling_matrices(
-          generating_matrices,
-          num_digits,
-          seed,
-          dtype=dtype,
-          validate_args=True)
+      actual = qmc.random_scrambling_matrices(
+          dim, num_digits, seed, dtype=dtype, validate_args=True)
 
       power = tf.constant(num_digits, dtype=dtype)
-      minval = rqmc.utils.exp2(power - 1)
-      maxval = rqmc.utils.exp2(power)
+      minval = qmc.utils.exp2(power - 1)
+      maxval = qmc.utils.exp2(power)
 
-      self.assertEqual(actual.shape, generating_matrices.shape)
-      self.assertEqual(actual.dtype, dtype)
-      self.assertAllLess(actual, maxval)
-      self.assertAllGreaterEqual(actual, minval)
+      with self.subTest('Shape'):
+        self.assertEqual(actual.shape, (dim, num_digits))
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, dtype)
+      with self.subTest('Max Value'):
+        self.assertAllLess(actual, maxval)
+      with self.subTest('Min Value'):
+        self.assertAllGreaterEqual(actual, minval)
 
-  def test_sample_digital_net(self):
+  def test_digital_net_sample(self):
     dim = 5
     num_results = 29
     num_digits = 5  # ceil(log2(num_results))
@@ -110,18 +147,20 @@ class DigitalNetTest(tf.test.TestCase):
                               [0.21875, 0.84375, 0.09375, 0.53125, 0.40625]],
                              dtype=tf.float32)
 
-      actual = rqmc.sample_digital_net(
-          rqmc.sobol_generating_matrices(
+      actual = qmc.digital_net_sample(
+          qmc.sobol_generating_matrices(
               dim, num_results, num_digits, dtype=dtype),
           num_results,
           num_digits,
           validate_args=True)
 
-      self.assertAllClose(
-          self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
-      self.assertEqual(actual.dtype, expected.dtype)
+      with self.subTest('Values'):
+        self.assertAllClose(
+            self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, expected.dtype)
 
-  def test_sample_digital_net_with_sequence_indices(self):
+  def test_digital_net_sample_with_sequence_indices(self):
     dim = 5
     num_results = 29
     num_digits = 5  # ceil(log2(num_results))
@@ -136,16 +175,18 @@ class DigitalNetTest(tf.test.TestCase):
                             [0.21875, 0.84375, 0.09375, 0.53125, 0.40625]],
                            dtype=tf.float32)
 
-    actual = rqmc.sample_digital_net(
-        rqmc.sobol_generating_matrices(dim, num_results, num_digits),
+    actual = qmc.digital_net_sample(
+        qmc.sobol_generating_matrices(dim, num_results, num_digits),
         num_results,
         num_digits,
         sequence_indices=tf.constant(indices, dtype=tf.int64),
         validate_args=True)
 
-    self.assertAllClose(
-        self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
-    self.assertEqual(actual.dtype, expected.dtype)
+    with self.subTest('Values'):
+      self.assertAllClose(
+          self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
+    with self.subTest('DType'):
+      self.assertEqual(actual.dtype, expected.dtype)
 
   def test_sample_sobol_with_tent_transform(self):
     dim = 6
@@ -162,24 +203,26 @@ class DigitalNetTest(tf.test.TestCase):
                             [0.25, 0.25, 0.25, 0.75, 0.25, 0.75]],
                            dtype=tf.float32)
 
-    actual = rqmc.sample_digital_net(
-        rqmc.sobol_generating_matrices(dim, num_results, num_digits),
+    actual = qmc.digital_net_sample(
+        qmc.sobol_generating_matrices(dim, num_results, num_digits),
         num_results,
         num_digits,
         apply_tent_transform=True,
         validate_args=True)
 
-    self.assertAllClose(
-        self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
-    self.assertEqual(actual.dtype, expected.dtype)
+    with self.subTest('Values'):
+      self.assertAllClose(
+          self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
+    with self.subTest('DType'):
+      self.assertEqual(actual.dtype, expected.dtype)
 
-  def test_sample_digital_net_with_dtype(self):
+  def test_digital_net_sample_with_dtype(self):
     dim = 5
     num_results = 6
     num_digits = 3  # ceil(log2(num_results))
 
-    generating_matrices = rqmc.sobol_generating_matrices(
-        dim, num_results, num_digits)
+    generating_matrices = qmc.sobol_generating_matrices(dim, num_results,
+                                                        num_digits)
 
     for dtype in [tf.float32, tf.float64]:
       expected = tf.constant([[0.000, 0.000, 0.000, 0.000, 0.000],
@@ -190,16 +233,18 @@ class DigitalNetTest(tf.test.TestCase):
                               [0.625, 0.125, 0.875, 0.625, 0.625]],
                              dtype=dtype)
 
-      actual = rqmc.sample_digital_net(
+      actual = qmc.digital_net_sample(
           generating_matrices,
           num_results,
           num_digits,
           validate_args=True,
           dtype=dtype)
 
-      self.assertAllClose(
-          self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
-      self.assertEqual(actual.dtype, expected.dtype)
+      with self.subTest('Values'):
+        self.assertAllClose(
+            self.evaluate(actual), self.evaluate(expected), rtol=1e-6)
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, expected.dtype)
 
   def test_scramble_generating_matrices(self):
     dim = 6
@@ -208,20 +253,22 @@ class DigitalNetTest(tf.test.TestCase):
     seed = (2, 3)
 
     for dtype in [tf.int32, tf.int64]:
-      generating_matrices = rqmc.sobol_generating_matrices(
+      generating_matrices = qmc.sobol_generating_matrices(
           dim, num_results, num_digits, dtype=dtype)
 
-      scrambling_matrices = rqmc.random_scrambling_matrices(
-          generating_matrices, num_digits, seed)
+      scrambling_matrices = qmc.random_scrambling_matrices(
+          dim, num_digits, seed)
 
-      actual = rqmc.scramble_generating_matrices(
+      actual = qmc.scramble_generating_matrices(
           generating_matrices,
           scrambling_matrices,
           num_digits,
           validate_args=True)
 
-      self.assertEqual(actual.shape, generating_matrices.shape)
-      self.assertEqual(actual.dtype, dtype)
+      with self.subTest('Shape'):
+        self.assertEqual(actual.shape, generating_matrices.shape)
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, dtype)
 
   def test_scramble_generating_matrices_with_minimum_scrambling_matrices(self):
     dim = 6
@@ -229,28 +276,30 @@ class DigitalNetTest(tf.test.TestCase):
     num_digits = 3  # ceil(log2(num_results))
 
     for dtype in [tf.int32, tf.int64]:
-      generating_matrices = rqmc.sobol_generating_matrices(
+      generating_matrices = qmc.sobol_generating_matrices(
           dim, num_results, num_digits, dtype=dtype)
 
       # All scrambling matrices values are between 2^{num_digits - 1} (incl.)
       # and 2^{num_digits} (excl.). Scrambling using matrices for which all
       # values are set to 2^{num_digits - 1} should be a no-op.
       min_scrambling_matrices = tf.broadcast_to(
-          rqmc.utils.exp2(tf.cast(num_digits, dtype) - 1),
+          qmc.utils.exp2(tf.cast(num_digits, dtype) - 1),
           shape=generating_matrices.shape)
 
-      actual = rqmc.scramble_generating_matrices(
+      actual = qmc.scramble_generating_matrices(
           generating_matrices,
           min_scrambling_matrices,
           num_digits,
           dtype=dtype,
           validate_args=True)
 
-      print('Actual: ', actual)
-      self.assertEqual(actual.shape, generating_matrices.shape)
-      self.assertEqual(actual.dtype, generating_matrices.dtype)
-      self.assertAllEqual(
-          self.evaluate(actual), self.evaluate(generating_matrices))
+      with self.subTest('Shape'):
+        self.assertEqual(actual.shape, generating_matrices.shape)
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, generating_matrices.dtype)
+      with self.subTest('Values'):
+        self.assertAllEqual(
+            self.evaluate(actual), self.evaluate(generating_matrices))
 
   def test_scramble_generating_matrices_with_dtype(self):
     dim = 6
@@ -258,22 +307,23 @@ class DigitalNetTest(tf.test.TestCase):
     num_digits = 3  # ceil(log2(num_results))
     seed = (2, 3)
 
-    generating_matrices = rqmc.sobol_generating_matrices(
-        dim, num_results, num_digits)
+    generating_matrices = qmc.sobol_generating_matrices(dim, num_results,
+                                                        num_digits)
 
-    scrambling_matrices = rqmc.random_scrambling_matrices(
-        generating_matrices, num_digits, seed)
+    scrambling_matrices = qmc.random_scrambling_matrices(dim, num_digits, seed)
 
     for dtype in [tf.int32, tf.int64]:
-      actual = rqmc.scramble_generating_matrices(
+      actual = qmc.scramble_generating_matrices(
           generating_matrices,
           scrambling_matrices,
           num_digits,
           dtype=dtype,
           validate_args=True)
 
-      self.assertEqual(actual.shape, generating_matrices.shape)
-      self.assertEqual(actual.dtype, dtype)
+      with self.subTest('Shape'):
+        self.assertEqual(actual.shape, generating_matrices.shape)
+      with self.subTest('DType'):
+        self.assertEqual(actual.dtype, dtype)
 
 
 if __name__ == '__main__':

@@ -13,46 +13,54 @@
 # limitations under the License.
 """Pricing of the Interest rate Swaption using the HJM model."""
 
+from typing import Callable, Union
+
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import types
 from tf_quant_finance.math import pde
+from tf_quant_finance.math import random
 from tf_quant_finance.models import utils
 from tf_quant_finance.models import valuation_method as vm
 from tf_quant_finance.models.hjm import gaussian_hjm
 from tf_quant_finance.models.hjm import quasi_gaussian_hjm
 from tf_quant_finance.models.hjm import swaption_util
 
+__all__ = [
+    'price'
+]
 
 # Points smaller than this are merged together in FD time grid
 _PDE_TIME_GRID_TOL = 1e-7
 
 
-def price(*,
-          expiries,
-          fixed_leg_payment_times,
-          fixed_leg_daycount_fractions,
-          fixed_leg_coupon,
-          reference_rate_fn,
-          num_hjm_factors,
-          mean_reversion,
-          volatility,
-          times=None,
-          time_step=None,
-          num_time_steps=None,
-          curve_times=None,
-          corr_matrix=None,
-          notional=None,
-          is_payer_swaption=None,
-          valuation_method=vm.ValuationMethod.MONTE_CARLO,
-          num_samples=1,
-          random_type=None,
-          seed=None,
-          skip=0,
-          time_step_finite_difference=None,
-          num_time_steps_finite_difference=None,
-          num_grid_points_finite_difference=101,
-          dtype=None,
-          name=None):
+def price(
+    *,
+    expiries: types.RealTensor,
+    fixed_leg_payment_times: types.RealTensor,
+    fixed_leg_daycount_fractions: types.RealTensor,
+    fixed_leg_coupon: types.RealTensor,
+    reference_rate_fn: Callable[..., types.RealTensor],
+    num_hjm_factors: int,
+    mean_reversion: types.RealTensor,
+    volatility: Union[types.RealTensor, Callable[..., types.RealTensor]],
+    times: types.RealTensor = None,
+    time_step: types.RealTensor = None,
+    num_time_steps: types.IntTensor = None,
+    curve_times: types.RealTensor = None,
+    corr_matrix: types.RealTensor = None,
+    notional: types.RealTensor = None,
+    is_payer_swaption: types.BoolTensor = None,
+    valuation_method: vm.ValuationMethod = vm.ValuationMethod.MONTE_CARLO,
+    num_samples: types.IntTensor = 1,
+    random_type: random.RandomType = None,
+    seed: types.IntTensor = None,
+    skip: types.IntTensor = 0,
+    time_step_finite_difference: types.IntTensor = None,
+    num_time_steps_finite_difference: types.IntTensor = None,
+    num_grid_points_finite_difference: types.IntTensor = 101,
+    dtype: tf.DType = None,
+    name: str = None) -> types.RealTensor:
   """Calculates the price of European swaptions using the HJM model.
 
   A European Swaption is a contract that gives the holder an option to enter a
@@ -239,9 +247,9 @@ def price(*,
     expiries.shape containing the computed swaption prices. The shape of the
     output is as follows:
       * If the `model_batch_shape` is [], then the shape of the output is
-        expiries.shape + [1]
+        expiries.shape
       * Otherwise, the shape of the output is
-        `model_batch_shape + expiries.shape[model_batch_shape.rank:] + [1]`
+        `model_batch_shape + expiries.shape[model_batch_shape.rank:]`
     For swaptions that have reset in the past (expiries<0), the function sets
     the corresponding option prices to 0.0.
   """
@@ -260,22 +268,18 @@ def price(*,
     fixed_leg_coupon = tf.convert_to_tensor(
         fixed_leg_coupon, dtype=dtype, name='fixed_leg_coupon')
     notional = tf.convert_to_tensor(notional, dtype=dtype, name='notional')
-    notional = tf.expand_dims(
-        tf.broadcast_to(notional, expiries.shape), axis=-1)
     if is_payer_swaption is None:
       is_payer_swaption = True
     is_payer_swaption = tf.convert_to_tensor(
         is_payer_swaption, dtype=tf.bool, name='is_payer_swaption')
 
-    # Add a dimension corresponding to multiple cashflows in a swap
-    if expiries.shape.rank == fixed_leg_payment_times.shape.rank - 1:
-      expiries = tf.expand_dims(expiries, axis=-1)
-    elif expiries.shape.rank < fixed_leg_payment_times.shape.rank - 1:
+    if expiries.shape.rank < fixed_leg_payment_times.shape.rank - 1:
       raise ValueError('Swaption expiries not specified for all swaptions '
                        'in the batch. Expected rank {} but received {}.'.format(
                            fixed_leg_payment_times.shape.rank - 1,
                            expiries.shape.rank))
-
+    # Add a dimension corresponding to multiple cashflows in a swap
+    expiries = tf.expand_dims(expiries, axis=-1)
     # Expected shape: batch_shape + [m], where m is the number of fixed leg
     # payments per underlying swap. This is the same as
     # fixed_leg_payment_times.shape
@@ -300,7 +304,7 @@ def price(*,
         raise ValueError('Pricing swaptions using a batch of HJM models with '
                          'finite differences is not currently supported.')
       instrument_batch_shape = expiries.shape.as_list()[:-1] or [1]
-      return _bermudan_swaption_fd(
+      return _european_swaption_fd(
           instrument_batch_shape,
           model,
           # Add a dimension to denote ONE exercise date
@@ -389,16 +393,15 @@ def _european_swaption_mc(model, expiries,
     payoff_swaption = tf.math.maximum(payoff_swap, 0.0)
     # Average over all simulation paths
     option_value = tf.math.reduce_mean(payoff_swaption, axis=0)
+    return notional * tf.squeeze(option_value, axis=-1)
 
-    return notional * option_value
 
-
-def _bermudan_swaption_fd(batch_shape, model, exercise_times,
+def _european_swaption_fd(batch_shape, model, exercise_times,
                           fixed_leg_payment_times, fixed_leg_daycount_fractions,
                           fixed_leg_coupon, notional, is_payer_swaption,
                           time_step_fd, num_time_steps_fd, num_grid_points_fd,
                           name, dtype):
-  """Price Bermudan swaptions using finite difference."""
+  """Price European swaptions using finite difference."""
   with tf.name_scope(name):
     dim = model.dim()
     x_min = -0.5
@@ -534,9 +537,8 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
     # shape = batch_shape
     option_value = tf.squeeze(option_value, axis=list(range(-dim, 0)))
 
-    # output_shape = batch_shape + [1]
-    return notional * tf.expand_dims(
-        tf.reshape(option_value, batch_shape), axis=-1)
+    # output_shape = batch_shape
+    return notional * tf.reshape(option_value, batch_shape)
 
 
 def _coord_grid_to_mesh_grid(coord_grid):

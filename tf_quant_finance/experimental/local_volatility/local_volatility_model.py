@@ -28,9 +28,9 @@ from tf_quant_finance.models import generic_ito_process
 interpolation_2d = math.interpolation.interpolation_2d
 
 
-def _dupire_local_volatility(time, spot_price, initial_spot_price,
-                             implied_volatility_surface, discount_factor_fn,
-                             dividend_yield):
+def _dupire_local_volatility_prices(time, spot_price, initial_spot_price,
+                                    implied_volatility_surface,
+                                    discount_factor_fn, dividend_yield):
   """Constructs local volatility function using Dupire's formula.
 
   Args:
@@ -94,6 +94,43 @@ def _dupire_local_volatility(time, spot_price, initial_spot_price,
   # negative real `Tensors`.
   local_volatility_squared = tf.nn.relu(
       2 * tf.math.divide_no_nan(numerator, denominator))
+  return tf.math.sqrt(local_volatility_squared)
+
+
+def _dupire_local_volatility_iv(time, spot_price, initial_spot_price,
+                                implied_volatility_surface, discount_factor_fn,
+                                dividend_yield):
+  """Similar to _dupire_local_volatility_prices, but uses implied vols."""
+  dtype = time.dtype
+
+  risk_free_rate_fn = _get_risk_free_rate_from_discount_factor(
+      discount_factor_fn)
+  risk_free_rate = tf.convert_to_tensor(risk_free_rate_fn(time), dtype=dtype)
+
+  def _implied_vol(expiry_time, strike):
+    return implied_volatility_surface(strike=strike, expiry_times=expiry_time)
+
+  theta = _implied_vol(time, spot_price)
+  d1 = (tf.math.log(initial_spot_price / spot_price) +
+        (risk_free_rate - dividend_yield + 0.5 * theta**2) *
+        time) / theta / tf.math.sqrt(time)
+
+  spot_fn = lambda x: _implied_vol(time, x)
+  time_fn = lambda t: _implied_vol(t, spot_price)
+  dtheta_dt = lambda t: math.fwd_gradient(time_fn, t)
+  dtheta_dspot = lambda x: math.fwd_gradient(spot_fn, x)
+  d2theta_dspot2 = lambda x: math.fwd_gradient(dtheta_dspot, x)
+
+  numerator = (
+      theta**2 + 2 * time * theta * dtheta_dt(time) + 2 *
+      (risk_free_rate - dividend_yield) * spot_price * time * theta *
+      dtheta_dspot(spot_price))
+  denominator = (
+      (1 + spot_price * d1 * time * dtheta_dspot(spot_price))**2 +
+      spot_price**2 * time * theta *
+      (d2theta_dspot2(spot_price) - d1 * time * dtheta_dspot(spot_price)**2))
+  local_volatility_squared = tf.nn.relu(
+      tf.math.divide_no_nan(numerator, denominator))
   return tf.math.sqrt(local_volatility_squared)
 
 
@@ -205,8 +242,8 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
 
     with tf.name_scope(self._name):
       self._dtype = dtype
-      risk_free_rate = risk_free_rate or [0.0]
-      dividend_yield = dividend_yield or [0.0]
+      risk_free_rate = [0.0] if risk_free_rate is None else risk_free_rate
+      dividend_yield = [0.0] if dividend_yield is None else dividend_yield
 
       self._domestic_rate = _convert_to_tensor_fn(risk_free_rate, dtype,
                                                   "risk_free_rate")
@@ -219,19 +256,19 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
       self._sqrt_rho = tf.linalg.cholesky(self._rho)
 
       # TODO(b/173286140): Simulate using X(t)=log(S(t))
-      def _vol_fn(t, state):
+      def _vol_fn(t, log_spot):
         """Volatility function of LV model."""
-        lv = self._local_volatility_fn(t, state)
-        diffusion = tf.expand_dims(state * lv, axis=-1)
-        return diffusion * self._sqrt_rho
+        lv = self._local_volatility_fn(t, tf.math.exp(log_spot))
+        lv = tf.expand_dims(lv, axis=-1)
+        return lv * self._sqrt_rho
 
       # Drift function
-      def _drift_fn(t, state):
+      def _drift_fn(t, log_spot):
         """Drift function of LV model."""
         domestic_rate = self._domestic_rate(t)
-
         foreign_rate = self._foreign_rate(t)
-        return (domestic_rate - foreign_rate) * state
+        lv = self._local_volatility_fn(t, tf.math.exp(log_spot))
+        return domestic_rate - foreign_rate - lv * lv / 2
 
       super(LocalVolatilityModel, self).__init__(
           dim, _drift_fn, _vol_fn, dtype, name)
@@ -239,6 +276,49 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
   def local_volatility_fn(self):
     """Local volatility function."""
     return self._local_volatility_fn
+
+  def sample_paths(self,
+                   times,
+                   num_samples=1,
+                   initial_state=None,
+                   random_type=None,
+                   seed=None,
+                   swap_memory=True,
+                   name=None,
+                   time_step=None,
+                   num_time_steps=None,
+                   skip=0,
+                   precompute_normal_draws=True,
+                   times_grid=None,
+                   normal_draws=None,
+                   watch_params=None,
+                   validate_args=False):  # pylint: disable=g-doc-args
+    """Returns samples from the LV process.
+
+    See GenericItoProcess.sample_paths.
+    """
+    name = name or (self._name + "_log_sample_path")
+    with tf.name_scope(name):
+      if initial_state is not None:
+        initial_state = tf.math.log(
+            tf.convert_to_tensor(initial_state, dtype_hint=tf.float64))
+      return tf.math.exp(
+          super(LocalVolatilityModel, self).sample_paths(
+              times=times,
+              num_samples=num_samples,
+              initial_state=initial_state,
+              random_type=random_type,
+              seed=seed,
+              swap_memory=swap_memory,
+              name=name,
+              time_step=time_step,
+              num_time_steps=num_time_steps,
+              skip=skip,
+              precompute_normal_draws=precompute_normal_draws,
+              times_grid=times_grid,
+              normal_draws=normal_draws,
+              watch_params=watch_params,
+              validate_args=validate_args))
 
   @classmethod
   def from_market_data(cls,
@@ -250,6 +330,7 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
                        spot,
                        discount_factor_fn,
                        dividend_yield=None,
+                       local_volatility_from_iv=True,
                        dtype=None,
                        name=None):
     """Creates a `LocalVolatilityModel` from market data.
@@ -276,6 +357,10 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
         underlying is an FX rate, then use this input to specify the foreign
         interest rate.
         Default value: `None` in which case the input is set to Zero.
+      local_volatility_from_iv: A bool. If True, calculates the Dupire local
+        volatility function from implied volatilities. Otherwise, it computes
+        the local volatility using option prices.
+        Default value: True.
       dtype: The default dtype to use when converting values to `Tensor`s.
         Default value: `None` which means that default dtypes inferred by
           TensorFlow are used.
@@ -289,7 +374,7 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
     with tf.name_scope(name):
       spot = tf.convert_to_tensor(spot, dtype=dtype)
       dtype = dtype or spot.dtype
-      dividend_yield = dividend_yield or [0.0]
+      dividend_yield = [0.0] if dividend_yield is None else dividend_yield
       dividend_yield = tf.convert_to_tensor(dividend_yield, dtype=dtype)
 
       risk_free_rate_fn = _get_risk_free_rate_from_discount_factor(
@@ -336,7 +421,8 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
           dtype=dtype)
 
       local_volatility_fn = functools.partial(
-          _dupire_local_volatility,
+          _dupire_local_volatility_iv
+          if local_volatility_from_iv else _dupire_local_volatility_prices,
           initial_spot_price=spot,
           discount_factor_fn=discount_factor_fn,
           dividend_yield=dividend_yield,
@@ -356,6 +442,7 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
                               implied_volatility_surface,
                               discount_factor_fn,
                               dividend_yield=None,
+                              local_volatility_from_iv=True,
                               dtype=None,
                               name=None):
     """Creates a `LocalVolatilityModel` from implied volatility data.
@@ -384,6 +471,10 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
         If the underlying is an FX rate, then use this input to specify the
         foreign interest rate.
         Default value: `None` in which case the input is set to Zero.
+      local_volatility_from_iv: A bool. If True, calculates the Dupire local
+        volatility function from implied volatilities. Otherwise, it computes
+        the local volatility using option prices.
+        Default value: True.
       dtype: The default dtype to use when converting values to `Tensor`s.
         Default value: `None` which means that default dtypes inferred by
           TensorFlow are used.
@@ -396,14 +487,15 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
     """
     name = name or "from_volatility_surface"
     with tf.name_scope(name):
-      dividend_yield = dividend_yield or [0.0]
+      dividend_yield = [0.0] if dividend_yield is None else dividend_yield
       dividend_yield = tf.convert_to_tensor(dividend_yield, dtype=dtype)
 
       risk_free_rate_fn = _get_risk_free_rate_from_discount_factor(
           discount_factor_fn)
 
       local_volatility_fn = functools.partial(
-          _dupire_local_volatility,
+          _dupire_local_volatility_iv
+          if local_volatility_from_iv else _dupire_local_volatility_prices,
           initial_spot_price=spot,
           discount_factor_fn=discount_factor_fn,
           dividend_yield=dividend_yield,

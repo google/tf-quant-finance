@@ -33,7 +33,6 @@ py_library(
     srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/framework/core:types",
-        # dataclasses dep,
         # tensorflow dep,
     ],
 )

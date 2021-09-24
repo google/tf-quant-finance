@@ -207,8 +207,8 @@ def maybe_update_along_axis(*,
       return new_tensor
 
 
-def prepare_grid(*, times, time_step, dtype, num_time_steps=None,
-                 times_grid=None):
+def prepare_grid(*, times, time_step, dtype, tolerance=None,
+                 num_time_steps=None, times_grid=None):
   """Prepares grid of times for path generation.
 
   Args:
@@ -217,7 +217,12 @@ def prepare_grid(*, times, time_step, dtype, num_time_steps=None,
     time_step: Rank 0 real `Tensor`. Maximal distance between points in
       resulting grid.
     dtype: `tf.Dtype` of the input and output `Tensor`s.
-    num_time_steps: Number of points on the grid. If supplied, a uniform grid
+    tolerance: A non-negative scalar `Tensor` specifying the minimum tolerance
+      for discernible times on the time grid. Times that are closer than the
+      tolerance are perceived to be the same.
+      Default value: `None` which maps to `1-e6` if the for single precision
+        `dtype` and `1e-10` for double precision `dtype`.
+    num_time_steps: Number of points on the grid. If suppied, a uniform grid
       is constructed for `[time_step, times[-1] - time_step]` consisting of
       max(0, num_time_steps - len(times)) points that is then concatenated with
       times. This parameter guarantees the number of points on the time grid
@@ -244,10 +249,13 @@ def prepare_grid(*, times, time_step, dtype, num_time_steps=None,
     `time_indices`. An integer `Tensor` of the same shape as `times` indicating
     `times` indices in `all_times`.
   """
+  if tolerance is None:
+    tolerance = 1e-10 if dtype == tf.float64 else 1e-6
+  tolerance = tf.convert_to_tensor(tolerance, dtype=dtype)
   if times_grid is None:
     if num_time_steps is None:
       all_times, time_indices = _grid_from_time_step(
-          times=times, time_step=time_step, dtype=dtype)
+          times=times, time_step=time_step, dtype=dtype, tolerance=tolerance)
     else:
       all_times, time_indices = _grid_from_num_times(
           times=times, time_step=time_step, num_time_steps=num_time_steps)
@@ -275,24 +283,27 @@ def prepare_grid(*, times, time_step, dtype, num_time_steps=None,
   return all_times, mask, time_indices
 
 
-def _grid_from_time_step(*, times, time_step, dtype):
+def _grid_from_time_step(*, times, time_step, dtype, tolerance):
   """Creates a time grid from an input time step."""
   grid = tf.range(0.0, times[-1], time_step, dtype=dtype)
   all_times = tf.concat([times, grid], axis=0)
   all_times = tf.sort(all_times)
+
   # Remove duplicate points
-  duplicate_tol = 1e-10 if dtype == tf.float64 else 1e-6
   dt = all_times[1:] - all_times[:-1]
   dt = tf.concat([[1.0], dt], axis=-1)
-  duplicate_mask = tf.math.greater(dt, duplicate_tol)
+  duplicate_mask = tf.math.greater(dt, tolerance)
   all_times = tf.boolean_mask(all_times, duplicate_mask)
   time_indices = tf.searchsorted(all_times, times, out_type=tf.int32)
+  time_indices = tf.math.minimum(time_indices, tf.shape(all_times)[0] - 1)
+
   # Move `time_indices` to the left, if the requested `times` are removed from
   # `all_times` during deduplication
   time_indices = tf.where(
-      tf.gather(all_times, time_indices) - times > duplicate_tol,
+      tf.gather(all_times, time_indices) - times > tolerance,
       time_indices - 1,
       time_indices)
+
   return all_times, time_indices
 
 

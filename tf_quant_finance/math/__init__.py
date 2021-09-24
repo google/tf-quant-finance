@@ -21,6 +21,7 @@ from tf_quant_finance.math import optimizer
 from tf_quant_finance.math import pad
 from tf_quant_finance.math import pde
 from tf_quant_finance.math import piecewise
+from tf_quant_finance.math import qmc
 from tf_quant_finance.math import random_ops as random
 from tf_quant_finance.math import root_search
 from tf_quant_finance.math import segment_ops
@@ -43,6 +44,7 @@ _allowed_symbols = [
     'pad',
     'pde',
     'piecewise',
+    'qmc',
     'random',
     'root_search',
     'diff',
