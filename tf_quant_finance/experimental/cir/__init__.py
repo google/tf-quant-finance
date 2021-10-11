@@ -1,5 +1,5 @@
 # Lint as: python3
-# Copyright 2019 Google LLC
+# Copyright 2021 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,27 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Experimental modules."""
+"""CIR model."""
 
-from tf_quant_finance.experimental import cir
-from tf_quant_finance.experimental import instruments
-from tf_quant_finance.experimental import local_stochastic_volatility
-from tf_quant_finance.experimental import local_volatility
-from tf_quant_finance.experimental import lsm_algorithm
-from tf_quant_finance.experimental import pricing_platform
-from tf_quant_finance.experimental import svi
-import tf_quant_finance.experimental.io
+from tf_quant_finance.experimental.cir.cir_model import CirModel
+
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
-    "instruments",
-    "io",
-    "lsm_algorithm",
-    "pricing_platform",
-    "local_stochastic_volatility",
-    "local_volatility",
-    "svi",
-    "cir",
+    'CirModel',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
