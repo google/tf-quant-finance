@@ -40,7 +40,6 @@ py_library(
     name = "implied_volatility",
     srcs = ["implied_volatility.py"],
     deps = [
-        # enum dep,
         # numpy dep,
         # tensorflow dep,
     ],

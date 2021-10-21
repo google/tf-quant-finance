@@ -22,7 +22,6 @@ py_library(
     ],
     deps = [
         ":simpson",
-        # enum dep,
         # tensorflow dep,
     ],
 )

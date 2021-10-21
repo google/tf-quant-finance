@@ -24,7 +24,6 @@ py_library(
     deps = [
         "//tf_quant_finance/math/random_ops/halton",
         "//tf_quant_finance/math/random_ops/sobol",
-        # enum dep,
         # numpy dep,
         # tensorflow dep,
     ],
