@@ -6,41 +6,37 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2021-10-21.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.models.hjm.GaussianHJM" />
+<meta itemprop="name" content="tf_quant_finance.experimental.cir.CirModel" />
 <meta itemprop="path" content="Stable" />
 <meta itemprop="property" content="__init__"/>
 <meta itemprop="property" content="dim"/>
-<meta itemprop="property" content="discount_bond_price"/>
 <meta itemprop="property" content="drift_fn"/>
 <meta itemprop="property" content="dtype"/>
 <meta itemprop="property" content="fd_solver_backward"/>
 <meta itemprop="property" content="fd_solver_forward"/>
 <meta itemprop="property" content="name"/>
-<meta itemprop="property" content="sample_discount_curve_paths"/>
 <meta itemprop="property" content="sample_paths"/>
-<meta itemprop="property" content="state_y"/>
 <meta itemprop="property" content="volatility_fn"/>
 </div>
 
-# tf_quant_finance.models.hjm.GaussianHJM
+# tf_quant_finance.experimental.cir.CirModel
 
 <!-- Insert buttons and diff -->
 
 <table class="tfo-notebook-buttons tfo-api" align="left">
 </table>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/hjm/gaussian_hjm.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/cir/cir_model.py">View source</a>
 
 
 
-Gaussian HJM model for term-structure modeling.
+Cox–Ingersoll–Ross model.
 
-Inherits From: [`QuasiGaussianHJM`](../../../tf_quant_finance/models/hjm/QuasiGaussianHJM.md)
+Inherits From: [`GenericItoProcess`](../../../tf_quant_finance/models/GenericItoProcess.md)
 
 ```python
-tf_quant_finance.models.hjm.GaussianHJM(
-    dim, mean_reversion, volatility, initial_discount_rate_fn, corr_matrix=None,
-    dtype=None, name=None
+tf_quant_finance.experimental.cir.CirModel(
+    theta, mean_reversion, sigma, dtype=None, name=None
 )
 ```
 
@@ -48,121 +44,33 @@ tf_quant_finance.models.hjm.GaussianHJM(
 
 <!-- Placeholder for "Used in" -->
 
-Heath-Jarrow-Morton (HJM) model for the interest rate term-structre
-modelling specifies the dynamics of the instantaneus forward rate `f(t,T)`
-with maturity `T` at time `t` as follows:
+Represents the Ito process:
 
 ```None
-  df(t,T) = mu(t,T) dt + sum_i sigma_i(t,  T) * dW_i(t),
-  1 <= i <= n,
+  dX_i(t) = (a - k*X_i(t)) * dt +  sigma * sqrt(X_i(t)) * dW_i(t)
 ```
-where `mu(t,T)` and `sigma_i(t,T)` denote the drift and volatility
-for the forward rate and `W_i` are Brownian motions with instantaneous
-correlation `Rho`. The model above represents an `n-factor` HJM model.
-The Gaussian HJM model assumes that the volatility `sigma_i(t,T)` is a
-deterministic function of time (t). Under the risk-neutral measure, the
-drift `mu(t,T)` is computed as
+where
+  a / k: Corresponds to the long term mean.
+  k: Corresponds to the speed of reversion.
+  sigma: Corresponds to the instantaneous volatility.
 
-```
-  mu(t,T) = sum_i sigma_i(t,T)  int_t^T sigma_(t,u) du
-```
-Using the separability condition, the HJM model above can be formulated as
-the following Markovian model:
-
-```None
-  sigma(t,T) = sigma(t) * h(T)    (Separability condition)
-```
-A common choice for the function h(t) is `h(t) = exp(-kt)`. Using the above
-parameterization of sigma(t,T), we obtain the following Markovian
-formulation of the HJM model [1]:
-
-```None
-  HJM Model
-  dx_i(t) = (sum_j [y_ij(t)] - k_i * x_i(t)) dt + sigma_i(t) dW_i
-  dy_ij(t) = (rho_ij * sigma_i(t)*sigma_j(t) - (k_i + k_j) * y_ij(t)) dt
-  r(t) = sum_i x_i(t) + f(0, t)
-```
-where `x` is an `n`-dimensional vector and `y` is an `nxn` dimensional
-matrix. For Gaussian HJM model, the quantity `y_ij(t)` can be computed
-analytically as follows:
-
-```None
-  y_ij(t) = rho_ij * exp(-k_i * t) * exp(-k_j * t) *
-            int_0^t exp((k_i+k_j) * s) * sigma_i(s) * sigma_j(s) ds
-```
-
-The Gaussian HJM class implements the model outlined above by simulating the
-state `x(t)` while analytically computing `y(t)`.
-
-The price at time `t` of a zero-coupon bond maturing at `T` is given by
-(Ref. [1]):
-
-```None
-P(t,T) = P(0,T) / P(0,t) *
-         exp(-x(t) * G(t,T) - 0.5 * y(t) * G(t,T)^2)
-```
-
-The HJM model implementation supports constant mean-reversion rate `k` and
-`sigma(t)` can be an arbitrary function of `t`. We use Euler discretization
-to simulate the HJM model.
-
-#### Example. Simulate a 4-factor HJM process.
-
-```python
-import numpy as np
-import tensorflow.compat.v2 as tf
-import tf_quant_finance as tff
-
-dtype = tf.float64
-def discount_fn(x):
-  return 0.01 * tf.ones_like(x, dtype=dtype)
-
-process = tff.models.hjm.GaussianHJM(
-    dim=4,
-    mean_reversion=[0.03, 0.01, 0.02, 0.005],  # constant mean-reversion
-    volatility=[0.01, 0.011, 0.015, 0.008],  # constant volatility
-    initial_discount_rate_fn=discount_fn,
-    dtype=dtype)
-times = np.array([0.1, 1.0, 2.0, 3.0])
-short_rate_paths, discount_paths, _, _ = process.sample_paths(
-    times,
-    num_samples=100000,
-    time_step=0.1,
-    random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
-    seed=[1, 2],
-    skip=1000000)
-```
+See [1] for details.
 
 #### References:
-  [1]: Leif B. G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling.
-  Volume II: Term Structure Models.
+  [1]: A. Alfonsi. Affine Diffusions and Related Processes: Simulation,
+    Theory and Applications
 
 #### Args:
 
 
-* <b>`dim`</b>: A Python scalar which corresponds to the number of factors comprising
-  the model.
-* <b>`mean_reversion`</b>: A real positive `Tensor` of shape `[dim]`. Corresponds to
-  the mean reversion rate of each factor.
-* <b>`volatility`</b>: A real positive `Tensor` of the same `dtype` and shape as
-  `mean_reversion` or a callable with the following properties: (a)  The
-    callable should accept a scalar `Tensor` `t` and returns a 1-D
-    `Tensor` of shape `[dim]`. The function returns instantaneous
-    volatility `sigma(t)`. When `volatility` is specified is a real
-    `Tensor`, each factor is assumed to have a constant instantaneous
-    volatility. Corresponds to the instantaneous volatility of each
-    factor.
-* <b>`initial_discount_rate_fn`</b>: A Python callable that accepts expiry time as a
-  real `Tensor` of the same `dtype` as `mean_reversion` and returns a
-  `Tensor` of shape `input_shape`. Corresponds to the zero coupon bond
-  yield at the present time for the input expiry time.
-* <b>`corr_matrix`</b>: A `Tensor` of shape `[dim, dim]` and the same `dtype` as
-  `mean_reversion`. Corresponds to the correlation matrix `Rho`.
+* <b>`theta`</b>: A positive scalar `Tensor`.
+* <b>`mean_reversion`</b>: A positive scalar `Tensor` of the same dtype as `a`. Means
+  speed of reversion.
+* <b>`sigma`</b>: A scalar `Tensor` of the same dtype as `a`. Means volatility.
 * <b>`dtype`</b>: The default dtype to use when converting values to `Tensor`s.
   Default value: `None` which maps to `tf.float32`.
 * <b>`name`</b>: Python string. The name to give to the ops created by this class.
-  Default value: `None` which maps to the default name
-    `gaussian_hjm_model`.
+  Default value: `None` which maps to the default name `cir_model`.
 
 ## Methods
 
@@ -175,38 +83,6 @@ dim()
 ```
 
 The dimension of the process.
-
-
-<h3 id="discount_bond_price"><code>discount_bond_price</code></h3>
-
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/hjm/gaussian_hjm.py">View source</a>
-
-```python
-discount_bond_price(
-    state, times, maturities, name=None
-)
-```
-
-Returns zero-coupon bond prices `P(t,T)` conditional on `x(t)`.
-
-
-#### Args:
-
-
-* <b>`state`</b>: A `Tensor` of real dtype and shape compatible with
-  `(num_times, dim)` specifying the state `x(t)`.
-* <b>`times`</b>: A `Tensor` of real dtype and shape `(num_times,)`. The time `t`
-  at which discount bond prices are computed.
-* <b>`maturities`</b>: A `Tensor` of real dtype and shape `(num_times,)`. The time
-  to maturity of the discount bonds.
-* <b>`name`</b>: Str. The name to give this op.
-  Default value: `discount_bond_prices`.
-
-
-#### Returns:
-
-A `Tensor` of real dtype and the same shape as `(num_times,)`
-containing the price of zero-coupon bonds.
 
 
 <h3 id="drift_fn"><code>drift_fn</code></h3>
@@ -720,181 +596,59 @@ name()
 The name to give to ops created by this class.
 
 
-<h3 id="sample_discount_curve_paths"><code>sample_discount_curve_paths</code></h3>
-
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/hjm/quasi_gaussian_hjm.py">View source</a>
-
-```python
-sample_discount_curve_paths(
-    times, curve_times, num_samples, time_step, num_time_steps=None,
-    random_type=None, seed=None, skip=0, name=None
-)
-```
-
-Returns a sample of simulated discount curves for the Hull-white model.
-
-
-#### Args:
-
-
-* <b>`times`</b>: A real positive `Tensor` of shape `[num_times,]`. The times `t` at
-  which the discount curves are to be evaluated.
-* <b>`curve_times`</b>: A real positive `Tensor` of shape `[num_curve_times]`. The
-  maturities at which discount curve is computed at each simulation time.
-* <b>`num_samples`</b>: Positive scalar `int`. The number of paths to draw.
-* <b>`time_step`</b>: Scalar real `Tensor`. Maximal distance between time grid points
-  in Euler scheme. Used only when Euler scheme is applied.
-  Default value: `None`.
-* <b>`num_time_steps`</b>: An optional Scalar integer `Tensor` - a total number of
-  time steps performed by the algorithm. The maximal distance betwen
-  points in grid is bounded by
-  `times[-1] / (num_time_steps - times.shape[0])`.
-  Either this or `time_step` should be supplied.
-  Default value: `None`.
-* <b>`random_type`</b>: Enum value of `RandomType`. The type of (quasi)-random
-  number generator to use to generate the paths.
-  Default value: None which maps to the standard pseudo-random numbers.
-* <b>`seed`</b>: Seed for the random number generator. The seed is
-  only relevant if `random_type` is one of
-  `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
-    STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
-  `HALTON_RANDOMIZED` the seed should be an Python integer. For
-  `STATELESS` and  `STATELESS_ANTITHETIC` must be supplied as an integer
-  `Tensor` of shape `[2]`.
-  Default value: `None` which means no seed is set.
-* <b>`skip`</b>: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
-  Halton sequence to skip. Used only when `random_type` is 'SOBOL',
-  'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
-  Default value: `0`.
-* <b>`name`</b>: Str. The name to give this op.
-  Default value: `sample_discount_curve_paths`.
-
-
-#### Returns:
-
-A tuple containing three `Tensor`s.
-
-* The first element is a `Tensor` of shape
-`batch_shape + [num_samples, num_curve_times, num_times]` containing
-the simulated zero coupon bond curves `P(t, T)`.
-* The second element is a `Tensor` of shape
-`batch_shape + [num_samples, num_times]` containing the simulated short
-rate paths.
-* The third element is a `Tensor` of shape
-`batch_shape + [num_samples, num_times]` containing the simulated
-discount factor paths.
-
-
-### References:
-  [1]: Leif B.G. Andersen and Vladimir V. Piterbarg. Interest Rate Modeling,
-  Volume II: Term Structure Models. 2010.
-
 <h3 id="sample_paths"><code>sample_paths</code></h3>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/hjm/gaussian_hjm.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/cir/cir_model.py">View source</a>
 
 ```python
 sample_paths(
-    times, num_samples, time_step=None, num_time_steps=None, random_type=None,
-    seed=None, skip=0, name=None
+    times, initial_state=None, num_samples=1, random_type=None, seed=None, name=None
 )
 ```
 
-Returns a sample of short rate paths from the HJM process.
+Returns a sample of paths from the process.
 
-Uses Euler sampling for simulating the short rate paths.
+Using exact simulation method from [1].
 
 #### Args:
 
 
-* <b>`times`</b>: A real positive `Tensor` of shape `(num_times,)`. The times at
-  which the path points are to be evaluated.
-* <b>`num_samples`</b>: Positive scalar `int32` `Tensor`. The number of paths to
-  draw.
-* <b>`time_step`</b>: Scalar real `Tensor`. Maximal distance between time grid points
-  in Euler scheme. Used only when Euler scheme is applied.
-  Default value: `None`.
-* <b>`num_time_steps`</b>: An optional Scalar integer `Tensor` - a total number of
-  time steps performed by the algorithm. The maximal distance between
-  points in grid is bounded by
-  `times[-1] / (num_time_steps - times.shape[0])`.
-  Either this or `time_step` should be supplied.
-  Default value: `None`.
-* <b>`random_type`</b>: Enum value of `RandomType`. The type of (quasi)-random
-  number generator to use to generate the paths.
-  Default value: `None` which maps to the standard pseudo-random numbers.
-* <b>`seed`</b>: Seed for the random number generator. The seed is
-  only relevant if `random_type` is one of
-  `[STATELESS, PSEUDO, HALTON_RANDOMIZED, PSEUDO_ANTITHETIC,
-    STATELESS_ANTITHETIC]`. For `PSEUDO`, `PSEUDO_ANTITHETIC` and
-  `HALTON_RANDOMIZED` the seed should be an Python integer. For
-  `STATELESS` and  `STATELESS_ANTITHETIC `must be supplied as an integer
-  `Tensor` of shape `[2]`.
-  Default value: `None` which means no seed is set.
-* <b>`skip`</b>: `int32` 0-d `Tensor`. The number of initial points of the Sobol or
-  Halton sequence to skip. Used only when `random_type` is 'SOBOL',
-  'HALTON', or 'HALTON_RANDOMIZED', otherwise ignored.
-  Default value: `0`.
-* <b>`name`</b>: Python string. The name to give this op.
+* <b>`times`</b>: Rank 1 `Tensor` of positive real values. The times at which the
+  path points are to be evaluated.
+* <b>`initial_state`</b>: A `Tensor` of the same `dtype` as `times` and of shape
+  broadcastable with `[num_samples, dim]`. Represents the initial state of
+  the Ito process.
+  Default value: `None` which maps to a initial state of ones.
+* <b>`num_samples`</b>: Positive scalar `int`. The number of paths to draw.
+* <b>`random_type`</b>: `STATELESS` or `PSEUDO` type from `RandomType` Enum. The type
+  of (quasi)-random number generator to use to generate the paths.
+* <b>`seed`</b>: The seed for the random number generator.
+  For `PSEUDO` random type: it is an Integer.
+  For `STATELESS` random type: it is an integer `Tensor` of shape `[2]`.
+    In this case the algorithm samples random numbers with seeds `[seed[0]
+    + i, seed[1] + j], i in {0, 1}, j in {0, 1, ..., num_times}`, where
+    `num_times` is the size of `times`.
+  Default value: `None` which means no seed is set, but it works only with
+    `PSEUDO` random type. For `STATELESS` it has to be provided.
+* <b>`name`</b>: Str. The name to give this op.
   Default value: `sample_paths`.
 
 
 #### Returns:
 
-A tuple containing four elements.
-
-* The first element is a `Tensor` of
-shape `[num_samples, num_times]` containing the simulated short rate
-paths.
-* The second element is a `Tensor` of shape
-`[num_samples, num_times]` containing the simulated discount factor
-paths.
-* The third element is a `Tensor` of shape
-`[num_samples, num_times, dim]` conating the simulated values of the
-state variable `x`
-* The fourth element is a `Tensor` of shape
-`[num_samples, num_times, dim^2]` conating the simulated values of the
-state variable `y`.
+A `Tensor`s of shape [num_samples, num_times, dim] where `num_times` is
+the size of the `times`.
 
 
 
 #### Raises:
 
 
-* <b>`ValueError`</b>:   (a) If `times` has rank different from `1`.
-  (b) If Euler scheme is used by times is not supplied.
+* <b>`ValueError`</b>: If `random_type` or `seed` is not supported.
 
-<h3 id="state_y"><code>state_y</code></h3>
-
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/models/hjm/gaussian_hjm.py">View source</a>
-
-```python
-state_y(
-    t, name=None
-)
-```
-
-Computes the state variable `y(t)` for tha Gaussian HJM Model.
-
-For Gaussian HJM model, the state parameter y(t), can be analytically
-computed as follows:
-
-y_ij(t) = exp(-k_i * t) * exp(-k_j * t) * (
-          int_0^t rho_ij * sigma_i(u) * sigma_j(u) * du)
-
-#### Args:
-
-
-* <b>`t`</b>: A rank 1 real `Tensor` of shape `[num_times]` specifying the time `t`.
-* <b>`name`</b>: Python string. The name to give to the ops created by this function.
-  Default value: `None` which maps to the default name `state_y`.
-
-
-#### Returns:
-
-A real `Tensor` of shape [self._factors, self._factors, num_times]
-containing the computed y_ij(t).
-
+#### References:
+[1]: A. Alfonsi. Affine Diffusions and Related Processes: Simulation,
+  Theory and Applications
 
 <h3 id="volatility_fn"><code>volatility_fn</code></h3>
 

@@ -6,29 +6,26 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2021-10-21.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.datetime.weeks" />
+<meta itemprop="name" content="tf_quant_finance.experimental.cir" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.datetime.weeks
+# Module: tf_quant_finance.experimental.cir
 
 <!-- Insert buttons and diff -->
 
 <table class="tfo-notebook-buttons tfo-api" align="left">
 </table>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/datetime/periods.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/experimental/cir/__init__.py">View source</a>
 
 
 
-
-
-```python
-tf_quant_finance.datetime.weeks(
-    n
-)
-```
+CIR model.
 
 
 
-<!-- Placeholder for "Used in" -->
+## Classes
+
+[`class CirModel`](../../tf_quant_finance/experimental/cir/CirModel.md): Cox–Ingersoll–Ross model.
+
