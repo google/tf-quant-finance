@@ -102,7 +102,7 @@ def european_option_price(
     expiries: A real `Tensor` of the same dtype and compatible shape as
       `strikes`.  The expiry of each option.
     spots: A real `Tensor` of any shape that broadcasts to the shape of the
-      `volatilities`. The current spot price of the underlying. Either this
+      `strikes`. The current spot price of the underlying. Either this
       argument or the `forwards` (but not both) must be supplied.
     forwards: A real `Tensor` of any shape that broadcasts to the shape of
       `strikes`. The forwards to maturity. Either this argument or the
@@ -118,7 +118,7 @@ def european_option_price(
       Default value: `None`, equivalent to r = 0 and discount factors = 1 when
       discount_factors also not given.
     dividend_rates: An optional real `Tensor` of same dtype as the
-      `strikes` and of the shape that broadcasts with `volatilities`.
+      `strikes` and of the shape that broadcasts with `strikes`.
       Default value: `None`, equivalent to q = 0.
     discount_factors: An optional real `Tensor` of same dtype as the
       `strikes`. If not `None`, these are the discount factors to expiry
@@ -189,8 +189,9 @@ def european_option_price(
           0.0, dtype=dtype, name='discount_rates')
 
     if dividend_rates is None:
-      dividend_rates = tf.convert_to_tensor(
-          0.0, dtype=dtype, name='dividend_rates')
+      dividend_rates = 0.0
+    dividend_rates = tf.convert_to_tensor(
+        dividend_rates, dtype=dtype, name='dividend_rates')
 
     if discount_factors is None:
       discount_factors = tf.exp(-discount_rates * expiries)  # pylint: disable=invalid-unary-operand-type
