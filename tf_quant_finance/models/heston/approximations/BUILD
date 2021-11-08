@@ -8,6 +8,7 @@ py_library(
     name = "approximations",
     srcs = ["__init__.py"],
     deps = [
+        ":calibration",
         ":european_option",
     ],
 )
@@ -29,6 +30,33 @@ py_test(
     srcs = ["european_option_test.py"],
     python_version = "PY3",
     shard_count = 4,
+    deps = [
+        "//tf_quant_finance",
+        # test util,
+        # absl/testing:parameterized dep,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "calibration",
+    srcs = ["calibration.py"],
+    deps = [
+        ":european_option",
+        "//tf_quant_finance/math:gradient",
+        "//tf_quant_finance/math/optimizer",
+        "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
+    ],
+)
+
+py_test(
+    name = "calibration_test",
+    timeout = "moderate",
+    srcs = ["calibration_test.py"],
+    python_version = "PY3",
+    shard_count = 20,
     deps = [
         "//tf_quant_finance",
         # test util,
