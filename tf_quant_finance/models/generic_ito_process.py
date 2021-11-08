@@ -144,9 +144,10 @@ class GenericItoProcess(ito_process.ItoProcess):
 
     The callable should accept two real `Tensor` arguments of the same dtype.
     The first argument is the scalar time t, the second argument is the value of
-    Ito process X - `Tensor` of shape `batch_shape + [dim]`. The result is the
-    value of drift a(t, X). The return value of the callable is a real `Tensor`
-    of the same dtype as the input arguments and of shape `batch_shape + [dim]`.
+    Ito process X - `Tensor` of shape `batch_shape + [dim]`. Here `batch_shape`
+    is an arbitrary shape. The result is the  value of drift a(t, X). The return
+    value of the callable is a real `Tensor` of the same dtype as the input
+    arguments and of shape `batch_shape + [dim]`.
 
     Returns:
       The instantaneous drift rate callable.
@@ -159,9 +160,10 @@ class GenericItoProcess(ito_process.ItoProcess):
     The callable should accept two real `Tensor` arguments of the same dtype and
     shape `times_shape`. The first argument is the scalar time t, the second
     argument is the value of Ito process X - `Tensor` of shape `batch_shape +
-    [dim]`. The result is value of volatility `S_ij`(t, X). The return value of
-    the callable is a real `Tensor` of the same dtype as the input arguments and
-    of shape `batch_shape + [dim, dim]`.
+    [dim]`. Here `batch_shape` is an arbitrary shape. The result is value of
+    volatility `S_ij`(t, X). The return value of the callable is a real `Tensor`
+    of the same dtype as the input arguments and of shape
+    `batch_shape + [dim, dim]`.
 
     Returns:
       The instantaneous volatility callable.
