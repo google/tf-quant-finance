@@ -95,7 +95,10 @@ class GenericItoProcess(ito_process.ItoProcess):
         a batch of models and `sample_shape` represents samples for each of the
         models. The result is value of drift a(t, X). The return value of the
         callable is a real `Tensor` of the same dtype as the input arguments and
-        of shape `batch_shape + sample_shape + [dim]`.
+        of shape `batch_shape + sample_shape + [dim]`. For example,
+        `sample_shape` can stand for `[num_samples]` for Monte Carlo sampling,
+        or `[num_grid_points_1, ..., num_grid_points_dim]` for Finite Difference
+        solvers.
       volatility_fn: A Python callable to compute the volatility of the process.
         The callable should accept two real `Tensor` arguments of the same dtype
         and shape `times_shape`. The first argument is the scalar time t, the
@@ -104,7 +107,10 @@ class GenericItoProcess(ito_process.ItoProcess):
         a batch of models and `sample_shape` represents samples for each of the
         models. The result is value of volatility S_{ij}(t, X). The return value
         of the callable is a real `Tensor` of the same dtype as the input
-        arguments and of shape `batch_shape + sample_shape + [dim, dim]`.
+        arguments and of shape `batch_shape + sample_shape + [dim, dim]`. For
+        example, `sample_shape` can stand for `[num_samples]` for Monte Carlo
+        sampling, or `[num_grid_points_1, ..., num_grid_points_dim]` for Finite
+        Difference solvers.
       dtype: The default dtype to use when converting values to `Tensor`s.
         Default value: None which means that default dtypes inferred by
           TensorFlow are used.
@@ -144,10 +150,15 @@ class GenericItoProcess(ito_process.ItoProcess):
 
     The callable should accept two real `Tensor` arguments of the same dtype.
     The first argument is the scalar time t, the second argument is the value of
-    Ito process X - `Tensor` of shape `batch_shape + [dim]`. Here `batch_shape`
-    is an arbitrary shape. The result is the  value of drift a(t, X). The return
-    value of the callable is a real `Tensor` of the same dtype as the input
-    arguments and of shape `batch_shape + [dim]`.
+    Ito process X - `Tensor` of shape
+    `batch_shape + sample_shape + [dim]`, where `batch_shape` represents a batch
+    of models and `sample_shape` represents samples for each of the models. The
+    result is value of drift a(t, X). The return value of the callable is a real
+    `Tensor` of the same dtype as the input arguments and of shape
+    `batch_shape + sample_shape + [dim]`. For example, `sample_shape` can stand
+    for `[num_samples]` for Monte Carlo sampling, or
+    `[num_grid_points_1, ..., num_grid_points_dim]` for Finite Difference
+    solvers.
 
     Returns:
       The instantaneous drift rate callable.
@@ -159,11 +170,15 @@ class GenericItoProcess(ito_process.ItoProcess):
 
     The callable should accept two real `Tensor` arguments of the same dtype and
     shape `times_shape`. The first argument is the scalar time t, the second
-    argument is the value of Ito process X - `Tensor` of shape `batch_shape +
-    [dim]`. Here `batch_shape` is an arbitrary shape. The result is value of
-    volatility `S_ij`(t, X). The return value of the callable is a real `Tensor`
-    of the same dtype as the input arguments and of shape
-    `batch_shape + [dim, dim]`.
+    argument is the value of Ito process X - `Tensor` of shape
+    `batch_shape + sample_shape + [dim]`, where `batch_shape` represents a batch
+    of models and `sample_shape` represents samples for each of the models. The
+    result is value of volatility S_{ij}(t, X). The return value of the callable
+    is a real `Tensor` of the same dtype as the input arguments and of shape
+    `batch_shape + sample_shape + [dim, dim]`. For example, `sample_shape` can
+    stand for `[num_samples]` for Monte Carlo sampling, or
+    `[num_grid_points_1, ..., num_grid_points_dim]` for Finite Difference
+    solvers.
 
     Returns:
       The instantaneous volatility callable.
