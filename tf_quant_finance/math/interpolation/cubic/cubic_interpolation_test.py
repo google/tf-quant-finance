@@ -322,6 +322,25 @@ class CubicInterpolationTest(tf.test.TestCase, parameterized.TestCase):
     self.assertAllClose(results, np.array([[[0.5, 1.0, 1.0], [2.5, 3.0, 2.0]]]),
                         1e-8)
 
+  def test_linear_interpolation_dynamic_shapes(self):
+    """Tests linear interpolation with multiple batching dimensions."""
+    dtype = np.float64
+    x = [[[1.5, 2.0, 3.0], [3.5, 4.0, 2.0]]]
+    x_data = [[1, 2], [3, 4]]
+    y_data = [[[0, 1], [2, 3]]]
+
+    # Define function with generic dynamic inputs
+    @tf.function(input_signature=[
+        tf.TensorSpec([None, None, None], dtype=dtype),
+        tf.TensorSpec([None, None], dtype=dtype),
+        tf.TensorSpec([None, None, None], dtype=dtype)])
+    def interpolate(x, x_data, y_data):
+      spline = tff.math.interpolation.cubic.build_spline(
+          x_data, y_data, dtype=dtype)
+      return tff.math.interpolation.cubic.interpolate(x, spline)
+    results = interpolate(x, x_data, y_data)
+    self.assertAllClose(
+        results, np.array([[[0.5, 1.0, 1.0], [2.5, 3.0, 2.0]]]), 1e-8)
 
 if __name__ == "__main__":
   tf.test.main()

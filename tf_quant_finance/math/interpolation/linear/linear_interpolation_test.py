@@ -43,11 +43,15 @@ class LinearInterpolation(tf.test.TestCase, parameterized.TestCase):
         tff.math.interpolation.linear.interpolate(
             x, x_data, y_data,
             optimize_for_tpu=optimize_for_tpu))
-    self.assertAllClose(result,
-                        [np.interp(x_coord, x_data, y_data) for x_coord in x],
-                        1e-8)
-    # All above real would be converted to float32.
-    self.assertIsInstance(result[0], np.float32)
+    with self.subTest('Shape'):
+      self.assertAllEqual(result.shape, [12])
+    with self.subTest('Values'):
+      self.assertAllClose(result,
+                          [np.interp(x_coord, x_data, y_data) for x_coord in x],
+                          1e-8)
+    with self.subTest('Shape'):
+      # All above real would be converted to float32.
+      self.assertDTypeEqual(result, np.float32)
 
   @parameterized.named_parameters(
       ('default_interpolation', False),
@@ -305,6 +309,24 @@ class LinearInterpolation(tf.test.TestCase, parameterized.TestCase):
     with self.cached_session() as session:
       results = session.run(
           op, feed_dict={x: [[[1.5, 2.0, 3.0], [3.5, 4.0, 2.0]]]})
+    self.assertAllClose(
+        results, np.array([[[0.5, 1.0, 1.0], [2.5, 3.0, 2.0]]]), 1e-8)
+
+  def test_linear_interpolation_dynamic_shapes(self):
+    """Tests linear interpolation with multiple batching dimensions."""
+    dtype = np.float64
+    x = [[[1.5, 2.0, 3.0], [3.5, 4.0, 2.0]]]
+    x_data = [[1, 2], [3, 4]]
+    y_data = [[[0, 1], [2, 3]]]
+
+    # Define function with generic dynamic inputs
+    @tf.function(input_signature=[
+        tf.TensorSpec([None, None, None], dtype=dtype),
+        tf.TensorSpec([None, None], dtype=dtype),
+        tf.TensorSpec([None, None, None], dtype=dtype)])
+    def interpolate(x, x_data, y_data):
+      return tff.math.interpolation.linear.interpolate(x, x_data, y_data)
+    results = interpolate(x, x_data, y_data)
     self.assertAllClose(
         results, np.array([[[0.5, 1.0, 1.0], [2.5, 3.0, 2.0]]]), 1e-8)
 

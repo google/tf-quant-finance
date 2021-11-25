@@ -19,7 +19,6 @@ import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
-from tf_quant_finance.math.interpolation import utils
 
 
 __all__ = [
@@ -153,7 +152,7 @@ def build(x_data: types.RealTensor,
       assert_sanity_check = [_validate_arguments(x_data)]
     else:
       assert_sanity_check = []
-    x_data, y_data = utils.broadcast_common_batch_shape(x_data, y_data)
+    x_data, y_data = tff_utils.broadcast_common_batch_shape(x_data, y_data)
 
     if boundary_condition_type == BoundaryConditionType.FIXED_FIRST_DERIVATIVE:
       if left_boundary_value is None or right_boundary_value is None:
@@ -225,10 +224,8 @@ def interpolate(x: types.RealTensor,
     y_data = spline_data.y_data
     spline_coeffs = spline_data.spline_coeffs
     # Try broadcast batch_shapes
-    x, x_data = utils.broadcast_common_batch_shape(x, x_data)
-    x, y_data = utils.broadcast_common_batch_shape(x, y_data)
-    x, spline_coeffs = utils.broadcast_common_batch_shape(
-        x, spline_coeffs)
+    x, x_data, y_data, spline_coeffs = tff_utils.broadcast_common_batch_shape(
+        x, x_data, y_data, spline_coeffs)
     # Determine the splines to use.
     indices = tf.searchsorted(x_data, x, side='right') - 1
     # This selects all elements for the start of the spline interval.
@@ -236,12 +233,13 @@ def interpolate(x: types.RealTensor,
     lower_encoding = tf.maximum(indices, 0)
     # This selects all elements for the end of the spline interval.
     # Make sure indices lie in the permissible range
-    upper_encoding = tf.minimum(indices + 1, x_data.shape.as_list()[-1] - 1)
+    upper_encoding = tf.minimum(indices + 1,
+                                tff_utils.get_shape(x_data)[-1] - 1)
     # Prepare indices for `tf.gather` or `tf.one_hot`
     # TODO(b/156720909): Extract get_slice logic into a common utilities module
     # for cubic and linear interpolation
     if optimize_for_tpu:
-      x_data_size = x_data.shape.as_list()[-1]
+      x_data_size = tff_utils.get_shape(x_data)[-1]
       lower_encoding = tf.one_hot(lower_encoding, x_data_size, dtype=dtype)
       upper_encoding = tf.one_hot(upper_encoding, x_data_size, dtype=dtype)
     # Calculate dx and dy.

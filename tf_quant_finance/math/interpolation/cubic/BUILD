@@ -17,7 +17,6 @@ py_library(
     name = "cubic_interpolation",
     srcs = ["cubic_interpolation.py"],
     deps = [
-        "//tf_quant_finance/math/interpolation:utils",
         "//tf_quant_finance/types",
         "//tf_quant_finance/utils",
         # tensorflow dep,

@@ -18,7 +18,7 @@
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import types
-from tf_quant_finance.math.interpolation import utils
+from tf_quant_finance import utils as tff_utils
 
 
 __all__ = [
@@ -103,12 +103,12 @@ def interpolate(x: types.RealTensor,
     x_data = tf.convert_to_tensor(x_data, dtype=dtype, name='x_data')
     y_data = tf.convert_to_tensor(y_data, dtype=dtype, name='y_data')
     # Try broadcast batch_shapes
-    x, x_data = utils.broadcast_common_batch_shape(x, x_data)
-    x, y_data = utils.broadcast_common_batch_shape(x, y_data)
-    x_data, y_data = utils.broadcast_common_batch_shape(x_data, y_data)
+    x, x_data, y_data = tff_utils.broadcast_common_batch_shape(
+        x, x_data, y_data)
 
-    batch_shape = x.shape.as_list()[:-1]
-    if not batch_shape:
+    # Rank of the inputs is known
+    batch_rank = x.shape.rank - 1
+    if batch_rank == 0:
       x = tf.expand_dims(x, 0)
       x_data = tf.expand_dims(x_data, 0)
       y_data = tf.expand_dims(y_data, 0)
@@ -134,12 +134,13 @@ def interpolate(x: types.RealTensor,
       control_deps.append(assertion)
       # Check that the shapes of `x_data` and `y_data` are equal
       control_deps.append(
-          tf.compat.v1.assert_equal(tf.shape(x_data), tf.shape(y_data)))
+          tf.compat.v1.assert_equal(tff_utils.get_shape(x_data),
+                                    tff_utils.get_shape(y_data)))
 
     with tf.control_dependencies(control_deps):
       # Get upper bound indices for `x`.
       upper_indices = tf.searchsorted(x_data, x, side='left', out_type=tf.int32)
-      x_data_size = x_data.shape.as_list()[-1]
+      x_data_size = tff_utils.get_shape(x_data)[-1]
       at_min = tf.equal(upper_indices, 0)
       at_max = tf.equal(upper_indices, x_data_size)
       # Create tensors in order to be used by `tf.where`.
@@ -150,10 +151,12 @@ def interpolate(x: types.RealTensor,
 
       values_min = tf.expand_dims(y_data[..., 0], -1) + left_slope * (
           x - tf.broadcast_to(
-              tf.expand_dims(x_data[..., 0], -1), shape=tf.shape(x)))
+              tf.expand_dims(x_data[..., 0], -1),
+              shape=tff_utils.get_shape(x)))
       values_max = tf.expand_dims(y_data[..., -1], -1) + right_slope * (
           x - tf.broadcast_to(
-              tf.expand_dims(x_data[..., -1], -1), shape=tf.shape(x)))
+              tf.expand_dims(x_data[..., -1], -1),
+              shape=tff_utils.get_shape(x)))
 
       # `tf.where` evaluates all branches, need to cap indices to ensure it
       # won't go out of bounds.
@@ -188,7 +191,7 @@ def interpolate(x: types.RealTensor,
 
       interpolated = tf.where(at_min, values_min, interpolated)
       interpolated = tf.where(at_max, values_max, interpolated)
-      if batch_shape:
+      if batch_rank > 0:
         return interpolated
       else:
         return tf.squeeze(interpolated, 0)

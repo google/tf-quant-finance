@@ -16,6 +16,7 @@
 
 from absl.testing import parameterized
 
+import numpy as np
 import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
@@ -112,6 +113,48 @@ class ShapeUtilsTest(parameterized.TestCase, tf.test.TestCase):
             tf.zeros([3, 3], dtype=tf.float32)]
     with self.assertRaises(ValueError):
       tff.utils.common_shape(*args)
+
+  def test_broadcast_common_batch_shape(self):
+    x = tf.zeros([3, 4])
+    y = tf.zeros([2, 1, 3, 10])
+    z = tf.zeros([])
+    x, y, z = tff.utils.broadcast_common_batch_shape(x, y, z)
+    with self.subTest('ShapeX'):
+      self.assertAllEqual(x, np.zeros([2, 1, 3, 4]))
+    with self.subTest('ShapeY'):
+      self.assertAllEqual(y, np.zeros([2, 1, 3, 10]))
+    with self.subTest('ShapeZ'):
+      self.assertAllEqual(z, np.zeros([2, 1, 3]))
+
+  def test_broadcast_common_batch_shape_different_ranks(self):
+    x = tf.zeros([3, 4])
+    y = tf.zeros([2, 1, 3, 2, 2])
+    z = tf.zeros([])
+    x, y, z = tff.utils.broadcast_common_batch_shape(x, y, z,
+                                                     event_ranks=[1, 2, 0])
+    with self.subTest('ShapeX'):
+      self.assertAllEqual(x, np.zeros([2, 1, 3, 4]))
+    with self.subTest('ShapeY'):
+      self.assertAllEqual(y, np.zeros([2, 1, 3, 2, 2]))
+    with self.subTest('ShapeZ'):
+      self.assertAllEqual(z, np.zeros([2, 1, 3]))
+
+  def test_broadcast_common_batch_shape_dynamic(self):
+    """Test broadcasting with dynamic shapes."""
+    @tf.function(input_signature=[tf.TensorSpec([2, 3, None]),
+                                  tf.TensorSpec([None, 5])])
+    def fn(x, y):
+      return tff.utils.broadcast_common_batch_shape(x, y)
+
+    x = tf.random.uniform(shape=[2, 3, 10])
+    y = tf.random.uniform(shape=[1, 5])
+    x_broadcasted, y_broadcasted = fn(x, y)
+    with self.subTest('ShapeX'):
+      x_eval = self.evaluate(x_broadcasted)
+      self.assertAllEqual(x_eval.shape, [2, 3, 10])
+    with self.subTest('ShapeY'):
+      y_eval = self.evaluate(y_broadcasted)
+      self.assertAllEqual(y_eval.shape, [2, 3, 5])
 
 if __name__ == '__main__':
   tf.test.main()

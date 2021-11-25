@@ -19,6 +19,7 @@ py_library(
     deps = [
         "//tf_quant_finance/math:piecewise",
         "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
         # tensorflow dep,
     ],
 )

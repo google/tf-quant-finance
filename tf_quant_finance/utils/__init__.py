@@ -15,6 +15,7 @@
 """Utilities module."""
 
 from tf_quant_finance.utils.dataclass import dataclass
+from tf_quant_finance.utils.shape_utils import broadcast_common_batch_shape
 from tf_quant_finance.utils.shape_utils import broadcast_tensors
 from tf_quant_finance.utils.shape_utils import common_shape
 from tf_quant_finance.utils.shape_utils import get_shape
@@ -24,6 +25,7 @@ from tensorflow.python.util.all_util import remove_undocumented  # pylint: disab
 
 _allowed_symbols = [
     'dataclass',
+    'broadcast_common_batch_shape',
     'broadcast_tensors',
     'common_shape',
     'get_shape',
