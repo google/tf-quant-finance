@@ -91,20 +91,34 @@ class ShapeUtilsTest(parameterized.TestCase, tf.test.TestCase):
       tff.utils.broadcast_tensors(*args)
 
   @parameterized.named_parameters(
-      ('DynamicShapedInputs', True),
-      ('StaticShapedInputs', False)
+      {
+          'testcase_name': 'StaticShapedInputs',
+          'dynamic': False,
+          'input_signature': None
+      }, {
+          'testcase_name': 'DynamicShapedInputs1',
+          'dynamic': True,
+          'input_signature': [
+              tf.TensorSpec([1, None], dtype=tf.float64),
+              tf.TensorSpec([2, 1], dtype=tf.bool),
+              tf.TensorSpec(None, dtype=tf.float32)]
+      }, {
+          'testcase_name': 'DynamicShapedInputs2',
+          'dynamic': True,
+          'input_signature': [
+              tf.TensorSpec([1, None], dtype=tf.float64),
+              tf.TensorSpec([2, 1], dtype=tf.bool),
+              tf.TensorSpec([1], dtype=tf.float32)]
+      },
   )
-  def test_common_shape(self, dynamic):
+  def test_common_shape(self, dynamic, input_signature):
     args = [tf.ones([1, 2], dtype=tf.float64),
             tf.constant([[True], [False]]),
             tf.zeros([1], dtype=tf.float32)]
     def fn(x, y, z):
       return tff.utils.common_shape(x, y, z)
     if dynamic:
-      fn = tf.function(fn, input_signature=[
-          tf.TensorSpec([1, None], dtype=tf.float64),
-          tf.TensorSpec([2, 1], dtype=tf.bool),
-          tf.TensorSpec(None, dtype=tf.float32)])
+      fn = tf.function(fn, input_signature=input_signature)
     shape = fn(*args)
     self.assertAllEqual(shape, [2, 2])
 

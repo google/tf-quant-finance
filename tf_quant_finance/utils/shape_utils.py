@@ -98,7 +98,7 @@ def common_shape(
     # Flag to decide whether input Tensors have fully defined shapes
     is_fully_defined = True
     if args:
-      for arg in args[1:]:
+      for arg in args:
         arg = tf.convert_to_tensor(arg)
         is_fully_defined &= arg.shape.is_fully_defined()
       if is_fully_defined:
