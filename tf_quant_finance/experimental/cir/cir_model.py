@@ -44,7 +44,6 @@ class CirModel(generic_ito_process.GenericItoProcess):
       Theory and Applications
   """
 
-  # TODO(b/196540888): Add batching support for CIR model
   def __init__(self,
                theta: types.RealTensor,
                mean_reversion: types.RealTensor,
@@ -54,10 +53,11 @@ class CirModel(generic_ito_process.GenericItoProcess):
     """Initializes the CIR Model.
 
     Args:
-      theta: A positive scalar `Tensor`.
-      mean_reversion: A positive scalar `Tensor` of the same dtype as `a`. Means
-        speed of reversion.
-      sigma: A scalar `Tensor` of the same dtype as `a`. Means volatility.
+      theta: A positive scalar `Tensor` with shape `batch_shape` + [1].
+      mean_reversion: A positive scalar `Tensor` of the same dtype and shape as
+        `theta`. Means speed of reversion.
+      sigma: A scalar `Tensor` of the same dtype and shape as `theta`.Means
+        volatility.
       dtype: The default dtype to use when converting values to `Tensor`s.
         Default value: `None` which maps to `tf.float32`.
       name: Python string. The name to give to the ops created by this class.
@@ -68,17 +68,53 @@ class CirModel(generic_ito_process.GenericItoProcess):
     dtype = dtype or tf.float32
     name = name or "cir_model"
     with tf.name_scope(name):
-      self._theta = theta
-      self._mean_reversion = mean_reversion
-      self._sigma = sigma
+
+      def _convert_param_to_tensor(param):
+        """Converts `param` to `Tesnor`.
+
+        Args:
+          param: `Scalar` or `Tensor` with shape `batch_shape` + [1].
+
+        Returns:
+          `param` if it `Tensor`, if it is `Scalar` convert it to `Tensor` with
+          [1] shape.
+        """
+        param_t = tf.convert_to_tensor(param, dtype=dtype)
+        return param_t * tf.ones(shape=dim, dtype=dtype)
+
+      def _get_batch_shape(param):
+        """`param` must has shape `batch_shape + [1]`."""
+        param_shape = tff_utils.get_shape(param)
+        # Last rank is `1`
+        return param_shape[:-1]
+
+      # Converts params to `Tensor` with shape `batch_shape + [1]`
+      self._theta = _convert_param_to_tensor(theta)
+      self._mean_reversion = _convert_param_to_tensor(mean_reversion)
+      self._sigma = _convert_param_to_tensor(sigma)
+
+      self._batch_shape = _get_batch_shape(self._theta)
+      self._batch_shape_rank = len(self._batch_shape)
 
       def _drift_fn(t, x):
         del t
-        return self._theta - self._mean_reversion * x
+
+        expand_rank = tff_utils.get_shape(x).rank - self._batch_shape_rank - 1
+        # `axis` is -2, because the new dimension needs to be added before `1`
+        theta_expand = self._expand_param_on_rank(
+            self._theta, expand_rank, axis=-2)
+        mean_reversion_expand = self._expand_param_on_rank(
+            self._mean_reversion, expand_rank, axis=-2)
+        return theta_expand - mean_reversion_expand * x
 
       def _volatility_fn(t, x):
         del t
-        return tf.expand_dims(self._sigma * tf.sqrt(x), axis=-1)
+
+        expand_rank = len(tff_utils.get_shape(x)) - self._batch_shape_rank - 1
+        # `axis` is -2, because the new dimension needs to be added before `1`
+        sigma_expand = self._expand_param_on_rank(
+            self._sigma, expand_rank, axis=-2)
+        return tf.expand_dims(sigma_expand * tf.sqrt(x), axis=-1)
 
     super(CirModel, self).__init__(dim, _drift_fn, _volatility_fn, dtype, name)
 
@@ -97,8 +133,10 @@ class CirModel(generic_ito_process.GenericItoProcess):
       times: Rank 1 `Tensor` of positive real values. The times at which the
         path points are to be evaluated.
       initial_state: A `Tensor` of the same `dtype` as `times` and of shape
-        broadcastable with `[num_samples, dim]`. Represents the initial state of
-        the Ito process.
+        broadcastable with `batch_shape + [num_samples, 1]`. Represents the
+        initial state of the Ito process. `batch_shape` is the shape of the
+        independent stochastic processes being modelled and is inferred from the
+        initial state `x0`.
         Default value: `None` which maps to a initial state of ones.
       num_samples: Positive scalar `int`. The number of paths to draw.
       random_type: `STATELESS` or `PSEUDO` type from `RandomType` Enum. The type
@@ -115,11 +153,36 @@ class CirModel(generic_ito_process.GenericItoProcess):
         Default value: `sample_paths`.
 
     Returns:
-      A `Tensor`s of shape [num_samples, num_times, dim] where `num_times` is
+      A `Tensor`s of shape batch_shape + [num_samples, num_times, 1] where
+      `num_times` is
       the size of the `times`.
 
     Raises:
       ValueError: If `random_type` or `seed` is not supported.
+
+    ## Example
+
+    ```python
+    import tensorflow as tf
+    import tf_quant_finance as tff
+
+    # In this example `batch_shape` is 2, so parameters has shape [2, 1]
+    process = tff.models.CirModel(
+        theta=[[0.02], [0.03]],
+        mean_reversion=[[0.5], [0.4]],
+        sigma=[[0.1], [0.5]],
+        dtype=tf.float64)
+
+    num_samples = 5
+    # `initial_state` has shape [num_samples, 1]
+    initial_state=[[0.1], [0.2], [0.3], [0.4], [0.5]]
+    times = [0.1, 0.2, 1.0]
+    samples = process.sample_paths(
+        times=times,
+        num_samples=num_samples,
+        initial_state=initial_state)
+    # `samples` has shape [2, 5, 3, 1]
+    ```
 
     #### References:
     [1]: A. Alfonsi. Affine Diffusions and Related Processes: Simulation,
@@ -127,15 +190,23 @@ class CirModel(generic_ito_process.GenericItoProcess):
     """
     name = name or (self._name + "_sample_path")
     with tf.name_scope(name):
+      element_shape = self._batch_shape + [num_samples, self._dim]
+
+      # batch_shape + [1] -> batch_shape + [1 (for num_samples), 1]
+      theta = self._expand_param_on_rank(self._theta, 1, axis=-2)
+      mean_reversion = self._expand_param_on_rank(
+          self._mean_reversion, 1, axis=-2)
+      sigma = self._expand_param_on_rank(self._sigma, 1, axis=-2)
+
       if initial_state is None:
-        initial_state = tf.ones([num_samples, self._dim],
-                                dtype=self._dtype,
-                                name="initial_state")
+        initial_state = tf.ones(
+            element_shape, dtype=self._dtype, name="initial_state")
       else:
         initial_state = (
             tf.convert_to_tensor(
                 initial_state, dtype=self._dtype, name="initial_state") +
-            tf.zeros([num_samples, self._dim], dtype=self._dtype))
+            tf.zeros(element_shape, dtype=self._dtype))
+
       times = tf.convert_to_tensor(times, dtype=self._dtype, name="times")
       num_requested_times = tff_utils.get_shape(times)[0]
       if random_type is None:
@@ -145,6 +216,10 @@ class CirModel(generic_ito_process.GenericItoProcess):
             "`seed` equal to None is not supported with STATELESS random type.")
 
       return self._sample_paths(
+          theta=theta,
+          mean_reversion=mean_reversion,
+          sigma=sigma,
+          element_shape=element_shape,
           times=times,
           num_requested_times=num_requested_times,
           initial_state=initial_state,
@@ -155,6 +230,10 @@ class CirModel(generic_ito_process.GenericItoProcess):
 
   def _sample_paths(
       self,
+      theta,
+      mean_reversion,
+      sigma,
+      element_shape,
       times,
       num_requested_times,
       initial_state,
@@ -169,29 +248,29 @@ class CirModel(generic_ito_process.GenericItoProcess):
     dts = tf.expand_dims(
         tf.expand_dims(times[1:] - times[:-1], axis=-1), axis=-1)
     (poisson_fn, gamma_fn, poisson_seed_fn,
-     gamma_seed_fn) = _get_distributions(random_type)
-    distribution_shape = tff_utils.get_shape(initial_state)
+     gamma_seed_fn) = self._get_distributions(random_type)
 
     def _sample_at_time(i, update_idx, current_x, samples):
       dt = dts[i]
-      zeta = tf.where(self._mean_reversion != 0,
-                      (1 - tf.math.exp(-self._mean_reversion * dt)) /
-                      self._mean_reversion, dt)
+      # Shape batch_shape + [num_samples, dim]
+      zeta = tf.where(
+          tf.math.equal(mean_reversion, tf.zeros_like(mean_reversion)), dt,
+          (1 - tf.math.exp(-mean_reversion * dt)) / mean_reversion)
       c = tf.math.divide_no_nan(
-          tf.constant(4, dtype=self.dtype()), self._sigma**2 * zeta)
-      d = c * tf.math.exp(-self._mean_reversion * dt)
+          tf.constant(4, dtype=self._dtype), sigma**2 * zeta)
+      d = c * tf.math.exp(-mean_reversion * dt)
 
       poisson_rv = poisson_fn(
-          shape=distribution_shape,
+          shape=element_shape,
           lam=d * current_x / 2,
           seed=poisson_seed_fn(seed, i),
           dtype=self._dtype)
 
-      gamma_param_alpha = poisson_rv + 2 * self._theta / (self._sigma**2)
+      gamma_param_alpha = poisson_rv + 2 * theta / (sigma**2)
       gamma_param_beta = c / 2
 
       new_x = gamma_fn(
-          shape=distribution_shape,
+          shape=element_shape,
           alpha=gamma_param_alpha,
           beta=gamma_param_beta,
           seed=gamma_seed_fn(seed, i),
@@ -206,28 +285,57 @@ class CirModel(generic_ito_process.GenericItoProcess):
     samples = tf.TensorArray(
         dtype=self._dtype,
         size=num_requested_times,
-        element_shape=[num_samples, self._dim],
+        element_shape=element_shape,
         clear_after_read=False)
     _, _, _, samples = tf.while_loop(
         cond_fn,
         _sample_at_time, (0, 0, initial_state, samples),
         maximum_iterations=num_requested_times)
-    # Shape [num_requested_times, num_samples, dim]
+
+    # Shape [num_requested_times, batch_shape..., num_samples, 1]
     samples = samples.stack()
-    # Shape [num_samples, num_requested_times, dim]
-    samples = tf.transpose(samples, perm=[1, 0, 2])
-    return samples
+    samples_rank = len(tff_utils.get_shape(samples))
+    perm = [batch_idx for batch_idx in range(1, samples_rank - 2)
+           ] + [samples_rank - 2, 0, samples_rank - 1]
+    # Shape batch_shape + [num_samples, num_requested_times, 1]
+    return tf.transpose(samples, perm=perm)
 
+  def _expand_param_on_rank(self, param, expand_rank, axis):
+    """Adds dimensions to `param`, not inplace.
 
-def _get_distributions(random_type):
-  """Returns the distribution and its parameters depending on the `random_type`."""
-  if random_type == random.RandomType.STATELESS:
-    poisson_seed_fn = lambda seed, i: tf.stack([seed[0], seed[1] + i])
-    gamma_seed_fn = lambda seed, i: tf.stack([seed[0] + 1, seed[1] + i])
-    return (tf.random.stateless_poisson, tf.random.stateless_gamma,
-            poisson_seed_fn, gamma_seed_fn)
-  elif random_type == random.RandomType.PSEUDO:
-    seed_fn = lambda seed, _: seed
-    return tf.random.poisson, tf.random.gamma, seed_fn, seed_fn
-  else:
-    raise ValueError("Only STATELESS and PSEUDO random types are supported.")
+    Args:
+      param: initial element.
+      expand_rank: is amount of dimensions that need to be added.
+      axis: is axis where to place these dimensions.
+
+    Returns:
+      New `Tensor`.
+    """
+    param_tensor = tf.convert_to_tensor(param, dtype=self._dtype)
+    param_expand = param_tensor
+    for _ in range(expand_rank):
+      param_expand = tf.expand_dims(param_expand, axis)
+    return param_expand
+
+  @staticmethod
+  def _get_distributions(random_type):
+    """Returns the distribution depending on the `random_type`.
+
+    Args:
+      random_type: `STATELESS` or `PSEUDO` type from `RandomType` Enum.
+
+    Returns:
+     Tuple (Poisson distribution, Gamma distribution, function to generate
+     seed for Poisson distribution, function to generate seed for Gamma
+     distribution).
+    """
+    if random_type == random.RandomType.STATELESS:
+      poisson_seed_fn = lambda seed, i: tf.stack([seed[0], seed[1] + i])
+      gamma_seed_fn = lambda seed, i: tf.stack([seed[0] + 1, seed[1] + i])
+      return (tf.random.stateless_poisson, tf.random.stateless_gamma,
+              poisson_seed_fn, gamma_seed_fn)
+    elif random_type == random.RandomType.PSEUDO:
+      seed_fn = lambda seed, _: seed
+      return tf.random.poisson, tf.random.gamma, seed_fn, seed_fn
+    else:
+      raise ValueError("Only STATELESS and PSEUDO random types are supported.")

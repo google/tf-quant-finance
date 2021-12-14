@@ -34,16 +34,13 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
           "testcase_name": "DoublePrecision",
           "dtype": np.float64,
       })
-  def test_drift_and_volatility(self, dtype):
-    """Tests CIR drift and volatility functions."""
+  def test_drift_and_volatility_different_dtypes(self, dtype):
+    """Tests CIR drift and volatility functions with different precision."""
     theta = 0.04
     mean_reversion = 0.6
     sigma = 0.1
     process = tff.experimental.cir.CirModel(
-        theta=theta,
-        mean_reversion=mean_reversion,
-        sigma=sigma,
-        dtype=np.float64)
+        theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
     drift_fn = process.drift_fn()
     volatility_fn = process.volatility_fn()
     state = np.array([[1.], [3.], [5.]], dtype=dtype)
@@ -51,9 +48,54 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
       drift = drift_fn(0.2, state)
       expected_drift = theta - mean_reversion * state
       self.assertAllClose(expected_drift, drift, atol=1e-7, rtol=1e-7)
+      self.assertEqual((3, 1), drift.shape)
     with self.subTest("Volatility"):
       vol = volatility_fn(0.2, state)
       expected_vol = np.expand_dims(sigma * np.sqrt(state), axis=-1)
+      self.assertAllClose(expected_vol, vol, atol=1e-7, rtol=1e-7)
+      self.assertEqual((3, 1, 1), vol.shape)
+
+  def test_drift_and_volatility_batch_shape(self):
+    """Tests CIR drift and volatility functions."""
+    dim = 1
+    # model_shape = [3, 2]
+    theta = [[[0.04], [0.9]], [[0.03], [0.8]], [[0.05], [0.7]]]
+    mean_reversion = [[[0.06], [0.01]], [[0.05], [0.02]], [[0.07], [0.03]]]
+    sigma = [[[0.1], [0.11]], [[0.2], [0.12]], [[0.3], [0.13]]]
+    # model_shape + whatever_shape + [dim]
+    state_shape = (3, 2, 10, 8, 7, dim)
+    state = np.full(shape=state_shape, fill_value=2.0)
+
+    process = tff.experimental.cir.CirModel(
+        theta=theta,
+        mean_reversion=mean_reversion,
+        sigma=sigma,
+        dtype=np.float64)
+    drift_fn = process.drift_fn()
+    volatility_fn = process.volatility_fn()
+
+    with self.subTest("Drift"):
+      drift = drift_fn(0.2, state)
+      self.assertEqual(state_shape, drift.shape)
+
+      # Shape [3, 2, 1, 1, 1, 1]
+      theta_expand = np.array([[[[[[0.04]]]], [[[[0.9]]]]],
+                               [[[[[0.03]]]], [[[[0.8]]]]],
+                               [[[[[0.05]]]], [[[[0.7]]]]]])
+      mean_reversion_expand = np.array([[[[[[0.06]]]], [[[[0.01]]]]],
+                                        [[[[[0.05]]]], [[[[0.02]]]]],
+                                        [[[[[0.07]]]], [[[[0.03]]]]]])
+      # Shape [3, 2, 10, 8, 7, 1]
+      expected_drift = theta_expand - mean_reversion_expand * state
+      self.assertAllClose(expected_drift, drift, atol=1e-7, rtol=1e-7)
+    with self.subTest("Volatility"):
+      vol = volatility_fn(0.2, state)
+      self.assertEqual(state_shape + (dim,), vol.shape)
+
+      sigma_expand = np.array([[[[[[0.1]]]], [[[[0.11]]]]],
+                               [[[[[0.2]]]], [[[[0.12]]]]],
+                               [[[[[0.3]]]], [[[[0.13]]]]]])
+      expected_vol = np.expand_dims(sigma_expand * np.sqrt(state), axis=-1)
       self.assertAllClose(expected_vol, vol, atol=1e-7, rtol=1e-7)
 
   @parameterized.named_parameters(
@@ -133,6 +175,90 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
         compare_with_euler=False,
         compare_long_term=True)
 
+  def test_sample_paths_long_term_mean_batch_shape(self):
+    """Testing long term mean with batch shape."""
+    # Construct CIR model
+    (theta, mean_reversion, sigma, _, num_samples, batch_shape, _, random_type,
+     seed, dtype) = self.get_default_params_with_batch()
+    initial_state = 5.1
+    times = np.arange(100.0, 140, 2.0)
+    process = tff.experimental.cir.CirModel(
+        theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
+    # Act
+    samples = process.sample_paths(
+        times=times,
+        initial_state=initial_state,
+        num_samples=num_samples,
+        random_type=random_type,
+        seed=seed)
+    # Assert
+    self.verify_samples(
+        process,
+        samples,
+        theta,
+        mean_reversion,
+        initial_state,
+        num_samples,
+        times,
+        dtype,
+        batch_shape=batch_shape,
+        compare_with_euler=False,
+        compare_long_term=True)
+
+  def test_sample_paths_batch(self):
+    """Calculating sample paths with batch shape."""
+    # Construct CIR model
+    (theta, mean_reversion, sigma, initial_state, num_samples, batch_shape,
+     times, random_type, seed, dtype) = self.get_default_params_with_batch()
+    process = tff.experimental.cir.CirModel(
+        theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
+    # Act
+    samples = process.sample_paths(
+        times=times,
+        initial_state=initial_state,
+        num_samples=num_samples,
+        random_type=random_type,
+        seed=seed)
+    # Assert
+    self.verify_samples(
+        process,
+        samples,
+        theta,
+        mean_reversion,
+        initial_state,
+        num_samples,
+        times,
+        dtype,
+        batch_shape=batch_shape)
+
+  def test_sample_paths_batch_initial_state_scalar(self):
+    """`initial_state` is Scalar."""
+    # Construct CIR model
+    (theta, mean_reversion, sigma, _, num_samples, batch_shape, times,
+     random_type, seed, dtype) = self.get_default_params_with_batch()
+    initial_state = 10.0
+    process = tff.experimental.cir.CirModel(
+        theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
+    # Act
+    samples = process.sample_paths(
+        times=times,
+        initial_state=initial_state,
+        num_samples=num_samples,
+        random_type=random_type,
+        seed=seed)
+    # Assert
+    self.verify_samples(
+        process,
+        samples,
+        theta,
+        mean_reversion,
+        initial_state=tf.constant(
+            10.0, shape=batch_shape + [num_samples, 1], dtype=dtype),
+        num_samples=num_samples,
+        times=times,
+        dtype=dtype,
+        batch_shape=batch_shape)
+
   def test_sample_paths_mean_reversion_is_tensor(self):
     """`mean_reversion` is Tensor."""
     # Construct CIR model
@@ -205,6 +331,32 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     self.verify_samples(process, samples, theta, mean_reversion, initial_state,
                         num_samples, times, dtype or np.float32)
 
+  def test_sample_paths_initial_state_explicit_correct_shape(self):
+    """`initial_state` has shape [num_samples, dim]."""
+    # Construct CIR model
+    (theta, mean_reversion, sigma, _, num_samples, times, random_type, seed,
+     dtype) = self.get_default_params()
+    initial_state = np.array([[10.0]] * num_samples)
+    process = tff.experimental.cir.CirModel(
+        theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
+    # Act
+    samples = process.sample_paths(
+        times=times,
+        num_samples=num_samples,
+        initial_state=initial_state,
+        random_type=random_type,
+        seed=seed)
+    # Assert
+    self.verify_samples(
+        process=process,
+        samples=samples,
+        theta=theta,
+        mean_reversion=mean_reversion,
+        initial_state=initial_state,
+        num_samples=num_samples,
+        times=times,
+        dtype=dtype)
+
   def test_sample_paths_initial_state_is_none(self):
     """`initial_state` is none."""
     # Construct CIR model
@@ -269,6 +421,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
                      num_samples,
                      times,
                      dtype,
+                     batch_shape=None,
                      compare_long_term=False,
                      compare_with_euler=True,
                      long_term_atol=5e-2,
@@ -276,13 +429,15 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
                      euler_time_step=0.02,
                      euler_atol=1e-2,
                      euler_rtol=1e-2):
+    if batch_shape is None:
+      batch_shape = []
     dim = 1
     with self.subTest("Mean"):
       if compare_long_term:
         with self.subTest("LongTermMean"):
-          long_term_mean, _ = self.get_mean_and_var(samples, axis=1)
-          expected_long_term_mean = np.ones([num_samples
-                                            ]) * theta / mean_reversion
+          long_term_mean, _ = self.get_mean_and_var(samples, axis=-1)
+          expected_long_term_mean = np.ones(batch_shape + [num_samples]) * (
+              theta / mean_reversion)
           # In the infinite limit, the mean must converge
           # to 'theta / mean_reversion'
           self.assertAllClose(
@@ -303,8 +458,8 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
             dtype=dtype,
             random_type=random.RandomType.STATELESS,
             seed=[1, 5])
-        mean, var = self.get_mean_and_var(samples)
-        euler_mean, euler_var = self.get_mean_and_var(euler_samples)
+        mean, var = self.get_mean_and_var(samples, axis=-2)
+        euler_mean, euler_var = self.get_mean_and_var(euler_samples, axis=-2)
         with self.subTest("EulerMean"):
           self.assertAllClose(
               euler_mean, mean, atol=euler_atol, rtol=euler_rtol)
@@ -317,14 +472,16 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     with self.subTest("GreaterEqualThanZero"):
       self.assertAllGreaterEqual(samples, 0.0)
     with self.subTest("Shape"):
-      self.assertEqual([num_samples, times.shape[0], dim], samples.shape)
+      self.assertEqual(batch_shape + [num_samples, times.shape[0], dim],
+                       samples.shape)
 
-  def get_mean_and_var(self, samples, axis=0):
-    """samples: A `Tensor`s of shape [num_samples, num_times, 1]."""
-    # Shape [num_samples, num_times]
+  def get_mean_and_var(self, samples, axis):
+    """samples: A `Tensor`s of shape [num_samples, num_times, 1] or [batch_shape..., num_samples, num_times, 1]."""
+    # Shape [num_samples, num_times] or [batch_shape..., num_samples, num_times]
     samples_np = self.evaluate(samples[..., -1])
-    # Reduce along samples/times dimension
-    # Shape [num_times] if axis=0, shape [num_samples] if axis=1
+    # Reduce along samples/times dimension:
+    # - [num_times] or [batch_shape..., num_times] if axis=-2
+    # - [num_samples] or [batch_shape..., num_samples] if axis=-1
     mean = np.mean(samples_np, axis=axis)
     var = np.var(samples_np, axis=axis)
     return mean, var
@@ -341,6 +498,20 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     dtype = np.float64
     return (theta, mean_reversion, sigma, initial_state, num_samples, times,
             random_type, seed, dtype)
+
+  def get_default_params_with_batch(self):
+    (_, _, _, _, num_samples, times, random_type, seed,
+     dtype) = self.get_default_params()
+    dim = 1
+    batch_shape = [3, 2, 4]
+    theta = np.full(shape=batch_shape + [dim], fill_value=0.02, dtype=dtype)
+    mean_reversion = np.full(
+        shape=batch_shape + [dim], fill_value=0.5, dtype=dtype)
+    sigma = np.full(shape=batch_shape + [dim], fill_value=0.1, dtype=dtype)
+    initial_state = np.full(
+        shape=batch_shape + [num_samples, dim], fill_value=10.0, dtype=dtype)
+    return (theta, mean_reversion, sigma, initial_state, num_samples,
+            batch_shape, times, random_type, seed, dtype)
 
 
 if __name__ == "__main__":

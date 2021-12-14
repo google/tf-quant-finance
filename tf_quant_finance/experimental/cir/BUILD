@@ -31,7 +31,7 @@ py_test(
     timeout = "long",
     srcs = ["cir_test.py"],
     python_version = "PY3",
-    shard_count = 3,
+    shard_count = 5,
     deps = [
         ":cir_model",
         "//tf_quant_finance",
