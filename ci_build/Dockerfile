@@ -1,7 +1,7 @@
 FROM ubuntu:bionic
 
 # sudo isn't really needed, but we include it for convenience
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl wget build-essential rsync vim openjdk-11-jdk sudo python3 python3-distutils git
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl wget build-essential rsync sudo python3 python3-distutils git
 
 # Install the latest version of pip.
 RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
