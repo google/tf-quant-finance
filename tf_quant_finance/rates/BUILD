@@ -17,6 +17,7 @@ py_library(
         "//tf_quant_finance/rates/analytics",
         "//tf_quant_finance/rates/constant_fwd",
         "//tf_quant_finance/rates/hagan_west",
+        "//tf_quant_finance/rates/nelson_seigel_svensson",
     ],
 )
 

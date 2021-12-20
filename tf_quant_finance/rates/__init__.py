@@ -20,6 +20,7 @@ from tf_quant_finance.rates import cashflows
 from tf_quant_finance.rates import constant_fwd
 from tf_quant_finance.rates import forwards
 from tf_quant_finance.rates import hagan_west
+from tf_quant_finance.rates import nelson_seigel_svensson
 from tf_quant_finance.rates import swap_curve_bootstrap as swap_curve_boot_lib
 from tf_quant_finance.rates import swap_curve_fit as swap_curve_fit_lib
 from tf_quant_finance.rates.swap_curve_common import SwapCurveBuilderResult
@@ -36,6 +37,7 @@ _allowed_symbols = [
     'constant_fwd',
     'swap_curve_fit',
     'swap_curve_bootstrap',
+    'nelson_seigel_svensson',
     'SwapCurveBuilderResult',
 ]
 
