@@ -592,7 +592,7 @@ def _region_2(g1plus2g0, g0plus2g1, g0, g1, x):
   # Integral is: g0 x + 1/3 (g1 - g0) (1-eta) [(x-eta)/(1-eta)]^3 for x > eta
   # and g0 x for x < eta.
   coeff = (g1 - g0) * (1 - eta) / 3
-  integrated_value = g0 * x + coeff * (x_floor**3)
+  integrated_value = g0 * x + coeff * (ratio**3)
   return is_region_2, region_2_value, integrated_value
 
 

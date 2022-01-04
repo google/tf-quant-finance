@@ -15,13 +15,15 @@
 
 """Tests for monotone_convex module."""
 
+from absl.testing import parameterized
+
 import numpy as np
 import tensorflow.compat.v2 as tf
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 from tf_quant_finance.rates.hagan_west import monotone_convex
 
 
-class MonotoneConvexTest(tf.test.TestCase):
+class MonotoneConvexTest(tf.test.TestCase, parameterized.TestCase):
 
   @test_util.run_in_graph_and_eager_modes
   def test_interpolate_adjacent(self):
@@ -159,23 +161,30 @@ class MonotoneConvexTest(tf.test.TestCase):
               test_times, reference_times, discrete_forwards=discrete_forwards))
       np.testing.assert_allclose(actual, expected, rtol=1e-5)
 
-  def test_interpolated_yields_with_yields(self):
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'Example1',
+          'interpolation_times': [0.25, 0.5, 1.0, 2.0, 3.0,
+                                  1.1, 2.5, 2.9, 3.6, 4.0],
+          'reference_times': [1.0, 2.0, 3.0, 4.0],
+          'yields': [5.0, 4.75, 4.53333333, 4.775],
+          'expected': [5.1171875, 5.09375, 5.0, 4.75, 4.533333, 4.9746,
+                       4.624082, 4.535422, 4.661777, 4.775]
+      }, {
+          'testcase_name': 'Example2',
+          'interpolation_times': [0.1, 0.2, 0.21],
+          'reference_times': [0.1, 0.2, 0.21],
+          'yields': [0.1, 0.2, 0.3],
+          'expected': [0.1, 0.2, 0.3]
+      })
+  def test_interpolated_yields_with_yields(
+      self, interpolation_times, reference_times, yields, expected):
     dtypes = [np.float32, np.float64]
     for dtype in dtypes:
-      reference_times = np.array([1.0, 2.0, 3.0, 4.0], dtype=dtype)
-      yields = np.array([5.0, 4.75, 4.53333333, 4.775], dtype=dtype)
-
-      # Times for which the interpolated values are required.
-      interpolation_times = tf.constant(
-          [0.25, 0.5, 1.0, 2.0, 3.0, 1.1, 2.5, 2.9, 3.6, 4.0], dtype=dtype)
-      expected = np.array([
-          5.1171875, 5.09375, 5.0, 4.75, 4.533333, 4.9746, 4.624082, 4.535422,
-          4.661777, 4.775
-      ],
-                          dtype=dtype)
+      expected = np.array(expected, dtype=dtype)
       actual = self.evaluate(
           monotone_convex.interpolate_yields(
-              interpolation_times, reference_times, yields=yields))
+              interpolation_times, reference_times, yields=yields, dtype=dtype))
       np.testing.assert_allclose(actual, expected, rtol=1e-5)
 
   def test_interpolated_yields_flat_curve(self):

@@ -228,7 +228,7 @@ class BondCurveTest(tf.test.TestCase):
       # It converges to a different set of rates.
       np.testing.assert_allclose(
           results.discount_rates,
-          [4.9610328, 4.17662715, 2.84038942, 2.38737021],
+          [4.96098643, 4.17592063, 2.83970042, 2.38685078],
           atol=1e-6)
 
       # However, the actual bond prices with the returned rates are indeed
