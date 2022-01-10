@@ -44,7 +44,7 @@ higher-level components.
 
 The easiest way to get started with the library is via the pip package.
 
-Note that the library requires Python 3.7 and Tensorflow >= 2.4.
+Note that the library requires Python 3.7 and Tensorflow >= 2.7.
 
 First, please install the most recent version of TensorFlow by following
 the [TensorFlow installation instructions](https://tensorflow.org/install).
@@ -127,9 +127,9 @@ This library has the following dependencies:
 
 1.  Bazel
 2.  Python 3 (Bazel uses Python 3 by default)
-3.  TensorFlow version >= 2.4
+3.  TensorFlow version >= 2.7
 4.  TensorFlow Probability version between v0.11.0 and v0.12.1
-5.  Numpy version 1.19.2 or higher
+5.  Numpy version 1.21 or higher
 6.  Attrs
 7.  Dataclasses (not needed if your Python version >= 3.7)
 
@@ -143,7 +143,7 @@ You can install TensorFlow and related dependencies using the ```pip3 install```
 command:
 
 ```sh
-pip3 install --upgrade tf-nightly tensorflow-probability==0.12.1 numpy==1.19.2 attrs dataclasses
+pip3 install --upgrade tf-nightly tensorflow-probability==0.12.1 numpy==1.21 attrs dataclasses
 ```
 
 ### Commonly used commands

@@ -1,4 +1,4 @@
-FROM ubuntu:bionic
+FROM ubuntu:focal
 
 # sudo isn't really needed, but we include it for convenience
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl wget build-essential rsync sudo python3 python3-distutils git
@@ -13,8 +13,8 @@ RUN curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
 RUN sudo apt-get update && sudo apt-get install -y bazel
 
 # Install pip packages
-RUN python3 -m pip install --upgrade numpy==1.19.2 attrs
-RUN python3 -m pip install --upgrade tensorflow==2.6.2
+RUN python3 -m pip install --upgrade numpy==1.21 attrs
+RUN python3 -m pip install --upgrade tensorflow==2.7
 RUN python3 -m pip install --upgrade tensorflow-probability==0.12.1
 
 # Bazel is bound to python instead of python3 so link python to python3

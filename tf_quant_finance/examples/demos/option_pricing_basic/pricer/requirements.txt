@@ -1,6 +1,6 @@
 absl-py==0.9.0
 pyzmq==19.0.0
-numpy==1.18.4
+numpy==1.21
 tf-nightly
 tfp-nightly
 tff-nightly
