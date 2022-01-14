@@ -67,6 +67,7 @@ py_test(
         ":bond_curve",
         ":monotone_convex",
         # test util,
+        # absl/testing:parameterized dep,
         # numpy dep,
         # tensorflow dep,
     ],
