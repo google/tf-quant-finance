@@ -14,7 +14,6 @@
 # limitations under the License.
 """Experimental modules."""
 
-from tf_quant_finance.experimental import cir
 from tf_quant_finance.experimental import instruments
 from tf_quant_finance.experimental import local_stochastic_volatility
 from tf_quant_finance.experimental import local_volatility
@@ -32,7 +31,6 @@ _allowed_symbols = [
     "local_stochastic_volatility",
     "local_volatility",
     "svi",
-    "cir",
 ]
 
 remove_undocumented(__name__, _allowed_symbols)

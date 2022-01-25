@@ -15,6 +15,7 @@ py_library(
         ":milstein_sampling",
         ":realized_volatility",
         ":valuation_method",
+        "//tf_quant_finance/models/cir",
         "//tf_quant_finance/models/geometric_brownian_motion",
         "//tf_quant_finance/models/heston",
         "//tf_quant_finance/models/hjm",

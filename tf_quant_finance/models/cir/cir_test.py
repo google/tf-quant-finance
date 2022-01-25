@@ -39,7 +39,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     theta = 0.04
     mean_reversion = 0.6
     sigma = 0.1
-    process = tff.experimental.cir.CirModel(
+    process = tff.models.cir.CirModel(
         theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
     drift_fn = process.drift_fn()
     volatility_fn = process.volatility_fn()
@@ -66,7 +66,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     state_shape = (3, 2, 10, 8, 7, dim)
     state = np.full(shape=state_shape, fill_value=2.0)
 
-    process = tff.experimental.cir.CirModel(
+    process = tff.models.cir.CirModel(
         theta=theta,
         mean_reversion=mean_reversion,
         sigma=sigma,
@@ -113,7 +113,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     # Construct CIR model
     (theta, mean_reversion, sigma, _, num_samples, _, random_type, seed,
      dtype) = self.get_default_params()
-    process = tff.experimental.cir.CirModel(
+    process = tff.models.cir.CirModel(
         theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
     # Act
     samples = process.sample_paths(
@@ -153,7 +153,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
      dtype) = self.get_default_params()
     times = np.arange(100.0, 140.0, 2.0)
     sigma = theta * sigma_coef
-    process = tff.experimental.cir.CirModel(
+    process = tff.models.cir.CirModel(
         theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
     # Act
     samples = process.sample_paths(
@@ -182,7 +182,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
      seed, dtype) = self.get_default_params_with_batch()
     initial_state = 5.1
     times = np.arange(100.0, 140, 2.0)
-    process = tff.experimental.cir.CirModel(
+    process = tff.models.cir.CirModel(
         theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
     # Act
     samples = process.sample_paths(
@@ -210,7 +210,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     # Construct CIR model
     (theta, mean_reversion, sigma, initial_state, num_samples, batch_shape,
      times, random_type, seed, dtype) = self.get_default_params_with_batch()
-    process = tff.experimental.cir.CirModel(
+    process = tff.models.cir.CirModel(
         theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
     # Act
     samples = process.sample_paths(
@@ -237,7 +237,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     (theta, mean_reversion, sigma, _, num_samples, batch_shape, times,
      random_type, seed, dtype) = self.get_default_params_with_batch()
     initial_state = 10.0
-    process = tff.experimental.cir.CirModel(
+    process = tff.models.cir.CirModel(
         theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
     # Act
     samples = process.sample_paths(
@@ -265,7 +265,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     (theta, _, sigma, initial_state, num_samples, times, random_type, seed,
      dtype) = self.get_default_params()
     mean_reversion = tf.constant(0.5, dtype=dtype)
-    process = tff.experimental.cir.CirModel(
+    process = tff.models.cir.CirModel(
         theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
     # Act
     samples = process.sample_paths(
@@ -284,7 +284,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     (theta, _, sigma, initial_state, num_samples, times, random_type, seed,
      dtype) = self.get_default_params()
     mean_reversion = 0.0
-    process = tff.experimental.cir.CirModel(
+    process = tff.models.cir.CirModel(
         theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
     # Act
     samples = process.sample_paths(
@@ -318,7 +318,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     # Construct CIR model
     (theta, mean_reversion, sigma, initial_state, num_samples, times,
      random_type, seed, _) = self.get_default_params()
-    process = tff.experimental.cir.CirModel(
+    process = tff.models.cir.CirModel(
         theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
     # Act
     samples = process.sample_paths(
@@ -337,7 +337,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     (theta, mean_reversion, sigma, _, num_samples, times, random_type, seed,
      dtype) = self.get_default_params()
     initial_state = np.array([[10.0]] * num_samples)
-    process = tff.experimental.cir.CirModel(
+    process = tff.models.cir.CirModel(
         theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
     # Act
     samples = process.sample_paths(
@@ -362,7 +362,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     # Construct CIR model
     (theta, mean_reversion, sigma, _, num_samples, times, random_type, seed,
      dtype) = self.get_default_params()
-    process = tff.experimental.cir.CirModel(
+    process = tff.models.cir.CirModel(
         theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
     # Act
     samples = process.sample_paths(
@@ -386,7 +386,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     # Construct CIR model
     (theta, mean_reversion, sigma, initial_state, num_samples, times,
      random_type, _, dtype) = self.get_default_params()
-    process = tff.experimental.cir.CirModel(
+    process = tff.models.cir.CirModel(
         theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
     # Act
     with self.assertRaises(ValueError):
@@ -401,7 +401,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     # Construct CIR model
     (theta, mean_reversion, sigma, initial_state, num_samples, times, _, seed,
      dtype) = self.get_default_params()
-    process = tff.experimental.cir.CirModel(
+    process = tff.models.cir.CirModel(
         theta=theta, mean_reversion=mean_reversion, sigma=sigma, dtype=dtype)
     # Act
     with self.assertRaises(ValueError):

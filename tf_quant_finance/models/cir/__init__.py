@@ -14,7 +14,7 @@
 # limitations under the License.
 """CIR model."""
 
-from tf_quant_finance.experimental.cir.cir_model import CirModel
+from tf_quant_finance.models.cir.cir_model import CirModel
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 

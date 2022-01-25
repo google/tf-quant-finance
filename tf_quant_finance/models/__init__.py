@@ -14,6 +14,7 @@
 # limitations under the License.
 """TensorFlow Quantitative Finance tools to build Diffusion Models."""
 
+from tf_quant_finance.models import cir
 from tf_quant_finance.models import euler_sampling
 from tf_quant_finance.models import heston
 from tf_quant_finance.models import hjm
@@ -53,6 +54,7 @@ _allowed_symbols = [
     'realized_volatility',
     'ReturnsType',
     'ValuationMethod',
+    'cir',
 ]
 
 remove_undocumented(__name__, _allowed_symbols)
