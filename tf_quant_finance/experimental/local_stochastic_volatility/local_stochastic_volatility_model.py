@@ -22,6 +22,7 @@ import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import datetime as dates
 from tf_quant_finance import math
+from tf_quant_finance import utils as tff_utils
 from tf_quant_finance.experimental import local_volatility as lvm
 from tf_quant_finance.experimental.pricing_platform.framework.market_data import utils
 from tf_quant_finance.math import pde
@@ -416,7 +417,7 @@ class LocalStochasticVolatilityModel(generic_ito_process.GenericItoProcess):
 
     dtype = dtype or lv_model.dtype()
     day_count_fn = utils.get_daycount_fn(
-        implied_volatility_surface.daycount_convention)
+        implied_volatility_surface.daycount_convention, dtype=dtype)
     max_time = tf.math.reduce_max(
         day_count_fn(
             start_date=implied_volatility_surface.settlement_date(),
@@ -453,8 +454,8 @@ class LocalStochasticVolatilityModel(generic_ito_process.GenericItoProcess):
 def _create_corr_matrix(rho, dtype):
   """Create correlation matrix with scalar `rho`."""
   one = tf.constant(1.0, dtype=dtype)
-  m1 = tf.concat([one, rho], axis=0)
-  m2 = tf.concat([rho, one], axis=0)
+  m1 = tf.stack([one, rho], axis=0)
+  m2 = tf.stack([rho, one], axis=0)
   return tf.stack([m1, m2])
 
 
@@ -693,8 +694,8 @@ def _leverage_function_using_pde(*, risk_free_rate, dividend_yield, lv_model,
     # TODO(b/176826650): Large values represent instability. Eventually this
     # should be addressed inside local vol model.
     local_volatility_values = tf.where(
-        tf.math.abs(local_volatility_values) > 1e4, 0.0,
-        local_volatility_values)
+        tf.math.abs(local_volatility_values) > 1e4,
+        tf.constant(0.0, dtype=dtype), local_volatility_values)
     # variance_given_logspot.shape = (num_grid_x, 1)
     variance_given_logspot = _conditional_expected_variance_from_pde_solution(
         [coord_grid[0] + x_scale, coord_grid[1] * y_scale], value_grid, dtype)(
@@ -716,12 +717,10 @@ def _leverage_function_using_pde(*, risk_free_rate, dividend_yield, lv_model,
     del t, location_grid
     return 0.0
 
-  leverage_fn_values = []
-  leverage_fn_values.append(leverage_fn(grid[0][0])[0])
   # joint_density.shape = (1, num_grid_x, num_grid_y)
   joint_density = _initial_value()
 
-  for tstart in np.arange(0.0, max_time, time_step):
+  def loop_body(i, tstart, joint_density, leverage_fn_values):
     joint_density, coord_grid, _, _ = pde.fd_solvers.solve_forward(
         tstart,
         tstart + time_step,
@@ -744,12 +743,30 @@ def _leverage_function_using_pde(*, risk_free_rate, dividend_yield, lv_model,
     # TODO(b/176826743): Perform fixed point iteration instead of one step
     # update
     leverage_fn = _compute_leverage_fn(
-        tf.convert_to_tensor(tstart + time_step), coord_grid, joint_density)
-    leverage_fn_values.append(leverage_fn(grid[0][0, :] + x_scale)[0, :])
+        tstart + time_step, coord_grid, joint_density)
+    leverage_v = leverage_fn(grid[0][0, :] + x_scale)[0, :]
+    leverage_fn_values = leverage_fn_values.write(i, leverage_v)
+
+    return i + 1, tstart + time_step, joint_density, leverage_fn_values
+
+  times = tf.range(0.0, max_time + time_step, time_step, dtype=dtype)
+  tstart = times[0]
+  first_leverage_value = leverage_fn(grid[0][0])[0]
+  leverage_fn_values = tf.TensorArray(
+      dtype=dtype,
+      size=tff_utils.get_shape(times)[0],
+      element_shape=tff_utils.get_shape(first_leverage_value),
+      clear_after_read=False)
+  leverage_fn_values.write(0, first_leverage_value)
+
+  loop_cond = lambda i, tstart, *args: tf.less(tstart, max_time)
+  initial_args = (1, tstart, joint_density, leverage_fn_values)
+  _, _, _, leverage_fn_values = tf.while_loop(loop_cond, loop_body,
+                                              initial_args)
+  leverage_fn_values = leverage_fn_values.stack()
 
   # leverage_fn_values.shape = (num_pde_timesteps, num_grid_x,)
   leverage_fn_values = tf.convert_to_tensor(leverage_fn_values, dtype=dtype)
-  times = tf.range(0.0, max_time + time_step, time_step, dtype=dtype)
 
   def _return_fn(t, spot):
     leverage_fn_interpolator = (

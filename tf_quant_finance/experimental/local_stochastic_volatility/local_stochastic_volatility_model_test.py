@@ -57,7 +57,7 @@ def build_volatility_surface(val_date, expiry_times, expiries, strikes, iv,
       val_date, expiries, strikes, iv, interpolator=_interpolator, dtype=dtype)
 
 
-# @test_util.run_all_in_graph_and_eager_modes
+@test_util.run_all_in_graph_and_eager_modes
 class LocalStochasticVolatilityTest(tf.test.TestCase, parameterized.TestCase):
 
   def get_implied_vol(self, time, strike, paths, spot, r, dtype):
