@@ -91,7 +91,7 @@ class LocalStochasticVolatilityTest(tf.test.TestCase, parameterized.TestCase):
                           using_market_data):
     """Tests that the model reproduces implied volatility smile."""
     dtype = tf.float64
-    num_samples = 50000
+    num_samples = 10000
     var_model = lsv.LSVVarianceModel(
         mr, variance, volvol * np.sqrt(variance), dtype=dtype)
     val_date, expiries, expiry_times, strikes, iv = build_tensors(
@@ -108,7 +108,7 @@ class LocalStochasticVolatilityTest(tf.test.TestCase, parameterized.TestCase):
           rho,
           risk_free_rate, [0.0],
           pde_time_step,
-          200,
+          num_grid_points=100,
           dtype=dtype)
     else:
       vs = build_volatility_surface(
@@ -121,7 +121,7 @@ class LocalStochasticVolatilityTest(tf.test.TestCase, parameterized.TestCase):
           rho,
           risk_free_rate, [0.0],
           pde_time_step,
-          200,
+          num_grid_points=100,
           dtype=dtype)
 
     paths = model.sample_paths(
