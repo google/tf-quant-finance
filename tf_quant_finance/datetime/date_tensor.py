@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """DateTensor definition."""
-import collections
+import collections.abc
 import datetime
 import numpy as np
 import tensorflow.compat.v2 as tf
@@ -453,14 +453,14 @@ def convert_to_date_tensor(date_inputs):
   if tf.is_tensor(date_inputs):  # Case 5
     return from_ordinals(date_inputs)
 
-  if isinstance(date_inputs, collections.Sequence):
+  if isinstance(date_inputs, collections.abc.Sequence):
     if not date_inputs:
       return from_ordinals([])
     test_element = date_inputs[0]
     if hasattr(test_element, "year"):  # Case 1.
       return from_datetimes(date_inputs)
     # Case 3
-    if isinstance(test_element, collections.Sequence):
+    if isinstance(test_element, collections.abc.Sequence):
       return from_tuples(date_inputs)
     if len(date_inputs) == 3:  # Case 4.
       return from_year_month_day(date_inputs[0], date_inputs[1], date_inputs[2])
