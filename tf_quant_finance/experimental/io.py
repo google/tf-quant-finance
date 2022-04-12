@@ -1,4 +1,3 @@
-# Lint as: python3
 """Utilities to serialize and deserialize dictionaries of numpy arrays.
 
 This module defines generic reader and writer for serialized data as well as

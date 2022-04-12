@@ -1,4 +1,3 @@
-# Lint as: python3
 """Tests for io module."""
 
 from os import path
