@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """One factor Hull-White model with time-dependent parameters."""
 
 from typing import Callable, Union
