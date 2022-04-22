@@ -15,16 +15,23 @@
 """Local Volatility Model."""
 
 import functools
+from typing import Any, Callable, List, Optional, Union
 
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import black_scholes
 from tf_quant_finance import datetime
 from tf_quant_finance import math
+from tf_quant_finance import types
 from tf_quant_finance.experimental.pricing_platform.framework.market_data import volatility_surface
+from tf_quant_finance.math import interpolation
+from tf_quant_finance.math import piecewise
+from tf_quant_finance.math import random
 from tf_quant_finance.models import generic_ito_process
 
-interpolation_2d = math.interpolation.interpolation_2d
+interpolation_2d = interpolation.interpolation_2d
+cubic = interpolation.cubic
+linear = interpolation.linear
 
 
 def _dupire_local_volatility_prices(time, spot_price, initial_spot_price,
@@ -56,7 +63,7 @@ def _dupire_local_volatility_prices(time, spot_price, initial_spot_price,
 
   Returns:
     A real `Tensor` of same shape as `spot_price` containing the local
-    volatility computed at `(spot_price,time)` using the Dupire's
+    volatility computed at `(spot_price,time)` using Dupire's
     construction of local volatility.
   """
   dtype = time.dtype
@@ -110,9 +117,10 @@ def _dupire_local_volatility_iv(time, spot_price, initial_spot_price,
     return implied_volatility_surface(strike=strike, expiry_times=expiry_time)
 
   theta = _implied_vol(time, spot_price)
-  d1 = (tf.math.log(initial_spot_price / spot_price) +
-        (risk_free_rate - dividend_yield + 0.5 * theta**2) *
-        time) / theta / tf.math.sqrt(time)
+  d1 = tf.math.divide_no_nan(
+      (tf.math.log(initial_spot_price / spot_price) +
+       (risk_free_rate - dividend_yield + 0.5 * theta**2) * time) / theta,
+      tf.math.sqrt(time))
 
   spot_fn = lambda x: _implied_vol(time, x)
   time_fn = lambda t: _implied_vol(t, spot_price)
@@ -131,6 +139,169 @@ def _dupire_local_volatility_iv(time, spot_price, initial_spot_price,
   local_volatility_squared = tf.nn.relu(
       tf.math.divide_no_nan(numerator, denominator))
   return tf.math.sqrt(local_volatility_squared)
+
+
+def _dupire_local_volatility_iv_precomputed(
+    initial_spot_price: types.RealTensor, implied_volatility_surface: Any,
+    discount_factor_fn: Callable[..., types.RealTensor],
+    dividend_yield: Callable[..., types.RealTensor],
+    times_grid: types.RealTensor, spot_grid: types.RealTensor, dim: int,
+    dtype: tf.DType) -> Callable[..., types.RealTensor]:
+  """Constructs local volatility function using Dupire's formula.
+
+  Returns a function similar to _dupire_local_volatility_iv using precomputed
+  spline coefficients for IV.
+
+  Args:
+    initial_spot_price: A real `Tensor` specifying the underlying spot price at
+      t=0.
+    implied_volatility_surface: A Python callable which implements the
+      interpolation of market implied volatilities. The callable should have the
+      interface `implied_volatility_surface(strike, expiry_times)` which takes
+      real `Tensor`s corresponding to option strikes and time to expiry and
+      returns a real `Tensor` containing the corresponding market implied
+      volatility. The shape of `strike` is `(n,dim)` where `dim` is the
+      dimensionality of the local volatility process and `t` is a scalar tensor.
+      The output from the callable is a `Tensor` of shape `(n,dim)` containing
+      the interpolated implied volatilties.
+    discount_factor_fn: A python callable accepting one real `Tensor` argument
+      time t. It should return a `Tensor` specifying the discount factor to time
+      t.
+    dividend_yield: A real `Tensor` of shape compatible with `spot_price`
+      specifying the (continuously compounded) dividend yield.
+    times_grid: A `Tensor` of shape `[num_time_samples]`. The grid on which to
+      do interpolation over time.
+    spot_grid: A `Tensor` of shape `[num_spot_samples]`. The grid on which to do
+      interpolation over spots.
+    dim: An int. The model dimension.
+    dtype: The default dtype to use when converting values to `Tensor`s.
+
+  Returns:
+    A python callable f(spot_price,time) returning a real `Tensor` of same shape
+    as `spot_price` containing the local volatility computed at
+    `(spot_price,time)` using Dupire's construction of local volatility.
+  """
+  times_grid = tf.convert_to_tensor(times_grid, dtype=dtype)
+  spot_grid = tf.convert_to_tensor(spot_grid, dtype=dtype)
+
+  # Add batch dim.
+  times_grid = tf.expand_dims(times_grid, 0)
+  spot_grid = tf.expand_dims(spot_grid, 0)
+
+  # Pre-compute IV.
+  def map_times(times):
+
+    def wrap_implied_vol(time):
+      spots = tf.transpose(spot_grid)
+      # TODO(b/229480163): Batch this.
+      return implied_volatility_surface(strike=spots, expiry_times=time)
+
+    return tf.vectorized_map(wrap_implied_vol, tf.transpose(times))
+
+  implied_vol_grid = map_times(times_grid)
+  implied_vol_grid = tf.transpose(implied_vol_grid, [0, 2, 1])
+
+  # Pre-compute gradients using spline for dTheta/dt.
+  def map_times_grad(times):
+
+    def wrap_implied_vol(time):
+      spots = tf.transpose(spot_grid)
+      # TODO(b/229480163): Batch this.
+      return implied_volatility_surface(strike=spots, expiry_times=time)
+
+    fn_grad = lambda time: math.fwd_gradient(wrap_implied_vol, time)
+    return tf.vectorized_map(fn_grad, tf.transpose(times))
+
+  grad_implied_vol_grid = map_times_grad(times_grid)
+  grad_implied_vol_grid = tf.transpose(grad_implied_vol_grid, [0, 2, 1])
+
+  # Set up grids for interpolation.
+  times_grid = tf.squeeze(times_grid)
+  spot_grid = tf.squeeze(spot_grid)
+  spot_grid_2d = tf.broadcast_to(spot_grid,
+                                 [times_grid.shape[0], dim, spot_grid.shape[0]])
+  spline_info = cubic.build_spline(
+      spot_grid_2d, implied_vol_grid, name='spline_spots', validate_args=True)
+
+  jump_locations = tf.slice(times_grid, [1], [times_grid.shape[0] - 1])
+  spline_coeffs_fn = piecewise.PiecewiseConstantFunc(jump_locations,
+                                                     spline_info.spline_coeffs)
+  spot_grid_2d_fn = piecewise.PiecewiseConstantFunc(
+      jump_locations, spot_grid_2d, dtype=dtype)
+  implied_vol_grid_fn = piecewise.PiecewiseConstantFunc(
+      jump_locations, implied_vol_grid, dtype=dtype)
+  spline_grad_info = cubic.build_spline(
+      spot_grid_2d,
+      grad_implied_vol_grid,
+      name='spline_grad_spots',
+      validate_args=True)
+
+  grad_implied_vol_grid_fn = piecewise.PiecewiseConstantFunc(
+      jump_locations, grad_implied_vol_grid, dtype=dtype)
+  spline_grad_coeffs_fn = piecewise.PiecewiseConstantFunc(
+      jump_locations, spline_grad_info.spline_coeffs)
+
+  def local_variance(time, spot_price):
+    risk_free_rate_fn = _get_risk_free_rate_from_discount_factor(
+        discount_factor_fn)
+    risk_free_rate = tf.convert_to_tensor(risk_free_rate_fn(time), dtype=dtype)
+
+    # Setup to compute IV and gradients.
+    spot_grid_2d = tf.squeeze(spot_grid_2d_fn([time]), 0)
+    implied_vol_grid = tf.squeeze(implied_vol_grid_fn([time]), 0)
+    spline_coeffs = tf.squeeze(spline_coeffs_fn([time]), 0)
+    spline = math.interpolation.cubic.SplineParameters(spot_grid_2d,
+                                                       implied_vol_grid,
+                                                       spline_coeffs)
+
+    def theta_fn(spot):
+      return tf.transpose(
+          math.interpolation.cubic.interpolate(
+              tf.transpose(spot), spline, dtype=dtype))
+
+    def grad_spots_fn(spot):
+      return math.fwd_gradient(
+          theta_fn, spot, unconnected_gradients=tf.UnconnectedGradients.ZERO)
+
+    theta = theta_fn(spot_price)
+
+    # Compute gradient of `theta` wrt `time`
+    grad_implied_vol_grid = tf.squeeze(grad_implied_vol_grid_fn([time]), 0)
+    spline_grad_coeffs = tf.squeeze(spline_grad_coeffs_fn([time]), 0)
+
+    spline_grad = math.interpolation.cubic.SplineParameters(
+        spot_grid_2d, grad_implied_vol_grid, spline_grad_coeffs)
+
+    grad_times = tf.transpose(
+        math.interpolation.cubic.interpolate(
+            tf.transpose(spot_price), spline_grad, dtype=dtype))
+
+    # Then set up the rest of Dupire as usual.
+    d1 = tf.math.divide_no_nan(
+        (tf.math.log(tf.math.divide_no_nan(initial_spot_price, spot_price)) +
+         (risk_free_rate - dividend_yield + 0.5 * theta**2) * time) / theta,
+        tf.math.sqrt(time))
+
+    spots_t = spot_price
+    # Gradient of `theta` wrt `spots`
+    grad_spots = grad_spots_fn(spots_t)
+    # Second gradient of `theta` wrt `spots`
+    grad_grad_spots = math.fwd_gradient(
+        grad_spots_fn,
+        spots_t,
+        unconnected_gradients=tf.UnconnectedGradients.ZERO)
+
+    # Dupire formula
+    local_var = (
+        (theta**2 + 2 * time * theta * grad_times + 2 *
+         (risk_free_rate - dividend_yield) * spots_t * time * theta *
+         grad_spots) /
+        ((1 + spots_t * d1 * time * grad_spots)**2 + spots_t**2 * time * theta *
+         (grad_grad_spots - d1 * time * grad_spots**2)))
+    local_var = tf.nn.relu(local_var)
+    return tf.math.sqrt(local_var)
+
+  return local_variance
 
 
 class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
@@ -195,15 +366,24 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
     guide. Chapter 5, Section 5.3.2. 2011.
   """
 
-  def __init__(self,
-               dim,
-               risk_free_rate=None,
-               dividend_yield=None,
-               local_volatility_fn=None,
-               corr_matrix=None,
-               dtype=None,
-               name=None):
+  def __init__(
+      self,
+      dim: int,
+      risk_free_rate: Optional[Union[types.RealTensor,
+                                     Optional[types.RealTensor]]] = None,
+      dividend_yield: Optional[Union[types.RealTensor,
+                                     Optional[types.RealTensor]]] = None,
+      local_volatility_fn: Optional[Callable[..., types.RealTensor]] = None,
+      corr_matrix: Optional[types.RealTensor] = None,
+      times_grid: Optional[types.RealTensor] = None,
+      spot_grid: Optional[types.RealTensor] = None,
+      precompute_iv: Optional[bool] = False,
+      dtype: Optional[tf.DType] = None,
+      name: Optional[str] = None):
     """Initializes the Local volatility model.
+
+    If `precompute_iv` is True and `times_grid` and `spot_grid` are supplied, an
+    interpolated version that pre-computes spline coefficients is used.
 
     Args:
       dim: A Python scalar which corresponds to the number of underlying assets
@@ -216,9 +396,9 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
         the domestic interest rate.
         Default value: `None` in which case the input is set to Zero.
       dividend_yield: A real `Tensor` of shape compatible with `spot_price`
-        specifying the (continuosly compounded) dividend yield.
-        If the underlying is an FX rate, then use this input to specify the
-        foreign interest rate.
+        specifying the (continuously compounded) dividend yield. If the
+        underlying is an FX rate, then use this input to specify the foreign
+        interest rate.
         Default value: `None` in which case the input is set to Zero.
       local_volatility_fn: A Python callable which returns instantaneous
         volatility as a function of state and time. The function must accept a
@@ -229,15 +409,38 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
       corr_matrix: A `Tensor` of shape `[dim, dim]` and the same `dtype` as
         `risk_free_rate`. Corresponds to the instantaneous correlation between
         the underlying assets.
+      times_grid: A `Tensor` of shape `[num_time_samples]`. The grid on which to
+        do interpolation over time. Must be jointly specified with `spot_grid`.
+        Default value: `None`.
+      spot_grid: A `Tensor` of shape `[num_spot_samples]`. The grid on which to
+        do interpolation over spots. Must be jointly specified with
+        `times_grid`.
+        Default value: `None`.
+      precompute_iv: A bool. Whether or not to precompute implied volatility
+        spline coefficients when using Dupire. If True, then `times_grid` and
+        `spot_grid` must be supplied.
+        Default value: False.
       dtype: The default dtype to use when converting values to `Tensor`s.
         Default value: `None` which means that default dtypes inferred by
           TensorFlow are used.
       name: Python string. The name to give to the ops created by this class.
         Default value: `None` which maps to the default name
           `local_volatility_model`.
+
+    Raises:
+      ValueError: If `precompute_iv` is True, but grids are not supplied.
     """
-    self._name = name or "local_volatility_model"
+    self._name = name or 'local_volatility_model'
+    self._times_grid = None
     self._local_volatility_fn = local_volatility_fn
+    # Mark that we're using the interpolated version.
+    self._precompute_iv = precompute_iv
+    if precompute_iv:
+      if (times_grid is None or spot_grid is None):
+        raise ValueError(
+            'When `precompute_iv` is True, both `times_grid` and `spot_grid` '
+            'must be supplied')
+      self._times_grid = times_grid
 
     with tf.name_scope(self._name):
       self._dtype = dtype
@@ -245,13 +448,13 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
       dividend_yield = [0.0] if dividend_yield is None else dividend_yield
 
       self._domestic_rate = _convert_to_tensor_fn(risk_free_rate, dtype,
-                                                  "risk_free_rate")
+                                                  'risk_free_rate')
       self._foreign_rate = _convert_to_tensor_fn(dividend_yield, dtype,
-                                                 "dividend_yield")
+                                                 'dividend_yield')
 
       corr_matrix = corr_matrix or tf.eye(dim, dim, dtype=self._dtype)
       self._rho = tf.convert_to_tensor(
-          corr_matrix, dtype=self._dtype, name="rho")
+          corr_matrix, dtype=self._dtype, name='rho')
       self._sqrt_rho = tf.linalg.cholesky(self._rho)
 
       # TODO(b/173286140): Simulate using X(t)=log(S(t))
@@ -276,31 +479,48 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
     """Local volatility function."""
     return self._local_volatility_fn
 
-  def sample_paths(self,
-                   times,
-                   num_samples=1,
-                   initial_state=None,
-                   random_type=None,
-                   seed=None,
-                   swap_memory=True,
-                   name=None,
-                   time_step=None,
-                   num_time_steps=None,
-                   skip=0,
-                   precompute_normal_draws=True,
-                   times_grid=None,
-                   normal_draws=None,
-                   watch_params=None,
-                   validate_args=False):  # pylint: disable=g-doc-args
+  def precompute_iv(self) -> bool:
+    """Whether or not to precompute IV in Dupire's formula."""
+    return self._precompute_iv
+
+  def sample_paths(
+      self,
+      times: types.RealTensor,
+      num_samples: Optional[int] = 1,
+      initial_state: Optional[types.RealTensor] = None,
+      random_type: Optional[random.RandomType] = None,
+      seed: Optional[types.IntTensor] = None,
+      swap_memory: Optional[bool] = True,
+      time_step: Optional[types.RealTensor] = None,
+      num_time_steps: Optional[types.IntTensor] = None,
+      skip: Optional[types.IntTensor] = 0,
+      precompute_normal_draws: Optional[bool] = True,
+      times_grid: Optional[types.RealTensor] = None,
+      normal_draws: Optional[types.RealTensor] = None,
+      watch_params: Optional[List[types.RealTensor]] = None,
+      validate_args: Optional[bool] = False,
+      name: Optional[str] = None) -> types.RealTensor:  # pylint: disable=g-doc-args
     """Returns samples from the LV process.
 
-    See GenericItoProcess.sample_paths.
+    See GenericItoProcess.sample_paths. If `times_grid` is supplied to
+    `__init__`, then `times_grid` cannot be supplied here.
+
+    Raises:
+      ValueError: If `precompute_iv` is True, but `time_step`, `num_time_steps`
+        or `times_grid` are given.
     """
-    name = name or (self._name + "_log_sample_path")
+    name = name or (self._name + '_log_sample_path')
     with tf.name_scope(name):
       if initial_state is not None:
         initial_state = tf.math.log(
             tf.convert_to_tensor(initial_state, dtype_hint=tf.float64))
+      if self.precompute_iv():
+        if (time_step is not None or num_time_steps is not None or
+            times_grid is not None):
+          raise ValueError(
+              '`time_step`, `num_time_steps`, or `times_grid` cannot be used'
+              'with the interpolated LVM')
+        times_grid = self._times_grid
       return tf.math.exp(
           super(LocalVolatilityModel, self).sample_paths(
               times=times,
@@ -320,18 +540,22 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
               validate_args=validate_args))
 
   @classmethod
-  def from_market_data(cls,
-                       dim,
-                       valuation_date,
-                       expiry_dates,
-                       strikes,
-                       implied_volatilities,
-                       spot,
-                       discount_factor_fn,
-                       dividend_yield=None,
-                       local_volatility_from_iv=True,
-                       dtype=None,
-                       name=None):
+  def from_market_data(
+      cls,
+      dim: int,
+      valuation_date: types.DateTensor,
+      expiry_dates: types.DateTensor,
+      strikes: types.RealTensor,
+      implied_volatilities: types.RealTensor,
+      spot: types.RealTensor,
+      discount_factor_fn: Callable[..., types.RealTensor],
+      dividend_yield: Optional[Callable[..., types.RealTensor]] = None,
+      local_volatility_from_iv: Optional[bool] = True,
+      times_grid: Optional[types.RealTensor] = None,
+      spot_grid: Optional[types.RealTensor] = None,
+      precompute_iv: Optional[bool] = False,
+      dtype: Optional[tf.DType] = None,
+      name: Optional[str] = None) -> generic_ito_process.GenericItoProcess:
     """Creates a `LocalVolatilityModel` from market data.
 
     Args:
@@ -352,7 +576,7 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
         time t. It should return a `Tensor` specifying the discount factor to
         time t.
       dividend_yield: A real `Tensor` of shape compatible with `spot_price`
-        specifying the (continuosly compounded) dividend yield. If the
+        specifying the (continuously compounded) dividend yield. If the
         underlying is an FX rate, then use this input to specify the foreign
         interest rate.
         Default value: `None` in which case the input is set to Zero.
@@ -360,6 +584,20 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
         volatility function from implied volatilities. Otherwise, it computes
         the local volatility using option prices.
         Default value: True.
+      times_grid: A `Tensor` of shape `[num_time_samples]`. The grid on which to
+        do interpolation over time. Must be jointly specified with `spot_grid`
+        or `None`.
+        Default value: `None`.
+      spot_grid: A `Tensor` of shape `[num_spot_samples]`. The grid on which to
+        do interpolation over spots. Must be jointly specified with `times_grid`
+        or `None`.
+        Default value: `None`.
+      precompute_iv: A bool. Whether or not to precompute implied volatility
+        spline coefficients when using Dupire's formula. This is done by
+        precomputing values of implied volatility on the grid
+        `times_grid x spot_grid`. The algorithm then steps through `times_grid`
+        in `sample_paths`.
+        Default value: False.
       dtype: The default dtype to use when converting values to `Tensor`s.
         Default value: `None` which means that default dtypes inferred by
           TensorFlow are used.
@@ -369,7 +607,11 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
     Returns:
       An instance of `LocalVolatilityModel` constructed using the input data.
     """
-    name = name or "from_market_data"
+    name = name or 'from_market_data'
+    if precompute_iv and (times_grid is None or spot_grid is None):
+      raise ValueError(
+          'When `precompute_iv` is True, both `times_grid` and `spot_grid` must'
+          ' be supplied')
     with tf.name_scope(name):
       spot = tf.convert_to_tensor(spot, dtype=dtype)
       dtype = dtype or spot.dtype
@@ -407,6 +649,7 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
         log_forward_moneyness = tf.math.log(
             strikes / spot) - (risk_free_rate - dividend_yield) * times
         moneyness_transposed = tf.transpose(log_forward_moneyness)
+
         times = tf.broadcast_to(times, moneyness_transposed.shape)
         return tf.transpose(
             interpolator.interpolate(times, moneyness_transposed))
@@ -419,31 +662,49 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
           interpolator=_log_moneyness_2d_interpolator,
           dtype=dtype)
 
-      local_volatility_fn = functools.partial(
-          _dupire_local_volatility_iv
-          if local_volatility_from_iv else _dupire_local_volatility_prices,
-          initial_spot_price=spot,
-          discount_factor_fn=discount_factor_fn,
-          dividend_yield=dividend_yield,
-          implied_volatility_surface=vs.volatility)
+      if precompute_iv:
+        local_volatility_fn = _dupire_local_volatility_iv_precomputed(
+            initial_spot_price=spot,
+            discount_factor_fn=discount_factor_fn,
+            dividend_yield=dividend_yield,
+            implied_volatility_surface=vs.volatility,
+            times_grid=times_grid,
+            spot_grid=spot_grid,
+            dim=dim,
+            dtype=dtype)
+      else:
+        local_volatility_fn = functools.partial(
+            _dupire_local_volatility_iv
+            if local_volatility_from_iv else _dupire_local_volatility_prices,
+            initial_spot_price=spot,
+            discount_factor_fn=discount_factor_fn,
+            dividend_yield=dividend_yield,
+            implied_volatility_surface=vs.volatility)
 
       return LocalVolatilityModel(
           dim,
           risk_free_rate=risk_free_rate_fn,
           dividend_yield=dividend_yield,
           local_volatility_fn=local_volatility_fn,
+          times_grid=times_grid,
+          spot_grid=spot_grid,
+          precompute_iv=precompute_iv,
           dtype=dtype)
 
   @classmethod
-  def from_volatility_surface(cls,
-                              dim,
-                              spot,
-                              implied_volatility_surface,
-                              discount_factor_fn,
-                              dividend_yield=None,
-                              local_volatility_from_iv=True,
-                              dtype=None,
-                              name=None):
+  def from_volatility_surface(
+      cls,
+      dim: int,
+      spot: types.RealTensor,
+      implied_volatility_surface: Any,
+      discount_factor_fn: Callable[..., types.RealTensor],
+      dividend_yield: Optional[Callable[..., types.RealTensor]] = None,
+      local_volatility_from_iv: Optional[bool] = True,
+      times_grid: Optional[types.RealTensor] = None,
+      spot_grid: Optional[types.RealTensor] = None,
+      precompute_iv: Optional[bool] = False,
+      dtype: Optional[tf.DType] = None,
+      name: Optional[str] = None) -> generic_ito_process.GenericItoProcess:
     """Creates a `LocalVolatilityModel` from implied volatility data.
 
     Args:
@@ -457,23 +718,37 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
         then the object must implement a function `volatility(strike,
         expiry_times)` which takes real `Tensor`s corresponding to option
         strikes and time to expiry and returns a real `Tensor` containing the
-        corresponding market implied volatility.
-        The shape of `strike` is `(n,dim)` where `dim` is the dimensionality of
-        the local volatility process and `t` is a scalar tensor. The output from
-        the callable is a `Tensor` of shape `(n,dim)` containing the
-        interpolated implied volatilties.
+        corresponding market implied volatility. The shape of `strike` is
+        `(n,dim)` where `dim` is the dimensionality of the local volatility
+        process and `t` is a scalar tensor. The output from the callable is a
+        `Tensor` of shape `(n,dim)` containing the interpolated implied
+        volatilties.
       discount_factor_fn: A python callable accepting one real `Tensor` argument
         time t. It should return a `Tensor` specifying the discount factor to
         time t.
       dividend_yield: A real `Tensor` of shape compatible with `spot_price`
-        specifying the (continuosly compounded) dividend yield.
-        If the underlying is an FX rate, then use this input to specify the
-        foreign interest rate.
+        specifying the (continuously compounded) dividend yield. If the
+        underlying is an FX rate, then use this input to specify the foreign
+        interest rate.
         Default value: `None` in which case the input is set to Zero.
       local_volatility_from_iv: A bool. If True, calculates the Dupire local
         volatility function from implied volatilities. Otherwise, it computes
         the local volatility using option prices.
         Default value: True.
+      times_grid: A `Tensor` of shape `[num_time_samples]`. The grid on which to
+        do interpolation over time. Must be jointly specified with `spot_grid`
+        or `None`.
+        Default value: `None`.
+      spot_grid: A `Tensor` of shape `[num_spot_samples]`. The grid on which to
+        do interpolation over spots. Must be jointly specified with `times_grid`
+        or `None`.
+        Default value: `None`.
+      precompute_iv: A bool. Whether or not to precompute implied volatility
+        spline coefficients when using Dupire's formula. This is done by
+        precomputing values of implied volatility on the grid
+        `times_grid x spot_grid`. The algorithm then steps through `times_grid`
+        in `sample_paths`.
+        Default value: False.
       dtype: The default dtype to use when converting values to `Tensor`s.
         Default value: `None` which means that default dtypes inferred by
           TensorFlow are used.
@@ -484,7 +759,11 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
     Returns:
       An instance of `LocalVolatilityModel` constructed using the input data.
     """
-    name = name or "from_volatility_surface"
+    name = name or 'from_volatility_surface'
+    if precompute_iv and (times_grid is None or spot_grid is None):
+      raise ValueError(
+          'When `precompute_iv` is True, both `times_grid` and `spot_grid` must'
+          ' be supplied')
     with tf.name_scope(name):
       dividend_yield = [0.0] if dividend_yield is None else dividend_yield
       dividend_yield = tf.convert_to_tensor(dividend_yield, dtype=dtype)
@@ -492,19 +771,33 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
       risk_free_rate_fn = _get_risk_free_rate_from_discount_factor(
           discount_factor_fn)
 
-      local_volatility_fn = functools.partial(
-          _dupire_local_volatility_iv
-          if local_volatility_from_iv else _dupire_local_volatility_prices,
-          initial_spot_price=spot,
-          discount_factor_fn=discount_factor_fn,
-          dividend_yield=dividend_yield,
-          implied_volatility_surface=implied_volatility_surface.volatility)
+      if precompute_iv:
+        local_volatility_fn = _dupire_local_volatility_iv_precomputed(
+            initial_spot_price=spot,
+            discount_factor_fn=discount_factor_fn,
+            dividend_yield=dividend_yield,
+            implied_volatility_surface=implied_volatility_surface.volatility,
+            times_grid=times_grid,
+            spot_grid=spot_grid,
+            dim=dim,
+            dtype=dtype)
+      else:
+        local_volatility_fn = functools.partial(
+            _dupire_local_volatility_iv
+            if local_volatility_from_iv else _dupire_local_volatility_prices,
+            initial_spot_price=spot,
+            discount_factor_fn=discount_factor_fn,
+            dividend_yield=dividend_yield,
+            implied_volatility_surface=implied_volatility_surface.volatility)
 
       return LocalVolatilityModel(
           dim,
           risk_free_rate=risk_free_rate_fn,
           dividend_yield=dividend_yield,
           local_volatility_fn=local_volatility_fn,
+          times_grid=times_grid,
+          spot_grid=spot_grid,
+          precompute_iv=precompute_iv,
           dtype=dtype)
 
 
