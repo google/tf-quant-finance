@@ -14,107 +14,12 @@
 
 """Common rates related utilities."""
 
-import collections
 import enum
+from typing import Optional
 import tensorflow.compat.v2 as tf
 from tf_quant_finance import datetime as dates
-
-
-InterestRateMarket = collections.namedtuple(
-    'InterestRateMarket',
-    [
-        # Instance of class RateCurve. The curve used for computing the forward
-        # expectation of Libor rate.
-        'reference_curve',
-        # Instance of class RateCurve. The curve used for discounting cashflows.
-        'discount_curve',
-        # Scalar of real dtype containing the past fixing of libor rate
-        'libor_rate',
-        # Scalar of real dtype containing the past fixing of swap rate
-        'swap_rate',
-        # Instance of class VolatiltyCube. Market implied black volatilities.
-        'volatility_curve'
-    ])
-InterestRateMarket.__new__.__defaults__ = (None, None, None, None, None)
-
-# TODO(b/151954834): Change to `attrs` or `dataclasses`
-FixedCouponSpecs = collections.namedtuple(
-    'FixedCouponSpecs',
-    [
-        # Scalar or rank 1 `dates.PeriodTensor` specifying the frequency of
-        # the cashflow payments
-        'coupon_frequency',
-        # String specifying the currency of cashflows
-        'currency',
-        # Scalar or rank 1 `Tensor` of real dtype specifying the notional for
-        # the payments
-        'notional',
-        # Scalar or rank 1 `Tensor` of real dtype specifying the coupon rate
-        'coupon_rate',
-        # Scalar of type `DayCountConvention` specifying the applicable
-        # daycount convention
-        'daycount_convention',
-        # Scalar of type `BusinessDayConvention` specifying how dates are rolled
-        # if they fall on holidays
-        'businessday_rule'
-    ])
-
-FloatCouponSpecs = collections.namedtuple(
-    'FloatCouponSpecs',
-    [
-        # Scalar or rank 1 `dates.PeriodTensor` specifying the frequency of
-        # the cashflow payments
-        'coupon_frequency',
-        # Scalar or rank 1 `dates.PeriodTensor` specifying the term of the
-        # underlying rate which determines the coupon payment
-        'reference_rate_term',
-        # Scalar or rank 1 `dates.PeriodTensor` specifying the frequency with
-        # which the underlying rate resets
-        'reset_frequency',
-        # String specifying the currency of cashflows
-        'currency',
-        # Scalar or rank 1 `Tensor` of real dtype specifying the notional for
-        # the payments
-        'notional',
-        # Scalar of type `DayCountConvention` specifying the daycount
-        # convention of the underlying rate
-        'daycount_convention',
-        # Scalar of type `BusinessDayConvention` specifying how dates are rolled
-        # if they fall on holidays
-        'businessday_rule',
-        # Scalar of real dtype specifying the fixed basis (in decimals)
-        'coupon_basis',
-        # Scalar of real dtype
-        'coupon_multiplier'
-    ])
-
-CMSCouponSpecs = collections.namedtuple(
-    'CMSCouponSpecs',
-    [
-        # Scalar of type `dates.PeriodTensor` specifying the frequency of
-        # the cashflow payments
-        'coupon_frequency',
-        # Scalar `dates.PeriodTensor` specifying the tenor of the CMS rate
-        'tenor',
-        # Scalar of type `instruments.FloatCouponSpecs` specifying the floating
-        # leg of the CMS
-        'float_leg',
-        # Scalar of type `instruments.FixedCouponSpecs` specifying the fixed
-        # leg of the CMS
-        'fixed_leg',
-        # Scalar of real dtype specifying the notional for the payments
-        'notional',
-        # Scalar of type `DayCountConvention` specifying the daycount
-        # convention of the underlying rate
-        'daycount_convention',
-        # Scalar of real dtype specifying the fixed basis (in decimals)
-        'coupon_basis',
-        # Scalar of real dtype
-        'coupon_multiplier',
-        # Scalar of type `BusinessDayConvention` specifying how dates are rolled
-        # if they fall on holidays
-        'businessday_rule'
-    ])
+from tf_quant_finance import types
+from tf_quant_finance import utils as tff_utils
 
 
 class AverageType(enum.Enum):
@@ -162,6 +67,100 @@ class InterestRateModelType(enum.Enum):
   NORMAL_SMILE_CONSISTENT_REPLICATION = 4
 
 
+@tff_utils.dataclass
+class InterestRateMarket:
+  """InterestRateMarket data."""
+  # Instance of class RateCurve. The curve used for computing the forward
+  # expectation of Libor rate.
+  reference_curve: Optional['RateCurve'] = None
+  # Instance of class RateCurve. The curve used for discounting cashflows.
+  discount_curve: Optional['RateCurve'] = None
+  # Scalar of real dtype containing the past fixing of libor rate
+  libor_rate: Optional[types.RealTensor] = None
+  # Scalar of real dtype containing the past fixing of swap rate
+  swap_rate: Optional[types.RealTensor] = None
+  # Instance of class VolatiltyCube. Market implied black volatilities.
+  volatility_curve: Optional['VolatiltyCube'] = None
+
+
+@tff_utils.dataclass
+class FixedCouponSpecs:
+  """FixedCouponSpecs data."""
+  # Scalar or rank 1 `dates.PeriodTensor` specifying the frequency of
+  # the cashflow payments
+  coupon_frequency: types.RealTensor
+  # String specifying the currency of cashflows
+  currency: str
+  # Scalar or rank 1 `Tensor` of real dtype specifying the notional for
+  # the payments
+  notional: types.RealTensor
+  # Scalar or rank 1 `Tensor` of real dtype specifying the coupon rate
+  coupon_rate: types.RealTensor
+  # Scalar of type `DayCountConvention` specifying the applicable
+  # daycount convention
+  daycount_convention: types.RealTensor
+  # Scalar of type `BusinessDayConvention` specifying how dates are rolled
+  # if they fall on holidays
+  businessday_rule: dates.BusinessDayConvention
+
+
+@tff_utils.dataclass
+class FloatCouponSpecs:
+  """FloatCouponSpecs data."""
+  # Scalar or rank 1 `dates.PeriodTensor` specifying the frequency of
+  # the cashflow payments
+  coupon_frequency: types.RealTensor
+  # Scalar or rank 1 `dates.PeriodTensor` specifying the term of the
+  # underlying rate which determines the coupon payment
+  reference_rate_term: types.RealTensor
+  # Scalar or rank 1 `dates.PeriodTensor` specifying the frequency with
+  # which the underlying rate resets
+  reset_frequency: types.RealTensor
+  # String specifying the currency of cashflows
+  currency: str
+  # Scalar or rank 1 `Tensor` of real dtype specifying the notional for
+  # the payments
+  notional: types.RealTensor
+  # Scalar of type `DayCountConvention` specifying the daycount
+  # convention of the underlying rate
+  daycount_convention: DayCountConvention
+  # Scalar of type `BusinessDayConvention` specifying how dates are rolled
+  # if they fall on holidays
+  businessday_rule: dates.BusinessDayConvention
+  # Scalar of real dtype specifying the fixed basis (in decimals)
+  coupon_basis: types.RealTensor
+  # Scalar of real dtype
+  coupon_multiplier: types.RealTensor
+
+
+@tff_utils.dataclass
+class CMSCouponSpecs:
+  """CMSCouponSpecs data."""
+  # Scalar of type `dates.PeriodTensor` specifying the frequency of
+  # the cashflow payments
+  coupon_frequency: dates.PeriodTensor
+  # Scalar `dates.PeriodTensor` specifying the tenor of the CMS rate
+  tenor: dates.PeriodTensor
+  # Scalar of type `instruments.FloatCouponSpecs` specifying the floating
+  # leg of the CMS
+  float_leg: FloatCouponSpecs
+  # Scalar of type `instruments.FixedCouponSpecs` specifying the fixed
+  # leg of the CMS
+  fixed_leg: FixedCouponSpecs
+  # Scalar of real dtype specifying the notional for the payments
+  notional: types.RealTensor
+  # Scalar of type `DayCountConvention` specifying the daycount
+  # convention of the underlying rate
+  daycount_convention: DayCountConvention
+  # Scalar of real dtype specifying the fixed basis (in decimals)
+  coupon_basis: types.RealTensor
+  # Scalar of real dtype
+  coupon_multiplier: types.RealTensor
+  # Scalar of type `BusinessDayConvention` specifying how dates are rolled
+  # if they fall on holidays
+  businessday_rule: dates.BusinessDayConvention
+
+
 def elapsed_time(date_1, date_2, dtype):
   """Computes elapsed time between two date tensors."""
   days_in_year = 365.
@@ -205,7 +204,7 @@ def get_implied_volatility_data(market,
                                 valuation_date=None,
                                 volatility_type=None,
                                 currency=None):
-  """Return the implied colatility date from the market data."""
+  """Return the implied volatility data from the market data."""
   del valuation_date, volatility_type, currency
-  vol_date = market.volatility_curve
-  return vol_date
+  vol_data = market.volatility_curve
+  return vol_data
