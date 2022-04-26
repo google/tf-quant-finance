@@ -1257,6 +1257,163 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase,
     with self.subTest(name='CorrectSolution'):
       self.assertAllClose(expected, result[0], atol=0.01, rtol=0.01)
 
+  @parameterized.named_parameters(
+      {
+          'testcase_name': 'WithDefault',
+          'include_default_bc': True,
+      }, {
+          'testcase_name': 'WithoutDefault',
+          'include_default_bc': False,
+      })
+  def testMixedTermsWithMixedBoundaryBatchGrid(self, include_default_bc):
+    """Tests solving a batch of PDEs with batch grid.
+
+    The equation are
+    `u_{t} + u_{xx}  + u_{yy} + u_{zz}
+    + sin(x) * cos(y) * u_{xy} + cos(y) * cos(z) * u_{yz}
+    +  (2 + cos(x) * sin(y) - sin(y) * sin(z)) * u = 0
+     with initial condition `u(0.1, x, y) = exp(0.1) * sin(x) * cos(y) * cos(z)`
+     and  boundary conditions implied by the solution
+     `u(t, x, y) = sin(x) * cos(y) * cos(z)`.
+    """
+    dtype = np.float64
+    # Grid for the 1st equation
+    grid1 = grids.uniform_grid(
+        minimums=[0, 0, 0],
+        maximums=[3 * np.pi / 2, 2.5, 2.75],
+        sizes=[51, 61, 71],
+        dtype=dtype)
+    # Grid for the 2nd equation
+    grid2 = grids.uniform_grid(
+        minimums=[0, 0, 0],
+        maximums=[3 * np.pi / 2, 2., 2.75],
+        sizes=[51, 61, 71],
+        dtype=dtype)
+    # Combine grid for the batch of equations. Since grid fox x- and z-
+    # directions are the same, we stack together only grids for y-direction and
+    # rely on automatic broadcasting for the other axes.
+    grid = [grid1[0],
+            tf.stack([grid1[1], grid2[1]]),
+            grid2[2]]
+    zs = grid[0]
+    ys = grid[1]
+    xs = grid[2]
+
+    time_step = 0.01
+    final_t = tf.constant(0.1, dtype=dtype)
+
+    def meshgrid_fn(args):
+      return tf.meshgrid(*args, indexing='ij')
+
+    def vectorized_meshgrid(grid):
+      return tf.vectorized_map(meshgrid_fn, grid, fallback_to_while_loop=False)
+
+    def second_order_coeff_fn(t, location_grid):
+      del t
+      z, y, x = vectorized_meshgrid(location_grid)
+      u_zz = 1
+      u_xx = 1
+      u_yy = 1
+      u_xy = tf.math.sin(x) * tf.math.cos(y) / 2
+      u_yz = tf.math.cos(y) * tf.math.cos(z) / 2
+      return [[u_zz, u_yz, None], [u_yz, u_yy, u_xy], [None, u_xy, u_xx]]
+
+    def zeroth_order_coeff_fn(t, location_grid):
+      del t
+      z, y, x = vectorized_meshgrid(location_grid)
+      res = (2 + tf.math.sin(y) * tf.math.cos(x)
+             - tf.math.sin(y) * tf.math.sin(z))
+      return res
+
+    # Expand dimensions to add a batching dimension
+    init_values = (tf.math.exp(final_t)
+                   * (tf.math.cos(zs)[..., tf.newaxis, tf.newaxis])
+                   * (tf.math.cos(ys)[..., tf.newaxis, :, tf.newaxis])
+                   * (tf.math.sin(xs)[..., tf.newaxis, tf.newaxis, :]))
+
+    @neumann
+    def lower_boundary_x_fn(t, location_grid):
+      del location_grid
+      return (-tf.math.exp(t)
+              * tf.math.cos(xs[..., 0])[..., tf.newaxis, tf.newaxis]
+              * tf.expand_dims(tf.math.cos(ys), -2)
+              * tf.expand_dims(tf.math.cos(zs), -1))
+
+    @neumann
+    def upper_boundary_x_fn(t, x):
+      del x
+      return (tf.math.exp(t)
+              * tf.math.cos(xs[..., -1])[..., tf.newaxis, tf.newaxis]
+              * tf.expand_dims(tf.math.cos(ys), -2)
+              * tf.expand_dims(tf.math.cos(zs), -1))
+
+    @dirichlet
+    def lower_boundary_y_fn(t, location_grid):
+      del location_grid
+      return (tf.math.exp(t)
+              * tf.expand_dims(tf.math.sin(xs), -2)
+              * tf.math.cos(ys[..., 0])[..., tf.newaxis, tf.newaxis]
+              * tf.expand_dims(tf.math.cos(zs), -1))
+
+    @dirichlet
+    def upper_boundary_y_fn(t, x):
+      del x
+      return (tf.math.exp(t)
+              * tf.expand_dims(tf.math.sin(xs), -2)
+              * tf.math.cos(ys[..., -1])[..., tf.newaxis, tf.newaxis]
+              * tf.expand_dims(tf.math.cos(zs), -1))
+
+    @dirichlet
+    def lower_boundary_z_fn(t, location_grid):
+      del location_grid
+
+      return (tf.math.exp(t)
+              * tf.expand_dims(tf.math.sin(xs), -2)
+              * tf.expand_dims(tf.math.cos(ys), -1)
+              * tf.math.cos(zs[..., 0])[..., tf.newaxis, tf.newaxis])
+
+    @neumann
+    def upper_boundary_z_fn(t, x):
+      del x
+      return (-tf.math.exp(t)
+              * tf.expand_dims(tf.math.sin(xs), -2)
+              * tf.expand_dims(tf.math.cos(ys), -1)
+              * tf.math.sin(zs[..., -1])[..., tf.newaxis, tf.newaxis])
+
+    if include_default_bc:
+      bound_cond = [(lower_boundary_z_fn, None),
+                    (lower_boundary_y_fn, upper_boundary_y_fn),
+                    (None, upper_boundary_x_fn)]
+    else:
+      bound_cond = [(lower_boundary_z_fn, upper_boundary_z_fn),
+                    (lower_boundary_y_fn, upper_boundary_y_fn),
+                    (lower_boundary_x_fn, upper_boundary_x_fn)]
+
+    step_fn = douglas_adi_step(theta=0.5)
+
+    result = fd_solvers.solve_backward(
+        start_time=final_t,
+        end_time=0,
+        coord_grid=grid,
+        values_grid=init_values,
+        time_step=time_step,
+        one_step_fn=step_fn,
+        boundary_conditions=bound_cond,
+        second_order_coeff_fn=second_order_coeff_fn,
+        zeroth_order_coeff_fn=zeroth_order_coeff_fn,
+        dtype=grid[0].dtype)
+
+    # Check that the result is close to the true solution
+    expected = ((tf.math.cos(zs)[..., tf.newaxis, tf.newaxis])
+                * (tf.math.cos(ys)[..., tf.newaxis, :, tf.newaxis])
+                * (tf.math.sin(xs)[..., tf.newaxis, tf.newaxis, :])
+                + tf.zeros_like(result[0]))
+    with self.subTest(name='CorrectShape'):
+      self.assertAllEqual(result[0].shape.as_list(),
+                          [2, 51, 61, 71])
+    with self.subTest(name='CorrectSolution'):
+      self.assertAllClose(expected, result[0], atol=0.01, rtol=0.01)
+
 
 def _gaussian(xs, variance):
   return np.exp(-np.square(xs) / (2 * variance)) / np.sqrt(2 * np.pi * variance)

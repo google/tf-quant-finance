@@ -15,6 +15,8 @@
 
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import utils
+
 
 def parabolic_equation_step(
     time,
@@ -51,8 +53,8 @@ def parabolic_equation_step(
     time: Real scalar `Tensor`. The time before the step.
     next_time: Real scalar `Tensor`. The time after the step.
     coord_grid: List of size 1 that contains a rank 1 real `Tensor` of
-      has shape `[d]`. `d` is the size of the grid. Represents the coordinates
-      of the grid points.
+      has shape `[d]` or `B + [d]` where `d` is the size of the grid and `B` is
+      a batch shape. Represents the coordinates of the grid points.
     value_grid: Real `Tensor` containing the function values at time
       `time` which have to be evolved to time `next_time`. The shape of the
       `Tensor` must broadcast with `B + [d]`. `B` is the batch
@@ -175,7 +177,7 @@ def parabolic_equation_step(
       has_default_upper_boundary = False
     # Extract inner grid
     inner_grid_in = value_grid[..., lower_index:upper_index]
-    coord_grid_deltas = coord_grid[0][1:] - coord_grid[0][:-1]
+    coord_grid_deltas = coord_grid[0][..., 1:] - coord_grid[0][..., :-1]
 
     def equation_params_fn(t):
       return _construct_space_discretized_eqn_params(
@@ -211,8 +213,8 @@ def _construct_space_discretized_eqn_params(
   # paper as `dx_coef` and `dxdx_coef`).
 
   # Get forward, backward and total differences.
-  forward_deltas = coord_grid_deltas[1:]
-  backward_deltas = coord_grid_deltas[:-1]
+  forward_deltas = coord_grid_deltas[..., 1:]
+  backward_deltas = coord_grid_deltas[..., :-1]
   # Note that sum_deltas = 2 * central_deltas.
   sum_deltas = forward_deltas + backward_deltas
 
@@ -322,7 +324,7 @@ def _apply_default_boundary(subdiag, diag, superdiag,
   # 'b * d(B * V)/dx + c * V' to the boundaries
 
   # Extract batch shape
-  batch_shape = tf.shape(diag)[:-1]
+  batch_shape = utils.get_shape(diag)[:-1]
   # Set zero coeff if it is None
   if zeroth_order_coeff is None:
     zeroth_order_coeff = tf.zeros([1], dtype=diag.dtype)
@@ -456,7 +458,7 @@ def _apply_robin_boundary_conditions(
       has_default_upper_boundary):
     return (diagonal, upper_diagonal, lower_diagonal), tf.zeros_like(diagonal)
 
-  batch_shape = tf.shape(value_grid)[:-1]
+  batch_shape = utils.get_shape(value_grid)[:-1]
   # Retrieve the boundary conditions in the form alpha V + beta V' = gamma.
   if has_default_lower_boundary:
     # No need for the BC as default BC was applied
@@ -596,8 +598,7 @@ def _prepare_pde_coeffs(raw_coeffs, value_grid):
     return None
   dtype = value_grid.dtype
   coeffs = tf.convert_to_tensor(raw_coeffs, dtype=dtype)
-
-  broadcast_shape = tf.shape(value_grid)
+  broadcast_shape = utils.get_shape(value_grid)
   coeffs = tf.broadcast_to(coeffs, broadcast_shape)
   return coeffs
 
@@ -608,7 +609,7 @@ def _prepare_boundary_conditions(boundary_tensor, value_grid):
     return None
   boundary_tensor = tf.convert_to_tensor(boundary_tensor, value_grid.dtype)
   # Broadcast to batch dimensions.
-  broadcast_shape = tf.shape(value_grid)[:-1]
+  broadcast_shape = utils.get_shape(value_grid)[:-1]
   return tf.broadcast_to(boundary_tensor, broadcast_shape)
 
 

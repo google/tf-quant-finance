@@ -14,6 +14,7 @@
 """Functions for solving linear parabolic PDEs."""
 
 import tensorflow.compat.v2 as tf
+from tf_quant_finance import utils
 from tf_quant_finance.math.pde.steppers.douglas_adi import douglas_adi_step
 from tf_quant_finance.math.pde.steppers.oscillation_damped_crank_nicolson import oscillation_damped_crank_nicolson_step
 
@@ -63,9 +64,9 @@ def solve_backward(start_time,
   by stating its values at each grid point. This can be represented as a
   `Tensor` of shape [d1, d2, ... dn] where di is the grid size along the `i`th
   axis. A batch of such solutions is represented by a `Tensor` of shape:
-  [K, d1, d2, ... dn] where `K` is the batch size. This method only requires
+  `B + [d1, d2, ... dn]` where `B` is the batch shape. This method only requires
   that the input parameter `values_grid` be broadcastable with shape
-  [K, d1, ... dn].
+  `B + [d1, ... dn]`.
 
   The evolution of the solution from `t0` to `t1` is done by discretizing the
   differential equation to a difference equation along the spatial and
@@ -180,9 +181,9 @@ def solve_backward(start_time,
     end_time: Real scalar `Tensor` smaller than the `start_time` and greater
       than zero. The time to step back to. Corresponds to time `t1` above.
     coord_grid: List of `n` rank 1 real `Tensor`s. `n` is the dimension of the
-      domain. The i-th `Tensor` has shape, `[d_i]` where `d_i` is the size of
-      the grid along axis `i`. The coordinates of the grid points. Corresponds
-      to the spatial grid `G` above.
+      domain. The i-th `Tensor` has shape either `[d_i]` or `B + [d_i]` where
+      `d_i` is the size of the grid along axis `i` and `B` is a batch shape. The
+      coordinates of the grid points. Corresponds to the spatial grid `G` above.
     values_grid: Real `Tensor` containing the function values at time
       `start_time` which have to be evolved to time `end_time`. The shape of the
       `Tensor` must broadcast with `B + [d_1, d_2, ..., d_n]`. `B` is the batch
@@ -416,12 +417,12 @@ def solve_forward(start_time,
     end_time: Real scalar `Tensor` larger than the `start_time`.
        The time to evolve forward to. Corresponds to time `t1` above.
     coord_grid: List of `n` rank 1 real `Tensor`s. `n` is the dimension of the
-      domain. The i-th `Tensor` has shape, `[d_i]` where `d_i` is the size of
-      the grid along axis `i`. The coordinates of the grid points. Corresponds
-      to the spatial grid `G` above.
+      domain. The i-th `Tensor` has shape either `[d_i]` or ` B + [d_i]` where
+      `d_i` is the size of the grid along axis `i` and `B` is a batch shape. The
+      coordinates of the grid points. Corresponds to the spatial grid `G` above.
     values_grid: Real `Tensor` containing the function values at time
       `start_time` which have to be evolved to time `end_time`. The shape of the
-      `Tensor` must broadcast with `B + [d_1, d_2, ..., d_n]`. `B` is the batch
+      `Tensor` must broadcast with `B + [d_1, d_2, ..., d_n]`. `b` is the batch
       dimensions (one or more), which allow multiple functions (with potentially
       different boundary/final conditions and PDE coefficients) to be evolved
       simultaneously.
@@ -639,7 +640,8 @@ def _solve(
       tf.convert_to_tensor(dim_grid, dtype=values_grid.dtype)
       for dim_grid in coord_grid
   ]
-
+  # Try broadcasting batch_shapes of coord_grid
+  coord_grid = list(utils.broadcast_common_batch_shape(*coord_grid))
   n_dims = len(coord_grid)
   if one_step_fn is None:
     if n_dims == 1:

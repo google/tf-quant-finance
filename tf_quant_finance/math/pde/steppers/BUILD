@@ -21,6 +21,7 @@ py_library(
     ],
     srcs_version = "PY3",
     deps = [
+        "//tf_quant_finance/utils",
         # tensorflow dep,
     ],
 )
@@ -62,7 +63,7 @@ py_test(
     timeout = "long",
     srcs = ["multidim_parabolic_equation_stepper_test.py"],
     python_version = "PY3",
-    shard_count = 10,
+    shard_count = 12,
     deps = [
         "//tf_quant_finance",
         # test util,

@@ -14,6 +14,7 @@
 """Stepper for multidimensional parabolic PDE solving."""
 
 import tensorflow.compat.v2 as tf
+from tf_quant_finance import utils
 
 
 def multidim_parabolic_equation_step(
@@ -54,9 +55,9 @@ def multidim_parabolic_equation_step(
     time: Real scalar `Tensor`. The time before the step.
     next_time: Real scalar `Tensor`. The time after the step.
     coord_grid: List of `n` rank 1 real `Tensor`s. `n` is the dimension of the
-      domain. The i-th `Tensor` has shape, `[d_i]` where `d_i` is the size of
-      the grid along axis `i`. The coordinates of the grid points. Corresponds
-      to the spatial grid `G` above.
+      domain. The i-th `Tensor` has shape either `[d_i]` or `B + [d_i]` where
+      `d_i` is the size of the grid along axis `i` and `B` is a batch shape. The
+      coordinates of the grid points. Corresponds to the spatial grid `G` above.
     value_grid: Real `Tensor` containing the function values at time
       `time` which have to be evolved to time `next_time`. The shape of the
       `Tensor` must broadcast with `B + [d_1, d_2, ..., d_n]`. `B` is the batch
@@ -132,8 +133,8 @@ def multidim_parabolic_equation_step(
           associated with each dimension. E.g. if `b(t)` comes from boundary
           conditions, then it is split correspondingly. Each element in the list
           is a Tensor with the shape of `value_grid`.
-          For example a 2D problem with `value_grid.shape = (B, ny, nx)`, where
-          `B` is the batch size. The elements `Aij` are non-zero if `i = j` or
+          For example a 2D problem with `value_grid.shape = (b, ny, nx)`, where
+          `b` is the batch size. The elements `Aij` are non-zero if `i = j` or
           `i` is a neighbor of `j` in the x-y plane. Depict these non-zero
           elements on the grid as follows:
           ```
@@ -236,6 +237,8 @@ def multidim_parabolic_equation_step(
     coord_grid = [tf.convert_to_tensor(x, dtype=dtype,
                                        name='coord_grid_axis_{}'.format(ind))
                   for ind, x in enumerate(coord_grid)]
+    # Try broadcasting batch_shapes of coord_grid
+    coord_grid = list(utils.broadcast_common_batch_shape(*coord_grid))
     value_grid = tf.convert_to_tensor(value_grid, dtype=dtype,
                                       name='value_grid')
 
@@ -264,7 +267,7 @@ def multidim_parabolic_equation_step(
     lower_trim_indices = []
     upper_trim_indices = []
     for d in range(n_dims):
-      num_discretization_pts = tf.shape(value_grid)[batch_rank + d]
+      num_discretization_pts = utils.get_shape(value_grid)[batch_rank + d]
       if boundary_conditions[d][0] is None:
         # lower_inds are used to build an inner grid on which boundary
         # conditions are imposed. For the default BC, no need for the value grid
@@ -370,7 +373,6 @@ def _construct_discretized_equation_params(
     # 1. Construct contributions of dV/dx_dim and d^2V/dx_dim^2. This yields
     # a tridiagonal matrix.
     delta = _get_grid_delta(coord_grid, dim)  # Non-uniform grids not supported.
-
     second_order_coeff = second_order_coeffs[dim][dim]
     first_order_coeff = first_order_coeffs[dim]
     inner_second_order_coeff = inner_second_order_coeffs[dim][dim]
@@ -419,7 +421,6 @@ def _construct_discretized_equation_params(
             lower_trim_indices, upper_trim_indices,
             coord_grid,
             superdiag, diag, subdiag, delta, t))
-
     # 4. Evenly distribute shift term among tridiagonal matrices of each
     # dimension. The minus sign is because we move the shift term to rhs.
     if zeroth_order_coeffs is not None:
@@ -1062,7 +1063,14 @@ def _append_last(rest, last, axis):
 
 def _get_grid_delta(coord_grid, dim):
   # Retrieves delta along given dimension, assuming the grid is uniform.
-  return coord_grid[dim][1] - coord_grid[dim][0]
+  delta = coord_grid[dim][..., 1] - coord_grid[dim][..., 0]
+  n = len(coord_grid)
+  if delta.shape.rank == 0:
+    return delta
+  else:  # Grid has a batch shape
+    # Delta grid should broadcase with value grid
+    # Shape batch_shape + n *[1]
+    return delta[[...] +  n * [tf.newaxis]]
 
 
 def _prepare_pde_coeff(raw_coeff, value_grid):
@@ -1072,7 +1080,7 @@ def _prepare_pde_coeff(raw_coeff, value_grid):
     return None
   dtype = value_grid.dtype
   coeff = tf.convert_to_tensor(raw_coeff, dtype=dtype)
-  coeff = tf.broadcast_to(coeff, tf.shape(value_grid))
+  coeff = tf.broadcast_to(coeff, utils.get_shape(value_grid))
   return coeff
 
 

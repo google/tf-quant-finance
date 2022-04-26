@@ -456,20 +456,41 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
       {
           'testcase_name': 'DirichletBC',
           'bc_type': 'Dirichlet',
+          'batch_grid': False,
       }, {
           'testcase_name': 'DefaultBC',
           'bc_type': 'Default',
+          'batch_grid': False,
+      }, {
+          'testcase_name': 'DirichletBC_BatchGrid',
+          'bc_type': 'Dirichlet',
+          'batch_grid': True,
+      }, {
+          'testcase_name': 'DefaultBC_BatchGrid',
+          'bc_type': 'Default',
+          'batch_grid': True,
       })
-  def testDocStringExample(self, bc_type):
+  def testDocStringExample(self, bc_type, batch_grid):
     """Tests that the European Call option price is computed correctly."""
     num_equations = 2  # Number of PDE
     num_grid_points = 1024  # Number of grid points
     dtype = np.float64
     # Build a uniform grid
-    s_max = 200.
-    grid = grids.uniform_grid(minimums=[0.01], maximums=[s_max],
-                              sizes=[num_grid_points],
+    if batch_grid:
+      s_min = [0.01, 0.05]
+      s_max = [200., 220]
+      sizes = [num_grid_points, num_grid_points]
+    else:
+      s_min = [0.01]
+      s_max = [200.0]
+      sizes = [num_grid_points]
+
+    grid = grids.uniform_grid(minimums=s_min,
+                              maximums=s_max,
+                              sizes=sizes,
                               dtype=dtype)
+    if batch_grid:
+      grid = [tf.stack(grid, axis=0)]
     # Specify volatilities and interest rates for the options
     volatility = np.array([0.3, 0.15], dtype=dtype).reshape([-1, 1])
     rate = np.array([0.01, 0.03], dtype=dtype).reshape([-1, 1])
@@ -495,8 +516,8 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
 
     @dirichlet
     def upper_boundary_fn(t, location_grid):
-      return tf.squeeze(location_grid[0][-1]
-                        - strike * tf.math.exp(-rate * (expiry - t)))
+      return (location_grid[0][..., -1]
+              + tf.squeeze(-strike * tf.math.exp(-rate * (expiry - t))))
 
     final_values = tf.nn.relu(grid[0] - strike)
     # Broadcast to the shape of value dimension, if necessary.
@@ -532,8 +553,16 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     loc_1 = 256
     loc_2 = 512
     # True call option price (obtained using black_scholes_price function)
-    call_price = [6.21215771, 7.54467629]
-
+    if batch_grid:
+      spots = tf.stack([grid[0][0][loc_1], grid[0][-1][loc_2]])
+    else:
+      spots = tf.stack([grid[0][loc_1], grid[0][loc_2]])
+    call_price = tff.black_scholes.option_price(
+        volatilities=volatility[..., 0],
+        strikes=strike[..., 0],
+        expiries=expiry,
+        discount_rates=rate[..., 0],
+        spots=spots)
     self.assertAllClose(
         call_price, [value_grid_first_option[loc_1],
                      value_grid_second_option[loc_2]],
