@@ -37,7 +37,7 @@ py_test(
     timeout = "long",
     srcs = ["local_volatility_model_test.py"],
     python_version = "PY3",
-    shard_count = 26,
+    shard_count = 30,
     deps = [
         "//tf_quant_finance",
         # test util,

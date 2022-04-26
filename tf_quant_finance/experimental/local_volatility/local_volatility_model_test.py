@@ -292,17 +292,17 @@ class LocalVolatilityTest(tf.test.TestCase, parameterized.TestCase):
       ('1d', 1, [0.0], None, 20, True, False),
       ('2d', 2, [0.0], None, 20, True, False),
       ('3d', 3, [0.0], None, 20, True, False, 0),
-      ('1d_nonzero_riskfree_rate', 1, [0.05], None, 40, True, False, 1),
+      ('1d_nonzero_riskfree_rate', 1, [0.05], None, 20, True, False, 1),
       ('1d_using_vol_surface', 1, [0.0], None, 20, False, False),
       ('1d_with_callable_rate1', 1, None,
        functools.partial(callable_discount_factor,
-                         upper=0.02), 40, True, False, 1),
+                         upper=0.02), 20, True, False, 1),
       ('1d_with_callable_rate1_and_vol_surface', 1, None,
        functools.partial(callable_discount_factor,
-                         upper=0.02), 40, False, False, 1),
+                         upper=0.02), 20, False, False, 1),
       ('1d_with_callable_rate2', 1, None,
        functools.partial(callable_discount_factor,
-                         upper=0.05), 40, True, False, 1),
+                         upper=0.05), 20, True, False, 1),
       ('1d_with_xla', 1, [0.0], None, 20, True, True),
   )
   def test_interpolated_lv_correctness(self,
@@ -315,7 +315,7 @@ class LocalVolatilityTest(tf.test.TestCase, parameterized.TestCase):
                                        iv_start_index=0):
     """Tests that the model reproduces implied volatility smile."""
     dtype = tf.float64
-    num_samples = 10000
+    num_samples = 5000
     precompute_iv = True
     tensors = build_scaled_tensors(dim)
     val_date, expiries, expiry_times, strikes, iv, spot = tensors
