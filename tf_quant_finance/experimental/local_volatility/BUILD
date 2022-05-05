@@ -38,6 +38,10 @@ py_test(
     srcs = ["local_volatility_model_test.py"],
     python_version = "PY3",
     shard_count = 30,
+    tags = [
+        "nomsan",  # TODO(b/231568581)
+        "notsan",
+    ],
     deps = [
         "//tf_quant_finance",
         # test util,
