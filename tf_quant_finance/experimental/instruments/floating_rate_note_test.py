@@ -34,7 +34,7 @@ class FloatingRateNoteTest(tf.test.TestCase, parameterized.TestCase):
     settlement_date = dates.convert_to_date_tensor([(2021, 1, 15)])
     maturity_date = dates.convert_to_date_tensor([(2022, 1, 15)])
     valuation_date = dates.convert_to_date_tensor([(2021, 1, 15)])
-    period_3m = dates.months(3)
+    period_3m = dates.periods.months(3)
     flt_spec = instruments.FloatCouponSpecs(
         coupon_frequency=period_3m,
         reference_rate_term=period_3m,
@@ -50,7 +50,7 @@ class FloatingRateNoteTest(tf.test.TestCase, parameterized.TestCase):
                                        [flt_spec],
                                        dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([0, 6, 12, 36])
+    curve_dates = valuation_date + dates.periods.months([0, 6, 12, 36])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.0, 0.005, 0.007, 0.015], dtype=dtype),
@@ -70,7 +70,7 @@ class FloatingRateNoteTest(tf.test.TestCase, parameterized.TestCase):
     start_date = dates.convert_to_date_tensor([(2021, 4, 15)])
     maturity_date = dates.convert_to_date_tensor([(2022, 1, 15)])
     valuation_date = dates.convert_to_date_tensor([(2021, 1, 15)])
-    period_3m = dates.months(3)
+    period_3m = dates.periods.months(3)
     flt_spec = instruments.FloatCouponSpecs(
         coupon_frequency=period_3m,
         reference_rate_term=period_3m,
@@ -87,7 +87,7 @@ class FloatingRateNoteTest(tf.test.TestCase, parameterized.TestCase):
                                        start_date=start_date,
                                        dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([0, 6, 12, 36])
+    curve_dates = valuation_date + dates.periods.months([0, 6, 12, 36])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.0, 0.005, 0.007, 0.015], dtype=dtype),
@@ -108,7 +108,7 @@ class FloatingRateNoteTest(tf.test.TestCase, parameterized.TestCase):
     maturity_date = dates.convert_to_date_tensor([(2022, 1, 15),
                                                   (2022, 1, 15)])
     valuation_date = dates.convert_to_date_tensor([(2021, 1, 15)])
-    period_3m = dates.months(3)
+    period_3m = dates.periods.months(3)
     flt_spec = instruments.FloatCouponSpecs(
         coupon_frequency=period_3m,
         reference_rate_term=period_3m,
@@ -124,7 +124,7 @@ class FloatingRateNoteTest(tf.test.TestCase, parameterized.TestCase):
                                        [flt_spec, flt_spec],
                                        dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([0, 6, 12, 36])
+    curve_dates = valuation_date + dates.periods.months([0, 6, 12, 36])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.0, 0.005, 0.007, 0.015], dtype=dtype),
@@ -143,7 +143,7 @@ class FloatingRateNoteTest(tf.test.TestCase, parameterized.TestCase):
     settlement_date = dates.convert_to_date_tensor([(2021, 1, 1)])
     maturity_date = dates.convert_to_date_tensor([(2022, 1, 1)])
     valuation_date = dates.convert_to_date_tensor([(2021, 1, 1)])
-    period_3m = dates.months(3)
+    period_3m = dates.periods.months(3)
     flt_spec = instruments.FloatCouponSpecs(
         coupon_frequency=period_3m,
         reference_rate_term=period_3m,
@@ -159,7 +159,7 @@ class FloatingRateNoteTest(tf.test.TestCase, parameterized.TestCase):
                                        [flt_spec],
                                        dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([0, 6, 12, 36])
+    curve_dates = valuation_date + dates.periods.months([0, 6, 12, 36])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.001, 0.005, 0.007, 0.015], dtype=dtype),
@@ -179,7 +179,7 @@ class FloatingRateNoteTest(tf.test.TestCase, parameterized.TestCase):
     maturity_date = dates.convert_to_date_tensor([(2022, 1, 1)])
     valuation_date = dates.convert_to_date_tensor([(2021, 3, 1)])
     first_coupon_date = dates.convert_to_date_tensor([(2021, 4, 1)])
-    period_3m = dates.months(3)
+    period_3m = dates.periods.months(3)
     flt_spec = instruments.FloatCouponSpecs(
         coupon_frequency=period_3m,
         reference_rate_term=period_3m,
@@ -196,7 +196,7 @@ class FloatingRateNoteTest(tf.test.TestCase, parameterized.TestCase):
                                        first_coupon_date=first_coupon_date,
                                        dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([0, 6, 12, 36])
+    curve_dates = valuation_date + dates.periods.months([0, 6, 12, 36])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.001, 0.005, 0.007, 0.015], dtype=dtype),
@@ -216,7 +216,7 @@ class FloatingRateNoteTest(tf.test.TestCase, parameterized.TestCase):
     maturity_date = dates.convert_to_date_tensor([(2022, 2, 1)])
     valuation_date = dates.convert_to_date_tensor([(2021, 1, 1)])
     penultimate_coupon_date = dates.convert_to_date_tensor([(2022, 1, 1)])
-    period_3m = dates.months(3)
+    period_3m = dates.periods.months(3)
     flt_spec = instruments.FloatCouponSpecs(
         coupon_frequency=period_3m,
         reference_rate_term=period_3m,
@@ -234,7 +234,7 @@ class FloatingRateNoteTest(tf.test.TestCase, parameterized.TestCase):
         penultimate_coupon_date=penultimate_coupon_date,
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([0, 6, 12, 36])
+    curve_dates = valuation_date + dates.periods.months([0, 6, 12, 36])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.001, 0.005, 0.007, 0.015], dtype=dtype),

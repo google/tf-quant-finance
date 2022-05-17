@@ -17,11 +17,8 @@ For open-source contributions the docs will be updated automatically.
 <table class="tfo-notebook-buttons tfo-api" align="left">
 </table>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/datetime/periods.py">View source</a>
-
-
-
-
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/datetime/period_tensors.py">View
+source</a>
 
 ```python
 tf_quant_finance.datetime.week()

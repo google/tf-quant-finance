@@ -56,7 +56,7 @@ class CapAndFloor:
   start_date = dates.convert_to_date_tensor([(2021, 1, 15)])
   valuation_date = dates.convert_to_date_tensor([(2021, 1, 1)])
 
-  period3m = dates.months(3)
+  period3m = dates.periods.months(3)
   cap = instruments.CapAndFloor(
       start_date,
       maturity_date,
@@ -65,7 +65,7 @@ class CapAndFloor:
       daycount_convention=instruments.DayCountConvention.ACTUAL_365,
       notional=notional,
       dtype=dtype)
-  curve_dates = valuation_date + dates.months([0, 3, 12, 24])
+  curve_dates = valuation_date + dates.periods.months([0, 3, 12, 24])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([0.005, 0.01, 0.015, 0.02], dtype=np.float64),

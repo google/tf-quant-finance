@@ -77,7 +77,7 @@ class OvernightIndexLinkedFutures:
   future = instruments.OvernightIndexLinkedFutures(
       contract_start_date, contract_end_date, dtype=dtype)
 
-  curve_dates = valuation_date + dates.months([1, 2, 3, 12, 24, 60])
+  curve_dates = valuation_date + dates.periods.months([1, 2, 3, 12, 24, 60])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),
@@ -158,7 +158,7 @@ class OvernightIndexLinkedFutures:
       self._daycount_convention = daycount_convention
       self._averaging_type = averaging_type
       self._holiday_calendar = holiday_calendar
-      self._rate_tenor = dates.day()
+      self._rate_tenor = dates.periods.day()
 
       self._setup()
 

@@ -62,8 +62,8 @@ class InterestRateSwap:
   start_date = dates.convert_to_date_tensor([(2020, 2, 8)])
   maturity_date = dates.convert_to_date_tensor([(2022, 2, 8)])
   valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
-  period_3m = dates.months(3)
-  period_6m = dates.months(6)
+  period_3m = dates.periods.months(3)
+  period_6m = dates.periods.months(6)
   fix_spec = instruments.FixedCouponSpecs(
               coupon_frequency=period_6m, currency='usd',
               notional=1., coupon_rate=0.03134,
@@ -80,7 +80,7 @@ class InterestRateSwap:
   swap = instruments.InterestRateSwap([(2020,2,2)], [(2023,2,2)], [fix_spec],
                                       [flt_spec], dtype=np.float64)
 
-  curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
+  curve_dates = valuation_date + dates.periods.years([1, 2, 3, 5, 7, 10, 30])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([
@@ -113,8 +113,8 @@ class InterestRateSwap:
   start_date = dates.convert_to_date_tensor([(2020, 2, 8), (2020, 2, 8)])
   valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
 
-  period3m = dates.months([3, 3])
-  period6m = dates.months([6, 6])
+  period3m = dates.periods.months([3, 3])
+  period6m = dates.periods.months([6, 6])
   fix_spec = instruments.FixedCouponSpecs(
       coupon_frequency=period6m, currency='usd',
       notional=notional,
@@ -132,7 +132,7 @@ class InterestRateSwap:
   swap = instruments.InterestRateSwap(start_date, maturity_date,
                                       fix_spec, flt_spec,
                                       dtype=dtype)
-  curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
+  curve_dates = valuation_date + dates.periods.years([1, 2, 3, 5, 7, 10, 30])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([

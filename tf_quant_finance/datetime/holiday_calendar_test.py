@@ -169,7 +169,7 @@ class HolidayCalendarTest(tf.test.TestCase, parameterized.TestCase):
   def test_add_months_and_roll(self, rolling_enum_value, data_key):
     data = test_data.add_months_data
     date_tensor = dates.dates_from_tuples([item["date"] for item in data])
-    periods = dates.months([item["months"] for item in data])
+    periods = dates.periods.months([item["months"] for item in data])
     expected_dates = dates.dates_from_tuples([item[data_key] for item in data])
     cal = self.impl(
         weekend_mask=dates.WeekendMask.SATURDAY_SUNDAY,

@@ -28,7 +28,7 @@ instruments = tff.experimental.instruments
 def get_curve(dtype, ext_discount):
   valuation_date = dates.convert_to_date_tensor([(2020, 1, 1)])
 
-  curve_dates = valuation_date + dates.years([0, 1, 2])
+  curve_dates = valuation_date + dates.periods.years([0, 1, 2])
   curve_rates = np.array([0.0, 0.01, 0.02], dtype=np.float64)
 
   def my_discount_function(idates):

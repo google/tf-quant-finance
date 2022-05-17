@@ -209,7 +209,7 @@ class InterestRateSwapTest(tf.test.TestCase, parameterized.TestCase):
   def test_swap_constructor(self, past_fixing, expecter_res):
     fixed_coupon = rate_instruments.coupon_specs.FixedCouponSpecs(
         currency=currencies.Currency.USD,
-        coupon_frequency=tff.datetime.months(3),
+        coupon_frequency=tff.datetime.periods.months(3),
         notional_amount=10000,
         fixed_rate=0.03,
         daycount_convention=daycount_conventions.DayCountConventions.ACTUAL_360,
@@ -218,8 +218,8 @@ class InterestRateSwapTest(tf.test.TestCase, parameterized.TestCase):
         calendar=business_days.BankHolidays.US)
     float_coupon = rate_instruments.coupon_specs.FloatCouponSpecs(
         currency=currencies.Currency.USD,
-        coupon_frequency=tff.datetime.months(3),
-        reset_frequency=tff.datetime.months(3),
+        coupon_frequency=tff.datetime.periods.months(3),
+        reset_frequency=tff.datetime.periods.months(3),
         notional_amount=10000,
         floating_rate_type=framework.core.rate_indices.RateIndex(
             type="LIBOR_3M"),
@@ -231,7 +231,7 @@ class InterestRateSwapTest(tf.test.TestCase, parameterized.TestCase):
     schedule = tff.datetime.PeriodicSchedule(
         start_date=tff.datetime.dates_from_tensor([2019, 1, 1]),
         end_date=tff.datetime.dates_from_tensor([2021, 1, 1]),
-        tenor=tff.datetime.months(3)).dates()
+        tenor=tff.datetime.periods.months(3)).dates()
     swap = interest_rate_swap.InterestRateSwap(
         pay_leg=fixed_coupon,
         receive_leg=float_coupon,

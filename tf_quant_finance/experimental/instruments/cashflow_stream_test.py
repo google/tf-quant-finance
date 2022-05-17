@@ -34,7 +34,7 @@ class CashflowStreamTest(tf.test.TestCase, parameterized.TestCase):
     start_date = dates.convert_to_date_tensor([(2020, 2, 2)])
     maturity_date = dates.convert_to_date_tensor([(2023, 2, 2)])
     valuation_date = dates.convert_to_date_tensor([(2020, 2, 2)])
-    period_6m = dates.months(6)
+    period_6m = dates.periods.months(6)
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=period_6m,
         currency='usd',
@@ -47,7 +47,7 @@ class CashflowStreamTest(tf.test.TestCase, parameterized.TestCase):
                                                 [fix_spec],
                                                 dtype=dtype)
 
-    curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
+    curve_dates = valuation_date + dates.periods.years([1, 2, 3, 5, 7, 10, 30])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([
@@ -69,7 +69,7 @@ class CashflowStreamTest(tf.test.TestCase, parameterized.TestCase):
     start_date = dates.convert_to_date_tensor([(2020, 2, 2), (2020, 2, 2)])
     maturity_date = dates.convert_to_date_tensor([(2023, 2, 2), (2023, 2, 2)])
     valuation_date = dates.convert_to_date_tensor([(2020, 2, 2)])
-    period_6m = dates.months(6)
+    period_6m = dates.periods.months(6)
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=period_6m,
         currency='usd',
@@ -82,7 +82,7 @@ class CashflowStreamTest(tf.test.TestCase, parameterized.TestCase):
                                                 [fix_spec, fix_spec],
                                                 dtype=dtype)
 
-    curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
+    curve_dates = valuation_date + dates.periods.years([1, 2, 3, 5, 7, 10, 30])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([
@@ -105,7 +105,7 @@ class CashflowStreamTest(tf.test.TestCase, parameterized.TestCase):
     start_date = dates.convert_to_date_tensor([(2020, 2, 2)])
     maturity_date = dates.convert_to_date_tensor([(2023, 2, 2)])
     valuation_date = dates.convert_to_date_tensor([(2020, 2, 2)])
-    period_3m = dates.months(3)
+    period_3m = dates.periods.months(3)
     flt_spec = instruments.FloatCouponSpecs(
         coupon_frequency=period_3m,
         reference_rate_term=period_3m,
@@ -121,7 +121,7 @@ class CashflowStreamTest(tf.test.TestCase, parameterized.TestCase):
                                                    maturity_date, [flt_spec],
                                                    dtype=dtype)
 
-    curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
+    curve_dates = valuation_date + dates.periods.years([1, 2, 3, 5, 7, 10, 30])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([
@@ -143,7 +143,7 @@ class CashflowStreamTest(tf.test.TestCase, parameterized.TestCase):
     start_date = dates.convert_to_date_tensor([(2020, 2, 2), (2020, 2, 2)])
     maturity_date = dates.convert_to_date_tensor([(2023, 2, 2), (2023, 2, 2)])
     valuation_date = dates.convert_to_date_tensor([(2020, 2, 2)])
-    period_3m = dates.months(3)
+    period_3m = dates.periods.months(3)
     flt_spec = instruments.FloatCouponSpecs(
         coupon_frequency=period_3m,
         reference_rate_term=period_3m,
@@ -160,7 +160,7 @@ class CashflowStreamTest(tf.test.TestCase, parameterized.TestCase):
                                                    [flt_spec, flt_spec],
                                                    dtype=dtype)
 
-    curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
+    curve_dates = valuation_date + dates.periods.years([1, 2, 3, 5, 7, 10, 30])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([
@@ -183,7 +183,7 @@ class CashflowStreamTest(tf.test.TestCase, parameterized.TestCase):
     start_date = dates.convert_to_date_tensor([(2020, 2, 2), (2020, 2, 1)])
     maturity_date = dates.convert_to_date_tensor([(2023, 2, 2), (2023, 2, 2)])
     valuation_date = dates.convert_to_date_tensor([(2020, 7, 3)])
-    period_3m = dates.months(3)
+    period_3m = dates.periods.months(3)
     flt_spec = instruments.FloatCouponSpecs(
         coupon_frequency=period_3m,
         reference_rate_term=period_3m,
@@ -200,7 +200,7 @@ class CashflowStreamTest(tf.test.TestCase, parameterized.TestCase):
                                                    [flt_spec, flt_spec],
                                                    dtype=dtype)
 
-    curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
+    curve_dates = valuation_date + dates.periods.years([1, 2, 3, 5, 7, 10, 30])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([
@@ -224,7 +224,7 @@ class CashflowStreamTest(tf.test.TestCase, parameterized.TestCase):
     start_date = dates.convert_to_date_tensor([(2020, 2, 2), (2020, 2, 2)])
     maturity_date = dates.convert_to_date_tensor([(2023, 2, 2), (2024, 2, 2)])
     valuation_date = dates.convert_to_date_tensor([(2021, 3, 2)])
-    period_6m = dates.months(6)
+    period_6m = dates.periods.months(6)
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=period_6m,
         currency='usd',
@@ -237,7 +237,7 @@ class CashflowStreamTest(tf.test.TestCase, parameterized.TestCase):
                                                 [fix_spec, fix_spec],
                                                 dtype=dtype)
 
-    curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
+    curve_dates = valuation_date + dates.periods.years([1, 2, 3, 5, 7, 10, 30])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([

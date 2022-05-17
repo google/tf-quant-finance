@@ -32,12 +32,12 @@ class ForwardRateAgreementTest(tf.test.TestCase):
     fixing_date = dates.convert_to_date_tensor([(2021, 2, 8)])
     valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
     fixed_rate = 0.02
-    rate_term = dates.months(3)
+    rate_term = dates.periods.months(3)
     fra = tff.experimental.instruments.ForwardRateAgreement(
         settlement_date, fixing_date, fixed_rate, notional=notional,
         rate_term=rate_term, dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([1, 2, 3, 12, 24, 60])
+    curve_dates = valuation_date + dates.periods.months([1, 2, 3, 12, 24, 60])
     reference_curve = tff.experimental.instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),
@@ -62,7 +62,7 @@ class ForwardRateAgreementTest(tf.test.TestCase):
         settlement_date, fixing_date, fixed_rate, notional=notional,
         maturity_date=maturity_date, dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([1, 2, 3, 12, 24, 60])
+    curve_dates = valuation_date + dates.periods.months([1, 2, 3, 12, 24, 60])
     reference_curve = tff.experimental.instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),
@@ -82,12 +82,12 @@ class ForwardRateAgreementTest(tf.test.TestCase):
         [(2021, 2, 8), (2021, 5, 8), (2021, 8, 8)])
     valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
     fixed_rate = tf.convert_to_tensor([0.02, 0.021, 0.022], dtype=dtype)
-    rate_term = dates.months([3, 3, 3])
+    rate_term = dates.periods.months([3, 3, 3])
     fra = tff.experimental.instruments.ForwardRateAgreement(
         settlement_date, fixing_date, fixed_rate, notional=notional,
         rate_term=rate_term, dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([1, 2, 3, 12, 24, 60])
+    curve_dates = valuation_date + dates.periods.months([1, 2, 3, 12, 24, 60])
     reference_curve = tff.experimental.instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),
@@ -108,7 +108,7 @@ class ForwardRateAgreementTest(tf.test.TestCase):
         [(2021, 2, 8), (2021, 5, 8), (2021, 8, 8)])
     valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
     fixed_rate = tf.convert_to_tensor([0.02, 0.021, 0.022], dtype=dtype)
-    rate_term = dates.months([3, 3, 3])
+    rate_term = dates.periods.months([3, 3, 3])
     fra = tff.experimental.instruments.ForwardRateAgreement(
         settlement_date,
         fixing_date,
@@ -119,7 +119,7 @@ class ForwardRateAgreementTest(tf.test.TestCase):
         daycount_convention=tff.experimental.instruments.DayCountConvention
         .ACTUAL_365)
 
-    curve_dates = valuation_date + dates.months([1, 2, 3, 12, 24, 60])
+    curve_dates = valuation_date + dates.periods.months([1, 2, 3, 12, 24, 60])
     reference_curve = tff.experimental.instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),

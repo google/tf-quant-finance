@@ -14,6 +14,7 @@
 """Date-related utilities."""
 
 from tf_quant_finance.datetime import date_utils as utils
+from tf_quant_finance.datetime import periods
 
 from tf_quant_finance.datetime.constants import BusinessDayConvention
 from tf_quant_finance.datetime.constants import Month
@@ -37,20 +38,21 @@ from tf_quant_finance.datetime.daycounts import actual_actual_isda as daycount_a
 from tf_quant_finance.datetime.daycounts import thirty_360_isda as daycount_thirty_360_isda
 from tf_quant_finance.datetime.holiday_calendar import HolidayCalendar
 from tf_quant_finance.datetime.holiday_calendar_factory import create_holiday_calendar
-from tf_quant_finance.datetime.periods import day
-from tf_quant_finance.datetime.periods import days
-from tf_quant_finance.datetime.periods import month
-from tf_quant_finance.datetime.periods import months
-from tf_quant_finance.datetime.periods import PeriodTensor
-from tf_quant_finance.datetime.periods import week
-from tf_quant_finance.datetime.periods import weeks
-from tf_quant_finance.datetime.periods import year
-from tf_quant_finance.datetime.periods import years
+from tf_quant_finance.datetime.period_tensors import day
+from tf_quant_finance.datetime.period_tensors import days
+from tf_quant_finance.datetime.period_tensors import month
+from tf_quant_finance.datetime.period_tensors import months
+from tf_quant_finance.datetime.period_tensors import week
+from tf_quant_finance.datetime.period_tensors import weeks
+from tf_quant_finance.datetime.period_tensors import year
+from tf_quant_finance.datetime.period_tensors import years
+
 from tf_quant_finance.datetime.schedules import BusinessDaySchedule
 from tf_quant_finance.datetime.schedules import PeriodicSchedule
 
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
+PeriodTensor = periods.PeriodTensor
 
 _allowed_symbols = [
     'BusinessDayConvention',
@@ -78,6 +80,7 @@ _allowed_symbols = [
     'year',
     'years',
     'utils',
+    'periods',
     'PeriodTensor',
     'PeriodicSchedule',
     'random_dates',

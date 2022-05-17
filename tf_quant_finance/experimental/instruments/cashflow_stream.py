@@ -100,7 +100,7 @@ class FixedCashflowStream(CashflowStream):
   start_date = dates.convert_to_date_tensor([(2020, 2, 2)])
   maturity_date = dates.convert_to_date_tensor([(2023, 2, 2)])
   valuation_date = dates.convert_to_date_tensor([(2020, 2, 2)])
-  period_6m = dates.months(6)
+  period_6m = dates.periods.months(6)
   fix_spec = instruments.FixedCouponSpecs(
               coupon_frequency=period_6m, currency='usd',
               notional=1.e6, coupon_rate=0.03134,
@@ -110,7 +110,7 @@ class FixedCashflowStream(CashflowStream):
   cf_stream = instruments.FixedCashflowStream([start_date], [maturity_date],
                                               [fix_spec], dtype=dtype)
 
-  curve_dates = valuation_date + dates.years([1, 2, 3, 5, 7, 10, 30])
+  curve_dates = valuation_date + dates.periods.years([1, 2, 3, 5, 7, 10, 30])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([

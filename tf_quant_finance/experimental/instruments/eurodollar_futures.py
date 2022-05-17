@@ -52,12 +52,12 @@ class EurodollarFutures:
   notional = 1.
   expiry_date = dates.convert_to_date_tensor([(2021, 2, 8)])
   valuation_date = dates.convert_to_date_tensor([(2020, 2, 8)])
-  rate_term = dateslib.months(3)
+  rate_term = dates.periods.months(3)
 
   edfuture = instruments.EurodollarFutures(
       expiry_date, notional, rate_term=rate_term, dtype=dtype)
 
-  curve_dates = valuation_date + tff.datetime.months([1, 2, 3, 12, 24, 60])
+  curve_dates = valuation_date + dates.periods.months([1, 2, 3, 12, 24, 60])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),

@@ -44,7 +44,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
         averaging_type=instruments.AverageType.COMPOUNDING,
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([1, 2, 6])
+    curve_dates = valuation_date + dates.periods.months([1, 2, 6])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.015], dtype=dtype),
@@ -72,7 +72,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
         holiday_calendar=cal,
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([1, 2, 6])
+    curve_dates = valuation_date + dates.periods.months([1, 2, 6])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.015], dtype=dtype),
@@ -101,7 +101,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
         averaging_type=instruments.AverageType.COMPOUNDING,
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([1, 2, 6])
+    curve_dates = valuation_date + dates.periods.months([1, 2, 6])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.015], dtype=dtype),
@@ -130,7 +130,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
         holiday_calendar=cal,
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([1, 2, 6])
+    curve_dates = valuation_date + dates.periods.months([1, 2, 6])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.015], dtype=dtype),
@@ -158,7 +158,7 @@ class OvernightIndexLinkedFuturesTest(tf.test.TestCase,
         averaging_type=instruments.AverageType.COMPOUNDING,
         dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([1, 2, 6])
+    curve_dates = valuation_date + dates.periods.months([1, 2, 6])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.015], dtype=dtype),

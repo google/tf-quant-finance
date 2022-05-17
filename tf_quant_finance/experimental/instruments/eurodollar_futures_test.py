@@ -30,14 +30,14 @@ class EurodollarFuturesTest(tf.test.TestCase):
     expiry_date = tff.datetime.convert_to_date_tensor(
         [(2021, 2, 8)])
     valuation_date = tff.datetime.convert_to_date_tensor([(2020, 2, 8)])
-    rate_term = tff.datetime.months(3)
+    rate_term = dates.periods.months(3)
     edfuture = tff.experimental.instruments.EurodollarFutures(
         expiry_date,
         contract_notional=notional,
         rate_term=rate_term,
         dtype=dtype)
 
-    curve_dates = valuation_date + tff.datetime.months([1, 2, 3, 12, 24, 60])
+    curve_dates = valuation_date + dates.periods.months([1, 2, 3, 12, 24, 60])
     reference_curve = tff.experimental.instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),
@@ -60,7 +60,7 @@ class EurodollarFuturesTest(tf.test.TestCase):
         expiry_date, contract_notional=notional, maturity_date=maturity_date,
         dtype=dtype)
 
-    curve_dates = valuation_date + tff.datetime.months([1, 2, 3, 12, 24, 60])
+    curve_dates = valuation_date + dates.periods.months([1, 2, 3, 12, 24, 60])
     reference_curve = tff.experimental.instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),
@@ -85,7 +85,7 @@ class EurodollarFuturesTest(tf.test.TestCase):
         expiry_date, contract_notional=notional, maturity_date=maturity_date,
         dtype=dtype)
 
-    curve_dates = valuation_date + tff.datetime.months([1, 2, 3, 12, 24, 60])
+    curve_dates = valuation_date + dates.periods.months([1, 2, 3, 12, 24, 60])
     reference_curve = tff.experimental.instruments.RateCurve(
         curve_dates,
         np.array([0.02, 0.025, 0.0275, 0.03, 0.035, 0.0325], dtype=dtype),

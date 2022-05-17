@@ -56,8 +56,8 @@ class SwaptionTest(tf.test.TestCase, parameterized.TestCase):
     self._swaption_config = rates_instruments.swaption.SwaptionConfig(
         model_params=hull_white_config)
 
-    period3m = dates.months(3)
-    period6m = dates.months(6)
+    period3m = dates.periods.months(3)
+    period6m = dates.periods.months(6)
     calendar = dates.create_holiday_calendar(
         weekend_mask=dates.WeekendMask.NONE)
     self._fix_spec = rates_instruments.coupon_specs.FixedCouponSpecs(
@@ -111,7 +111,7 @@ class SwaptionTest(tf.test.TestCase, parameterized.TestCase):
     self._swaption_proto = swaption_pb2.Swaption(
         swap=swapproto, expiry_date=date_pb2.Date(year=2022, month=2, day=10))
 
-    curve_dates = self._valuation_date + dates.years(
+    curve_dates = self._valuation_date + dates.periods.years(
         [1, 2, 3, 5, 7, 10, 30])
 
     curve_discounts = np.exp(-0.01 * np.array([1, 2, 3, 5, 7, 10, 30]))

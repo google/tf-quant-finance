@@ -73,8 +73,8 @@ class CashflowStreamsTest(parameterized.TestCase, tf.test.TestCase):
         market_data_dict)
     coupon_spec = coupon_specs.FloatCouponSpecs(
         currency=core.currencies.Currency.USD,
-        reset_frequency=tff.datetime.months(3),
-        coupon_frequency=tff.datetime.months(3),
+        reset_frequency=tff.datetime.periods.months(3),
+        coupon_frequency=tff.datetime.periods.months(3),
         notional_amount=100,
         floating_rate_type=core.rate_indices.RateIndex(type="LIBOR_3M"),
         daycount_convention=daycount_conventions.DayCountConventions.ACTUAL_360,

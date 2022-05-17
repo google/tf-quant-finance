@@ -34,7 +34,7 @@ class BondTest(tf.test.TestCase, parameterized.TestCase):
     settlement_date = dates.convert_to_date_tensor([(2014, 1, 15)])
     maturity_date = dates.convert_to_date_tensor([(2015, 1, 15)])
     valuation_date = dates.convert_to_date_tensor([(2014, 1, 15)])
-    period_6m = dates.months(6)
+    period_6m = dates.periods.months(6)
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=period_6m,
         currency='usd',
@@ -46,7 +46,7 @@ class BondTest(tf.test.TestCase, parameterized.TestCase):
     bond_inst = instruments.Bond(settlement_date, maturity_date, [fix_spec],
                                  dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([0, 6, 12])
+    curve_dates = valuation_date + dates.periods.months([0, 6, 12])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.0, 0.005, 0.007], dtype=dtype),
@@ -66,7 +66,7 @@ class BondTest(tf.test.TestCase, parameterized.TestCase):
     maturity_date = dates.convert_to_date_tensor([(2015, 1, 15),
                                                   (2015, 1, 15)])
     valuation_date = dates.convert_to_date_tensor([(2014, 1, 15)])
-    period_6m = dates.months(6)
+    period_6m = dates.periods.months(6)
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=period_6m,
         currency='usd',
@@ -79,7 +79,7 @@ class BondTest(tf.test.TestCase, parameterized.TestCase):
                                  [fix_spec, fix_spec],
                                  dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([0, 6, 12])
+    curve_dates = valuation_date + dates.periods.months([0, 6, 12])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.0, 0.005, 0.007], dtype=dtype),
@@ -98,7 +98,7 @@ class BondTest(tf.test.TestCase, parameterized.TestCase):
     maturity_date = dates.convert_to_date_tensor([(2021, 2, 1)])
     first_coupon_date = dates.convert_to_date_tensor([(2020, 2, 1)])
     valuation_date = dates.convert_to_date_tensor([(2020, 1, 1)])
-    period_6m = dates.months(6)
+    period_6m = dates.periods.months(6)
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=period_6m,
         currency='usd',
@@ -112,7 +112,7 @@ class BondTest(tf.test.TestCase, parameterized.TestCase):
                                  first_coupon_date=first_coupon_date,
                                  dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([0, 6, 12, 24])
+    curve_dates = valuation_date + dates.periods.months([0, 6, 12, 24])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.0, 0.025, 0.03, 0.035], dtype=dtype),
@@ -137,7 +137,7 @@ class BondTest(tf.test.TestCase, parameterized.TestCase):
     maturity_date = dates.convert_to_date_tensor([(2021, 2, 1)])
     last_coupon_date = dates.convert_to_date_tensor([(2021, 1, 1)])
     valuation_date = dates.convert_to_date_tensor([(2020, 1, 1)])
-    period_6m = dates.months(6)
+    period_6m = dates.periods.months(6)
     fix_spec = instruments.FixedCouponSpecs(
         coupon_frequency=period_6m,
         currency='usd',
@@ -151,7 +151,7 @@ class BondTest(tf.test.TestCase, parameterized.TestCase):
                                  penultimate_coupon_date=last_coupon_date,
                                  dtype=dtype)
 
-    curve_dates = valuation_date + dates.months([0, 6, 12, 24])
+    curve_dates = valuation_date + dates.periods.months([0, 6, 12, 24])
     reference_curve = instruments.RateCurve(
         curve_dates,
         np.array([0.0, 0.025, 0.03, 0.035], dtype=dtype),

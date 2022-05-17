@@ -38,9 +38,9 @@ class CMSCashflowStream(cs.CashflowStream):
   start_date = dates.convert_to_date_tensor([(2021, 1, 1)])
   maturity_date = dates.convert_to_date_tensor([(2023, 1, 1)])
   valuation_date = dates.convert_to_date_tensor([(2021, 1, 1)])
-  p3m = dates.months(3)
-  p6m = dates.months(6)
-  p1y = dates.year()
+  p3m = dates.periods.months(3)
+  p6m = dates.periods.months(6)
+  p1y = dates.periods.year()
   fix_spec = instruments.FixedCouponSpecs(
       coupon_frequency=p6m,
       currency='usd',
@@ -72,7 +72,7 @@ class CMSCashflowStream(cs.CashflowStream):
   cms = instruments.CMSCashflowStream(
       start_date, maturity_date, [cms_spec], dtype=dtype)
 
-  curve_dates = valuation_date + dates.years([0, 1, 2, 3, 5])
+  curve_dates = valuation_date + dates.periods.years([0, 1, 2, 3, 5])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([

@@ -31,7 +31,7 @@ InterpolationMethod = core.interpolation_method.InterpolationMethod
 def build_cuve(
     interpolation_method=InterpolationMethod.CUBIC):
   valuation_date = dateslib.convert_to_date_tensor([(2020, 6, 15)])
-  curve_dates = valuation_date + dateslib.years([0, 1, 2])
+  curve_dates = valuation_date + dateslib.periods.years([0, 1, 2])
   curve_disounts = [1.0, 0.95, 0.9]
   return rate_curve.RateCurve(
       curve_dates, curve_disounts, valuation_date,

@@ -60,7 +60,7 @@ class FloatingRateNote:
   settlement_date = dates.convert_to_date_tensor([(2021, 1, 15)])
   maturity_date = dates.convert_to_date_tensor([(2022, 1, 15)])
   valuation_date = dates.convert_to_date_tensor([(2021, 1, 15)])
-  period_3m = dates.months(3)
+  period_3m = dates.periods.months(3)
   flt_spec = instruments.FloatCouponSpecs(
       coupon_frequency=period_3m,
       reference_rate_term=period_3m,
@@ -76,7 +76,7 @@ class FloatingRateNote:
                                      [flt_spec],
                                      dtype=dtype)
 
-  curve_dates = valuation_date + dates.months([0, 6, 12, 36])
+  curve_dates = valuation_date + dates.periods.months([0, 6, 12, 36])
   reference_curve = instruments.RateCurve(
       curve_dates,
       np.array([0.0, 0.005, 0.007, 0.015], dtype=dtype),

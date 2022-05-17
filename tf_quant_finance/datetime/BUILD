@@ -15,8 +15,9 @@ py_library(
         ":daycounts",
         ":holiday_calendar",
         ":holiday_calendar_factory",
-        ":periods",
+        ":period_tensors",
         ":schedules",
+        "//tf_quant_finance/datetime/periods",
     ],
 )
 
@@ -45,12 +46,12 @@ py_library(
 )
 
 py_library(
-    name = "periods",
-    srcs = ["periods.py"],
+    name = "period_tensors",
+    srcs = ["period_tensors.py"],
     srcs_version = "PY3",
     deps = [
-        ":constants",
-        ":tensor_wrapper",
+        "//tf_quant_finance/datetime:constants",
+        "//tf_quant_finance/datetime:tensor_wrapper",
         # tensorflow dep,
     ],
 )
@@ -62,8 +63,8 @@ py_library(
     deps = [
         ":constants",
         ":date_utils",
-        ":periods",
         ":tensor_wrapper",
+        "//tf_quant_finance/datetime/periods",
         # numpy dep,
         # tensorflow dep,
     ],
@@ -76,7 +77,7 @@ py_library(
     deps = [
         ":constants",
         ":date_tensor",
-        ":periods",
+        "//tf_quant_finance/datetime/periods",
         # attr dep,
         # numpy dep,
         # tensorflow dep,
@@ -101,7 +102,7 @@ py_library(
         ":date_tensor",
         ":date_utils",
         ":holiday_utils",
-        ":periods",
+        "//tf_quant_finance/datetime/periods",
         # tensorflow dep,
     ],
 )
