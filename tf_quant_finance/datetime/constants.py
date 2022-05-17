@@ -19,7 +19,7 @@ import enum
 class Month(enum.Enum):
   """Months. Values are one-based."""
   JANUARY = 1
-  FEBUARY = 2
+  FEBRUARY = 2
   MARCH = 3
   APRIL = 4
   MAY = 5
