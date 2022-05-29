@@ -1,13 +1,13 @@
 # Copyright 2021 Google LLC
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
+# Licensed under the Apache License, Version 2.0 (the 'License');
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 #     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an 'AS IS' BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -17,8 +17,11 @@ from absl.testing import parameterized
 import numpy as np
 import tensorflow.compat.v2 as tf
 import tf_quant_finance as tff
+
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 from tf_quant_finance.models.geometric_brownian_motion import geometric_brownian_motion_test_utils
+from tf_quant_finance.models.geometric_brownian_motion import univariate_geometric_brownian_motion
+
 
 arrays_all_close = geometric_brownian_motion_test_utils.arrays_all_close
 calculate_sample_paths_mean_and_variance = geometric_brownian_motion_test_utils.calculate_sample_paths_mean_and_variance
@@ -38,11 +41,11 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecision",
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecision',
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecision",
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecision',
+          'dtype': np.float64,
       })
   def test_univariate_constant_drift_and_volatility(self, dtype):
     """Tests univariate GBM constant drift and volatility functions."""
@@ -52,11 +55,11 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     drift_fn = process.drift_fn()
     volatility_fn = process.volatility_fn()
     state = np.array([[1.], [2.], [3.]], dtype=dtype)
-    with self.subTest("Drift"):
+    with self.subTest('Drift'):
       drift = drift_fn(0.2, state)
       expected_drift = state * drift_in
       self.assertAllClose(drift, expected_drift, atol=1e-8, rtol=1e-8)
-    with self.subTest("Volatility"):
+    with self.subTest('Volatility'):
       vol = volatility_fn(0.2, state)
       expected_vol = state * vol_in
       self.assertAllClose(
@@ -75,11 +78,11 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecision",
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecision',
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecision",
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecision',
+          'dtype': np.float64,
       })
   def test_univariate_time_varying_drift_and_volatility(self, dtype):
     """Tests univariate GBM time varying drift and volatility functions."""
@@ -100,22 +103,22 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     expected_drift = drift_in(test_times)
     expected_sigma = sigma_in(test_times)
 
-    with self.subTest("Drift"):
+    with self.subTest('Drift'):
       drift = drift_fn(test_times, state)
       self.assertAllClose(drift, expected_drift*state, atol=1e-8, rtol=1e-8)
 
-    with self.subTest("Volatility"):
+    with self.subTest('Volatility'):
       vol = volatility_fn(test_times, state)
       self.assertAllClose(vol, expected_sigma * tf.expand_dims(state, -1),
                           atol=1e-8, rtol=1e-8)
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecision",
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecision',
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecision",
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecision',
+          'dtype': np.float64,
       })
   def test_univariate_integrate_parameter(self, dtype):
     """Tests univariate GBM integrate parameter."""
@@ -136,19 +139,19 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     # lower tolerance.
     rtol = atol = _tolerance_by_dtype(dtype)
 
-    with self.subTest("Constant"):
+    with self.subTest('Constant'):
       integral = process._integrate_parameter(a_constant, True, start_times,
                                               end_times)
       expected = a_constant * (end_times - start_times)
       self.assertAllClose(integral, expected, atol=atol, rtol=rtol)
 
-    with self.subTest("Batched"):
+    with self.subTest('Batched'):
       integral = process._integrate_parameter(constant_batched, True,
                                               start_times, end_times)
       expected = constant_batched * (end_times - start_times)
       self.assertAllClose(integral, expected, atol=atol, rtol=rtol)
 
-    with self.subTest("Time dependent"):
+    with self.subTest('Time dependent'):
       integral = process._integrate_parameter(time_varying_fn, False,
                                               start_times, end_times)
       expected = np.array(
@@ -170,11 +173,11 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecision",
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecision',
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecision",
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecision',
+          'dtype': np.float64,
       })
   def test_multivariate_drift_and_volatility(self, dtype):
     """Tests multivariate GBM drift and volatility functions."""
@@ -187,11 +190,11 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     drift_fn = process.drift_fn()
     volatility_fn = process.volatility_fn()
     state = np.array([[1., 2.], [3., 4.], [5., 6.]], dtype=dtype)
-    with self.subTest("Drift"):
+    with self.subTest('Drift'):
       drift = drift_fn(0.2, state)
       expected_drift = np.array(means) * state
       self.assertAllClose(drift, expected_drift, atol=1e-8, rtol=1e-8)
-    with self.subTest("Volatility"):
+    with self.subTest('Volatility'):
       vol = volatility_fn(0.2, state)
       expected_vol = np.expand_dims(
           np.array(volatilities) * state,
@@ -200,11 +203,11 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecision",
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecision',
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecision",
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecision',
+          'dtype': np.float64,
       })
   def test_multivariate_drift_and_volatility_no_corr(self, dtype):
     """Tests multivariate GBM drift and volatility functions."""
@@ -217,11 +220,11 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     drift_fn = process.drift_fn()
     volatility_fn = process.volatility_fn()
     state = np.array([[1., 2.], [3., 4.], [5., 6.]], dtype=dtype)
-    with self.subTest("Drift"):
+    with self.subTest('Drift'):
       drift = drift_fn(0.2, state)
       expected_drift = np.array(means) * state
       self.assertAllClose(drift, expected_drift, atol=1e-8, rtol=1e-8)
-    with self.subTest("Volatility"):
+    with self.subTest('Volatility'):
       vol = volatility_fn(0.2, state)
       expected_vol = np.expand_dims(
           np.array(volatilities) * state,
@@ -230,17 +233,17 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float64,
       }, {
-          "testcase_name": "DoublePrecisionWithDraws",
-          "supply_draws": True,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionWithDraws',
+          'supply_draws': True,
+          'dtype': np.float64,
       })
   def test_univariate_sample_mean_and_variance_constant_parameters(
       self, supply_draws, dtype):
@@ -257,26 +260,26 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     atol_mean = se_mean * NUM_STDERRS
     atol_var = se_var * NUM_STDERRS
 
-    with self.subTest("Drift"):
+    with self.subTest('Drift'):
       arrays_all_close(self, tf.squeeze(mean), expected_mean, atol_mean,
-                       msg="comparing means")
-    with self.subTest("Variance"):
+                       msg='comparing means')
+    with self.subTest('Variance'):
       arrays_all_close(self, tf.squeeze(var), expected_var, atol_var,
-                       msg="comparing variances")
+                       msg='comparing variances')
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float64,
       }, {
-          "testcase_name": "DoublePrecisionWithDraws",
-          "supply_draws": True,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionWithDraws',
+          'supply_draws': True,
+          'dtype': np.float64,
       })
   def test_univariate_sample_mean_constant_parameters_batched(
       self, supply_draws, dtype):
@@ -291,26 +294,26 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     expected_mean = (mu - sigma**2 / 2) * times + np.log(initial_state)
     expected_var = sigma**2 * times
 
-    with self.subTest("Drift"):
+    with self.subTest('Drift'):
       arrays_all_close(self, tf.squeeze(mean), expected_mean,
-                       se_mean * NUM_STDERRS, "comparing means")
-    with self.subTest("Variance"):
+                       se_mean * NUM_STDERRS, 'comparing means')
+    with self.subTest('Variance'):
       arrays_all_close(self, tf.squeeze(var), expected_var,
-                       se_var * NUM_STDERRS, "comparing variances")
+                       se_var * NUM_STDERRS, 'comparing variances')
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float64,
       }, {
-          "testcase_name": "DoublePrecisionWithDraws",
-          "supply_draws": True,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionWithDraws',
+          'supply_draws': True,
+          'dtype': np.float64,
       })
   def test_univariate_sample_mean_constant_parameters_batched_time(
       self, supply_draws, dtype):
@@ -328,26 +331,26 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     expected_mean = (mu - sigma**2 / 2) * times + np.log(initial_state)
     expected_var = sigma**2 * times
 
-    with self.subTest("Drift"):
+    with self.subTest('Drift'):
       arrays_all_close(self, tf.squeeze(mean), expected_mean,
-                       se_mean * NUM_STDERRS, "comparing means")
-    with self.subTest("Variance"):
+                       se_mean * NUM_STDERRS, 'comparing means')
+    with self.subTest('Variance'):
       arrays_all_close(self, tf.squeeze(var), expected_var,
-                       se_var * NUM_STDERRS, "comparing variances")
+                       se_var * NUM_STDERRS, 'comparing variances')
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float64,
       }, {
-          "testcase_name": "DoublePrecisionWithDraws",
-          "supply_draws": True,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionWithDraws',
+          'supply_draws': True,
+          'dtype': np.float64,
       })
   def test_univariate_sample_mean_var_constant_parameters_batched2(
       self, supply_draws, dtype):
@@ -363,26 +366,26 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
                      * times + np.log(initial_state))
     expected_var = sigma**2 * times
 
-    with self.subTest("Drift"):
+    with self.subTest('Drift'):
       arrays_all_close(self, tf.squeeze(mean), expected_mean,
-                       se_mean * NUM_STDERRS, msg="comparing means")
-    with self.subTest("Variance"):
+                       se_mean * NUM_STDERRS, msg='comparing means')
+    with self.subTest('Variance'):
       arrays_all_close(self, tf.squeeze(var), expected_var,
-                       se_var * NUM_STDERRS, msg="comparing variances")
+                       se_var * NUM_STDERRS, msg='comparing variances')
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float64,
       }, {
-          "testcase_name": "DoublePrecisionWithDraws",
-          "supply_draws": True,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionWithDraws',
+          'supply_draws': True,
+          'dtype': np.float64,
       })
   def test_univariate_sample_mean_var_constant_parameters_batched_time2(
       self, supply_draws, dtype):
@@ -401,26 +404,26 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
                      * times + np.log(initial_state))
     expected_var = sigma**2 * times
 
-    with self.subTest("Drift"):
+    with self.subTest('Drift'):
       arrays_all_close(self, tf.squeeze(mean), expected_mean,
-                       se_mean * NUM_STDERRS, msg="comparing means")
-    with self.subTest("Variance"):
+                       se_mean * NUM_STDERRS, msg='comparing means')
+    with self.subTest('Variance'):
       arrays_all_close(self, tf.squeeze(var), expected_var,
-                       se_var * NUM_STDERRS, msg="comparing variances")
+                       se_var * NUM_STDERRS, msg='comparing variances')
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float64,
       }, {
-          "testcase_name": "DoublePrecisionWithDraws",
-          "supply_draws": True,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionWithDraws',
+          'supply_draws': True,
+          'dtype': np.float64,
       })
   def test_univariate_sample_mean_and_variance_time_varying_drift(
       self, supply_draws, dtype):
@@ -428,7 +431,7 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     initial_state = 2.0
     min_tol = _tolerance_by_dtype(dtype)
 
-    with self.subTest("Drift as a step function, sigma = 0.0"):
+    with self.subTest('Drift as a step function, sigma = 0.0'):
       mu_times = np.array([0.0, 5.0, 10.0], dtype=dtype)
       mu_values = np.array([0.0, 0.0, 0.05, 0.05], dtype=dtype)
       mu = tff.math.piecewise.PiecewiseConstantFunc(jump_locations=mu_times,
@@ -452,11 +455,11 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
       mean_tol = np.maximum(se_mean * NUM_STDERRS, min_tol)
       var_tol = np.maximum(se_var * NUM_STDERRS, min_tol)
       arrays_all_close(self, tf.squeeze(mean), expected_mean, mean_tol,
-                       msg="comparing means")
+                       msg='comparing means')
       arrays_all_close(self, tf.squeeze(var), expected_var, var_tol,
-                       msg="comparing variances")
+                       msg='comparing variances')
 
-    with self.subTest("Drift = 0.05, sigma = step function"):
+    with self.subTest('Drift = 0.05, sigma = step function'):
       mu = 0.05
       sigma_times = np.array([0.0, 5.0, 10.0], dtype=dtype)
       sigma_values = np.array([0.0, 0.2, 0.4, 0.6], dtype=dtype)
@@ -493,23 +496,23 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
       var_tol = np.maximum(se_var * NUM_STDERRS, min_tol)
 
       arrays_all_close(self, tf.squeeze(mean), expected_mean, mean_tol,
-                       msg="comparing means")
+                       msg='comparing means')
       arrays_all_close(self, tf.squeeze(var), expected_var, var_tol,
-                       msg="comparing variances")
+                       msg='comparing variances')
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float64,
       }, {
-          "testcase_name": "DoublePrecisionWithDraws",
-          "supply_draws": True,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionWithDraws',
+          'supply_draws': True,
+          'dtype': np.float64,
       })
   def test_univariate_time_varying_drift_batched(self, supply_draws, dtype):
     """Tests the mean and vol of the univariate GBM sampled paths."""
@@ -557,23 +560,23 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     var_tol = np.ones_like(expected_var) * min_tol
 
     arrays_all_close(self, tf.squeeze(mean), expected_mean, atol=mean_tol,
-                     msg="comparing means")
+                     msg='comparing means')
     arrays_all_close(self, tf.squeeze(var), expected_var, var_tol,
-                     msg="comparing variances")
+                     msg='comparing variances')
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float64,
       }, {
-          "testcase_name": "DoublePrecisionWithDraws",
-          "supply_draws": True,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionWithDraws',
+          'supply_draws': True,
+          'dtype': np.float64,
       })
   def test_univariate_sample_mean_and_variance_time_varying_vol(
       self, supply_draws, dtype):
@@ -613,23 +616,23 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     var_tol = np.maximum(se_var * NUM_STDERRS, min_tol)
 
     arrays_all_close(self, tf.squeeze(mean), expected_mean, mean_tol,
-                     msg="comparing means")
+                     msg='comparing means')
     arrays_all_close(self, tf.squeeze(var), expected_var, var_tol,
-                     msg="comparing variances")
+                     msg='comparing variances')
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float64,
       }, {
-          "testcase_name": "DoublePrecisionWithDraws",
-          "supply_draws": True,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionWithDraws',
+          'supply_draws': True,
+          'dtype': np.float64,
       })
   def test_univariate_time_varying_vol_batched(self, supply_draws, dtype):
     """Tests the mean and vol of the univariate GBM sampled paths."""
@@ -689,23 +692,23 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     var_tol = np.maximum(se_var * NUM_STDERRS, min_tol)
 
     arrays_all_close(self, tf.squeeze(mean), expected_mean, mean_tol,
-                     msg="comparing means")
+                     msg='comparing means')
     arrays_all_close(self, tf.squeeze(var), expected_var, var_tol,
-                     msg="comparing variances")
+                     msg='comparing variances')
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float64,
       }, {
-          "testcase_name": "DoublePrecisionWithDraws",
-          "supply_draws": True,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionWithDraws',
+          'supply_draws': True,
+          'dtype': np.float64,
       })
   def test_univariate_time_varying_vol_batched_time(self, supply_draws, dtype):
     """Tests the mean and vol of the univariate GBM sampled paths."""
@@ -766,19 +769,19 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     var_tol = np.maximum(se_var * NUM_STDERRS, min_tol)
 
     arrays_all_close(
-        self, tf.squeeze(mean), expected_mean, mean_tol, msg="comparing means")
+        self, tf.squeeze(mean), expected_mean, mean_tol, msg='comparing means')
     arrays_all_close(
-        self, tf.squeeze(var), expected_var, var_tol, msg="comparing variances")
+        self, tf.squeeze(var), expected_var, var_tol, msg='comparing variances')
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float64,
       })
   def test_univariate_time_varying_vol_batched_time_broadcast(
       self, supply_draws, dtype):
@@ -799,24 +802,24 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     mean, var, _, _ = calculate_sample_paths_mean_and_variance(
         self, mu, sigma, times, initial_state, supply_draws, NUM_SAMPLES, dtype)
 
-    with self.subTest("Means"):
+    with self.subTest('Means'):
       self.assertAllClose(mean.shape, expected_shape, atol=1e-3)
-    with self.subTest("Variances"):
+    with self.subTest('Variances'):
       self.assertAllClose(var.shape, expected_shape, atol=1e-3)
 
   @parameterized.named_parameters(
       {
-          "testcase_name": "SinglePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float32,
+          'testcase_name': 'SinglePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float32,
       }, {
-          "testcase_name": "DoublePrecisionNoDraws",
-          "supply_draws": False,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionNoDraws',
+          'supply_draws': False,
+          'dtype': np.float64,
       }, {
-          "testcase_name": "DoublePrecisionWithDraws",
-          "supply_draws": True,
-          "dtype": np.float64,
+          'testcase_name': 'DoublePrecisionWithDraws',
+          'supply_draws': True,
+          'dtype': np.float64,
       })
   def test_multivariate_sample_mean_and_variance(self, supply_draws, dtype):
     """Tests the mean and vol of the univariate GBM sampled paths."""
@@ -846,11 +849,11 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
                      * np.array(np.expand_dims(times, -1))
                      + np.log(initial_state))
     expected_var = process._vols**2 * np.array(np.expand_dims(times, -1))
-    with self.subTest("Drift"):
+    with self.subTest('Drift'):
       self.assertAllClose(tf.squeeze(mean), expected_mean, atol=1e-3, rtol=1e-3)
-    with self.subTest("Variance"):
+    with self.subTest('Variance'):
       self.assertAllClose(tf.squeeze(var), expected_var, atol=1e-3, rtol=1e-3)
-    with self.subTest("Correlations"):
+    with self.subTest('Correlations'):
       samples = self.evaluate(samples)
       for i in range(len(times)):
         corr = np.corrcoef(samples[:, i, :], rowvar=False)
@@ -897,7 +900,7 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
         dim=2, means=0.05, volatilities=[0.1, 0.2],
         dtype=dtype)
 
-    with self.subTest("WrongDim"):
+    with self.subTest('WrongDim'):
       with self.assertRaises(ValueError):
         normal_draws = tf.random.normal(
             shape=[100, 3, 3], dtype=dtype)
@@ -912,7 +915,7 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
         mean=0.05, volatility=0.1,
         dtype=dtype)
 
-    with self.subTest("WrongDim"):
+    with self.subTest('WrongDim'):
       with self.assertRaises(ValueError):
         normal_draws = tf.random.normal(
             shape=[100, 3, 2], dtype=dtype)
@@ -920,5 +923,46 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
             times=[0.1, 0.5, 1.0],
             normal_draws=normal_draws)
 
-if __name__ == "__main__":
+  def test_gbm_normal_draws_gradient(self):
+    """Gradient through paths wrt volatility can be computed."""
+    dtype = tf.float64
+    volatility = tf.constant(0.1, dtype=dtype)
+    with tf.GradientTape() as tape:
+      tape.watch(volatility)
+      process = tff.models.GeometricBrownianMotion(
+          mean=0.05, volatility=volatility,
+          dtype=dtype)
+      samples = process.sample_paths(
+          times=[0.0, 0.1, 0.5, 1.0],
+          num_samples=10_000,
+          seed=[4, 2],
+          random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC)
+      grad = tape.gradient(tf.reduce_mean(samples), volatility)
+
+    grad = self.evaluate(grad)
+    # The mean should stay close to 1.0 regardless of `volatility` value
+    self.assertAlmostEqual(grad, 0.0, delta=1e-3)
+
+  def test_sqrt_grad(self):
+    """Test for the custom square root."""
+    dtype = tf.float64
+    x1 = tf.random.stateless_uniform(shape=[10, 5], seed=[1, 2], dtype=dtype)
+    x2 = tf.constant([0.0, 1.0], dtype=dtype)
+    with tf.GradientTape(persistent=True) as tape:
+      tape.watch([x1, x2])
+      y1 = univariate_geometric_brownian_motion._sqrt_no_nan(x1)
+      y2 = univariate_geometric_brownian_motion._sqrt_no_nan(x2)
+      y1_true = tf.sqrt(x1)
+
+    with self.subTest('Value'):
+      self.assertAllClose(y1, y1_true)
+
+    with self.subTest('GradientCorrect'):
+      self.assertAllClose(tape.gradient(y1, x1), tape.gradient(y1_true, x1))
+
+    with self.subTest('ZeroGradientCorrect'):
+      self.assertAllClose(tape.gradient(y2, x2), [0.0, 0.5])
+
+
+if __name__ == '__main__':
   tf.test.main()

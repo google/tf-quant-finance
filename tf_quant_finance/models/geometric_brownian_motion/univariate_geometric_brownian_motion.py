@@ -301,7 +301,8 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
 
     # The logarithm of all the increments between the times.
     log_increments = ((mean_integral - volatility_sq_integral / 2)
-                      + tf.sqrt(volatility_sq_integral)
+                      # Ensure tf.math.sqrt is differentiable at 0.0
+                      + _sqrt_no_nan(volatility_sq_integral)
                       * tf.transpose(tf.squeeze(normal_draws, -1)))
     # Since the implementation of tf.math.cumsum is single-threaded we
     # use lower-triangular matrix multiplication instead
@@ -705,3 +706,12 @@ def _coord_grid_to_mesh_grid(coord_grid):
   if len(coord_grid) == 1:
     return tf.expand_dims(coord_grid[0], -1)
   return tf.stack(values=tf.meshgrid(*coord_grid, indexing='ij'), axis=-1)
+
+
+@tf.custom_gradient
+def _sqrt_no_nan(x):
+  """Returns square root with a gradient at 0 being 0."""
+  root = tf.math.sqrt(x)
+  def grad(upstream):
+    return tf.math.divide_no_nan(upstream, root) / 2
+  return root, grad
