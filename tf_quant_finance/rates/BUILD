@@ -9,7 +9,6 @@ py_library(
     srcs = ["__init__.py"],
     srcs_version = "PY3",
     deps = [
-        ":cashflows",
         ":forwards",
         ":swap_curve_bootstrap",
         ":swap_curve_common",
@@ -75,16 +74,6 @@ py_test(
         "//tf_quant_finance/math/interpolation/linear",
         "//tf_quant_finance/rates/constant_fwd",
         # absl/testing:parameterized dep,
-        # numpy dep,
-        # tensorflow dep,
-    ],
-)
-
-py_library(
-    name = "cashflows",
-    srcs = ["cashflows.py"],
-    srcs_version = "PY3",
-    deps = [
         # numpy dep,
         # tensorflow dep,
     ],

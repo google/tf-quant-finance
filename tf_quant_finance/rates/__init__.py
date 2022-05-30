@@ -15,7 +15,6 @@
 import copy
 
 from tf_quant_finance.rates import analytics
-from tf_quant_finance.rates import cashflows
 from tf_quant_finance.rates import constant_fwd
 from tf_quant_finance.rates import forwards
 from tf_quant_finance.rates import hagan_west
@@ -29,7 +28,6 @@ swap_curve_fit = swap_curve_fit_lib.swap_curve_fit
 swap_curve_bootstrap = swap_curve_boot_lib.swap_curve_bootstrap
 
 _allowed_symbols = [
-    'cashflows',
     'forwards',
     'analytics',
     'hagan_west',

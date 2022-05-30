@@ -38,14 +38,6 @@ from tf_quant_finance.datetime.daycounts import actual_actual_isda as daycount_a
 from tf_quant_finance.datetime.daycounts import thirty_360_isda as daycount_thirty_360_isda
 from tf_quant_finance.datetime.holiday_calendar import HolidayCalendar
 from tf_quant_finance.datetime.holiday_calendar_factory import create_holiday_calendar
-from tf_quant_finance.datetime.period_tensors import day
-from tf_quant_finance.datetime.period_tensors import days
-from tf_quant_finance.datetime.period_tensors import month
-from tf_quant_finance.datetime.period_tensors import months
-from tf_quant_finance.datetime.period_tensors import week
-from tf_quant_finance.datetime.period_tensors import weeks
-from tf_quant_finance.datetime.period_tensors import year
-from tf_quant_finance.datetime.period_tensors import years
 
 from tf_quant_finance.datetime.schedules import BusinessDaySchedule
 from tf_quant_finance.datetime.schedules import PeriodicSchedule
@@ -71,14 +63,6 @@ _allowed_symbols = [
     'dates_from_tensor',
     'dates_from_tuples',
     'dates_from_year_month_day',
-    'day',
-    'days',
-    'week',
-    'weeks',
-    'month',
-    'months',
-    'year',
-    'years',
     'utils',
     'periods',
     'PeriodTensor',
