@@ -149,6 +149,7 @@ py_library(
     srcs = ["custom_loops.py"],
     srcs_version = "PY3",
     deps = [
+        "//tf_quant_finance/utils",
         # tensorflow dep,
     ],
 )

@@ -14,6 +14,7 @@
 """Custom implementations of loops for improved performance."""
 
 import tensorflow.compat.v2 as tf
+from tf_quant_finance import utils as tff_utils
 
 
 def for_loop(body_fn, initial_state, params, num_iterations, name=None):
@@ -347,26 +348,23 @@ def _accumulating_for_loop(body_fn, initial_state, params, num_iterations,
 
   with tf.name_scope(name or "accumulating_for_loop"):
     max_iterations = tf.math.reduce_max(num_iterations)
-    acc_size = num_iterations.shape[0]
+    acc_size = tff_utils.get_shape(num_iterations)[0]
 
     # num_iteration = [2, 5] -> mask = [0, 0, 1, 0, 0, 1]. Tells when we should
     # increment acc index before writing. Last element won't be used (i = 0..4).
     mask = tf.scatter_nd(indices=tf.expand_dims(num_iterations, axis=-1),
                          updates=tf.ones_like(num_iterations),
                          shape=(max_iterations + 1,))
-
     n = len(initial_state)
 
     @tf.custom_gradient
     def inner(*args):
       initial_state, params = args[:n], args[n:]
-      def while_cond(i, acc_index, acc_state, acc_jac):
-        del acc_index, acc_state, acc_jac
+      def while_cond(i, acc_index, state, jac, acc_state, acc_jac):
+        del acc_index, state, jac, acc_state, acc_jac
         return i < max_iterations
 
-      def while_body(i, acc_index, acc_state, acc_jac):
-        state = _read_from_accumulators(acc_state, acc_index)
-        jac = _read_from_accumulators(acc_jac, acc_index)
+      def while_body(i, acc_index, state, jac, acc_state, acc_jac):
         with tf.GradientTape(persistent=True) as tape:
           tape.watch(state)
           tape.watch(params)
@@ -377,7 +375,7 @@ def _accumulating_for_loop(body_fn, initial_state, params, num_iterations,
         acc_state = _write_to_accumulators(acc_state, next_state, acc_index)
         acc_jac = _write_to_accumulators(acc_jac, next_jac, acc_index)
 
-        return i + 1, acc_index, acc_state, acc_jac
+        return i + 1, acc_index, next_state, next_jac, acc_state, acc_jac
 
       initial_acc_state = _create_accumulators(initial_state, acc_size)
       initial_acc_state = _write_to_accumulators(initial_acc_state,
@@ -387,11 +385,15 @@ def _accumulating_for_loop(body_fn, initial_state, params, num_iterations,
       initial_acc_jac = _create_accumulators(initial_jac, acc_size)
       initial_acc_jac = _write_to_accumulators(initial_acc_jac, initial_jac, 0)
 
-      loop_vars = (0, 0, initial_acc_state, initial_acc_jac)
+      loop_vars = (0, 0, initial_state, initial_jac,
+                   initial_acc_state, initial_acc_jac)
 
-      _, _, final_acc_state, final_acc_jac = tf.compat.v2.while_loop(
+      _, _, _, _, final_acc_state, final_acc_jac = tf.compat.v2.while_loop(
           while_cond, while_body, loop_vars=loop_vars,
           maximum_iterations=max_iterations)
+      # Stack `tf.TensorArray`s into a `Tensor`
+      final_acc_state = _stack_accumulators(final_acc_state)
+      final_acc_jac = _stack_accumulators(final_acc_jac)
 
       def gradient(*ws):
         # Same as in for_loop, except we need to sum over the accumulating
@@ -425,27 +427,25 @@ def _accumulating_for_loop(body_fn, initial_state, params, num_iterations,
 def _create_accumulators(nested_tensor, size):
   if isinstance(nested_tensor, tf.Tensor):
     # Single tensor.
-    return tf.zeros(shape=[size] + nested_tensor.shape.as_list(),
-                    dtype=nested_tensor.dtype)
+    return tf.TensorArray(
+        dtype=nested_tensor.dtype,
+        size=size,
+        element_shape=tff_utils.get_shape(nested_tensor),
+        clear_after_read=False)
   return [_create_accumulators(t, size) for t in nested_tensor]
 
 
 def _write_to_accumulators(nested_acc, nested_tensor, index):
   if isinstance(nested_tensor, tf.Tensor):
-    assert isinstance(nested_acc, tf.Tensor)
-    acc_size = nested_acc.shape.as_list()[0]
-    one_hot = tf.one_hot(index, depth=acc_size)
-    one_hot = tf.reshape(one_hot, [acc_size] + [1] * len(nested_tensor.shape))
-    return tf.where(one_hot > 0, nested_tensor, nested_acc)
-
+    return nested_acc.write(index, nested_tensor)
   return [_write_to_accumulators(acc, t, index)
           for acc, t in zip(nested_acc, nested_tensor)]
 
 
-def _read_from_accumulators(nested_acc, index):
-  if isinstance(nested_acc, tf.Tensor):
-    return nested_acc[index]
-  return [_read_from_accumulators(acc, index) for acc in nested_acc]
+def _stack_accumulators(nested_acc):
+  if isinstance(nested_acc, tf.TensorArray):
+    return nested_acc.stack()
+  return [_stack_accumulators(acc) for acc in nested_acc]
 
 
 # We don't currently expose this module as a library API, but may use it
