@@ -252,7 +252,7 @@ def _np_shift(values, axis, delta):
     sl[axis] = slice(None, delta)
   else:
     sl[axis] = slice(delta, None)
-  values[sl] = 0
+  values[tuple(sl)] = 0
   return values
 
 
