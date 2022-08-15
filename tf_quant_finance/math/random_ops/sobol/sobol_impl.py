@@ -203,8 +203,12 @@ def _get_sobol_data_path():
       os.path.join(
           os.path.dirname(__file__), '..', '..', '..', '..', 'third_party',
           'sobol_data', filename))
+  path4 = os.path.abspath(
+      os.path.join(
+          os.path.dirname(__file__), '..', '..', '..', '..', '..',
+          'third_party', 'sobol_data', filename))
 
-  paths = [path1, path2, path3]
+  paths = [path1, path2, path3, path4]
   for path in paths:
     if os.path.exists(path):
       return path
