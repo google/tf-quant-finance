@@ -49,7 +49,7 @@ else:
   # The suffix should be replaced with 'aN', 'bN', or 'rcN' (note: no dots) for
   # respective alpha releases, beta releases, and release candidates. And it
   # should be cleared, i.e. set to '', for stable releases (c.f. PEP 440).
-  release_suffix = '.dev33'
+  release_suffix = '.dev34'
   tfp_package = 'tensorflow-probability >= 0.12.1'
 
 __version__ = '.'.join([major_version, minor_version, patch_version])
