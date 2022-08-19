@@ -503,8 +503,8 @@ def _apply_robin_boundary_conditions(
     upper_diag_correction = 0
   else:
     # Robin BC case for the lower bound
-    xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[0],
-                                                    coord_grid_deltas[1],
+    xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[..., 0],
+                                                    coord_grid_deltas[..., 1],
                                                     alpha_l,
                                                     beta_l, gamma_l)
     diag_first_correction = lower_diagonal[..., 0] * xi1
@@ -518,8 +518,8 @@ def _apply_robin_boundary_conditions(
     lower_diag_correction = 0
   else:
     # Robin BC case for the upper bound
-    xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[-1],
-                                                    coord_grid_deltas[-2],
+    xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[..., -1],
+                                                    coord_grid_deltas[..., -2],
                                                     alpha_u,
                                                     beta_u, gamma_u)
     diag_last_correction = upper_diagonal[..., -1] * xi1
@@ -567,8 +567,8 @@ def _apply_boundary_conditions_after_step(
     alpha, beta, gamma = (
         _prepare_boundary_conditions(b, inner_grid_out)
         for b in (alpha, beta, gamma))
-    xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[0],
-                                                    coord_grid_deltas[1],
+    xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[..., 0],
+                                                    coord_grid_deltas[..., 1],
                                                     alpha, beta, gamma)
     first_value = (
         xi1 * inner_grid_out[..., 0] + xi2 * inner_grid_out[..., 1] + eta)
@@ -583,8 +583,8 @@ def _apply_boundary_conditions_after_step(
     alpha, beta, gamma = (
         _prepare_boundary_conditions(b, inner_grid_out)
         for b in (alpha, beta, gamma))
-    xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[-1],
-                                                    coord_grid_deltas[-2],
+    xi1, xi2, eta = _discretize_boundary_conditions(coord_grid_deltas[..., -1],
+                                                    coord_grid_deltas[..., -2],
                                                     alpha, beta, gamma)
     last_value = (
         xi1 * inner_grid_out[..., -1] + xi2 * inner_grid_out[..., -2] + eta)

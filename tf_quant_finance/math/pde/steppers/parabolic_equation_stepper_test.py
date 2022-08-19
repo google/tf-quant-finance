@@ -489,8 +489,8 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
                               maximums=s_max,
                               sizes=sizes,
                               dtype=dtype)
-    if batch_grid:
-      grid = [tf.stack(grid, axis=0)]
+    # Shape [[batch_dim, num_grid_points]]
+    grid = [tf.stack(grid, axis=0)]
     # Specify volatilities and interest rates for the options
     volatility = np.array([0.3, 0.15], dtype=dtype).reshape([-1, 1])
     rate = np.array([0.01, 0.03], dtype=dtype).reshape([-1, 1])
@@ -556,7 +556,7 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
     if batch_grid:
       spots = tf.stack([grid[0][0][loc_1], grid[0][-1][loc_2]])
     else:
-      spots = tf.stack([grid[0][loc_1], grid[0][loc_2]])
+      spots = tf.stack([grid[0][0][loc_1], grid[0][0][loc_2]])
     call_price = tff.black_scholes.option_price(
         volatilities=volatility[..., 0],
         strikes=strike[..., 0],
@@ -969,7 +969,6 @@ class ParabolicEquationStepperTest(tf.test.TestCase, parameterized.TestCase):
         boundary_conditions=[(None, upper_boundary_fn)])[0]
 
     true_values = tf.math.exp(final_t + grid[0])
-    print('est_values: ', est_values)
     self.assertAllClose(
         est_values, true_values, atol=1e-2, rtol=1e-2)
 
