@@ -19,7 +19,7 @@ low-discrepancy sequence: https://en.wikipedia.org/wiki/Sobol_sequence.
 
 import logging
 import os
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 from six.moves import range
@@ -40,8 +40,8 @@ def sample(dim: int,
            num_results: types.IntTensor,
            skip: types.IntTensor = 0,
            validate_args: bool = False,
-           dtype: tf.DType = None,
-           name: str = None) -> types.RealTensor:
+           dtype: tf.dtypes.DType = None,
+           name: Optional[str] = None) -> types.RealTensor:
   """Returns num_results samples from the Sobol sequence of dimension dim.
 
   Uses the original ordering of points, not the more commonly used Gray code
@@ -77,7 +77,7 @@ def sample(dim: int,
   [1]: S. Joe and F. Y. Kuo. Notes on generating Sobol sequences. August 2008.
        https://web.maths.unsw.edu.au/~fkuo/sobol/joe-kuo-notes.pdf
   """
-  with tf.compat.v1.name_scope(name, 'sobol_sample', [dim, num_results, skip]):
+  with tf.name_scope(name or 'sobol_sample'):
     num_results = tf.convert_to_tensor(
         num_results, dtype=tf.int32, name='num_results')
     skip = tf.convert_to_tensor(skip, dtype=tf.int32, name='skip')
@@ -87,13 +87,13 @@ def sample(dim: int,
         raise ValueError(
             'Dimension must be greater than zero. Supplied {}'.format(dim))
       control_dependencies.append(
-          tf.compat.v1.debugging.assert_greater(
+          tf.debugging.assert_greater(
               num_results,
               0,
               message='Number of results `num_results` must be greater '
               'than zero.'))
       control_dependencies.append(
-          tf.compat.v1.debugging.assert_greater(
+          tf.debugging.assert_greater(
               skip, 0, message='`skip` must be non-negative.'))
       # Need to check that skip + num_results < largest positive int32.
       control_dependencies.append(
@@ -103,12 +103,12 @@ def sample(dim: int,
               message='Skip too large. Should be smaller than '
               f'{_MAX_POSITIVE} - num_results'))
 
-    with tf.compat.v1.control_dependencies(control_dependencies):
+    with tf.control_dependencies(control_dependencies):
       if validate_args:
         # The following tf.maximum ensures that the graph can be executed
         # even with ignored control dependencies
-        num_results = tf.maximum(num_results, 1, name='fix_num_results')
-        skip = tf.maximum(skip, 0, name='fix_skip')
+        num_results = tf.math.maximum(num_results, 1, name='fix_num_results')
+        skip = tf.math.maximum(skip, 0, name='fix_skip')
       direction_numbers = tf.convert_to_tensor(
           _compute_direction_numbers(dim), name='direction_numbers')
       # Number of digits actually needed for binary representation.
