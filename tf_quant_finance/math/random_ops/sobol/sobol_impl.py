@@ -33,6 +33,7 @@ __all__ = [
 ]
 
 _LN_2 = np.log(2.)
+_MAX_POSITIVE = 2**31 - 1
 
 
 def sample(dim: int,
@@ -59,8 +60,9 @@ def sample(dim: int,
       of the Sobol sequence to skip.
     validate_args: Python `bool`. When `True`, input `Tensor's` are checked for
       validity despite possibly degrading runtime performance. The checks verify
-      that `dim >= 1`, `num_results >= 1`, and `skip >= 0`. When `False` invalid
-      inputs may silently render incorrect outputs.
+      that `dim >= 1`, `num_results >= 1`, `skip >= 0` and whether
+      `num_results + skip < 2**31 - 1`. When `False` invalid inputs may silently
+      render incorrect outputs.
       Default value: False.
     dtype: Optional `dtype`. The dtype of the output `Tensor` (either `float32`
       or `float64`).
@@ -88,11 +90,18 @@ def sample(dim: int,
           tf.compat.v1.debugging.assert_greater(
               num_results,
               0,
-              message='Number of results `num_results` must be greater than zero.'
-          ))
+              message='Number of results `num_results` must be greater '
+              'than zero.'))
       control_dependencies.append(
           tf.compat.v1.debugging.assert_greater(
               skip, 0, message='`skip` must be non-negative.'))
+      # Need to check that skip + num_results < largest positive int32.
+      control_dependencies.append(
+          tf.debugging.assert_greater(
+              _MAX_POSITIVE - num_results,
+              skip,
+              message='Skip too large. Should be smaller than '
+              f'{_MAX_POSITIVE} - num_results'))
 
     with tf.compat.v1.control_dependencies(control_dependencies):
       if validate_args:
@@ -103,9 +112,14 @@ def sample(dim: int,
       direction_numbers = tf.convert_to_tensor(
           _compute_direction_numbers(dim), name='direction_numbers')
       # Number of digits actually needed for binary representation.
+      # Note that we need to cast to int64 because even if skip and num results
+      # are int32, their sum may exceed the range and cause a negative value
+      # which will crash tf.math.log.
+      max_index = (
+          tf.cast(skip, dtype=tf.int64) + tf.cast(num_results, dtype=tf.int64) +
+          1)
       num_digits = tf.cast(
-          tf.math.ceil(
-              tf.math.log(tf.cast(skip + num_results + 1, tf.float64)) / _LN_2),
+          tf.math.ceil(tf.math.log(tf.cast(max_index, tf.float64)) / _LN_2),
           tf.int32)
     # Direction numbers, reshaped and with the digits shifted as needed for the
     # bitwise xor operations below. Note that here and elsewhere we use bit
@@ -122,7 +136,7 @@ def sample(dim: int,
     # [[1 0 1 0 1 0]
     #  [0 1 1 0 0 1]
     #  [0 0 0 1 1 1]]
-    irange = tf.range(skip + 1, skip + num_results + 1)
+    irange = skip + 1 + tf.range(num_results)
     dig_range = tf.expand_dims(tf.range(num_digits), 1)
     binary_matrix = tf.bitwise.bitwise_and(
         1, tf.bitwise.right_shift(irange, dig_range))
@@ -143,8 +157,14 @@ def sample(dim: int,
     result, _ = tf.while_loop(_cond, _body, (product[0, :, :], 1))
     # Shift back from integers to floats.
     dtype = dtype or tf.float32
-    return (tf.cast(result, dtype) /
-            tf.cast(tf.bitwise.left_shift(1, num_digits), dtype))
+    # By default, tensorflow interprets a literal number as tf.int32 (if within
+    # range). As this is a signed integer, left shift can produce a negative
+    # number if the shift is too large. Example:
+    # tf.bitwise.left_shift(1, 31) = -2**31. To avoid this, we can either work
+    # with unsigned ints or use a larger int type. We do the latter here.
+    one = tf.constant(1, dtype=tf.int64)
+    divisor = tf.bitwise.left_shift(one, tf.cast(num_digits, dtype=tf.int64))
+    return tf.cast(result, dtype) / tf.cast(divisor, dtype)
 
 
 # TODO(b/135590027): Add option to store these instead of recomputing each time.

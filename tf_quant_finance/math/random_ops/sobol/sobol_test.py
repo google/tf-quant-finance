@@ -90,6 +90,24 @@ class SampleSobolSequenceTest(tf.test.TestCase):
     self.assertAllClose(
         self.evaluate(sample_noskip[skip:, :]), self.evaluate(sample_skip))
 
+  def test_large_skip(self):
+    dim = 1
+    skip = 2**31 - 5
+    num_results = 3
+    sample = self.evaluate(random.sobol.sample(dim, num_results, skip=skip))
+    self.assertAllClose(sample, [[0.25], [0.75], [0.5]])
+
+  def test_excess_skip_raises(self):
+    """Tests that skip which exceeds int32 boundary raises exceptions."""
+    dim = 1
+    skip = 2**31 - 5
+    num_results = 4
+    # This test is expected to fail when we move the computation of sobol
+    # numbers to use int64. It should be replaced with another similar test.
+    with self.assertRaises(tf.errors.InvalidArgumentError):
+      self.evaluate(
+          random.sobol.sample(dim, num_results, skip=skip, validate_args=True))
+
   def test_normal_integral_mean_and_var_correctly_estimated(self):
     n = int(1000)
     # This test is almost identical to the similarly named test in
