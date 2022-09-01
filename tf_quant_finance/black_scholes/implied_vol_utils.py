@@ -20,7 +20,7 @@ import enum
 class UnderlyingDistribution(enum.Enum):
   """Underying's distribution.
 
-  * `LOG_NORMAL`: Lognormal distribution for the standrad Black-Scholes models.
+  * `LOG_NORMAL`: Lognormal distribution for the standard Black-Scholes models.
   * `NORMAL`: Normal distribution used in Bachelier model.
   """
   LOG_NORMAL = 1
