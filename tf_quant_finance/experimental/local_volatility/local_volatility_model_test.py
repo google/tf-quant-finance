@@ -123,7 +123,7 @@ class LocalVolatilityTest(tf.test.TestCase, parameterized.TestCase):
                           discount_factor_fn,
                           num_time_steps,
                           using_market_data,
-                          use_xla,
+                          jit_compile,
                           iv_start_index=0,
                           flat_iv=False):
     """Tests that the model reproduces implied volatility smile."""
@@ -162,7 +162,7 @@ class LocalVolatilityTest(tf.test.TestCase, parameterized.TestCase):
           dividend_yield=[0.0],
           dtype=dtype)
 
-    @tf.function(experimental_compile=use_xla)
+    @tf.function(jit_compile=jit_compile)
     def _get_sample_paths():
       return lv.sample_paths(
           # Our test times are the same for each dim.
@@ -174,38 +174,16 @@ class LocalVolatilityTest(tf.test.TestCase, parameterized.TestCase):
           seed=[1, 2])
 
     paths = self.evaluate(_get_sample_paths())
-
-    @tf.function(experimental_compile=use_xla)
-    def _get_implied_vol(time, strike, paths, spot, dtype):
-      discount_factor = discount_factor_fn(time)
-
-      num_not_nan = tf.cast(
-          paths.shape[0] - tf.math.count_nonzero(tf.math.is_nan(paths)),
-          paths.dtype)
-      paths = tf.where(tf.math.is_nan(paths), tf.zeros_like(paths), paths)
-      # Calculate reduce_mean of paths. Workaround for XLA compatibility.
-      option_value = tf.math.divide_no_nan(
-          tf.reduce_sum(tf.nn.relu(paths - strike)), num_not_nan)
-      # ITM option value can't fall below intrinsic value.
-      option_value = tf.maximum(option_value, spot - strike)
-
-      iv = implied_vol(
-          prices=discount_factor * option_value,
-          strikes=strike,
-          expiries=time,
-          spots=spot,
-          discount_factors=discount_factor,
-          dtype=dtype,
-          validate_args=False)
-      return iv
-
+    sim_iv = self.evaluate(
+        tf.function(_get_all_iv)(
+            dim, expiry_times, strikes, spot, paths, iv, iv_start_index,
+            discount_factor_fn, dtype))
+    num_times = expiry_times[0].shape[0]
     for d in range(dim):
-      for i in range(expiry_times[0].shape[0]):
+      for i in range(num_times):
         for j in range(iv_start_index, len(iv[0][0])):
-          sim_iv = self.evaluate(
-              _get_implied_vol(expiry_times[d][i], strikes[d][i][j],
-                               paths[:, i, d], spot[d], dtype))
-          self.assertAllClose(sim_iv[0], iv[d][i][j], atol=0.05, rtol=0.005)
+          self.assertAllClose(sim_iv[d][i][j - iv_start_index],
+                              iv[d][i][j], atol=0.05, rtol=0.005)
 
   @parameterized.named_parameters(
       ('iv', dupire_local_volatility_iv),
@@ -311,7 +289,7 @@ class LocalVolatilityTest(tf.test.TestCase, parameterized.TestCase):
                                        discount_factor_fn,
                                        num_time_steps,
                                        using_market_data,
-                                       use_xla,
+                                       jit_compile,
                                        iv_start_index=0):
     """Tests that the model reproduces implied volatility smile."""
     dtype = tf.float64
@@ -360,7 +338,7 @@ class LocalVolatilityTest(tf.test.TestCase, parameterized.TestCase):
           precompute_iv=precompute_iv,
           dtype=dtype)
 
-    @tf.function(experimental_compile=use_xla)
+    @tf.function(jit_compile=jit_compile)
     def _get_sample_paths():
       return lv.sample_paths(
           # Our test times are the same for each dim.
@@ -371,38 +349,53 @@ class LocalVolatilityTest(tf.test.TestCase, parameterized.TestCase):
           seed=[1, 2])
 
     paths = self.evaluate(_get_sample_paths())
-
-    @tf.function(experimental_compile=use_xla)
-    def _get_implied_vol(time, strike, paths, spot, dtype):
-      discount_factor = discount_factor_fn(time)
-
-      num_not_nan = tf.cast(
-          paths.shape[0] - tf.math.count_nonzero(tf.math.is_nan(paths)),
-          paths.dtype)
-      paths = tf.where(tf.math.is_nan(paths), tf.zeros_like(paths), paths)
-      # Calculate reduce_mean of paths. Workaround for XLA compatibility.
-      option_value = tf.math.divide_no_nan(
-          tf.reduce_sum(tf.nn.relu(paths - strike)), num_not_nan)
-      # ITM option value can't fall below intrinsic value.
-      option_value = tf.maximum(option_value, spot - strike)
-
-      iv = implied_vol(
-          prices=discount_factor * option_value,
-          strikes=strike,
-          expiries=time,
-          spots=spot,
-          discount_factors=discount_factor,
-          dtype=dtype,
-          validate_args=False)
-      return iv
-
+    num_times = expiry_times[0].shape[0]
+    sim_iv = self.evaluate(
+        tf.function(_get_all_iv)(
+            dim, expiry_times, strikes, spot, paths, iv, iv_start_index,
+            discount_factor_fn, dtype))
     for d in range(dim):
-      for i in range(expiry_times[0].shape[0]):
+      for i in range(num_times):
         for j in range(iv_start_index, len(iv[0][0])):
-          sim_iv = self.evaluate(
-              _get_implied_vol(expiry_times[d][i], strikes[d][i][j],
-                               paths[:, i, d], spot[d], dtype))
-          self.assertAllClose(sim_iv[0], iv[d][i][j], atol=0.05, rtol=0.005)
+          self.assertAllClose(sim_iv[d][i][j - iv_start_index],
+                              iv[d][i][j], atol=0.05, rtol=0.005)
+
+
+def _get_all_iv(
+    dim, expiry_times, strikes, spot, paths, iv, iv_start_index,
+    discount_factor_fn, dtype):
+  num_times = expiry_times[0].shape[0]
+  sim_iv = dim * [num_times * [(len(iv[0][0]) - iv_start_index) * [0]]]
+  for d in range(dim):
+    for i in range(num_times):
+      for j in range(iv_start_index, len(iv[0][0])):
+        sim_iv[d][i][j - iv_start_index] = _get_implied_vol(
+            expiry_times[d][i], strikes[d][i][j],
+            paths[:, i, d], spot[d], discount_factor_fn, dtype)[0]
+  return sim_iv
+
+
+def _get_implied_vol(time, strike, paths, spot, discount_factor_fn, dtype):
+  discount_factor = discount_factor_fn(time)
+  num_not_nan = tf.cast(
+      paths.shape[0] - tf.math.count_nonzero(tf.math.is_nan(paths)),
+      paths.dtype)
+  paths = tf.where(tf.math.is_nan(paths), tf.zeros_like(paths), paths)
+  # Calculate reduce_mean of paths. Workaround for XLA compatibility.
+  option_value = tf.math.divide_no_nan(
+      tf.reduce_sum(tf.nn.relu(paths - strike)), num_not_nan)
+  # ITM option value can't fall below intrinsic value.
+  option_value = tf.maximum(option_value, spot - strike)
+
+  iv = implied_vol(
+      prices=discount_factor * option_value,
+      strikes=strike,
+      expiries=time,
+      spots=spot,
+      discount_factors=discount_factor,
+      dtype=dtype,
+      validate_args=False)
+  return iv
 
 if __name__ == '__main__':
   tf.test.main()
