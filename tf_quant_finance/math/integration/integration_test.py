@@ -28,6 +28,7 @@ IntegrationTestCase = collections.namedtuple('IntegrationTestCase', [
     'lower',
     'upper',
     'antiderivative',
+    'expected_gauss_n32_result'
 ])
 
 # pylint:disable=g-long-lambda
@@ -37,12 +38,15 @@ BASIC_TEST_CASES = [
         lower=1.0,
         upper=3.0,
         antiderivative=lambda x: np.exp(2 * x + 1) / 2,
+        # calculated using scipy
+        expected_gauss_n32_result=538.2738107526367,
     ),
     IntegrationTestCase(
         func=lambda x: x**5,
         lower=-10.0,
         upper=100.0,
         antiderivative=lambda x: x**6 / 6,
+        expected_gauss_n32_result=166666500000.0006,
     ),
     IntegrationTestCase(
         func=lambda x: (x**3 + x**2 - 4 * x + 1) / (x**2 + 1)**2,
@@ -53,6 +57,7 @@ BASIC_TEST_CASES = [
             0.5 * np.log(x**2 + 1),
             np.arctan(x),
         ]),
+        expected_gauss_n32_result=1.303440407930151,
     ),
     IntegrationTestCase(
         func=lambda x: (tf.sinh(2 * x) + 3 * tf.sinh(x)) /
@@ -63,6 +68,7 @@ BASIC_TEST_CASES = [
             np.log(np.cosh(x)**2 + np.cosh(x) + 1),
             (4 / np.sqrt(3)) * np.arctan((1 + 2 * np.cosh(x)) / np.sqrt(3.0)),
         ]),
+        expected_gauss_n32_result=4.102650634197022,
     ),
     IntegrationTestCase(
         func=lambda x: tf.exp(2 * x) * tf.math.sqrt(tf.exp(x) + tf.exp(2 * x)),
@@ -73,12 +79,14 @@ BASIC_TEST_CASES = [
             -(1 + 2 * np.exp(x)) * np.sqrt(np.exp(x) + np.exp(2 * x)) / 8,
             np.log(np.sqrt(1 + np.exp(x)) + np.exp(0.5 * x)) / 8,
         ]),
+        expected_gauss_n32_result=54842.93035676345,
     ),
     IntegrationTestCase(
         func=lambda x: tf.exp(-x**2),
         lower=0.0,
         upper=1.0,
         antiderivative=lambda x: 0.5 * np.sqrt(np.pi) * math.erf(x),
+        expected_gauss_n32_result=0.746824132812427,
     ),
 ]
 
@@ -87,6 +95,7 @@ TEST_CASE_RAPID_CHANGE = IntegrationTestCase(
     lower=0.0,
     upper=1.0,
     antiderivative=lambda x: 2.0 * np.sqrt(x + 1e-6),
+    expected_gauss_n32_result=1.9731597165275736,
 )
 
 
@@ -125,6 +134,15 @@ class IntegrationTest(tf.test.TestCase):
     approx = self.evaluate(approx)
     assert np.abs(approx - exact) <= np.abs(exact) * max_rel_error
 
+  def _test_against_scipy_results(self, integrate_function, args, test_case,
+                                  scipy_exact, max_rel_error):
+    func = test_case.func
+    lower = tf.constant(test_case.lower, dtype=tf.float64)
+    upper = tf.constant(test_case.upper, dtype=tf.float64)
+    approx = integrate_function(func, lower, upper, **args)
+    approx = self.evaluate(approx)
+    assert np.abs(approx - scipy_exact) <= np.abs(scipy_exact) * max_rel_error
+
   def _test_gradient(self, integrate_function, args):
     """Checks that integration result can be differentiated."""
 
@@ -151,6 +169,14 @@ class IntegrationTest(tf.test.TestCase):
       for method in tff_int.IntegrationMethod:
         self._test_accuracy(tff_int.integrate, {'method': method}, test_case,
                             1e-8)
+
+  def test_gauss_accuracy_compared_to_scipy_results(self):
+    for test_case in BASIC_TEST_CASES:
+      with self.subTest('gauss'):
+        self._test_against_scipy_results(
+            tff_int.integrate,
+            {'method': tff_int.IntegrationMethod.GAUSS_LEGENDRE}, test_case,
+            test_case.expected_gauss_n32_result, 1e-14)
 
   def test_integrate_gradient(self):
     for method in tff_int.IntegrationMethod:

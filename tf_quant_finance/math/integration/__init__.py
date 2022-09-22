@@ -14,7 +14,7 @@
 
 """Numerical integration methods."""
 
-
+from tf_quant_finance.math.integration.gauss_legendre import gauss_legendre
 from tf_quant_finance.math.integration.integrate import integrate
 from tf_quant_finance.math.integration.integrate import IntegrationMethod
 from tf_quant_finance.math.integration.simpson import simpson
@@ -23,6 +23,7 @@ from tensorflow.python.util.all_util import remove_undocumented  # pylint: disab
 _allowed_symbols = [
     'integrate',
     'simpson',
+    'gauss_legendre',
     'IntegrationMethod',
 ]
 

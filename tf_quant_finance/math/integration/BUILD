@@ -10,6 +10,8 @@ py_library(
         "__init__.py",
     ],
     deps = [
+        ":gauss_constants",
+        ":gauss_legendre",
         ":integrate",
         ":simpson",
     ],
@@ -21,6 +23,8 @@ py_library(
         "integrate.py",
     ],
     deps = [
+        ":gauss_constants",
+        ":gauss_legendre",
         ":simpson",
         # tensorflow dep,
     ],
@@ -30,6 +34,27 @@ py_library(
     name = "simpson",
     srcs = [
         "simpson.py",
+    ],
+    deps = [
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "gauss_legendre",
+    srcs = [
+        "gauss_legendre.py",
+    ],
+    deps = [
+        ":gauss_constants",
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "gauss_constants",
+    srcs = [
+        "gauss_constants.py",
     ],
     deps = [
         # tensorflow dep,
