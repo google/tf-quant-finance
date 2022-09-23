@@ -6,26 +6,26 @@ For open-source contributions the docs will be updated automatically.
 *Last updated: 2022-09-23.*
 
 <div itemscope itemtype="http://developers.google.com/ReferenceObject">
-<meta itemprop="name" content="tf_quant_finance.math.integration.simpson" />
+<meta itemprop="name" content="tf_quant_finance.math.integration.gauss_legendre" />
 <meta itemprop="path" content="Stable" />
 </div>
 
-# tf_quant_finance.math.integration.simpson
+# tf_quant_finance.math.integration.gauss_legendre
 
 <!-- Insert buttons and diff -->
 
 <table class="tfo-notebook-buttons tfo-api" align="left">
 </table>
 
-<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/integration/simpson.py">View source</a>
+<a target="_blank" href="https://github.com/google/tf-quant-finance/blob/master/tf_quant_finance/math/integration/gauss_legendre.py">View source</a>
 
 
 
-Evaluates definite integral using composite Simpson's 1/3 rule.
+Evaluates definite integral using Gauss-Legendre quadrature.
 
 ```python
-tf_quant_finance.math.integration.simpson(
-    func, lower, upper, num_points=1001, dtype=None, name=None
+tf_quant_finance.math.integration.gauss_legendre(
+    func, lower, upper, num_points=32, dtype=None, name=None
 )
 ```
 
@@ -33,22 +33,23 @@ tf_quant_finance.math.integration.simpson(
 
 <!-- Placeholder for "Used in" -->
 
-Integrates `func` using composite Simpson's 1/3 rule [1].
+Integrates `func` using Gauss-Legendre quadrature [1].
 
-Evaluates function at points of evenly spaced grid of `num_points` points,
-then uses obtained values to interpolate `func` with quadratic polynomials
-and integrates these polynomials.
+Applies change of variables to the function to obtain the [-1,1] integration
+interval.
+Takes the sum of values obtained from evaluating the new function at points
+given by the roots of the Legendre polynomial of degree `num_points`,
+multiplied with corresponding precalculated coefficients.
 
 #### References
-[1] Weisstein, Eric W. "Simpson's Rule." From MathWorld - A Wolfram Web
-    Resource. http://mathworld.wolfram.com/SimpsonsRule.html
+[1] https://en.wikipedia.org/wiki/Gauss%E2%80%93Legendre_quadrature
 
 #### Example
 ```python
   f = lambda x: x*x
   a = tf.constant(0.0)
   b = tf.constant(3.0)
-  simpson(f, a, b, num_points=1001) # 9.0
+  gauss_legendre(f, a, b, num_points=15) # 9.0
 ```
 
 #### Args:
@@ -63,13 +64,14 @@ and integrates these polynomials.
   between each pair of points defined by `lower` and `upper`.
 * <b>`upper`</b>: Same shape and dtype as `lower` representing the upper limits of
   intergation.
-* <b>`num_points`</b>: Number of points at which function `func` will be evaluated.
-  Must be odd and at least 3. Default value: 1001.
+* <b>`num_points`</b>: Number of points at which the function `func` will be evaluated.
+  Implemented for 2-15,20,32.
+  Default value: 32.
 * <b>`dtype`</b>: If supplied, the dtype for the `lower` and `upper`. Result will have
   the same dtype.
   Default value: None which maps to dtype of `lower`.
 * <b>`name`</b>: The name to give to the ops created by this function.
-  Default value: None which maps to 'integrate_simpson_composite'.
+  Default value: None which maps to 'integrate_gauss_legendre'.
 
 
 #### Returns:
