@@ -17,16 +17,18 @@ from typing import Tuple
 
 import numpy as np
 import tensorflow.compat.v2 as tf
+
 from tf_quant_finance import types
 from tf_quant_finance.black_scholes import vanilla_prices
 from tf_quant_finance.math import gradient
+from tf_quant_finance.math import integration
 from tf_quant_finance.math.root_search import newton as root_finder_newton
+
 
 __all__ = [
     'adesi_whaley',
     'bjerksund_stensland',
 ]
-
 
 _SQRT_2_PI = np.sqrt(2 * np.pi, dtype=np.float64)
 _SQRT_2 = np.sqrt(2., dtype=np.float64)
@@ -726,21 +728,6 @@ def _cbnd(dh, dk, rho):
 
   dtype = rho.dtype
 
-  # Gauss Legendre Points and Weights
-  # Unlike in the reference paper, always uses 10 points regardless of value of
-  # rho, for efficiency reasons on the GPU.
-  w = tf.constant(
-      [0.01761400713915212, 0.04060142980038694, 0.06267204833410906,
-       0.08327674157670475, 0.1019301198172404, 0.1181945319615184,
-       0.1316886384491766, 0.1420961093183821, 0.1491729864726037,
-       0.1527533871307259], dtype=dtype)
-
-  x = tf.constant(
-      [-0.9931285991850949, -0.9639719272779138, -0.9122344282513259,
-       -0.8391169718222188, -0.7463319064601508, -0.6360536807265150,
-       -0.5108670019508271, -0.3737060887154196, -0.2277858511416451,
-       -0.07652652113349733], dtype=dtype)
-
   h = tf.cast(-dh, dtype=dtype)
   k = tf.cast(-dk, dtype=dtype)
   hk = h * k
@@ -753,21 +740,30 @@ def _cbnd(dh, dk, rho):
   hs = (h * h + k * k) / 2
   asr = tf.math.asin(rho)
 
-  def transformed_bvn(hk, hs, asr, x, w):
-    for _ in range(hk.shape.rank):
-      # Shape x.shape + bvn.shape.rank * [1]
-      x = tf.expand_dims(x, axis=-1)
-      w = tf.expand_dims(w, axis=-1)
-    # Shape x.shape + bvn.shape
-    sn1 = tf.math.sin(asr * (-1 * x + 1) / 2)
-    sn2 = tf.math.sin(asr * (1 * x + 1) / 2)
-    # Shape x.shape + bvn.shape
-    res = (w * tf.math.exp((sn1 * hk - hs) / (1 - sn1 * sn1))
-           + w * tf.math.exp((sn2 * hk - hs) / (1 - sn2 * sn2)))
+  # Uses Gauss-Legendre quadrature to estimate the integral.
+  # Unlike in the reference paper, always uses 20 points regardless of value
+  # of rho, for efficiency reasons on the GPU.
+  def transformed_bvn(hk, hs, asr):
+    def transformed_bvn_distribution(x):
+      # Shape bvn.shape + [1]
+      hk_exp = tf.expand_dims(hk, axis=-1)
+      hs_exp = tf.expand_dims(hs, axis=-1)
+      asr_exp = tf.expand_dims(asr, axis=-1)
+      # Shape bvn.shape + x.shape
+      sn1 = tf.math.sin(asr_exp * (1 * x + 1) / 2)
+      return tf.math.exp((hk_exp * sn1 - hs_exp)/(1 - sn1 * sn1))
     # bvn.shape
-    return tf.reduce_sum(res, axis=0)
+    ones = tf.ones_like(hk)
+    res = integration.gauss_legendre(
+        func=transformed_bvn_distribution,
+        lower=-ones,
+        upper=ones,
+        num_points=20,
+        dtype=dtype)
+    # bvn.shape
+    return res
 
-  bvn = bvn + transformed_bvn(hk, hs, asr, x, w)
+  bvn = bvn + transformed_bvn(hk, hs, asr)
   bvn = bvn * asr / (4 * np.pi)
   bvn = bvn + _ncdf(-h) * _ncdf(-k)
 
