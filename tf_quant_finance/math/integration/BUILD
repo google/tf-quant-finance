@@ -10,7 +10,9 @@ py_library(
         "__init__.py",
     ],
     deps = [
+        ":adaptive_update",
         ":gauss_constants",
+        ":gauss_kronrod",
         ":gauss_legendre",
         ":integrate",
         ":simpson",
@@ -47,6 +49,28 @@ py_library(
     ],
     deps = [
         ":gauss_constants",
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "gauss_kronrod",
+    srcs = [
+        "gauss_kronrod.py",
+    ],
+    deps = [
+        ":adaptive_update",
+        ":gauss_constants",
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "adaptive_update",
+    srcs = [
+        "adaptive_update.py",
+    ],
+    deps = [
         # tensorflow dep,
     ],
 )

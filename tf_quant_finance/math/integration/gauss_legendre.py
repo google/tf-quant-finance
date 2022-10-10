@@ -50,21 +50,21 @@ def gauss_legendre(func: Callable[[types.FloatTensor], types.FloatTensor],
       the same dtype.
       Default value: None which maps to dtype of `lower`.
     name: The name to give to the ops created by this function.
-      Default value: None which maps to 'integrate_gauss_legendre'.
+      Default value: None which maps to 'gauss_legendre'.
 
   Returns:
     `Tensor` of shape `func_batch_shape + limits_batch_shape`, containing
       value of the definite integral.
 
   """
-  with tf.name_scope(name=name or 'integrate_gauss_legendre'):
+  with tf.name_scope(name=name or 'gauss_legendre'):
     lower = tf.convert_to_tensor(lower, dtype=dtype, name='lower')
     dtype = lower.dtype
     upper = tf.convert_to_tensor(upper, dtype=dtype, name='upper')
-    roots = gauss_constants.roots.get(num_points, None)
+    roots = gauss_constants.legendre_roots.get(num_points, None)
     if roots is None:
       raise ValueError(f'Unsupported value for `num_points`: {num_points}')
-    coefficients = gauss_constants.coefficients
+    coefficients = gauss_constants.legendre_weights
     lower = tf.expand_dims(lower, -1)
     upper = tf.expand_dims(upper, -1)
     roots = tf.constant(roots, dtype=dtype)

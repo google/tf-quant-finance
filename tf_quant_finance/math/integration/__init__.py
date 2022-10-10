@@ -14,6 +14,7 @@
 
 """Numerical integration methods."""
 
+from tf_quant_finance.math.integration.gauss_kronrod import gauss_kronrod
 from tf_quant_finance.math.integration.gauss_legendre import gauss_legendre
 from tf_quant_finance.math.integration.integrate import integrate
 from tf_quant_finance.math.integration.integrate import IntegrationMethod
@@ -24,6 +25,7 @@ _allowed_symbols = [
     'integrate',
     'simpson',
     'gauss_legendre',
+    'gauss_kronrod',
     'IntegrationMethod',
 ]
 
