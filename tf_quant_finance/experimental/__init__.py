@@ -13,6 +13,7 @@
 # limitations under the License.
 """Experimental modules."""
 
+from tf_quant_finance.experimental import american_option_pricing
 from tf_quant_finance.experimental import instruments
 from tf_quant_finance.experimental import local_stochastic_volatility
 from tf_quant_finance.experimental import local_volatility
@@ -23,6 +24,7 @@ import tf_quant_finance.experimental.io
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
+    "american_option_pricing",
     "instruments",
     "io",
     "lsm_algorithm",
