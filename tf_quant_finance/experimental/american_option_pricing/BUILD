@@ -17,6 +17,9 @@ py_library(
     srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/math/integration",
+        "//tf_quant_finance/math/interpolation/cubic",
+        "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
         # numpy dep,
         # tensorflow dep,
     ],
