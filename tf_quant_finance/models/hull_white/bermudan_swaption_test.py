@@ -93,7 +93,7 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
           'dtype': tf.float64,
           'use_fd': True,
           'expected': 1.8768335461527803,
-          'tol': 2e-3,
+          'tol': 1e-1,
       },
       )
   def test_correctness(self, dtype, use_fd, expected, tol):
@@ -140,7 +140,7 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
           'dtype': tf.float64,
           'use_fd': True,
           'expected': [1.8768335461527803, 1.6453487040433517],
-          'tol': 2e-3,
+          'tol': 1e-1,
       },
       )
   def test_correctness_batch(self, dtype, use_fd, expected, tol):
