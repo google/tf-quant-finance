@@ -85,14 +85,14 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'float64_lsm',
           'dtype': tf.float64,
           'use_fd': False,
-          'expected': 1.88919845,
+          'expected': 1.8892,
           'tol': 1e-2,
       },
       {
           'testcase_name': 'float64_fd',
           'dtype': tf.float64,
           'use_fd': True,
-          'expected': 1.8768335461527803,
+          'expected': 1.8892,
           'tol': 1e-1,
       },
       )
@@ -132,14 +132,14 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
           'testcase_name': 'float64_lsm',
           'dtype': tf.float64,
           'use_fd': False,
-          'expected': [1.88919845, 1.66328599],
+          'expected': [1.8892, 1.6633],
           'tol': 5e-3,
       },
       {
           'testcase_name': 'float64_fd',
           'dtype': tf.float64,
           'use_fd': True,
-          'expected': [1.8768335461527803, 1.6453487040433517],
+          'expected': [1.8892, 1.6633],
           'tol': 1e-1,
       },
       )
