@@ -266,7 +266,7 @@ def _mvnormal_pseudo(sample_shape,
       raise ValueError('`seed` should be specified if the `random_type` is '
                        '`STATELESS` or `STATELESS_ANTITHETIC`')
     samples = tf.random.stateless_normal(
-        shape=output_shape, dtype=dtype, seed=seed)
+        shape=output_shape, dtype=dtype, seed=seed, alg='philox')
   if scale_matrix is None:
     return mean + samples
   else:

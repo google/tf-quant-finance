@@ -16,6 +16,7 @@
 
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import utils as tff_utils
 from tf_quant_finance.math import piecewise as pw
 from tf_quant_finance.math.pde import fd_solvers
 from tf_quant_finance.models import ito_process
@@ -225,7 +226,7 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
           dtype=self._dtype,
           name='initial_state')
 
-      num_requested_times = times.shape[-1]
+      num_requested_times = tff_utils.get_shape(times)[-1]
       return self._sample_paths(
           times=times,
           num_requested_times=num_requested_times,

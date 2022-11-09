@@ -30,6 +30,7 @@ py_library(
         "//tf_quant_finance/math/pde",
         "//tf_quant_finance/models:ito_process",
         "//tf_quant_finance/models:utils",
+        "//tf_quant_finance/utils",
         # tensorflow dep,
     ],
 )
@@ -41,6 +42,7 @@ py_library(
         "//tf_quant_finance/math/pde",
         "//tf_quant_finance/models:ito_process",
         "//tf_quant_finance/models:utils",
+        "//tf_quant_finance/utils",
         # tensorflow dep,
     ],
 )

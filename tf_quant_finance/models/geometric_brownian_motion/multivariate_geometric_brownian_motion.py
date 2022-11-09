@@ -16,6 +16,7 @@
 
 import tensorflow.compat.v2 as tf
 
+from tf_quant_finance import utils as tff_utils
 from tf_quant_finance.math.pde import fd_solvers
 from tf_quant_finance.models import ito_process
 from tf_quant_finance.models import utils
@@ -217,7 +218,7 @@ class MultivariateGeometricBrownianMotion(ito_process.ItoProcess):
             + tf.zeros([num_samples, 1], dtype=self._dtype))
       # Shape [num_samples, 1, dim]
       initial_state = tf.expand_dims(initial_state, axis=1)
-      num_requested_times = times.shape[0]
+      num_requested_times = tff_utils.get_shape(times)[0]
       return self._sample_paths(
           times=times, num_requested_times=num_requested_times,
           initial_state=initial_state,
@@ -246,8 +247,8 @@ class MultivariateGeometricBrownianMotion(ito_process.ItoProcess):
     else:
       # Shape [num_time_points, num_samples, dim]
       normal_draws = tf.transpose(normal_draws, [1, 0, 2])
-      num_samples = tf.shape(normal_draws)[1]
-      draws_dim = normal_draws.shape[2]
+      num_samples = tff_utils.get_shape(normal_draws)[1]
+      draws_dim = tff_utils.get_shape(normal_draws)[2]
       if self._dim != draws_dim:
         raise ValueError(
             "`dim` should be equal to `normal_draws.shape[2]` but are "
@@ -653,7 +654,7 @@ def _backward_pde_coeffs(drift_fn, volatility_fn, discounting):
 
     # We currently have [dim, dim] as innermost dimensions, but the returned
     # tensor must have [dim, dim] as outermost dimensions.
-    rank = len(sigma.shape.as_list())
+    rank = sigma.shape.rank
     perm = [rank - 2, rank - 1] + list(range(rank - 2))
     sigma_times_sigma_t = tf.transpose(sigma_times_sigma_t, perm)
     return sigma_times_sigma_t / 2
@@ -663,7 +664,7 @@ def _backward_pde_coeffs(drift_fn, volatility_fn, discounting):
 
     # We currently have [dim] as innermost dimension, but the returned
     # tensor must have [dim] as outermost dimension.
-    rank = len(mu.shape.as_list())
+    rank = mu.shape.rank
     perm = [rank - 1] + list(range(rank - 1))
     mu = tf.transpose(mu, perm)
     return mu

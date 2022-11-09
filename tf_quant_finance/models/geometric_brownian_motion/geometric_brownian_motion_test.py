@@ -873,25 +873,82 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
                      * np.array([0.1, 0.5, 1.0]) + np.log(2.))
     self.assertAllClose(tf.squeeze(mean), expected_mean, atol=1e-2, rtol=1e-2)
 
-  def test_multiivariate_xla_compatible(self):
-    """Tests that multiivariate GBM sampling is XLA-compatible."""
+  def test_multivariate_xla_compatible(self):
+    """Tests that multivariate GBM sampling is XLA-compatible."""
     corr_matrix = [[1, 0.1], [0.1, 1]]
     process = tff.models.MultivariateGeometricBrownianMotion(
         dim=2, means=0.05, volatilities=[0.1, 0.2], corr_matrix=corr_matrix,
         dtype=tf.float64)
     times = [0.1, 0.5, 1.0]
     initial_state = [1.0, 2.0]
-    @tf.function
+    @tf.function(jit_compile=True)
     def sample_fn():
       return process.sample_paths(
           times=times, initial_state=initial_state, num_samples=10000)
-    samples = tf.xla.experimental.compile(sample_fn)[0]
+    samples = sample_fn()
     log_s = tf.math.log(samples)
     mean = tf.reduce_mean(log_s, axis=0)
     expected_mean = ((process._means - process._vols**2 / 2)
                      * np.array(np.expand_dims(times, -1))
                      + np.log(initial_state))
     self.assertAllClose(mean, expected_mean, atol=1e-2, rtol=1e-2)
+
+  def test_multivariate_dynamic_inputs(self):
+    """Tests that GBM sampling can accept dynamically shaped inputs."""
+    corr_matrix = [[1, 0.1], [0.1, 1]]
+    times = [0.1, 0.5, 1.0]
+    initial_state = [1.0, 2.0]
+    @tf.function(input_signature=[
+        tf.TensorSpec([None], dtype=tf.float64, name='initial_state'),
+        tf.TensorSpec([None], dtype=tf.float64, name='means'),
+        tf.TensorSpec([None], dtype=tf.float64, name='volatilities'),
+        tf.TensorSpec([2, 2], dtype=tf.float64, name='corr_matrix'),
+        tf.TensorSpec([None], dtype=tf.float64, name='times'),
+    ])
+    def sample_fn(initial_state, means, volatilities, corr_matrix, times):
+      process = tff.models.MultivariateGeometricBrownianMotion(
+          dim=2, means=means, volatilities=volatilities,
+          corr_matrix=corr_matrix, dtype=tf.float64)
+      return process.sample_paths(
+          times=times, initial_state=initial_state, num_samples=10000)
+    means = np.array([0.05], dtype=np.float64)
+    volatilities = np.array([0.1, 0.2], dtype=np.float64)
+    samples = sample_fn(initial_state=initial_state,
+                        means=means, volatilities=volatilities,
+                        corr_matrix=corr_matrix, times=times)
+    log_s = tf.math.log(samples)
+    expected_means = ((means - volatilities**2 / 2)
+                      * np.array(np.expand_dims(times, -1))
+                      + np.log(initial_state))
+    actual_means = tf.reduce_mean(log_s, axis=0)
+    self.assertAllClose(actual_means, expected_means, atol=1e-2, rtol=1e-2)
+
+  def test_univariate_dynamic_inputs(self):
+    """Tests that GBM sampling can accept dynamically shaped inputs."""
+    times = [0.1, 0.5, 1.0]
+    initial_state = [[1.0], [2.0]]
+    @tf.function(input_signature=[
+        tf.TensorSpec([None, None], dtype=tf.float64, name='initial_state'),
+        tf.TensorSpec([None, 1], dtype=tf.float64, name='mean'),
+        tf.TensorSpec([None, 1], dtype=tf.float64, name='volatility'),
+        tf.TensorSpec([None], dtype=tf.float64, name='times'),
+    ])
+    def sample_fn(initial_state, mean, volatility, times):
+      process = tff.models.GeometricBrownianMotion(
+          mean=mean, volatility=volatility, dtype=tf.float64)
+      return process.sample_paths(
+          times=times, initial_state=initial_state, num_samples=10000)
+    mean = np.array([[0.05], [0.1]], dtype=np.float64)
+    volatility = np.array([[0.1]], dtype=np.float64)
+    samples = sample_fn(initial_state=initial_state,
+                        mean=mean, volatility=volatility, times=times)
+    log_s = tf.math.log(samples)
+    expected_mean = ((mean - volatility**2 / 2)
+                     * np.array(np.expand_dims(times, 0))
+                     + np.log(initial_state))
+    actual_mean = tf.reduce_mean(log_s, axis=1)
+    self.assertAllClose(actual_mean, expected_mean[..., np.newaxis],
+                        atol=1e-2, rtol=1e-2)
 
   def test_normal_draws_shape_mismatch_2d(self):
     """Error is raised if `dim` is mismatched with the one from normal_draws."""
