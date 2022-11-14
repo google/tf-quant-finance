@@ -94,7 +94,7 @@ BASIC_TEST_CASES = [
         lower=0.0,
         upper=1.0,
         tolerance=1e-5,
-        antiderivative=lambda x: 0.5 * np.sqrt(np.pi) * math.erf(x),
+        antiderivative=lambda x: 0.5 * np.sqrt(np.pi) * np.array([math.erf(x)]),
         expected_gauss_n32_result=0.746824132812427,
     ),
 ]
@@ -110,8 +110,7 @@ TEST_CASE_RAPID_CHANGE = IntegrationTestCase(
 
 TEST_CASE_MULTIPLE_INTERVALS = [
     IntegrationTestCase(
-        func=lambda x: tf.convert_to_tensor(
-            [1.0 / tf.sqrt(y + 1e-6) for y in x]),
+        func=lambda x: 1.0 / tf.sqrt(x + 1e-6),
         lower=[0.0, 2.5],
         upper=[1.0, 4.0],
         tolerance=1e-8,
@@ -124,41 +123,37 @@ ADAPTIVE_UPDATE_TEST_CASES = [
     AdaptiveUpdateTestCase(
         lower=[[1.0, 2.0], [3.5, 4.0]],
         upper=[[2.0, 3.0], [4.0, 4.5]],
-        estimate=tf.constant([[1.0, 2.0], [3.0, 4.0]], dtype=tf.float64),
-        error=tf.constant([[0.02, 0.04], [0.1, 0.8]], dtype=tf.float64),
+        estimate=[[1.0, 2.0], [3.0, 4.0]],
+        error=[[0.02, 0.04], [0.1, 0.8]],
         tolerance=0.1,
-        new_lower=tf.constant([[1.0, 1.5], [4.0, 4.25]], dtype=tf.float64),
-        new_upper=tf.constant([[1.5, 2.0], [4.25, 4.5]], dtype=tf.float64),
-        sum_goods=tf.constant([2.0, 3.0], dtype=tf.float64),
+        new_lower=[[1.0, 1.5], [4.0, 4.25]],
+        new_upper=[[1.5, 2.0], [4.25, 4.5]],
+        sum_goods=[2.0, 3.0],
     ),
     AdaptiveUpdateTestCase(
         lower=[[1.0, 2.0, 4.0, 5.0], [3.5, 4.0, 7.5, 8.0]],
         upper=[[2.0, 3.0, 5.0, 6.0], [4.0, 4.5, 8.0, 8.5]],
-        estimate=tf.constant([[1.0, 2.0, 3.0, 2.0], [3.0, 4.0, 1.5, 0.5]],
-                             dtype=tf.float64),
-        error=tf.constant(
-            [[0.002, 0.003, 0.01, 0.001], [0.01, 0.008, 0.004, 0.001]],
-            dtype=tf.float64),
+        estimate=[[1.0, 2.0, 3.0, 2.0], [3.0, 4.0, 1.5, 0.5]],
+        error=[[0.002, 0.003, 0.01, 0.001], [0.01, 0.008, 0.004, 0.001]],
         tolerance=0.005,
-        new_lower=tf.constant([[], []], dtype=tf.float64),
-        new_upper=tf.constant([[], []], dtype=tf.float64),
-        sum_goods=tf.constant([8.0, 9.0], dtype=tf.float64),
+        new_lower=[[], []],
+        new_upper=[[], []],
+        sum_goods=[8.0, 9.0],
     ),
     AdaptiveUpdateTestCase(
         lower=[[4.0, 5.0], [7.5, 8.0]],
         upper=[[5.0, 6.0], [8.0, 8.5]],
-        estimate=tf.constant([[3.0, 2.0], [1.5, 0.5]], dtype=tf.float64),
-        error=tf.constant([[0.01, 0.001], [0.004, 0.001]], dtype=tf.float64),
+        estimate=[[3.0, 2.0], [1.5, 0.5]],
+        error=[[0.01, 0.001], [0.004, 0.001]],
         tolerance=1e-4,
-        new_lower=tf.constant([[4.0, 5.0, 4.5, 5.5], [7.5, 8.0, 7.75, 8.25]],
-                              dtype=tf.float64),
-        new_upper=tf.constant([[4.5, 5.5, 5.0, 6.0], [7.75, 8.25, 8.0, 8.5]],
-                              dtype=tf.float64),
-        sum_goods=tf.constant([0.0, 0.0], dtype=tf.float64),
+        new_lower=[[4.0, 5.0, 4.5, 5.5], [7.5, 8.0, 7.75, 8.25]],
+        new_upper=[[4.5, 5.5, 5.0, 6.0], [7.75, 8.25, 8.0, 8.5]],
+        sum_goods=[0.0, 0.0],
     ),
 ]
 
 
+@test_util.run_all_in_graph_and_eager_modes
 class IntegrationTest(tf.test.TestCase):
 
   def _test_batches_and_types(self, integrate_function, args):
@@ -208,12 +203,10 @@ class IntegrationTest(tf.test.TestCase):
     func = test_case.func
     lower = tf.constant(test_case.lower, dtype=tf.float64)
     upper = tf.constant(test_case.upper, dtype=tf.float64)
-    if tf.rank(lower) == 0:
-      lower = tf.expand_dims(lower, -1)
-      upper = tf.expand_dims(upper, -1)
     tolerance = test_case.tolerance
-    exact = np.array(test_case.antiderivative(test_case.upper)) - np.array(
-        test_case.antiderivative(test_case.lower))
+    exact = np.array(test_case.antiderivative(np.array(
+        test_case.upper))) - np.array(
+            test_case.antiderivative(np.array(test_case.lower)))
     approx = integrate_function(func, lower, upper, tolerance, **args)
     approx = np.array(self.evaluate(approx))
     assert np.all(np.abs(approx - exact) <= np.abs(exact) * max_rel_error)
@@ -221,12 +214,12 @@ class IntegrationTest(tf.test.TestCase):
   def _test_adaptive_update(self, update_function, args, test_case):
     lower = tf.constant(test_case.lower, dtype=tf.float64)
     upper = tf.constant(test_case.upper, dtype=tf.float64)
-    estimate = test_case.estimate
-    error = test_case.error
+    estimate = tf.constant(test_case.estimate, dtype=tf.float64)
+    error = tf.constant(test_case.error, dtype=tf.float64)
     tolerance = test_case.tolerance
-    expected_new_lower = test_case.new_lower
-    expected_new_upper = test_case.new_upper
-    expected_sum_goods = test_case.sum_goods
+    expected_new_lower = tf.constant(test_case.new_lower, dtype=tf.float64)
+    expected_new_upper = tf.constant(test_case.new_upper, dtype=tf.float64)
+    expected_sum_goods = tf.constant(test_case.sum_goods, dtype=tf.float64)
     calc = update_function(lower, upper, estimate, error, tolerance, **args)
     actual_new_lower, actual_new_upper, actual_sum_goods = self.evaluate(calc)
     self.assertAllClose(expected_new_lower, actual_new_lower)
@@ -274,6 +267,14 @@ class IntegrationTest(tf.test.TestCase):
 
   def test_kronrod_accuracy(self):
     for test_case in BASIC_TEST_CASES:
+      # G-K requires a batch dimension
+      test_case = IntegrationTestCase(
+          func=test_case.func,
+          lower=[test_case.lower],
+          upper=[test_case.upper],
+          tolerance=test_case.tolerance,
+          antiderivative=test_case.antiderivative,
+          expected_gauss_n32_result=test_case.expected_gauss_n32_result)
       self._test_kronrod_accuracy(tff_int.gauss_kronrod, {}, test_case, 1e-8)
 
   def test_kronrod_accuracy_multiple_intervals(self):

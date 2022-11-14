@@ -3,6 +3,7 @@ from typing import Callable, Optional
 import tensorflow.compat.v2 as tf
 
 from tf_quant_finance import types
+from tf_quant_finance import utils
 from tf_quant_finance.math.integration import adaptive_update
 from tf_quant_finance.math.integration import gauss_constants
 
@@ -31,10 +32,10 @@ def _non_adaptive_gauss_kronrod(
   #### Example
   ```python
     f = lambda x: x*x
-    a = tf.constant(0.0)s
-    b = tf.constant(3.0)
+    a = tf.constant([0.0])
+    b = tf.constant([3.0])
     num_points = 21
-    _non_adaptive_gauss_kronrod(f, a, b, num_points) # 9.0
+    _non_adaptive_gauss_kronrod(f, a, b, num_points) # [9.0]
   ```
 
   Args:
@@ -122,12 +123,12 @@ def gauss_kronrod(func: Callable[[types.FloatTensor], types.FloatTensor],
   #### Example
   ```python
     f = lambda x: x*x
-    a = tf.constant(0.0)
-    b = tf.constant(3.0)
+    a = tf.constant([0.0])
+    b = tf.constant([3.0])
     tol = 1e-5
     num_points = 21
     max_depth = 10
-    gauss_kronrod(f, a, b, tol, num_points, max_depth) # 9.0
+    gauss_kronrod(f, a, b, tol, num_points, max_depth) # [9.0]
   ```
 
   Args:
@@ -199,7 +200,15 @@ def gauss_kronrod(func: Callable[[types.FloatTensor], types.FloatTensor],
     lower = tf.expand_dims(lower, -1)
     upper = tf.expand_dims(upper, -1)
     loop_vars = (lower, upper, sum_estimates)
+    # Ensure that the lower and upper have the same batch shape
+    lower, upper = utils.broadcast_tensors(lower, upper)
+    # Extract the batch shape
+    batch_shape = lower.shape[:-1]
     _, _, estimate_result = tf.while_loop(
-        cond=cond, body=body, loop_vars=loop_vars, maximum_iterations=max_depth)
+        cond=cond, body=body, loop_vars=loop_vars,
+        maximum_iterations=max_depth,
+        shape_invariants=(tf.TensorShape(batch_shape + [None]),
+                          tf.TensorShape(batch_shape + [None]),
+                          tf.TensorShape(batch_shape)))
     # Shape [batch_dim]
     return estimate_result
