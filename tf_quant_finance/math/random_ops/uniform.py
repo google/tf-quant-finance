@@ -99,7 +99,7 @@ def uniform(
         raise ValueError('`seed` must be supplied if the `random_type` is '
                          'STATELESS.')
       return tf.random.stateless_uniform(
-          shape=sample_shape + [dim], dtype=dtype, seed=seed)
+          shape=sample_shape + [dim], dtype=dtype, seed=seed, alg='philox')
     # TODO(b/145104222): Add anthithetic sampling for the uniform distribution.
     elif random_type == RandomType.PSEUDO_ANTITHETIC:
       raise NotImplementedError(
