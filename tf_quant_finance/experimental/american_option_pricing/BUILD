@@ -7,6 +7,7 @@ py_library(
     srcs = ["__init__.py"],
     srcs_version = "PY3",
     deps = [
+        ":common",
         ":exercise_boundary",
     ],
 )
@@ -16,10 +17,21 @@ py_library(
     srcs = ["exercise_boundary.py"],
     srcs_version = "PY3",
     deps = [
+        ":common",
         "//tf_quant_finance/math/integration",
         "//tf_quant_finance/math/interpolation/cubic",
         "//tf_quant_finance/types",
         "//tf_quant_finance/utils",
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "common",
+    srcs = ["common.py"],
+    srcs_version = "PY3",
+    deps = [
+        "//tf_quant_finance/types",
         # numpy dep,
         # tensorflow dep,
     ],
@@ -28,9 +40,12 @@ py_library(
 py_test(
     name = "exercise_boundary_test",
     size = "small",
+    timeout = "moderate",
     srcs = ["exercise_boundary_test.py"],
     python_version = "PY3",
+    shard_count = 2,
     deps = [
+        ":common",
         "//tf_quant_finance",
         # test util,
         # numpy dep,
