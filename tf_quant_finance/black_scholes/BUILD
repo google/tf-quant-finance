@@ -9,6 +9,7 @@ py_library(
     srcs = ["__init__.py"],
     srcs_version = "PY3",
     deps = [
+        ":asian_prices",
         ":brownian_bridge",
         ":crr_binomial_tree",
         ":implied_vol_approximation",
@@ -202,6 +203,31 @@ py_test(
         # numpy dep,
         # tensorflow dep,
         # xla_cpu_jit xla dep,
+    ],
+)
+
+py_library(
+    name = "asian_prices",
+    srcs = ["asian_prices.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":vanilla_prices",
+        "//tf_quant_finance/types",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "asian_prices_test",
+    srcs = ["asian_prices_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":asian_prices",
+        "//tf_quant_finance",
+        # test util,
+        # numpy dep,
+        # tensorflow dep,
     ],
 )
 
