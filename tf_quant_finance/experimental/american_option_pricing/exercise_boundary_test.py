@@ -2,15 +2,15 @@ from absl.testing import parameterized
 import numpy as np
 import tensorflow.compat.v2 as tf
 
-import tf_quant_finance as tff
 from tf_quant_finance import utils
 from tf_quant_finance.experimental.american_option_pricing import common
+from tf_quant_finance.experimental.american_option_pricing import exercise_boundary
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
-boundary_numerator = tff.experimental.american_option_pricing.exercise_boundary.boundary_numerator
-boundary_denominator = tff.experimental.american_option_pricing.exercise_boundary.boundary_denominator
-exercise_boundary = tff.experimental.american_option_pricing.exercise_boundary.exercise_boundary
+boundary_numerator = exercise_boundary.boundary_numerator
+boundary_denominator = exercise_boundary.boundary_denominator
+exercise_boundary = exercise_boundary.exercise_boundary
 divide_with_positive_denominator = common.divide_with_positive_denominator
 machine_eps = common.machine_eps
 
@@ -132,8 +132,7 @@ class ExerciseBoundaryTest(parameterized.TestCase, tf.test.TestCase):
                              convergence_atol, dtype, expected_shape):
     k = tf.constant(k, dtype=dtype)
     tau = tf.constant(tau, dtype=dtype)
-    tau_grid = tf.linspace(
-        tf.constant(0.001, dtype=dtype), tau, grid_num_points, axis=-1)
+    tau_grid = tf.linspace(tau / grid_num_points, tau, grid_num_points, axis=-1)
     r = tf.constant(r, dtype=dtype)
     q = tf.constant(q, dtype=dtype)
     sigma = tf.constant(sigma, dtype=dtype)

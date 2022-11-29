@@ -22,9 +22,7 @@ def standard_normal_cdf(a):
 def d_plus(tau: types.FloatTensor, z: types.FloatTensor, r: types.FloatTensor,
            q: types.FloatTensor, sigma: types.FloatTensor) -> types.FloatTensor:
   dtype = tau.dtype
-  epsilon = 1e-6
-  if dtype == tf.float64:
-    epsilon = 1e-10
+  epsilon = machine_eps(dtype)
   return (tf.math.log(tf.math.maximum(z, epsilon)) +
           (r - q + 0.5 * sigma**2) * tau) / (
               sigma * tf.math.sqrt(tau) + epsilon)
