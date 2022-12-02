@@ -3,11 +3,11 @@ import numpy as np
 import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
-from tf_quant_finance.black_scholes import option_price_binomial
-from tf_quant_finance.black_scholes import vanilla_prices
 from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
+option_price_binomial = tff.black_scholes.option_price_binomial
+option_price = tff.black_scholes.option_price
 andersen_lake = tff.experimental.american_option_pricing.andersen_lake.andersen_lake
 
 
@@ -30,13 +30,13 @@ class ExerciseBoundaryTest(parameterized.TestCase, tf.test.TestCase):
       {
           'testcase_name': 'BatchRank1_CallSingleValue',
           'k': [2.0, 0.7, 5.0, 1.2, 2.2, 5.2],
-          'tau': [1.0, 1.0, 2.0, 1.5, 1.5, 2.0],
+          'tau': [1.0, 1.0, 0.5, 1.5, 1.5, 2.0],
           'r': [0.0, 0.01, 0.8, 0.03, 0.02, 0.01],
           'f': None,
           'q': [0.02, 0.07, 0.0, 0.01, 0.01, 0.0],
           'is_call_options': False,
           'sigma': [0.2, 0.3, 0.4, 0.15, 0.25, 0.35],
-          's': [2.0, 3.0, 5.0, 1.5, 2.5, 5.5],
+          's': [2.0, 1.0, 4.0, 1.5, 2.5, 5.5],
           'forwards': None,
       },
       {
@@ -50,7 +50,6 @@ class ExerciseBoundaryTest(parameterized.TestCase, tf.test.TestCase):
           'sigma': [0.2, 0.3, 0.4, 0.15, 0.25, 0.35],
           's': [2.0, 3.0, 5.0, 1.5, 2.5, 5.5],
           'forwards': None,
-          'test_tolerance': 1e-3,
       },
       {
           'testcase_name': 'BatchRank1_FAndRNone',
@@ -99,7 +98,6 @@ class ExerciseBoundaryTest(parameterized.TestCase, tf.test.TestCase):
           'sigma': [0.2, 0.3, 0.4, 0.15, 0.25, 0.35],
           's': None,
           'forwards': [2.0, 3.0, 5.0, 1.5, 2.5, 5.5],
-          'test_tolerance': 1e-3,
       },
       {
           'testcase_name': 'BatchRank1_CallNone',
@@ -121,7 +119,8 @@ class ExerciseBoundaryTest(parameterized.TestCase, tf.test.TestCase):
                                 tolerance_exercise_boundary=1e-11,
                                 tolerance_kronrod=1e-11,
                                 max_iterations_exercise_boundary=200,
-                                max_depth_kronrod=50, test_tolerance=1e-3,
+                                max_depth_kronrod=50,
+                                test_tolerance=1e-3,
                                 dtype=tf.float64):
     tau_binomial = tf.constant(tau, dtype=dtype)
     r_binomial = r
@@ -146,7 +145,7 @@ class ExerciseBoundaryTest(parameterized.TestCase, tf.test.TestCase):
         dividend_rates=q,
         is_call_options=is_call_options,
         is_american=True,
-        num_steps=10000,
+        num_steps=1000,
         dtype=dtype)
     expected_prices = np.array(self.evaluate(expected))
     computed_prices = andersen_lake(
@@ -195,11 +194,11 @@ class ExerciseBoundaryTest(parameterized.TestCase, tf.test.TestCase):
       tolerance_exercise_boundary, tolerance_kronrod,
       max_iterations_exercise_boundary, max_depth_kronrod, dtype=tf.float64):
     # When r == q == 0 American option prices are the same as European.
-    expected = vanilla_prices.option_price(volatilities=sigma, strikes=k,
-                                           expiries=tau, spots=s,
-                                           discount_rates=r, dividend_rates=q,
-                                           is_call_options=is_call_options,
-                                           dtype=dtype)
+    expected = option_price(volatilities=sigma, strikes=k,
+                            expiries=tau, spots=s,
+                            discount_rates=r, dividend_rates=q,
+                            is_call_options=is_call_options,
+                            dtype=dtype)
     expected_prices = np.array(self.evaluate(expected))
     computed_prices = andersen_lake(
         volatilities=sigma,
