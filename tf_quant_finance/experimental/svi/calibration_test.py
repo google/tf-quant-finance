@@ -240,7 +240,7 @@ class RealMarketDataCalibrationTest(parameterized.TestCase, tf.test.TestCase):
             tolerance=1e-4))
     self.assertTrue(converged.all())
     self.assertAllClose(
-        svi_parameters, expected_parameters, atol=1e-4, rtol=1e-3)
+        svi_parameters, expected_parameters, atol=1e-4, rtol=2e-2)
 
   @parameterized.named_parameters(
       {

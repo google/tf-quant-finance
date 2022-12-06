@@ -425,6 +425,8 @@ def calibration(
         strikes=strikes,
         expiries=expiries,
         forwards=forwards,
+        discount_rates=discount_rates,
+        dividend_rates=dividend_rates,
         is_call_options=is_call_options,
         dtype=dtype,
         optimizer_arg_handler=optimizer_arg_handler)
@@ -455,7 +457,7 @@ def calibration(
 
 def _get_loss_for_price_based_calibration(
     *, prices, strikes, expiries, forwards, is_call_options,
-    optimizer_arg_handler, dtype):
+    discount_rates, dividend_rates, optimizer_arg_handler, dtype):
   """Creates a loss function to be used in volatility-based calibration."""
 
   def _price_transform(x):
@@ -482,6 +484,8 @@ def _get_loss_for_price_based_calibration(
         volvol=tf.expand_dims(candidate_volvol, axis=-1),
         rho=tf.expand_dims(candidate_rho, axis=-1),
         theta=tf.expand_dims(candidate_theta, axis=-1),
+        discount_rates=discount_rates,
+        dividend_rates=dividend_rates,
         dtype=dtype)
 
     scaled_values = _price_transform(values)

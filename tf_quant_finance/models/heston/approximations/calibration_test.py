@@ -81,24 +81,28 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
         calibrated_initial_variance, calibrated_mean_reversion,
         calibrated_volvol, calibrated_rho, calibrated_theta, is_converged
     ] = self.evaluate([
-        models.initial_variance, models.mean_reversion, models.volvol,
-        models.rho, models.theta, is_converged
+        models.initial_variance[:, tf.newaxis],
+        models.mean_reversion[:, tf.newaxis],
+        models.volvol[:, tf.newaxis],
+        models.rho[:, tf.newaxis], models.theta[:, tf.newaxis],
+        is_converged
     ])
     with self.subTest('AllConverged'):
       self.assertTrue(all(is_converged))
-    with self.subTest('InitialVarianceRecovered'):
-      self.assertAllClose(calibrated_initial_variance, [0.456, 0.438],
-                          atol=5e-3, rtol=5e-3)
-    with self.subTest('MeanReversionRecovered'):
-      self.assertAllClose(calibrated_mean_reversion, [0.42, 0.414],
-                          atol=5e-3, rtol=5e-3)
-    with self.subTest('VolVolRecovered'):
-      self.assertAllClose(calibrated_volvol, [0.15, 0.65], atol=5e-3, rtol=5e-3)
-    with self.subTest('RhoRecovered'):
-      self.assertAllClose(calibrated_rho, [0.0, 0.02], atol=5e-3, rtol=5e-3)
-    with self.subTest('ThetaRecovered'):
-      self.assertAllClose(calibrated_theta, [0.91, 0.91], atol=5e-3,
-                          rtol=5e-3)
+    calibrated_prices = tff.models.heston.approximations.european_option_price(
+        variances=calibrated_initial_variance,
+        strikes=strikes,
+        expiries=expiries,
+        forwards=forwards,
+        is_call_options=is_call_options,
+        mean_reversion=calibrated_mean_reversion,
+        theta=calibrated_theta,
+        volvol=calibrated_volvol,
+        rho=calibrated_rho,
+        dtype=dtype)
+    with self.subTest('PricesRecovered'):
+      self.assertAllClose(calibrated_prices, observed_prices,
+                          atol=1e-1, rtol=1e-3)
 
   def test_calibration_batch_limits(self):
     """Demonstrate that lower/upper limits can be set independently in batch."""
@@ -143,33 +147,37 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
         calibrated_initial_variance, calibrated_mean_reversion,
         calibrated_volvol, calibrated_rho, calibrated_theta, is_converged
     ] = self.evaluate([
-        models.initial_variance, models.mean_reversion, models.volvol,
-        models.rho, models.theta, is_converged
+        models.initial_variance[:, tf.newaxis],
+        models.mean_reversion[:, tf.newaxis],
+        models.volvol[:, tf.newaxis],
+        models.rho[:, tf.newaxis], models.theta[:, tf.newaxis],
+        is_converged
     ])
 
     with self.subTest('AllConverged'):
       self.assertTrue(all(is_converged))
-    with self.subTest('InitialVarianceRecovered'):
-      self.assertAllClose(calibrated_initial_variance, [0.446, 0.28],
-                          atol=5e-3, rtol=5e-3)
-    with self.subTest('MeanReversionRecovered'):
-      self.assertAllClose(calibrated_mean_reversion, [0.52, 0.92],
-                          atol=5e-3, rtol=5e-3)
-    with self.subTest('VolVolRecovered'):
-      self.assertAllClose(calibrated_volvol, [0.18, 0.083],
-                          atol=5e-3, rtol=5e-3)
-    with self.subTest('RhoRecovered'):
-      self.assertAllClose(calibrated_rho, [0.0, 0.0], atol=5e-3, rtol=5e-3)
-    with self.subTest('ThetaRecovered'):
-      self.assertAllClose(calibrated_theta, [0.91, 0.91], atol=5e-3,
-                          rtol=5e-3)
+
+    calibrated_prices = tff.models.heston.approximations.european_option_price(
+        variances=calibrated_initial_variance,
+        strikes=strikes,
+        expiries=expiries,
+        forwards=forwards,
+        is_call_options=is_call_options,
+        mean_reversion=calibrated_mean_reversion,
+        theta=calibrated_theta,
+        volvol=calibrated_volvol,
+        rho=calibrated_rho,
+        dtype=dtype)
+    with self.subTest('PricesRecovered'):
+      self.assertAllClose(calibrated_prices, observed_prices,
+                          atol=1e-3, rtol=1e-3)
 
   def test_spots_and_discounts(self):
     dtype = np.float64
 
     observed_prices = np.array(
-        [[20.50679136, 12.58686306, 6.81354601, 3.26294754, 1.39929047],
-         [2.50879791, 5.57746604, 10.21996405, 16.32785813, 23.63258004]],
+        [[20.74264408, 13.0706132, 7.46141751, 3.8978837, 1.89302107],
+         [3.45098237, 6.92500205, 11.82124538, 17.9901047, 25.19373215]],
         dtype=dtype)
 
     strikes = np.array(
@@ -188,38 +196,43 @@ class CalibrationTest(parameterized.TestCase, tf.test.TestCase):
         spots=spots,
         discount_factors=discount_factors,
         is_call_options=is_call_options,
-        mean_reversion=np.array([0.22], dtype=dtype),
-        theta=np.array([0.22], dtype=dtype),
-        initial_variance=np.array([0.02], dtype=dtype),
-        volvol=np.array([0.035], dtype=dtype),
-        rho=np.array([0.05], dtype=dtype),
+        mean_reversion=np.array([0.1], dtype=dtype),
+        theta=np.array([0.3], dtype=dtype),
+        initial_variance=np.array([0.01], dtype=dtype),
+        volvol=np.array([0.2], dtype=dtype),
+        rho=np.array([0.0], dtype=dtype),
+        optimizer_fn=tff.math.optimizer.bfgs_minimize,
         maximum_iterations=100)
 
     [
         calibrated_initial_variance, calibrated_mean_reversion,
         calibrated_volvol, calibrated_rho, calibrated_theta, is_converged
     ] = self.evaluate([
-        models.initial_variance, models.mean_reversion, models.volvol,
-        models.rho, models.theta, is_converged
+        models.initial_variance[:, tf.newaxis],
+        models.mean_reversion[:, tf.newaxis],
+        models.volvol[:, tf.newaxis],
+        models.rho[:, tf.newaxis], models.theta[:, tf.newaxis],
+        is_converged
     ])
 
     with self.subTest('AllConverged'):
       self.assertTrue(all(is_converged))
-    with self.subTest('InitialVarianceRecovered'):
-      self.assertAllClose(calibrated_initial_variance, [0.04275364, 0.03025969],
-                          atol=5e-3, rtol=5e-3)
-    with self.subTest('MeanReversionRecovered'):
-      self.assertAllClose(calibrated_mean_reversion, [0.25145442, 0.26209298],
-                          atol=1e-2, rtol=1e-2)
-    with self.subTest('VolVolRecovered'):
-      self.assertAllClose(calibrated_volvol, [0.01465932, 0.02657598],
-                          atol=1e-2, rtol=1e-2)
-    with self.subTest('RhoRecovered'):
-      self.assertAllClose(calibrated_rho, [0.99924356, -0.99822538],
-                          atol=1e-2, rtol=1e-2)
-    with self.subTest('ThetaRecovered'):
-      self.assertAllClose(calibrated_theta, [0.29802891, 0.32691355],
-                          atol=5e-3, rtol=5e-3)
+
+    calibrated_prices = tff.models.heston.approximations.european_option_price(
+        variances=calibrated_initial_variance,
+        strikes=strikes,
+        expiries=expiries,
+        spots=spots,
+        discount_factors=discount_factors,
+        is_call_options=is_call_options,
+        mean_reversion=calibrated_mean_reversion,
+        theta=calibrated_theta,
+        volvol=calibrated_volvol,
+        rho=calibrated_rho,
+        dtype=dtype)
+    with self.subTest('PricesRecovered'):
+      self.assertAllClose(calibrated_prices, observed_prices,
+                          atol=1e-3, rtol=1e-3)
 
   def test_validate_args(self):
     dtype = np.float64

@@ -53,10 +53,10 @@ py_library(
 
 py_test(
     name = "calibration_test",
-    timeout = "moderate",
+    timeout = "long",
     srcs = ["calibration_test.py"],
     python_version = "PY3",
-    shard_count = 20,
+    shard_count = 12,
     deps = [
         "//tf_quant_finance",
         # test util,
