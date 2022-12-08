@@ -13,39 +13,37 @@
 # limitations under the License.
 """Common data types."""
 
-from typing import TypeVar
+from typing import Union
 import numpy as np
-import tensorflow.compat.v2 as tf
+import tensorflow as tf
 
 from tf_quant_finance.datetime.date_tensor import DateTensor as TFFDateTensor
 
 __all__ = ['BoolTensor', 'IntTensor', 'RealTensor',
            'ComplexTensor', 'StringTensor', 'DateTensor']
 
-tensor_like = (np.ndarray, tf.Tensor, tf.TensorSpec)
-
 # A type that represents a boolean `Tensor`
-BoolTensor = TypeVar('BoolTensor', *tensor_like)
+BoolTensor = tf.types.experimental.TensorLike
 
 # A type that represents int32 or int64 `Tensor`s
-IntTensor = TypeVar('IntTensor', *tensor_like)
+IntTensor = tf.types.experimental.TensorLike
 
 # A type that represents float or double `Tensor`s
-RealTensor = TypeVar('RealTensor', *tensor_like)
+RealTensor = tf.types.experimental.TensorLike
 
 # A type that represents a float `Tensor`
-FloatTensor = TypeVar('FloatTensor', *tensor_like)
+FloatTensor = tf.types.experimental.TensorLike
 
 # A type that represents a double `Tensor`
-DoubleTensor = TypeVar('DoubleTensor', *tensor_like)
+DoubleTensor = tf.types.experimental.TensorLike
 
 # 'A type that represents complex64 or complex128 `Tensor`s
-ComplexTensor = TypeVar('ComplexTensor', *tensor_like)
+ComplexTensor = tf.types.experimental.TensorLike
 
 # A type that represents a string `Tensor`
-StringTensor = TypeVar('StringTensor', *tensor_like)
+StringTensor = tf.types.experimental.TensorLike
 
 # A type that represents a date `Tensor`. When integer tensor is supplied
 # it is expected that the shape of the tensor is `batch_shape + [3]` where the
 # three elements along the last axis are  years, months, days, in this order
-DateTensor = TypeVar('DateTensor', np.datetime64, TFFDateTensor, IntTensor)
+DateTensor = Union[np.datetime64, TFFDateTensor, IntTensor]
