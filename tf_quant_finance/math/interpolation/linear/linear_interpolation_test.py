@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for nomisma_quant_finance.math.interpolation.linear.interpolate."""
+"""Tests for linear.interpolate."""
 
 
 from absl.testing import parameterized
