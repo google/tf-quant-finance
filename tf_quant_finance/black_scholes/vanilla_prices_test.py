@@ -236,7 +236,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     expected_prices = discount_factors * (
         call_options + ((-1.0)**call_options) * cdf_values)
 
-    is_call_options = np.array(call_options, dtype=np.bool)
+    is_call_options = np.array(call_options, dtype=bool)
     computed_prices = self.evaluate(
         tff.black_scholes.binary_price(
             volatilities=volatilities,
@@ -280,7 +280,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     volatilities = np.exp(np.random.normal(size=num_examples))
     expiries = np.random.gamma(shape=1.0, scale=1.0, size=num_examples)
     call_options = np.random.binomial(n=1, p=0.5, size=num_examples)
-    is_call_options = np.array(call_options, dtype=np.bool)
+    is_call_options = np.array(call_options, dtype=bool)
     discount_factors = np.ones_like(forwards)
 
     option_prices_0 = self.evaluate(
@@ -425,7 +425,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
       discount_rates = None
     dividend_rates = np.random.uniform(0.0, 0.05, size=num_examples)
     call_options = np.random.binomial(n=1, p=0.5, size=num_examples)
-    is_call_options = np.array(call_options, dtype=np.bool)
+    is_call_options = np.array(call_options, dtype=bool)
 
     asset_or_nothing_prices = tff.black_scholes.asset_or_nothing_price(
         volatilities=volatilities,

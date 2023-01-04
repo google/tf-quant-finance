@@ -80,7 +80,7 @@ class TffOptionPricer:
           np.zeros([num_assets], dtype=dtype),  # rate_mkt
           np.zeros([batch_size], dtype=np.int32),  # underliers
           np.zeros([batch_size], dtype=dtype),  # strikes
-          np.zeros([batch_size], dtype=np.bool),  # call_put_flag
+          np.zeros([batch_size], dtype=bool),  # call_put_flag
           np.ones([batch_size], dtype=np.int32))  # expiry_ordinals
 
   def price(self, spot_mkt, vol_mkt, rate_mkt, underliers, strikes,

@@ -97,7 +97,7 @@ class HestonPriceTest(parameterized.TestCase, tf.test.TestCase):
             expiries=expiries,
             strikes=strikes,
             discount_factors=discount_factors,
-            is_call_options=np.asarray([True, False], dtype=np.bool)))
+            is_call_options=np.asarray([True, False], dtype=bool)))
     # Computed using scipy
     scipy_prices = [1.07475678, 2.708217]
     np.testing.assert_allclose(

@@ -213,7 +213,7 @@ class ImpliedVolNewtonTest(parameterized.TestCase, tf.test.TestCase):
     strikes = np.linspace(0.8, 1.2, num_examples)
     volatilities = np.ones_like(forwards)
     call_options = np.random.binomial(n=1, p=0.5, size=num_examples)
-    is_call_options = np.array(call_options, dtype=np.bool)
+    is_call_options = np.array(call_options, dtype=bool)
 
     prices = self.evaluate(
         tff.black_scholes.option_price(
