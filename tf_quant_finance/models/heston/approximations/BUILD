@@ -8,6 +8,7 @@ py_library(
     name = "approximations",
     srcs = ["__init__.py"],
     deps = [
+        ":asian_prices",
         ":calibration",
         ":european_option",
     ],
@@ -61,6 +62,31 @@ py_test(
         "//tf_quant_finance",
         # test util,
         # absl/testing:parameterized dep,
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_library(
+    name = "asian_prices",
+    srcs = ["asian_prices.py"],
+    srcs_version = "PY3",
+    deps = [
+        "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
+        # numpy dep,
+        # tensorflow dep,
+    ],
+)
+
+py_test(
+    name = "asian_prices_test",
+    srcs = ["asian_prices_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":asian_prices",
+        "//tf_quant_finance",
+        # test util,
         # numpy dep,
         # tensorflow dep,
     ],

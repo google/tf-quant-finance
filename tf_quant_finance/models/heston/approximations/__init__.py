@@ -13,11 +13,13 @@
 # limitations under the License.
 """Approximations to the Heston model."""
 
+from tf_quant_finance.models.heston.approximations.asian_prices import asian_option_price
 from tf_quant_finance.models.heston.approximations.calibration import calibration
 from tf_quant_finance.models.heston.approximations.european_option import european_option_price
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
+    'asian_option_price',
     'calibration',
     'european_option_price',
 ]
