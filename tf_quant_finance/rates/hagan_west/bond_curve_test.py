@@ -413,7 +413,7 @@ class BondCurveTest(tf.test.TestCase, parameterized.TestCase):
             (pvs[3] - cashflows[3][0] * math.exp(-r2 * cashflow_times[3][0]) -
              cashflows[3][1] * math.exp(-r3 * cashflow_times[3][1])) /
             cashflows[3][2]) / cashflow_times[3][2])
-    true_discount_rates = np.array([r1, r2, r3, r4], dtype=dtype)
+    true_discount_rates = np.array([r1.item(), r2, r3, r4], dtype=dtype)
 
     results = self.evaluate(
         bond_curve.bond_curve(
