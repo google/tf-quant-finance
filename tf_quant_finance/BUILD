@@ -33,6 +33,22 @@ py_library(
     ],
 )
 
+py_library(
+    name = "tf_quant_finance_no_exp",
+    srcs = ["__init__.py"],
+    srcs_version = "PY3",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//tf_quant_finance/black_scholes",
+        "//tf_quant_finance/datetime",
+        "//tf_quant_finance/math",
+        "//tf_quant_finance/models",
+        "//tf_quant_finance/rates",
+        "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
+    ],
+)
+
 # The "docs" filegroups define which files should be copied to the generated
 # docs folder. For example, its convenient to have a README.md from each package
 # there.

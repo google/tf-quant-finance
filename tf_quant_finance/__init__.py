@@ -70,7 +70,12 @@ _ensure_tf_install()
 
 from tf_quant_finance import black_scholes
 from tf_quant_finance import datetime
-from tf_quant_finance import experimental
+try:
+  # Ignore experimental in case it has not been added in the build rule
+  from tf_quant_finance import experimental
+except ImportError:
+  pass
+
 from tf_quant_finance import math
 from tf_quant_finance import models
 from tf_quant_finance import rates
