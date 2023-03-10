@@ -13,10 +13,10 @@ RUN curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
 RUN sudo apt-get update && sudo apt-get install -y bazel
 
 # Install pip packages
-RUN python3 -m pip install --upgrade protobuf==3.19.6
+RUN python3 -m pip install --upgrade protobuf==3.20
 RUN python3 -m pip install --upgrade numpy==1.22
-RUN python3 -m pip install --upgrade keras==2.11.0 tensorboard==2.9 tf-nightly==2.12.0.dev20221201 tensorflow-probability==0.19.0 attrs
-RUN python3 -m pip uninstall -y tb-nightly 
+RUN python3 -m pip install --upgrade keras==2.12.0rc1 tensorboard==2.12 tensorflow==2.12.0rc1 tensorflow-probability==0.19.0 attrs
+RUN python3 -m pip install --upgrade protobuf==3.20.3
 
 # Bazel is bound to python instead of python3 so link python to python3
 RUN  ln -s /usr/bin/python3 /usr/bin/python
