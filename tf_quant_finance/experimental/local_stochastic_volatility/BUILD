@@ -1,8 +1,9 @@
 # Local stochastic volatility model.
 
-licenses(["notice"])
-
-package(default_visibility = ["//tf_quant_finance:__subpackages__"])
+package(
+    default_visibility = ["//tf_quant_finance:__subpackages__"],
+    licenses = ["notice"],
+)
 
 py_library(
     name = "local_stochastic_volatility",

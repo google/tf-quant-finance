@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-licenses(["notice"])
+package(licenses = ["notice"])
 
 exports_files(["LICENSE"])
 

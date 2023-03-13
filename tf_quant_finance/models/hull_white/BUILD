@@ -1,7 +1,8 @@
 # Hull White model
-package(default_visibility = ["//tf_quant_finance:__subpackages__"])
-
-licenses(["notice"])
+package(
+    default_visibility = ["//tf_quant_finance:__subpackages__"],
+    licenses = ["notice"],
+)
 
 py_library(
     name = "hull_white",

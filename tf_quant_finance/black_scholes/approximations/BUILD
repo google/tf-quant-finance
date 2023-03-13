@@ -1,8 +1,9 @@
 # Approximation methods in Black-Scholes market.
 
-licenses(["notice"])
-
-package(default_visibility = ["//tf_quant_finance:__subpackages__"])
+package(
+    default_visibility = ["//tf_quant_finance:__subpackages__"],
+    licenses = ["notice"],
+)
 
 py_library(
     name = "approximations",

@@ -1,8 +1,9 @@
 # Nelson Seigel Svensson Interpolation for rate curves.
 
-licenses(["notice"])
-
-package(default_visibility = ["//tf_quant_finance:__subpackages__"])
+package(
+    default_visibility = ["//tf_quant_finance:__subpackages__"],
+    licenses = ["notice"],
+)
 
 py_library(
     name = "nelson_seigel_svensson",
