@@ -14,6 +14,13 @@
 
 package(licenses = ["notice"])
 
+# copybara:uncomment_begin
+# license(
+#     name = "license",
+#     package_name = "nomisma_quant_finance",
+# )
+# copybara:uncomment_end
+
 exports_files(["LICENSE"])
 
 py_library(
