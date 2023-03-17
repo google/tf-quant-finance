@@ -12,7 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-licenses(["notice"])
+package(licenses = ["notice"])
+
+# copybara:uncomment_begin
+# license(
+#     name = "license",
+#     package_name = "nomisma_quant_finance",
+# )
+# copybara:uncomment_end
 
 exports_files(["LICENSE"])
 
@@ -25,6 +32,22 @@ py_library(
         "//tf_quant_finance/black_scholes",
         "//tf_quant_finance/datetime",
         "//tf_quant_finance/experimental",
+        "//tf_quant_finance/math",
+        "//tf_quant_finance/models",
+        "//tf_quant_finance/rates",
+        "//tf_quant_finance/types",
+        "//tf_quant_finance/utils",
+    ],
+)
+
+py_library(
+    name = "tf_quant_finance_no_exp",
+    srcs = ["__init__.py"],
+    srcs_version = "PY3",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//tf_quant_finance/black_scholes",
+        "//tf_quant_finance/datetime",
         "//tf_quant_finance/math",
         "//tf_quant_finance/models",
         "//tf_quant_finance/rates",

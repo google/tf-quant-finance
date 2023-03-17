@@ -2,9 +2,10 @@
 
 load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
 
-licenses(["notice"])
-
-package(default_visibility = ["//visibility:public"])
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],
+)
 
 py_library(
     name = "instrument_protos",

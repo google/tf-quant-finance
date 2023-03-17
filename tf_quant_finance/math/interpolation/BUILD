@@ -1,8 +1,9 @@
 # Interpolation methods for one and two dimensions.
 
-licenses(["notice"])
-
-package(default_visibility = ["//tf_quant_finance:__subpackages__"])
+package(
+    default_visibility = ["//tf_quant_finance:__subpackages__"],
+    licenses = ["notice"],
+)
 
 py_library(
     name = "interpolation",
