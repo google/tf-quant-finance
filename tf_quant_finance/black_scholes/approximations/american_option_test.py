@@ -205,6 +205,26 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
     with self.subTest(name='NonFailed'):
       self.assertAllEqual(failed, tf.zeros_like(computed_prices))
 
+  def test_option_prices_expiration(self):
+    """Tests Baron-Adesi Whaley prices at expiration."""
+    dtype = tf.float64
+    computed_prices, converged, failed = adesi_whaley(
+        volatilities=[0.2, 0.3, 0.4], strikes=[100],
+        expiries=[0.0], spots=[90, 100, 110],
+        tolerance=1e-08,
+        is_call_options=[True],
+        discount_rates=[0.0],
+        dtype=dtype)
+    # Computed using tff.black_scholes.option_price_binomial
+    expected_prices = [0.0, 0.0, 10.0]
+    with self.subTest(name='ExpectedPrices'):
+      self.assertAllClose(expected_prices, computed_prices,
+                          rtol=1e-4, atol=5e-4)
+    with self.subTest(name='AllConverged'):
+      self.assertAllEqual(converged, tf.ones_like(computed_prices))
+    with self.subTest(name='NonFailed'):
+      self.assertAllEqual(failed, tf.zeros_like(computed_prices))
+
   @parameterized.parameters(
       (0.08, 0.12, 0.2, 0.25,
        [0.03, 0.57, 3.49, 10.32, 20.0, 20.41, 11.25, 4.40, 1.12, 0.18]),
@@ -492,6 +512,31 @@ class AmericanPrice(parameterized.TestCase, tf.test.TestCase):
     expected_prices = [0.0006, 2.9419, 11.2353, 12.2219, 8.8804, 7.8527]
     with self.subTest(name='ExpectedPrices'):
       msg = 'Failed: Bjerksund Stensland 2002 type tests.'
+      self.assertAllClose(expected_prices, computed_prices,
+                          rtol=5e-3, atol=5e-3,
+                          msg=msg)
+
+  def test_bs2002_prices_expiration(self):
+    """Tests Bjerksund Stensland 2002 prices at expiration."""
+    discount_rates = tf.constant([0.10, 0.09, 0.08, 0.07, 0.06, 0.05])
+    dividend_rates = tf.constant([0.05, 0.06, 0.07, 0.08, 0.09, 0.10])
+    volatilities = tf.constant([0.10, 0.15, 0.20, 0.25, 0.30, 0.35])
+    expiries = tf.constant([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    spots = tf.constant([90.0, 100.0, 110.0, 90.0, 100.0, 110.0])
+    strikes = tf.constant([100.0] * 6)
+    is_call_options = tf.constant([True, True, True, False, False, False])
+    computed_prices = bjerksund_stensland(
+        volatilities=volatilities,
+        strikes=strikes,
+        expiries=expiries,
+        discount_rates=discount_rates,
+        dividend_rates=dividend_rates,
+        spots=spots,
+        is_call_options=is_call_options,
+        modified_boundary=True)
+    expected_prices = [0.0, 0.0, 10.0, 10.0, 0.0, 0.0]
+    with self.subTest(name='ExpectedPrices'):
+      msg = 'Failed: Bjerksund Stensland 2002 expiration tests.'
       self.assertAllClose(expected_prices, computed_prices,
                           rtol=5e-3, atol=5e-3,
                           msg=msg)

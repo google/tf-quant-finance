@@ -83,6 +83,27 @@ class BinomialModelPrice(parameterized.TestCase, tf.test.TestCase):
           'expected': [[0.031603, 0.16827, 0.303679, 0.0, 1.110733],
                        [0.009376, 0.472969, 0.337524, 1.309396, 0.856245]],
           'dtype': np.float32
+      }, {
+          'testcase_name': 'Expiration',
+          'spots': [[1.0, 2.0, 3.0, 4.0, 5.0],
+                    [1.0, 2.0, 3.0, 4.0, 5.0]],
+          'strikes': [[3.0, 3.0, 3.0, 3.0, 3.0],
+                      [3.0, 3.0, 3.0, 3.0, 3.0]],
+          'volatilities': [[0.1, 0.2, 0.3, 0.01, 0.4],
+                           [0.15, 0.25, 0.35, 0.02, 0.35]],
+          'is_call_options': [[True, True, False, True, True],
+                              [False, False, False, False, False]],
+          'is_american': [[False, True, True, False, True],
+                          [True, True, False, False, True]],
+          'discount_rates': [[0.035, 0.01, 0.1, 0.01, 0.0],
+                             [0.03, 0.02, 0.05, 0.02, 0.01]],
+          'dividend_rates': [[0.02, 0.0, 0.07, 0.01, 0.0],
+                             [0.01, 0.01, 0.07, 0.01, 0.0]],
+          'expiries': [[0.0, 0.0, 0.0, 0.0, 0.0],
+                       [0.0, 0.0, 0.0, 0.0, 0.0]],
+          'expected': [[0.0, 0.0, 0.0, 1.0, 2.0],
+                       [2.0, 1.0, 0.0, 0.0, 0.0]],
+          'dtype': np.float32
       })
   def test_option_prices(self, spots, strikes, volatilities,
                          is_call_options, is_american, discount_rates,

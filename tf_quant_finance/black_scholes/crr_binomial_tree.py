@@ -192,7 +192,12 @@ def option_price_binomial(*,
         maximum_iterations=tf.cast(num_steps, dtype=tf.int32),
         shape_invariants=(tf.TensorShape(batch_shape + [None]),
                           tf.TensorShape(batch_shape + [None])))
-    return tf.squeeze(pv, axis=-1)
+    return tf.where(
+        expiries > 0,
+        tf.squeeze(pv, axis=-1),
+        tf.where(is_call_options,
+                 tf.math.maximum(spots - strikes, 0),
+                 tf.math.maximum(strikes - spots, 0)))
 
 
 def _get_payoff_fn(strikes, is_call_options):

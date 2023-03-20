@@ -260,8 +260,13 @@ def _adesi_whaley(*, sigma, x, t, r, d, s, is_call_options, max_iterations,
   # The divisive condition is different for put and call options
   condition = tf.where(is_call_options, s < s_crit, s > s_crit)
 
-  american_prices = tf.where(condition, eu_prices + a2 * (s / s_crit)**q2,
-                             (s - x) * sign)
+  # Distinguish the case of zero expiry.
+  american_prices = tf.where(
+      t > 0,
+      tf.where(condition, eu_prices + a2 * (s / s_crit)**q2, (s - x) * sign),
+      tf.where(is_call_options,
+               tf.math.maximum(s - x, 0),
+               tf.math.maximum(x - s, 0)))
 
   return american_prices, converged, failed
 
@@ -513,13 +518,19 @@ def bjerksund_stensland(*,
             is_call_options=is_call_options),
         # For put options, adjust inputs according to call-put transformation
         # function: P(S, X, T, r, b, sigma) = C(X, S, T, r - b, -b, sigma)
-        tf.where(is_call_options,
-                 bjerksund_stensland_model(
-                     spots, strikes, expiries, discount_rates,
-                     cost_of_carries, volatilities),
-                 bjerksund_stensland_model
-                 (strikes, spots, expiries, discount_rates - cost_of_carries,
-                  -cost_of_carries, volatilities)))
+        tf.where(
+            is_call_options,
+            tf.where(expiries > 0,
+                     bjerksund_stensland_model(
+                         spots, strikes, expiries, discount_rates,
+                         cost_of_carries, volatilities),
+                     tf.math.maximum(spots - strikes, 0)),
+            tf.where(expiries > 0,
+                     bjerksund_stensland_model(
+                         strikes, spots, expiries,
+                         discount_rates - cost_of_carries,
+                         -cost_of_carries, volatilities),
+                     tf.math.maximum(strikes - spots, 0))))
     return american_prices
 
 
