@@ -1,5 +1,8 @@
 # Tools to build Diffusion Models
 
+# Placeholder: load py_library
+# Placeholder: load py_test
+
 package(
     default_visibility = ["//tf_quant_finance:__subpackages__"],
     licenses = ["notice"],

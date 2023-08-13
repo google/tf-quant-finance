@@ -1,5 +1,7 @@
 # Core tools for the pricing platform
 
+# Placeholder: load py_library
+
 package(
     default_visibility = ["//tf_quant_finance:__subpackages__"],
     licenses = ["notice"],

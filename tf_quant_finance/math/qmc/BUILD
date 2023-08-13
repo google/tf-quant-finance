@@ -1,5 +1,8 @@
 # RQMC (random quasi-Monte-Carlo) support
 
+# Placeholder: load py_library
+# Placeholder: load py_test
+
 package(
     default_visibility = ["//tf_quant_finance:__subpackages__"],
     licenses = ["notice"],
