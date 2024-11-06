@@ -39,6 +39,7 @@ py_library(
         "//tf_quant_finance/rates",
         "//tf_quant_finance/types",
         "//tf_quant_finance/utils",
+        # distutils dep,
     ],
 )
 
@@ -55,6 +56,7 @@ py_library(
         "//tf_quant_finance/rates",
         "//tf_quant_finance/types",
         "//tf_quant_finance/utils",
+        # distutils dep,
     ],
 )
 
