@@ -9,7 +9,6 @@ package(
 py_library(
     name = "american_option_pricing",
     srcs = ["__init__.py"],
-    srcs_version = "PY3",
     deps = [
         ":andersen_lake",
         ":common",
@@ -20,7 +19,6 @@ py_library(
 py_library(
     name = "exercise_boundary",
     srcs = ["exercise_boundary.py"],
-    srcs_version = "PY3",
     deps = [
         ":common",
         "//tf_quant_finance/math/integration",
@@ -34,7 +32,6 @@ py_library(
 py_library(
     name = "andersen_lake",
     srcs = ["andersen_lake.py"],
-    srcs_version = "PY3",
     deps = [
         ":common",
         ":exercise_boundary",
@@ -48,7 +45,6 @@ py_library(
 py_library(
     name = "common",
     srcs = ["common.py"],
-    srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/types",
         # numpy dep,
@@ -61,7 +57,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["exercise_boundary_test.py"],
-    python_version = "PY3",
     shard_count = 2,
     deps = [
         ":common",
@@ -77,7 +72,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["andersen_lake_test.py"],
-    python_version = "PY3",
     shard_count = 10,
     deps = [
         "//tf_quant_finance",

@@ -11,7 +11,6 @@ py_library(
     srcs = [
         "__init__.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":constants",
         ":date_tensor",
@@ -27,13 +26,11 @@ py_library(
 py_library(
     name = "constants",
     srcs = ["constants.py"],
-    srcs_version = "PY3",
 )
 
 py_library(
     name = "date_utils",
     srcs = ["date_utils.py"],
-    srcs_version = "PY3",
     deps = [
         # tensorflow dep,
     ],
@@ -42,7 +39,6 @@ py_library(
 py_library(
     name = "tensor_wrapper",
     srcs = ["tensor_wrapper.py"],
-    srcs_version = "PY3",
     deps = [
         # tensorflow dep,
     ],
@@ -51,7 +47,6 @@ py_library(
 py_library(
     name = "date_tensor",
     srcs = ["date_tensor.py"],
-    srcs_version = "PY3",
     deps = [
         ":constants",
         ":date_utils",
@@ -65,7 +60,6 @@ py_library(
 py_library(
     name = "bounded_holiday_calendar",
     srcs = ["bounded_holiday_calendar.py"],
-    srcs_version = "PY3",
     deps = [
         ":constants",
         ":date_tensor",
@@ -79,7 +73,6 @@ py_library(
 py_library(
     name = "holiday_utils",
     srcs = ["holiday_utils.py"],
-    srcs_version = "PY3",
     deps = [
         # tensorflow dep,
     ],
@@ -88,7 +81,6 @@ py_library(
 py_library(
     name = "unbounded_holiday_calendar",
     srcs = ["unbounded_holiday_calendar.py"],
-    srcs_version = "PY3",
     deps = [
         ":constants",
         ":date_tensor",
@@ -102,7 +94,6 @@ py_library(
 py_library(
     name = "holiday_calendar",
     srcs = ["holiday_calendar.py"],
-    srcs_version = "PY3",
     deps = [
         ":constants",
         # tensorflow dep,
@@ -112,7 +103,6 @@ py_library(
 py_library(
     name = "holiday_calendar_factory",
     srcs = ["holiday_calendar_factory.py"],
-    srcs_version = "PY3",
     deps = [
         ":bounded_holiday_calendar",
         ":unbounded_holiday_calendar",
@@ -124,7 +114,6 @@ py_library(
 py_library(
     name = "schedules",
     srcs = ["schedules.py"],
-    srcs_version = "PY3",
     deps = [
         ":constants",
         ":date_tensor",
@@ -137,7 +126,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["date_tensor_test.py"],
-    python_version = "PY3",
     deps = [
         ":test_data",
         "//tf_quant_finance",
@@ -152,7 +140,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["date_utils_test.py"],
-    python_version = "PY3",
     deps = [
         ":test_data",
         "//tf_quant_finance",
@@ -167,7 +154,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["holiday_calendar_test.py"],
-    python_version = "PY3",
     shard_count = 3,
     deps = [
         ":bounded_holiday_calendar",
@@ -186,7 +172,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["schedules_test.py"],
-    python_version = "PY3",
     shard_count = 4,
     deps = [
         ":test_data",
@@ -203,7 +188,6 @@ py_library(
     srcs = [
         "test_data.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":datetime",
     ],
@@ -212,7 +196,6 @@ py_library(
 py_library(
     name = "daycounts",
     srcs = ["daycounts.py"],
-    srcs_version = "PY3",
     deps = [
         ":date_tensor",
         ":date_utils",
@@ -224,7 +207,6 @@ py_test(
     name = "daycounts_test",
     size = "small",
     srcs = ["daycounts_test.py"],
-    python_version = "PY3",
     shard_count = 4,
     deps = [
         "//tf_quant_finance",

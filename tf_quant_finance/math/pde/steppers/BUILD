@@ -23,7 +23,6 @@ py_library(
         "parabolic_equation_stepper.py",
         "weighted_implicit_explicit.py",
     ],
-    srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/utils",
         # tensorflow dep,
@@ -35,7 +34,6 @@ py_test(
     size = "medium",
     timeout = "long",
     srcs = ["parabolic_equation_stepper_test.py"],
-    python_version = "PY3",
     shard_count = 12,
     deps = [
         "//tf_quant_finance",
@@ -50,7 +48,6 @@ py_test(
     name = "time_marching_schemes_test",
     size = "medium",
     srcs = ["time_marching_schemes_test.py"],
-    python_version = "PY3",
     shard_count = 1,
     deps = [
         "//tf_quant_finance",
@@ -66,7 +63,6 @@ py_test(
     size = "medium",
     timeout = "long",
     srcs = ["multidim_parabolic_equation_stepper_test.py"],
-    python_version = "PY3",
     shard_count = 12,
     deps = [
         "//tf_quant_finance",
@@ -79,7 +75,6 @@ py_test(
     name = "douglas_adi_scheme_test",
     size = "medium",
     srcs = ["douglas_adi_scheme_test.py"],
-    python_version = "PY3",
     shard_count = 1,
     deps = [
         "//tf_quant_finance",

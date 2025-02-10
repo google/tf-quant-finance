@@ -28,7 +28,6 @@ exports_files(["LICENSE"])
 py_library(
     name = "tf_quant_finance",
     srcs = ["__init__.py"],
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         "//tf_quant_finance/black_scholes",
@@ -46,7 +45,6 @@ py_library(
 py_library(
     name = "tf_quant_finance_no_exp",
     srcs = ["__init__.py"],
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         "//tf_quant_finance/black_scholes",

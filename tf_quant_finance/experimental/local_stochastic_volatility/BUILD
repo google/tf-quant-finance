@@ -11,7 +11,6 @@ package(
 py_library(
     name = "local_stochastic_volatility",
     srcs = ["__init__.py"],
-    srcs_version = "PY3",
     deps = [
         ":local_stochastic_volatility_model",
         ":lsv_variance_model",
@@ -21,7 +20,6 @@ py_library(
 py_library(
     name = "lsv_variance_model",
     srcs = ["lsv_variance_model.py"],
-    srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/models:generic_ito_process",
         # tensorflow dep,
@@ -31,7 +29,6 @@ py_library(
 py_library(
     name = "local_stochastic_volatility_model",
     srcs = ["local_stochastic_volatility_model.py"],
-    srcs_version = "PY3",
     deps = [
         ":lsv_variance_model",
         "//tf_quant_finance/datetime",
@@ -49,7 +46,6 @@ py_test(
     size = "medium",
     timeout = "long",
     srcs = ["local_stochastic_volatility_model_test.py"],
-    python_version = "PY3",
     shard_count = 12,
     deps = [
         "//tf_quant_finance",

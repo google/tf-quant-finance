@@ -32,7 +32,6 @@ py_library(
 py_library(
     name = "valuation_method",
     srcs = ["valuation_method.py"],
-    srcs_version = "PY3",
 )
 
 py_library(
@@ -57,7 +56,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["generic_ito_process_test.py"],
-    python_version = "PY3",
     shard_count = 4,
     deps = [
         "//tf_quant_finance",
@@ -87,7 +85,6 @@ py_test(
     size = "medium",
     timeout = "moderate",
     srcs = ["euler_sampling_test.py"],
-    python_version = "PY3",
     shard_count = 20,
     deps = [
         "//tf_quant_finance",
@@ -117,7 +114,6 @@ py_test(
     size = "medium",
     timeout = "moderate",
     srcs = ["milstein_sampling_test.py"],
-    python_version = "PY3",
     shard_count = 6,
     deps = [
         "//tf_quant_finance",
@@ -147,7 +143,6 @@ py_test(
     size = "medium",
     timeout = "long",
     srcs = ["joined_ito_process_test.py"],
-    python_version = "PY3",
     shard_count = 3,
     deps = [
         "//tf_quant_finance",
@@ -170,7 +165,6 @@ py_test(
     name = "utils_test",
     size = "small",
     srcs = ["utils_test.py"],
-    python_version = "PY3",
     shard_count = 3,
     deps = [
         ":utils",
@@ -185,7 +179,6 @@ py_test(
 py_library(
     name = "realized_volatility",
     srcs = ["realized_volatility.py"],
-    srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/math:diff_ops",
         # tensorflow dep,
@@ -196,7 +189,6 @@ py_test(
     name = "realized_volatility_test",
     size = "small",
     srcs = ["realized_volatility_test.py"],
-    python_version = "PY3",
     deps = [
         "//tf_quant_finance",
         # test util,

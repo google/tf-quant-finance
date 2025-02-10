@@ -11,7 +11,6 @@ package(
 py_library(
     name = "hjm",
     srcs = ["__init__.py"],
-    srcs_version = "PY3",
     deps = [
         ":calibration",
         ":cap_floor",
@@ -25,7 +24,6 @@ py_library(
 py_library(
     name = "quasi_gaussian_hjm",
     srcs = ["quasi_gaussian_hjm.py"],
-    srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/math/random_ops",
         "//tf_quant_finance/models:generic_ito_process",
@@ -40,7 +38,6 @@ py_test(
     size = "medium",
     timeout = "long",
     srcs = ["quasi_gaussian_hjm_test.py"],
-    python_version = "PY3",
     shard_count = 8,
     deps = [
         ":quasi_gaussian_hjm",
@@ -54,7 +51,6 @@ py_test(
 py_library(
     name = "gaussian_hjm",
     srcs = ["gaussian_hjm.py"],
-    srcs_version = "PY3",
     deps = [
         "quasi_gaussian_hjm",
         "//tf_quant_finance/math:piecewise",
@@ -71,7 +67,6 @@ py_test(
     size = "medium",
     timeout = "moderate",
     srcs = ["gaussian_hjm_test.py"],
-    python_version = "PY3",
     shard_count = 8,
     deps = [
         ":gaussian_hjm",
@@ -85,7 +80,6 @@ py_test(
 py_library(
     name = "zero_coupon_bond_option_util",
     srcs = ["zero_coupon_bond_option_util.py"],
-    srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/models:utils",
         "//tf_quant_finance/types",
@@ -97,7 +91,6 @@ py_library(
 py_library(
     name = "zero_coupon_bond_option",
     srcs = ["zero_coupon_bond_option.py"],
-    srcs_version = "PY3",
     deps = [
         ":quasi_gaussian_hjm",
         ":zero_coupon_bond_option_util",
@@ -110,7 +103,6 @@ py_test(
     size = "medium",
     timeout = "moderate",
     srcs = ["zero_coupon_bond_option_test.py"],
-    python_version = "PY3",
     shard_count = 8,
     deps = [
         "//tf_quant_finance",
@@ -137,7 +129,6 @@ py_test(
     size = "medium",
     timeout = "moderate",
     srcs = ["cap_floor_test.py"],
-    python_version = "PY3",
     shard_count = 8,
     deps = [
         "//tf_quant_finance",
@@ -175,7 +166,6 @@ py_test(
     name = "swaption_pricing_test",
     timeout = "long",
     srcs = ["swaption_pricing_test.py"],
-    python_version = "PY3",
     shard_count = 8,
     deps = [
         "//tf_quant_finance",
@@ -207,7 +197,6 @@ py_test(
     name = "calibration_test",
     timeout = "long",
     srcs = ["calibration_test.py"],
-    python_version = "PY3",
     shard_count = 12,
     deps = [
         "//tf_quant_finance",
@@ -221,7 +210,6 @@ py_test(
     name = "calibration_xla_test",
     timeout = "long",
     srcs = ["calibration_xla_test.py"],
-    python_version = "PY3",
     shard_count = 1,
     deps = [
         "//tf_quant_finance",

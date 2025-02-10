@@ -11,7 +11,6 @@ package(
 py_library(
     name = "cir",
     srcs = ["__init__.py"],
-    srcs_version = "PY3",
     deps = [
         ":cir_model",
     ],
@@ -34,7 +33,6 @@ py_test(
     size = "medium",
     timeout = "long",
     srcs = ["cir_test.py"],
-    python_version = "PY3",
     shard_count = 5,
     deps = [
         ":cir_model",

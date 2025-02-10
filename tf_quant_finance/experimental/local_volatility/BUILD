@@ -11,7 +11,6 @@ package(
 py_library(
     name = "local_volatility",
     srcs = ["__init__.py"],
-    srcs_version = "PY3",
     deps = [
         ":local_volatility_model",
     ],
@@ -20,7 +19,6 @@ py_library(
 py_library(
     name = "local_volatility_model",
     srcs = ["local_volatility_model.py"],
-    srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/black_scholes",
         "//tf_quant_finance/datetime",
@@ -40,7 +38,6 @@ py_test(
     size = "large",
     timeout = "long",
     srcs = ["local_volatility_model_test.py"],
-    python_version = "PY3",
     shard_count = 30,
     tags = [
         "nomsan",  # TODO(b/231568581)

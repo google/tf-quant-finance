@@ -11,7 +11,6 @@ py_library(
     srcs = [
         "__init__.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":bond",
         ":cap_floor",
@@ -36,7 +35,6 @@ py_library(
     srcs = [
         "rates_common.py",
     ],
-    srcs_version = "PY3",
     deps = [
         # attr dep,
         # numpy dep,
@@ -49,7 +47,6 @@ py_library(
     srcs = [
         "forward_rate_agreement.py",
     ],
-    srcs_version = "PY3",
     deps = [
         # attr dep,
         # numpy dep,
@@ -62,7 +59,6 @@ py_library(
     srcs = [
         "eurodollar_futures.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":rates_common",
         # attr dep,
@@ -76,7 +72,6 @@ py_library(
     srcs = [
         "overnight_index_linked_futures.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":rates_common",
         # attr dep,
@@ -90,7 +85,6 @@ py_library(
     srcs = [
         "cashflow_stream.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":rates_common",
         # attr dep,
@@ -104,7 +98,6 @@ py_library(
     srcs = [
         "interest_rate_swap.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":cashflow_stream",
         # attr dep,
@@ -118,7 +111,6 @@ py_library(
     srcs = [
         "rate_curve.py",
     ],
-    srcs_version = "PY3",
     deps = [
         # attr dep,
         # numpy dep,
@@ -131,7 +123,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["forward_rate_agreement_test.py"],
-    python_version = "PY3",
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -145,7 +136,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["eurodollar_futures_test.py"],
-    python_version = "PY3",
     deps = [
         ":instruments",
         "//tf_quant_finance",
@@ -159,7 +149,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["overnight_index_linked_futures_test.py"],
-    python_version = "PY3",
     deps = [
         ":instruments",
         "//tf_quant_finance",
@@ -173,7 +162,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["interest_rate_swap_test.py"],
-    python_version = "PY3",
     deps = [
         ":instruments",
         "//tf_quant_finance",
@@ -187,7 +175,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["cashflow_stream_test.py"],
-    python_version = "PY3",
     deps = [
         ":instruments",
         "//tf_quant_finance",
@@ -201,7 +188,6 @@ py_library(
     srcs = [
         "bond.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":cashflow_stream",
         # attr dep,
@@ -215,7 +201,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["bond_test.py"],
-    python_version = "PY3",
     deps = [
         ":instruments",
         "//tf_quant_finance",
@@ -229,7 +214,6 @@ py_library(
     srcs = [
         "swaption.py",
     ],
-    srcs_version = "PY3",
     deps = [
         # attr dep,
         # numpy dep,
@@ -242,7 +226,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["swaption_test.py"],
-    python_version = "PY3",
     deps = [
         ":instruments",
         "//tf_quant_finance",
@@ -256,7 +239,6 @@ py_library(
     srcs = [
         "cap_floor.py",
     ],
-    srcs_version = "PY3",
     deps = [
         # attr dep,
         # numpy dep,
@@ -269,7 +251,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["cap_floor_test.py"],
-    python_version = "PY3",
     shard_count = 2,
     deps = [
         ":instruments",
@@ -284,7 +265,6 @@ py_library(
     srcs = [
         "floating_rate_note.py",
     ],
-    srcs_version = "PY3",
     deps = [
         ":cashflow_stream",
         # attr dep,
@@ -298,7 +278,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["floating_rate_note_test.py"],
-    python_version = "PY3",
     deps = [
         ":instruments",
         "//tf_quant_finance",
@@ -312,7 +291,6 @@ py_library(
     srcs = [
         "cms_swap.py",
     ],
-    srcs_version = "PY3",
     deps = [
         # attr dep,
         # numpy dep,
@@ -325,7 +303,6 @@ py_test(
     size = "small",
     timeout = "long",
     srcs = ["cms_swap_test.py"],
-    python_version = "PY3",
     shard_count = 10,
     deps = [
         ":instruments",
@@ -340,7 +317,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["rate_curve_test.py"],
-    python_version = "PY3",
     deps = [
         ":rate_curve",
         "//tf_quant_finance",

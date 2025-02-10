@@ -35,7 +35,6 @@ py_test(
     size = "medium",
     timeout = "long",
     srcs = ["halton_test.py"],
-    python_version = "PY3",
     shard_count = 2,
     deps = [
         # test util,

@@ -11,7 +11,6 @@ package(
 py_library(
     name = "svi",
     srcs = ["__init__.py"],
-    srcs_version = "PY3",
     deps = [
         ":calibration",
         ":parameterizations",
@@ -21,7 +20,6 @@ py_library(
 py_library(
     name = "calibration",
     srcs = ["calibration.py"],
-    srcs_version = "PY3",
     deps = [
         ":parameterizations",
         "//tf_quant_finance/math",
@@ -35,7 +33,6 @@ py_test(
     size = "small",
     timeout = "long",
     srcs = ["calibration_test.py"],
-    python_version = "PY3",
     deps = [
         ":calibration",
         ":parameterizations",
@@ -61,7 +58,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["parameterizations_test.py"],
-    python_version = "PY3",
     deps = [
         ":parameterizations",
         "//tf_quant_finance",

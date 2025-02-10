@@ -11,7 +11,6 @@ package(
 py_library(
     name = "optimizer",
     srcs = ["__init__.py"],
-    srcs_version = "PY3",
     deps = [
         ":conjugate_gradient",
     ],
@@ -21,7 +20,6 @@ py_test(
     name = "optimizer_test",
     size = "medium",
     srcs = ["optimizer_test.py"],
-    python_version = "PY3",
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -47,7 +45,6 @@ py_test(
     size = "medium",
     timeout = "long",
     srcs = ["conjugate_gradient_test.py"],
-    python_version = "PY3",
     shard_count = 10,
     deps = [
         "//tf_quant_finance",

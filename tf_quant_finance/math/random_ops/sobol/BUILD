@@ -21,7 +21,6 @@ py_library(
     name = "sobol_impl",
     srcs = ["sobol_impl.py"],
     data = ["//third_party/sobol_data:new-joe-kuo-6.21201"],
-    srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/types",
         # numpy dep,
@@ -34,7 +33,6 @@ py_test(
     name = "sobol_test",
     size = "medium",
     srcs = ["sobol_test.py"],
-    python_version = "PY3",
     deps = [
         # test util,
         "//tf_quant_finance/math",

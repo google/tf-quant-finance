@@ -36,7 +36,6 @@ py_test(
     size = "medium",
     timeout = "moderate",
     srcs = ["heston_model_test.py"],
-    python_version = "PY3",
     shard_count = 6,
     deps = [
         "//tf_quant_finance",

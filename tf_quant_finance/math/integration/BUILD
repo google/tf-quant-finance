@@ -93,7 +93,6 @@ py_test(
     name = "integration_test",
     size = "medium",
     srcs = ["integration_test.py"],
-    python_version = "PY3",
     deps = [
         "//tf_quant_finance",
         # test util,

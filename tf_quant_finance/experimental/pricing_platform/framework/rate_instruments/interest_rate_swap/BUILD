@@ -11,7 +11,6 @@ package(
 py_library(
     name = "interest_rate_swap",
     srcs = ["__init__.py"],
-    srcs_version = "PY3",
     deps = [
         ":interest_rate_swap_impl",
     ],
@@ -20,7 +19,6 @@ py_library(
 py_library(
     name = "interest_rate_swap_impl",
     srcs = ["interest_rate_swap_impl.py"],
-    srcs_version = "PY3",
     deps = [
         ":proto_utils",
         "//tf_quant_finance/datetime",
@@ -41,7 +39,6 @@ py_test(
     name = "interest_rate_swap_test",
     size = "medium",
     srcs = ["interest_rate_swap_test.py"],
-    python_version = "PY3",
     shard_count = 6,
     deps = [
         "//tf_quant_finance",
@@ -55,7 +52,6 @@ py_test(
 py_library(
     name = "proto_utils",
     srcs = ["proto_utils.py"],
-    srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/framework:utils",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:business_days",
@@ -73,7 +69,6 @@ py_test(
     name = "proto_utils_test",
     size = "small",
     srcs = ["proto_utils_test.py"],
-    python_version = "PY3",
     shard_count = 2,
     deps = [
         ":proto_utils",

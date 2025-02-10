@@ -11,7 +11,6 @@ package(
 py_library(
     name = "math",
     srcs = ["__init__.py"],
-    srcs_version = "PY3",
     deps = [
         ":diff_ops",
         ":gradient",
@@ -32,7 +31,6 @@ py_library(
 py_library(
     name = "diff_ops",
     srcs = ["diff_ops.py"],
-    srcs_version = "PY3",
     deps = [
         # numpy dep,
         # tensorflow dep,
@@ -43,7 +41,6 @@ py_test(
     name = "diff_ops_test",
     size = "small",
     srcs = ["diff_ops_test.py"],
-    python_version = "PY3",
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -55,7 +52,6 @@ py_test(
 py_library(
     name = "gradient",
     srcs = ["gradient.py"],
-    srcs_version = "PY3",
     deps = [
         # tensorflow dep,
     ],
@@ -65,7 +61,6 @@ py_test(
     name = "gradient_test",
     size = "small",
     srcs = ["gradient_test.py"],
-    python_version = "PY3",
     shard_count = 4,
     deps = [
         "//tf_quant_finance",
@@ -78,7 +73,6 @@ py_test(
 py_library(
     name = "jacobian",
     srcs = ["jacobian.py"],
-    srcs_version = "PY3",
     deps = [
         # tensorflow dep,
     ],
@@ -89,7 +83,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["jacobian_test.py"],
-    python_version = "PY3",
     shard_count = 4,
     deps = [
         "//tf_quant_finance",
@@ -102,7 +95,6 @@ py_test(
 py_library(
     name = "segment_ops",
     srcs = ["segment_ops.py"],
-    srcs_version = "PY3",
     deps = [
         ":diff_ops",
         # numpy dep,
@@ -114,7 +106,6 @@ py_test(
     name = "segment_ops_test",
     size = "small",
     srcs = ["segment_ops_test.py"],
-    python_version = "PY3",
     deps = [
         ":segment_ops",
         # test util,
@@ -126,7 +117,6 @@ py_test(
 py_library(
     name = "piecewise",
     srcs = ["piecewise.py"],
-    srcs_version = "PY3",
     deps = [
         # numpy dep,
         # tensorflow dep,
@@ -137,7 +127,6 @@ py_test(
     name = "piecewise_test",
     size = "medium",
     srcs = ["piecewise_test.py"],
-    python_version = "PY3",
     shard_count = 5,
     deps = [
         "//tf_quant_finance",
@@ -151,7 +140,6 @@ py_test(
 py_library(
     name = "custom_loops",
     srcs = ["custom_loops.py"],
-    srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/utils",
         # tensorflow dep,
@@ -163,7 +151,6 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["custom_loops_test.py"],
-    python_version = "PY3",
     shard_count = 12,
     deps = [
         ":custom_loops",
@@ -179,7 +166,6 @@ py_test(
 py_library(
     name = "pad",
     srcs = ["pad.py"],
-    srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/datetime:date_tensor",
         # tensorflow dep,
@@ -190,7 +176,6 @@ py_test(
     name = "pad_test",
     size = "small",
     srcs = ["pad_test.py"],
-    python_version = "PY3",
     deps = [
         "//tf_quant_finance",
         # test util,

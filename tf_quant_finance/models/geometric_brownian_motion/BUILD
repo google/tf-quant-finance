@@ -56,7 +56,6 @@ py_test(
     size = "medium",
     timeout = "moderate",
     srcs = ["geometric_brownian_motion_test.py"],
-    python_version = "PY3",
     shard_count = 8,
     deps = [
         ":geometric_brownian_motion",
@@ -75,7 +74,6 @@ py_test(
     size = "medium",
     timeout = "moderate",
     srcs = ["geometric_brownian_motion_test_utils_test.py"],
-    python_version = "PY3",
     shard_count = 8,
     deps = [
         ":geometric_brownian_motion",

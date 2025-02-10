@@ -36,7 +36,6 @@ py_test(
     size = "medium",
     timeout = "long",
     srcs = ["sabr_model_test.py"],
-    python_version = "PY3",
     shard_count = 12,
     deps = [
         ":sabr_model",

@@ -11,7 +11,6 @@ package(
 py_library(
     name = "american_option",
     srcs = ["__init__.py"],
-    srcs_version = "PY3",
     deps = [
         ":american_option_impl",
         ":proto_utils",
@@ -23,7 +22,6 @@ py_library(
 py_library(
     name = "american_option_impl",
     srcs = ["american_option_impl.py"],
-    srcs_version = "PY3",
     deps = [
         ":proto_utils",
         ":utils",
@@ -42,7 +40,6 @@ py_test(
     name = "american_option_impl_test",
     size = "medium",
     srcs = ["american_option_impl_test.py"],
-    python_version = "PY3",
     shard_count = 4,
     deps = [
         "//tf_quant_finance",
@@ -55,7 +52,6 @@ py_test(
 py_library(
     name = "proto_utils",
     srcs = ["proto_utils.py"],
-    srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/framework:utils",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:business_days",
@@ -74,7 +70,6 @@ py_library(
 py_library(
     name = "utils",
     srcs = ["utils.py"],
-    srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/datetime",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:types",
@@ -89,7 +84,6 @@ py_test(
     name = "utils_test",
     size = "medium",
     srcs = ["utils_test.py"],
-    python_version = "PY3",
     deps = [
         ":utils",
         # test util,
