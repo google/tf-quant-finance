@@ -11,7 +11,6 @@ package(
 py_library(
     name = "hagan_west",
     srcs = ["__init__.py"],
-    srcs_version = "PY3",
     deps = [
         ":bond_curve",
         ":monotone_convex",
@@ -21,7 +20,6 @@ py_library(
 py_library(
     name = "monotone_convex",
     srcs = ["monotone_convex.py"],
-    srcs_version = "PY3",
     deps = [
         "//tf_quant_finance/math:diff_ops",
         "//tf_quant_finance/math:piecewise",
@@ -36,7 +34,6 @@ py_test(
     name = "monotone_convex_test",
     size = "small",
     srcs = ["monotone_convex_test.py"],
-    python_version = "PY3",
     shard_count = 5,
     deps = [
         ":monotone_convex",
@@ -49,7 +46,6 @@ py_test(
 py_library(
     name = "bond_curve",
     srcs = ["bond_curve.py"],
-    srcs_version = "PY3",
     deps = [
         ":monotone_convex",
         "//tf_quant_finance/math:pad",
@@ -65,7 +61,6 @@ py_test(
     name = "bond_curve_test",
     size = "medium",
     srcs = ["bond_curve_test.py"],
-    python_version = "PY3",
     shard_count = 3,
     deps = [
         ":bond_curve",
