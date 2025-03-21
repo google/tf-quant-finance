@@ -1,4 +1,9 @@
-# TF Quant Finance: TensorFlow based Quant Finance Library
+# TF Quant Finance: TensorFlow based Quant Finance Library (ARCHIVED)
+
+> [!IMPORTANT]
+> This library is no longer maintained and has been archived. If you depend on
+> the functionality provided by this library, we suggest to fork it and continue
+> development elsewhere.
 
 [![Build Status](https://storage.googleapis.com/tf-quant-finance-build-result/status.svg?)](https://storage.googleapis.com/tf-quant-finance-build-result/logs.txt)
 
