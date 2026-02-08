@@ -11,6 +11,7 @@ package(
 py_library(
     name = "halton",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":halton_impl",
         # tensorflow dep,
@@ -20,6 +21,7 @@ py_library(
 py_library(
     name = "halton_impl",
     srcs = ["halton_impl.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math/random_ops:stateless",
         "//tf_quant_finance/types",

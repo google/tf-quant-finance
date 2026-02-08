@@ -11,6 +11,7 @@ package(
 py_library(
     name = "geometric_brownian_motion",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":multivariate_geometric_brownian_motion",
         ":univariate_geometric_brownian_motion",
@@ -20,6 +21,7 @@ py_library(
 py_library(
     name = "geometric_brownian_motion_test_utils",
     srcs = ["geometric_brownian_motion_test_utils.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/models:utils",
         # numpy dep,
@@ -30,6 +32,7 @@ py_library(
 py_library(
     name = "univariate_geometric_brownian_motion",
     srcs = ["univariate_geometric_brownian_motion.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math/pde",
         "//tf_quant_finance/models:ito_process",
@@ -42,6 +45,7 @@ py_library(
 py_library(
     name = "multivariate_geometric_brownian_motion",
     srcs = ["multivariate_geometric_brownian_motion.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math/pde",
         "//tf_quant_finance/models:ito_process",

@@ -11,6 +11,7 @@ package(
 py_library(
     name = "sobol",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":sobol_impl",
         # tensorflow dep,
@@ -21,6 +22,7 @@ py_library(
     name = "sobol_impl",
     srcs = ["sobol_impl.py"],
     data = ["//third_party/sobol_data:new-joe-kuo-6.21201"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/types",
         # numpy dep,

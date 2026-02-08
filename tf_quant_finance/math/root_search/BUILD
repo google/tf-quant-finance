@@ -11,6 +11,7 @@ package(
 py_library(
     name = "root_search",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":brent",
         ":newton",
@@ -21,6 +22,7 @@ py_library(
 py_library(
     name = "brent",
     srcs = ["brent.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/types",
         "//tf_quant_finance/utils",
@@ -46,6 +48,7 @@ py_test(
 py_library(
     name = "newton",
     srcs = ["newton.py"],
+    strict_deps = False,
     deps = [
         # numpy dep,
         # tensorflow dep,
@@ -69,6 +72,7 @@ py_test(
 py_library(
     name = "utils",
     srcs = ["utils.py"],
+    strict_deps = False,
     deps = [
         # numpy dep,
         # tensorflow dep,

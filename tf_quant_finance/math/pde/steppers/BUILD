@@ -23,6 +23,7 @@ py_library(
         "parabolic_equation_stepper.py",
         "weighted_implicit_explicit.py",
     ],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/utils",
         # tensorflow dep,

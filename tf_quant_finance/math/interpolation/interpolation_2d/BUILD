@@ -11,6 +11,7 @@ package(
 py_library(
     name = "interpolation_2d",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":interpolation",
         # tensorflow dep,
@@ -20,6 +21,7 @@ py_library(
 py_library(
     name = "interpolation",
     srcs = ["interpolation_2d.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math:piecewise",
         "//tf_quant_finance/math/interpolation/cubic",

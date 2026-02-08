@@ -11,6 +11,7 @@ package(
 py_library(
     name = "linear",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":linear_interpolation",
         # tensorflow dep,
@@ -20,6 +21,7 @@ py_library(
 py_library(
     name = "linear_interpolation",
     srcs = ["linear_interpolation.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math:piecewise",
         "//tf_quant_finance/types",

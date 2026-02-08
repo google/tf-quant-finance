@@ -11,6 +11,7 @@ package(
 py_library(
     name = "cubic",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":cubic_interpolation",
         # tensorflow dep,
@@ -20,6 +21,7 @@ py_library(
 py_library(
     name = "cubic_interpolation",
     srcs = ["cubic_interpolation.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/types",
         "//tf_quant_finance/utils",

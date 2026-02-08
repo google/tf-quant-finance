@@ -10,6 +10,7 @@ package(
 py_library(
     name = "pde",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":boundary_conditions",
         ":fd_solvers",
@@ -20,6 +21,7 @@ py_library(
 py_library(
     name = "fd_solvers",
     srcs = ["fd_solvers.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math/pde/steppers",
         # tensorflow dep,
@@ -29,12 +31,14 @@ py_library(
 py_library(
     name = "boundary_conditions",
     srcs = ["boundary_conditions.py"],
+    strict_deps = False,
     deps = [],
 )
 
 py_library(
     name = "grids",
     srcs = ["grids.py"],
+    strict_deps = False,
     deps = [
         # numpy dep,
         # tensorflow dep,

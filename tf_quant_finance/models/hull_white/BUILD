@@ -10,6 +10,7 @@ package(
 py_library(
     name = "hull_white",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":calibration",
         ":cap_floor",
@@ -23,6 +24,7 @@ py_library(
 py_library(
     name = "vector_hull_white",
     srcs = ["vector_hull_white.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math:piecewise",
         "//tf_quant_finance/math/random_ops",
@@ -37,6 +39,7 @@ py_library(
 py_library(
     name = "one_factor",
     srcs = ["one_factor.py"],
+    strict_deps = False,
     deps = [
         ":vector_hull_white",
     ],
@@ -60,6 +63,7 @@ py_test(
 py_library(
     name = "zero_coupon_bond_option",
     srcs = ["zero_coupon_bond_option.py"],
+    strict_deps = False,
     deps = [
         ":one_factor",
         "//tf_quant_finance/math/random_ops",
@@ -91,6 +95,7 @@ py_test(
 py_library(
     name = "cap_floor",
     srcs = ["cap_floor.py"],
+    strict_deps = False,
     deps = [
         ":vector_hull_white",
         ":zero_coupon_bond_option",
@@ -118,6 +123,7 @@ py_test(
 py_library(
     name = "swaption",
     srcs = ["swaption.py"],
+    strict_deps = False,
     deps = [
         ":one_factor",
         ":zero_coupon_bond_option",
@@ -130,6 +136,7 @@ py_library(
 py_library(
     name = "calibration",
     srcs = ["calibration.py"],
+    strict_deps = False,
     deps = [
         ":one_factor",
         ":swaption",

@@ -11,6 +11,7 @@ package(
 py_library(
     name = "heston",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":heston_model",
         "//tf_quant_finance/models/heston/approximations",
@@ -20,6 +21,7 @@ py_library(
 py_library(
     name = "heston_model",
     srcs = ["heston_model.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math:piecewise",
         "//tf_quant_finance/math/random_ops",

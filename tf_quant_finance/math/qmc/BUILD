@@ -11,6 +11,7 @@ package(
 py_library(
     name = "qmc",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":digital_net",
         ":lattice_rule",
@@ -22,6 +23,7 @@ py_library(
 py_library(
     name = "digital_net",
     srcs = ["digital_net.py"],
+    strict_deps = False,
     deps = [
         ":utils",
         "//tf_quant_finance/types",
@@ -42,6 +44,7 @@ py_test(
 py_library(
     name = "lattice_rule",
     srcs = ["lattice_rule.py"],
+    strict_deps = False,
     deps = [
         ":utils",
         "//tf_quant_finance/types",
@@ -62,6 +65,7 @@ py_test(
 py_library(
     name = "sobol",
     srcs = ["sobol.py"],
+    strict_deps = False,
     deps = [
         ":digital_net",
         ":utils",
@@ -85,6 +89,7 @@ py_test(
 py_library(
     name = "utils",
     srcs = ["utils.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/types",
         # tensorflow dep,

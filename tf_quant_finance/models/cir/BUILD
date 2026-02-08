@@ -11,6 +11,7 @@ package(
 py_library(
     name = "cir",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":cir_model",
     ],
@@ -19,6 +20,7 @@ py_library(
 py_library(
     name = "cir_model",
     srcs = ["cir_model.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math:piecewise",
         "//tf_quant_finance/math/random_ops",

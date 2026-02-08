@@ -11,6 +11,7 @@ package(
 py_library(
     name = "random_ops",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":multivariate_normal",
         ":stateless",
@@ -23,6 +24,7 @@ py_library(
 py_library(
     name = "multivariate_normal",
     srcs = ["multivariate_normal.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math/random_ops/halton",
         "//tf_quant_finance/math/random_ops/sobol",
@@ -34,6 +36,7 @@ py_library(
 py_library(
     name = "uniform",
     srcs = ["uniform.py"],
+    strict_deps = False,
     deps = [
         ":multivariate_normal",
         "//tf_quant_finance/math/random_ops/halton",
@@ -47,6 +50,7 @@ py_library(
     srcs = [
         "stateless.py",
     ],
+    strict_deps = False,
     deps = [
         # numpy dep,
         # tensorflow dep,

@@ -11,6 +11,7 @@ package(
 py_library(
     name = "optimizer",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":conjugate_gradient",
     ],
@@ -31,6 +32,7 @@ py_test(
 py_library(
     name = "conjugate_gradient",
     srcs = ["conjugate_gradient.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/types",
         "//tf_quant_finance/utils",

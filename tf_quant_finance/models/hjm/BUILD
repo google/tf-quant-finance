@@ -11,6 +11,7 @@ package(
 py_library(
     name = "hjm",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":calibration",
         ":cap_floor",
@@ -24,6 +25,7 @@ py_library(
 py_library(
     name = "quasi_gaussian_hjm",
     srcs = ["quasi_gaussian_hjm.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math/random_ops",
         "//tf_quant_finance/models:generic_ito_process",
@@ -51,6 +53,7 @@ py_test(
 py_library(
     name = "gaussian_hjm",
     srcs = ["gaussian_hjm.py"],
+    strict_deps = False,
     deps = [
         "quasi_gaussian_hjm",
         "//tf_quant_finance/math:piecewise",
@@ -80,6 +83,7 @@ py_test(
 py_library(
     name = "zero_coupon_bond_option_util",
     srcs = ["zero_coupon_bond_option_util.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/models:utils",
         "//tf_quant_finance/types",
@@ -91,6 +95,7 @@ py_library(
 py_library(
     name = "zero_coupon_bond_option",
     srcs = ["zero_coupon_bond_option.py"],
+    strict_deps = False,
     deps = [
         ":quasi_gaussian_hjm",
         ":zero_coupon_bond_option_util",
@@ -116,6 +121,7 @@ py_test(
 py_library(
     name = "cap_floor",
     srcs = ["cap_floor.py"],
+    strict_deps = False,
     deps = [
         ":zero_coupon_bond_option",
         "//tf_quant_finance/math/random_ops",
@@ -141,6 +147,7 @@ py_test(
 py_library(
     name = "swaption_util",
     srcs = ["swaption_util.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/models:utils",
         "//tf_quant_finance/types",
@@ -151,6 +158,7 @@ py_library(
 py_library(
     name = "swaption_pricing",
     srcs = ["swaption_pricing.py"],
+    strict_deps = False,
     deps = [
         ":gaussian_hjm",
         ":quasi_gaussian_hjm",
@@ -178,6 +186,7 @@ py_test(
 py_library(
     name = "calibration",
     srcs = ["calibration.py"],
+    strict_deps = False,
     deps = [
         ":quasi_gaussian_hjm",
         ":swaption_util",

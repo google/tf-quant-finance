@@ -11,6 +11,7 @@ package(
 py_library(
     name = "models",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":brownian_motion",
         ":ito_process",
@@ -20,6 +21,7 @@ py_library(
 py_library(
     name = "ito_process",
     srcs = ["ito_process.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math/random_ops",
         # numpy dep,
@@ -31,6 +33,7 @@ py_library(
 py_library(
     name = "brownian_motion_utils",
     srcs = ["brownian_motion_utils.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math:gradient",
         # numpy dep,
@@ -55,6 +58,7 @@ py_test(
 py_library(
     name = "brownian_motion",
     srcs = ["brownian_motion.py"],
+    strict_deps = False,
     deps = [
         ":brownian_motion_utils",
         ":ito_process",

@@ -11,6 +11,7 @@ package(
 py_library(
     name = "approximations",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":asian_prices",
         ":calibration",
@@ -21,6 +22,7 @@ py_library(
 py_library(
     name = "european_option",
     srcs = ["european_option.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math/integration",
         "//tf_quant_finance/types",
@@ -46,6 +48,7 @@ py_test(
 py_library(
     name = "calibration",
     srcs = ["calibration.py"],
+    strict_deps = False,
     deps = [
         ":european_option",
         "//tf_quant_finance/math:gradient",
@@ -72,6 +75,7 @@ py_test(
 py_library(
     name = "asian_prices",
     srcs = ["asian_prices.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/types",
         "//tf_quant_finance/utils",

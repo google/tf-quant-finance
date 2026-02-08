@@ -11,6 +11,7 @@ package(
 py_library(
     name = "models",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":euler_sampling",
         ":generic_ito_process",
@@ -32,17 +33,20 @@ py_library(
 py_library(
     name = "valuation_method",
     srcs = ["valuation_method.py"],
+    strict_deps = False,
 )
 
 py_library(
     name = "ito_process",
     srcs = ["ito_process.py"],
+    strict_deps = False,
     deps = [],
 )
 
 py_library(
     name = "generic_ito_process",
     srcs = ["generic_ito_process.py"],
+    strict_deps = False,
     deps = [
         ":euler_sampling",
         ":ito_process",
@@ -70,6 +74,7 @@ py_test(
 py_library(
     name = "euler_sampling",
     srcs = ["euler_sampling.py"],
+    strict_deps = False,
     deps = [
         ":utils",
         "//tf_quant_finance/math:custom_loops",
@@ -98,6 +103,7 @@ py_test(
 py_library(
     name = "milstein_sampling",
     srcs = ["milstein_sampling.py"],
+    strict_deps = False,
     deps = [
         ":utils",
         "//tf_quant_finance/math:custom_loops",
@@ -127,6 +133,7 @@ py_test(
 py_library(
     name = "joined_ito_process",
     srcs = ["joined_ito_process.py"],
+    strict_deps = False,
     deps = [
         ":euler_sampling",
         ":generic_ito_process",
@@ -155,6 +162,7 @@ py_test(
 py_library(
     name = "utils",
     srcs = ["utils.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math/random_ops",
         # tensorflow dep,
@@ -179,6 +187,7 @@ py_test(
 py_library(
     name = "realized_volatility",
     srcs = ["realized_volatility.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math:diff_ops",
         # tensorflow dep,

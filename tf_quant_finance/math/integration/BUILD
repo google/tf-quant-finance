@@ -13,6 +13,7 @@ py_library(
     srcs = [
         "__init__.py",
     ],
+    strict_deps = False,
     deps = [
         ":adaptive_update",
         ":gauss_constants",
@@ -28,6 +29,7 @@ py_library(
     srcs = [
         "integrate.py",
     ],
+    strict_deps = False,
     deps = [
         ":gauss_constants",
         ":gauss_legendre",
@@ -41,6 +43,7 @@ py_library(
     srcs = [
         "simpson.py",
     ],
+    strict_deps = False,
     deps = [
         # tensorflow dep,
     ],
@@ -51,6 +54,7 @@ py_library(
     srcs = [
         "gauss_legendre.py",
     ],
+    strict_deps = False,
     deps = [
         ":gauss_constants",
         # tensorflow dep,
@@ -62,6 +66,7 @@ py_library(
     srcs = [
         "gauss_kronrod.py",
     ],
+    strict_deps = False,
     deps = [
         ":adaptive_update",
         ":gauss_constants",
@@ -74,6 +79,7 @@ py_library(
     srcs = [
         "adaptive_update.py",
     ],
+    strict_deps = False,
     deps = [
         # tensorflow dep,
     ],
@@ -84,6 +90,7 @@ py_library(
     srcs = [
         "gauss_constants.py",
     ],
+    strict_deps = False,
     deps = [
         # tensorflow dep,
     ],

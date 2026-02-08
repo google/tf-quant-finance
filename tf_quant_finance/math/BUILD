@@ -11,6 +11,7 @@ package(
 py_library(
     name = "math",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":diff_ops",
         ":gradient",
@@ -31,6 +32,7 @@ py_library(
 py_library(
     name = "diff_ops",
     srcs = ["diff_ops.py"],
+    strict_deps = False,
     deps = [
         # numpy dep,
         # tensorflow dep,
@@ -52,6 +54,7 @@ py_test(
 py_library(
     name = "gradient",
     srcs = ["gradient.py"],
+    strict_deps = False,
     deps = [
         # tensorflow dep,
     ],
@@ -73,6 +76,7 @@ py_test(
 py_library(
     name = "jacobian",
     srcs = ["jacobian.py"],
+    strict_deps = False,
     deps = [
         # tensorflow dep,
     ],
@@ -95,6 +99,7 @@ py_test(
 py_library(
     name = "segment_ops",
     srcs = ["segment_ops.py"],
+    strict_deps = False,
     deps = [
         ":diff_ops",
         # numpy dep,
@@ -117,6 +122,7 @@ py_test(
 py_library(
     name = "piecewise",
     srcs = ["piecewise.py"],
+    strict_deps = False,
     deps = [
         # numpy dep,
         # tensorflow dep,
@@ -140,6 +146,7 @@ py_test(
 py_library(
     name = "custom_loops",
     srcs = ["custom_loops.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/utils",
         # tensorflow dep,
@@ -166,6 +173,7 @@ py_test(
 py_library(
     name = "pad",
     srcs = ["pad.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/datetime:date_tensor",
         # tensorflow dep,
