@@ -11,6 +11,7 @@ py_library(
     srcs = [
         "__init__.py",
     ],
+    strict_deps = False,
     deps = [
         ":constants",
         ":date_tensor",
@@ -26,11 +27,13 @@ py_library(
 py_library(
     name = "constants",
     srcs = ["constants.py"],
+    strict_deps = False,
 )
 
 py_library(
     name = "date_utils",
     srcs = ["date_utils.py"],
+    strict_deps = False,
     deps = [
         # tensorflow dep,
     ],
@@ -39,6 +42,7 @@ py_library(
 py_library(
     name = "tensor_wrapper",
     srcs = ["tensor_wrapper.py"],
+    strict_deps = False,
     deps = [
         # tensorflow dep,
     ],
@@ -47,6 +51,7 @@ py_library(
 py_library(
     name = "date_tensor",
     srcs = ["date_tensor.py"],
+    strict_deps = False,
     deps = [
         ":constants",
         ":date_utils",
@@ -60,6 +65,7 @@ py_library(
 py_library(
     name = "bounded_holiday_calendar",
     srcs = ["bounded_holiday_calendar.py"],
+    strict_deps = False,
     deps = [
         ":constants",
         ":date_tensor",
@@ -73,6 +79,7 @@ py_library(
 py_library(
     name = "holiday_utils",
     srcs = ["holiday_utils.py"],
+    strict_deps = False,
     deps = [
         # tensorflow dep,
     ],
@@ -81,6 +88,7 @@ py_library(
 py_library(
     name = "unbounded_holiday_calendar",
     srcs = ["unbounded_holiday_calendar.py"],
+    strict_deps = False,
     deps = [
         ":constants",
         ":date_tensor",
@@ -94,6 +102,7 @@ py_library(
 py_library(
     name = "holiday_calendar",
     srcs = ["holiday_calendar.py"],
+    strict_deps = False,
     deps = [
         ":constants",
         # tensorflow dep,
@@ -103,6 +112,7 @@ py_library(
 py_library(
     name = "holiday_calendar_factory",
     srcs = ["holiday_calendar_factory.py"],
+    strict_deps = False,
     deps = [
         ":bounded_holiday_calendar",
         ":unbounded_holiday_calendar",
@@ -114,6 +124,7 @@ py_library(
 py_library(
     name = "schedules",
     srcs = ["schedules.py"],
+    strict_deps = False,
     deps = [
         ":constants",
         ":date_tensor",
@@ -188,6 +199,7 @@ py_library(
     srcs = [
         "test_data.py",
     ],
+    strict_deps = False,
     deps = [
         ":datetime",
     ],
@@ -196,6 +208,7 @@ py_library(
 py_library(
     name = "daycounts",
     srcs = ["daycounts.py"],
+    strict_deps = False,
     deps = [
         ":date_tensor",
         ":date_utils",

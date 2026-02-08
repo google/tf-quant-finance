@@ -11,6 +11,7 @@ package(
 py_library(
     name = "market_data",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":market_data_config",
         ":market_data_impl",
@@ -23,6 +24,7 @@ py_library(
 py_library(
     name = "market_data_impl",
     srcs = ["market_data_impl.py"],
+    strict_deps = False,
     deps = [
         ":market_data_config",
         ":volatility_surface",
@@ -49,6 +51,7 @@ py_test(
 py_library(
     name = "market_data_config",
     srcs = ["market_data_config.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/framework/core:currencies",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:curve_types",
@@ -62,6 +65,7 @@ py_library(
 py_library(
     name = "utils",
     srcs = ["utils.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/datetime",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:business_days",
@@ -88,6 +92,7 @@ py_test(
 py_library(
     name = "rate_curve",
     srcs = ["rate_curve.py"],
+    strict_deps = False,
     deps = [
         ":utils",
         "//tf_quant_finance/datetime",
@@ -117,6 +122,7 @@ py_test(
 py_library(
     name = "volatility_surface",
     srcs = ["volatility_surface.py"],
+    strict_deps = False,
     deps = [
         ":utils",
         "//tf_quant_finance/datetime",

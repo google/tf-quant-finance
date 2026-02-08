@@ -11,6 +11,7 @@ package(
 py_library(
     name = "experimental",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":io",
         "//tf_quant_finance/experimental/american_option_pricing",
@@ -37,6 +38,7 @@ filegroup(
 py_library(
     name = "io",
     srcs = ["io.py"],
+    strict_deps = False,
     deps = [
         # numpy dep,
         # tensorflow dep,

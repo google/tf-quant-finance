@@ -9,6 +9,7 @@ package(
 py_library(
     name = "american_option_pricing",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":andersen_lake",
         ":common",
@@ -19,6 +20,7 @@ py_library(
 py_library(
     name = "exercise_boundary",
     srcs = ["exercise_boundary.py"],
+    strict_deps = False,
     deps = [
         ":common",
         "//tf_quant_finance/math/integration",
@@ -32,6 +34,7 @@ py_library(
 py_library(
     name = "andersen_lake",
     srcs = ["andersen_lake.py"],
+    strict_deps = False,
     deps = [
         ":common",
         ":exercise_boundary",
@@ -45,6 +48,7 @@ py_library(
 py_library(
     name = "common",
     srcs = ["common.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/types",
         # numpy dep,

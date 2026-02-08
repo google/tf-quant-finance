@@ -11,6 +11,7 @@ package(
 py_library(
     name = "svi",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":calibration",
         ":parameterizations",
@@ -20,6 +21,7 @@ py_library(
 py_library(
     name = "calibration",
     srcs = ["calibration.py"],
+    strict_deps = False,
     deps = [
         ":parameterizations",
         "//tf_quant_finance/math",
@@ -48,6 +50,7 @@ py_test(
 py_library(
     name = "parameterizations",
     srcs = ["parameterizations.py"],
+    strict_deps = False,
     deps = [
         # tensorflow dep,
     ],

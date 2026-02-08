@@ -11,6 +11,7 @@ package(
 py_library(
     name = "local_volatility",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":local_volatility_model",
     ],
@@ -19,6 +20,7 @@ py_library(
 py_library(
     name = "local_volatility_model",
     srcs = ["local_volatility_model.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/black_scholes",
         "//tf_quant_finance/datetime",

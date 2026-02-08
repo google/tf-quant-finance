@@ -10,6 +10,7 @@ package(
 py_library(
     name = "finite_difference",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":methods",
     ],
@@ -18,6 +19,7 @@ py_library(
 py_library(
     name = "methods",
     srcs = ["methods.py"],
+    strict_deps = False,
     deps = [
         # autograd dep,
         # pandas dep,

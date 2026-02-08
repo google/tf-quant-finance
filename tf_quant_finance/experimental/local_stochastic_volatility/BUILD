@@ -11,6 +11,7 @@ package(
 py_library(
     name = "local_stochastic_volatility",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":local_stochastic_volatility_model",
         ":lsv_variance_model",
@@ -20,6 +21,7 @@ py_library(
 py_library(
     name = "lsv_variance_model",
     srcs = ["lsv_variance_model.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/models:generic_ito_process",
         # tensorflow dep,
@@ -29,6 +31,7 @@ py_library(
 py_library(
     name = "local_stochastic_volatility_model",
     srcs = ["local_stochastic_volatility_model.py"],
+    strict_deps = False,
     deps = [
         ":lsv_variance_model",
         "//tf_quant_finance/datetime",

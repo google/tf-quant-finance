@@ -11,6 +11,7 @@ package(
 py_library(
     name = "black_scholes",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":asian_prices",
         ":brownian_bridge",
@@ -29,6 +30,7 @@ py_library(
 py_library(
     name = "vanilla_prices",
     srcs = ["vanilla_prices.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/types",
         # numpy dep,
@@ -52,6 +54,7 @@ py_test(
 py_library(
     name = "brownian_bridge",
     srcs = ["brownian_bridge.py"],
+    strict_deps = False,
     deps = [
         # tensorflow dep,
     ],
@@ -72,6 +75,7 @@ py_test(
 py_library(
     name = "crr_binomial_tree",
     srcs = ["crr_binomial_tree.py"],
+    strict_deps = False,
     deps = [
         # tensorflow dep,
     ],
@@ -91,6 +95,7 @@ py_test(
 py_library(
     name = "implied_vol_utils",
     srcs = ["implied_vol_utils.py"],
+    strict_deps = False,
     deps = [
         # numpy dep,
         # tensorflow dep,
@@ -100,6 +105,7 @@ py_library(
 py_library(
     name = "implied_vol_lib",
     srcs = ["implied_vol_lib.py"],
+    strict_deps = False,
     deps = [
         ":implied_vol_approximation",
         ":implied_vol_newton_root",
@@ -127,6 +133,7 @@ py_test(
 py_library(
     name = "implied_vol_approximation",
     srcs = ["implied_vol_approximation.py"],
+    strict_deps = False,
     deps = [
         # numpy dep,
         # tensorflow dep,
@@ -148,6 +155,7 @@ py_test(
 py_library(
     name = "implied_vol_newton_root",
     srcs = ["implied_vol_newton_root.py"],
+    strict_deps = False,
     deps = [
         ":implied_vol_approximation",
         ":implied_vol_utils",
@@ -173,6 +181,7 @@ py_test(
 py_library(
     name = "variance_swaps",
     srcs = ["variance_swaps.py"],
+    strict_deps = False,
     deps = [
         ":vanilla_prices",
         "//tf_quant_finance/math:diff_ops",
@@ -197,6 +206,7 @@ py_test(
 py_library(
     name = "asian_prices",
     srcs = ["asian_prices.py"],
+    strict_deps = False,
     deps = [
         ":vanilla_prices",
         "//tf_quant_finance/types",

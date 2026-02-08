@@ -10,6 +10,7 @@ package(
 py_library(
     name = "pricing_platform",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/framework",
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos",

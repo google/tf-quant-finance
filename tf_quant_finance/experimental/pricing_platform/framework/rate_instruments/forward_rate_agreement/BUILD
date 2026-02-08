@@ -11,6 +11,7 @@ package(
 py_library(
     name = "forward_rate_agreement",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":forward_rate_agreement_impl",
     ],
@@ -19,6 +20,7 @@ py_library(
 py_library(
     name = "forward_rate_agreement_impl",
     srcs = ["forward_rate_agreement_impl.py"],
+    strict_deps = False,
     deps = [
         ":proto_utils",
         "//tf_quant_finance/datetime",
@@ -37,6 +39,7 @@ py_library(
 py_library(
     name = "proto_utils",
     srcs = ["proto_utils.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/framework:utils",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:business_days",

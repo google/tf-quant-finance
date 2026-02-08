@@ -11,6 +11,7 @@ package(
 py_library(
     name = "interest_rate_swap",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":interest_rate_swap_impl",
     ],
@@ -19,6 +20,7 @@ py_library(
 py_library(
     name = "interest_rate_swap_impl",
     srcs = ["interest_rate_swap_impl.py"],
+    strict_deps = False,
     deps = [
         ":proto_utils",
         "//tf_quant_finance/datetime",
@@ -52,6 +54,7 @@ py_test(
 py_library(
     name = "proto_utils",
     srcs = ["proto_utils.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/framework:utils",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:business_days",

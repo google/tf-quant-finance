@@ -11,6 +11,7 @@ package(
 py_library(
     name = "lsm_algorithm",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":lsm",
         ":lsm_v2",
@@ -21,6 +22,7 @@ py_library(
 py_library(
     name = "lsm",
     srcs = ["lsm.py"],
+    strict_deps = False,
     deps = [
         # tensorflow dep,
     ],
@@ -44,6 +46,7 @@ py_test(
 py_library(
     name = "lsm_v2",
     srcs = ["lsm_v2.py"],
+    strict_deps = False,
     deps = [
         # tensorflow dep,
     ],
@@ -69,6 +72,7 @@ py_test(
 py_library(
     name = "payoff",
     srcs = ["payoff.py"],
+    strict_deps = False,
     deps = [
         # tensorflow dep,
     ],

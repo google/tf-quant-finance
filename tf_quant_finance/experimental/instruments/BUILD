@@ -11,6 +11,7 @@ py_library(
     srcs = [
         "__init__.py",
     ],
+    strict_deps = False,
     deps = [
         ":bond",
         ":cap_floor",
@@ -35,6 +36,7 @@ py_library(
     srcs = [
         "rates_common.py",
     ],
+    strict_deps = False,
     deps = [
         # attr dep,
         # numpy dep,
@@ -47,6 +49,7 @@ py_library(
     srcs = [
         "forward_rate_agreement.py",
     ],
+    strict_deps = False,
     deps = [
         # attr dep,
         # numpy dep,
@@ -59,6 +62,7 @@ py_library(
     srcs = [
         "eurodollar_futures.py",
     ],
+    strict_deps = False,
     deps = [
         ":rates_common",
         # attr dep,
@@ -72,6 +76,7 @@ py_library(
     srcs = [
         "overnight_index_linked_futures.py",
     ],
+    strict_deps = False,
     deps = [
         ":rates_common",
         # attr dep,
@@ -85,6 +90,7 @@ py_library(
     srcs = [
         "cashflow_stream.py",
     ],
+    strict_deps = False,
     deps = [
         ":rates_common",
         # attr dep,
@@ -98,6 +104,7 @@ py_library(
     srcs = [
         "interest_rate_swap.py",
     ],
+    strict_deps = False,
     deps = [
         ":cashflow_stream",
         # attr dep,
@@ -111,6 +118,7 @@ py_library(
     srcs = [
         "rate_curve.py",
     ],
+    strict_deps = False,
     deps = [
         # attr dep,
         # numpy dep,
@@ -188,6 +196,7 @@ py_library(
     srcs = [
         "bond.py",
     ],
+    strict_deps = False,
     deps = [
         ":cashflow_stream",
         # attr dep,
@@ -214,6 +223,7 @@ py_library(
     srcs = [
         "swaption.py",
     ],
+    strict_deps = False,
     deps = [
         # attr dep,
         # numpy dep,
@@ -239,6 +249,7 @@ py_library(
     srcs = [
         "cap_floor.py",
     ],
+    strict_deps = False,
     deps = [
         # attr dep,
         # numpy dep,
@@ -265,6 +276,7 @@ py_library(
     srcs = [
         "floating_rate_note.py",
     ],
+    strict_deps = False,
     deps = [
         ":cashflow_stream",
         # attr dep,
@@ -291,6 +303,7 @@ py_library(
     srcs = [
         "cms_swap.py",
     ],
+    strict_deps = False,
     deps = [
         # attr dep,
         # numpy dep,

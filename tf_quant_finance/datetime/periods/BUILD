@@ -10,6 +10,7 @@ package(
 py_library(
     name = "periods",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":period_tensors",
         # tensorflow dep,
@@ -19,6 +20,7 @@ py_library(
 py_library(
     name = "period_tensors",
     srcs = ["period_tensors.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/datetime:constants",
         "//tf_quant_finance/datetime:tensor_wrapper",

@@ -11,6 +11,7 @@ package(
 py_library(
     name = "rate_instruments",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":cashflow_streams",
         ":coupon_specs",
@@ -24,6 +25,7 @@ py_library(
 py_library(
     name = "utils",
     srcs = ["utils.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos",
     ],
@@ -32,6 +34,7 @@ py_library(
 py_library(
     name = "coupon_specs",
     srcs = ["coupon_specs.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/framework/core:types",
         # tensorflow dep,
@@ -41,6 +44,7 @@ py_library(
 py_library(
     name = "cashflow_streams",
     srcs = ["cashflow_streams.py"],
+    strict_deps = False,
     deps = [
         ":coupon_specs",
         "//tf_quant_finance/datetime",

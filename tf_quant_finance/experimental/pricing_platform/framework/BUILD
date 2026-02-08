@@ -10,6 +10,7 @@ package(
 py_library(
     name = "framework",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/framework/core",
         "//tf_quant_finance/experimental/pricing_platform/framework/equity_instruments",
@@ -21,4 +22,5 @@ py_library(
 py_library(
     name = "utils",
     srcs = ["utils.py"],
+    strict_deps = False,
 )

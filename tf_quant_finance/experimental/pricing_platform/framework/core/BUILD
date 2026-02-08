@@ -10,6 +10,7 @@ package(
 py_library(
     name = "core",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":business_days",
         ":currencies",
@@ -28,6 +29,7 @@ py_library(
 py_library(
     name = "currencies",
     srcs = ["currencies.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos",
     ],
@@ -36,6 +38,7 @@ py_library(
 py_library(
     name = "curve_types",
     srcs = ["curve_types.py"],
+    strict_deps = False,
     deps = [
         ":currencies",
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos",
@@ -45,6 +48,7 @@ py_library(
 py_library(
     name = "business_days",
     srcs = ["business_days.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos",
     ],
@@ -53,6 +57,7 @@ py_library(
 py_library(
     name = "rate_indices",
     srcs = ["rate_indices.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos",
         # tensorflow dep,
@@ -62,6 +67,7 @@ py_library(
 py_library(
     name = "daycount_conventions",
     srcs = ["daycount_conventions.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/instrument_protos",
     ],
@@ -70,21 +76,25 @@ py_library(
 py_library(
     name = "implied_volatility_type",
     srcs = ["implied_volatility_type.py"],
+    strict_deps = False,
 )
 
 py_library(
     name = "interpolation_method",
     srcs = ["interpolation_method.py"],
+    strict_deps = False,
 )
 
 py_library(
     name = "models",
     srcs = ["models.py"],
+    strict_deps = False,
 )
 
 py_library(
     name = "processed_market_data",
     srcs = ["processed_market_data.py"],
+    strict_deps = False,
     deps = [
         ":curve_types",
         ":daycount_conventions",
@@ -99,6 +109,7 @@ py_library(
 py_library(
     name = "instrument",
     srcs = ["instrument.py"],
+    strict_deps = False,
     deps = [
         ":curve_types",
         ":processed_market_data",
@@ -110,6 +121,7 @@ py_library(
 py_library(
     name = "types",
     srcs = ["types.py"],
+    strict_deps = False,
     deps = [
         ":business_days",
         ":currencies",

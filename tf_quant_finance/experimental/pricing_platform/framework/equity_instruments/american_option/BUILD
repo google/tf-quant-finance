@@ -11,6 +11,7 @@ package(
 py_library(
     name = "american_option",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":american_option_impl",
         ":proto_utils",
@@ -22,6 +23,7 @@ py_library(
 py_library(
     name = "american_option_impl",
     srcs = ["american_option_impl.py"],
+    strict_deps = False,
     deps = [
         ":proto_utils",
         ":utils",
@@ -52,6 +54,7 @@ py_test(
 py_library(
     name = "proto_utils",
     srcs = ["proto_utils.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/experimental/pricing_platform/framework:utils",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:business_days",
@@ -70,6 +73,7 @@ py_library(
 py_library(
     name = "utils",
     srcs = ["utils.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/datetime",
         "//tf_quant_finance/experimental/pricing_platform/framework/core:types",
