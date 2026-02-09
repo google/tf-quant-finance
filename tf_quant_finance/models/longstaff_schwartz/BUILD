@@ -35,6 +35,7 @@ py_test(
     timeout = "short",
     srcs = ["lsm_test.py"],
     shard_count = 4,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -59,6 +60,7 @@ py_test(
     name = "payoff_utils_test",
     size = "small",
     srcs = ["payoff_utils_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

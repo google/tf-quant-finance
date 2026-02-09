@@ -34,6 +34,7 @@ py_library(
 py_test(
     name = "digital_net_test",
     srcs = ["digital_net_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -55,6 +56,7 @@ py_library(
 py_test(
     name = "lattice_rule_test",
     srcs = ["lattice_rule_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -78,6 +80,7 @@ py_library(
 py_test(
     name = "sobol_test",
     srcs = ["sobol_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -99,6 +102,7 @@ py_library(
 py_test(
     name = "utils_test",
     srcs = ["utils_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

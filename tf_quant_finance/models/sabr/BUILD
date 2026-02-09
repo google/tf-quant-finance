@@ -39,6 +39,7 @@ py_test(
     timeout = "long",
     srcs = ["sabr_model_test.py"],
     shard_count = 12,
+    strict_deps = False,
     deps = [
         ":sabr_model",
         "//tf_quant_finance",

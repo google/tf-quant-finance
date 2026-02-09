@@ -32,6 +32,7 @@ py_library(
 py_test(
     name = "european_options_test",
     srcs = ["european_options_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -55,6 +56,7 @@ py_test(
     name = "implied_volatility_test",
     srcs = ["implied_volatility_test.py"],
     shard_count = 4,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -84,6 +86,7 @@ py_test(
     timeout = "moderate",
     srcs = ["calibration_test.py"],
     shard_count = 20,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

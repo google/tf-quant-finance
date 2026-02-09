@@ -37,6 +37,7 @@ py_test(
     size = "small",
     srcs = ["monotone_convex_test.py"],
     shard_count = 5,
+    strict_deps = False,
     deps = [
         ":monotone_convex",
         # test util,
@@ -65,6 +66,7 @@ py_test(
     size = "medium",
     srcs = ["bond_curve_test.py"],
     shard_count = 3,
+    strict_deps = False,
     deps = [
         ":bond_curve",
         ":monotone_convex",

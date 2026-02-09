@@ -35,6 +35,7 @@ py_test(
     name = "sobol_test",
     size = "medium",
     srcs = ["sobol_test.py"],
+    strict_deps = False,
     deps = [
         # test util,
         "//tf_quant_finance/math",

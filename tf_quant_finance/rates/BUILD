@@ -70,6 +70,7 @@ py_test(
     timeout = "long",
     srcs = ["swap_curve_test.py"],
     shard_count = 16,
+    strict_deps = False,
     deps = [
         ":swap_curve_fit",
         "//tf_quant_finance",

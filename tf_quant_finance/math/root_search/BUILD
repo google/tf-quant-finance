@@ -36,6 +36,7 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["brent_test.py"],
+    strict_deps = False,
     deps = [
         ":brent",
         ":utils",
@@ -60,6 +61,7 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["newton_test.py"],
+    strict_deps = False,
     deps = [
         ":newton",
         ":utils",

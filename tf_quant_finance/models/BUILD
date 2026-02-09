@@ -61,6 +61,7 @@ py_test(
     timeout = "moderate",
     srcs = ["generic_ito_process_test.py"],
     shard_count = 4,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -91,6 +92,7 @@ py_test(
     timeout = "moderate",
     srcs = ["euler_sampling_test.py"],
     shard_count = 20,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -121,6 +123,7 @@ py_test(
     timeout = "moderate",
     srcs = ["milstein_sampling_test.py"],
     shard_count = 6,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -151,6 +154,7 @@ py_test(
     timeout = "long",
     srcs = ["joined_ito_process_test.py"],
     shard_count = 3,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -174,6 +178,7 @@ py_test(
     size = "small",
     srcs = ["utils_test.py"],
     shard_count = 3,
+    strict_deps = False,
     deps = [
         ":utils",
         "//tf_quant_finance",
@@ -198,6 +203,7 @@ py_test(
     name = "realized_volatility_test",
     size = "small",
     srcs = ["realized_volatility_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

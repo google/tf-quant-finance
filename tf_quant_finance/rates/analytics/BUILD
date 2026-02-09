@@ -35,6 +35,7 @@ py_test(
     size = "small",
     srcs = ["forwards_test.py"],
     shard_count = 4,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -59,6 +60,7 @@ py_test(
     size = "small",
     srcs = ["cashflows_test.py"],
     shard_count = 4,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -84,6 +86,7 @@ py_test(
     size = "small",
     srcs = ["swap_test.py"],
     shard_count = 4,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

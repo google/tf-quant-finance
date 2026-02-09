@@ -41,6 +41,7 @@ py_test(
     timeout = "long",
     srcs = ["quasi_gaussian_hjm_test.py"],
     shard_count = 8,
+    strict_deps = False,
     deps = [
         ":quasi_gaussian_hjm",
         "//tf_quant_finance",
@@ -71,6 +72,7 @@ py_test(
     timeout = "moderate",
     srcs = ["gaussian_hjm_test.py"],
     shard_count = 8,
+    strict_deps = False,
     deps = [
         ":gaussian_hjm",
         "//tf_quant_finance",
@@ -109,6 +111,7 @@ py_test(
     timeout = "moderate",
     srcs = ["zero_coupon_bond_option_test.py"],
     shard_count = 8,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -136,6 +139,7 @@ py_test(
     timeout = "moderate",
     srcs = ["cap_floor_test.py"],
     shard_count = 8,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -175,6 +179,7 @@ py_test(
     timeout = "long",
     srcs = ["swaption_pricing_test.py"],
     shard_count = 8,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -207,6 +212,7 @@ py_test(
     timeout = "long",
     srcs = ["calibration_test.py"],
     shard_count = 12,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -220,6 +226,7 @@ py_test(
     timeout = "long",
     srcs = ["calibration_xla_test.py"],
     shard_count = 1,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

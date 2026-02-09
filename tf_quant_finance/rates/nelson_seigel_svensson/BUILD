@@ -35,6 +35,7 @@ py_test(
     size = "small",
     srcs = ["nelson_seigel_svensson_interpolation_test.py"],
     shard_count = 2,
+    strict_deps = False,
     deps = [
         ":nelson_seigel_svensson_interpolation",
         "//tf_quant_finance",

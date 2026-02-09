@@ -63,6 +63,7 @@ py_test(
     timeout = "moderate",
     srcs = ["multivariate_normal_test.py"],
     shard_count = 3,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -76,6 +77,7 @@ py_test(
     name = "stateless_test",
     size = "small",
     srcs = ["stateless_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -89,6 +91,7 @@ py_test(
     size = "small",
     srcs = ["uniform_test.py"],
     shard_count = 3,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

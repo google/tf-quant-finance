@@ -36,6 +36,7 @@ py_test(
     timeout = "long",
     srcs = ["parabolic_equation_stepper_test.py"],
     shard_count = 12,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -50,6 +51,7 @@ py_test(
     size = "medium",
     srcs = ["time_marching_schemes_test.py"],
     shard_count = 1,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -65,6 +67,7 @@ py_test(
     timeout = "long",
     srcs = ["multidim_parabolic_equation_stepper_test.py"],
     shard_count = 12,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -77,6 +80,7 @@ py_test(
     size = "medium",
     srcs = ["douglas_adi_scheme_test.py"],
     shard_count = 1,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

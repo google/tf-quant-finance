@@ -51,6 +51,7 @@ py_test(
     timeout = "moderate",
     srcs = ["hull_white_test.py"],
     shard_count = 12,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -82,6 +83,7 @@ py_test(
     timeout = "moderate",
     srcs = ["zero_coupon_bond_option_test.py"],
     shard_count = 6,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -110,6 +112,7 @@ py_test(
     timeout = "long",
     srcs = ["cap_floor_test.py"],
     shard_count = 6,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -159,6 +162,7 @@ py_test(
     timeout = "moderate",
     srcs = ["swaption_test.py"],
     shard_count = 10,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -175,6 +179,7 @@ py_test(
     timeout = "moderate",
     srcs = ["bermudan_swaption_test.py"],
     shard_count = 5,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -190,6 +195,7 @@ py_test(
     timeout = "long",
     srcs = ["calibration_test.py"],
     shard_count = 12,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

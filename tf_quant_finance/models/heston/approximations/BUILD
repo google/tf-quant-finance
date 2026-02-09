@@ -36,6 +36,7 @@ py_test(
     size = "small",
     srcs = ["european_option_test.py"],
     shard_count = 4,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -63,6 +64,7 @@ py_test(
     timeout = "long",
     srcs = ["calibration_test.py"],
     shard_count = 12,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -87,6 +89,7 @@ py_library(
 py_test(
     name = "asian_prices_test",
     srcs = ["asian_prices_test.py"],
+    strict_deps = False,
     deps = [
         ":asian_prices",
         "//tf_quant_finance",

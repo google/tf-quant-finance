@@ -33,6 +33,7 @@ py_test(
     name = "tf_functions_test",
     size = "small",
     srcs = ["tf_functions_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -51,6 +52,7 @@ py_test(
     name = "dataclass_test",
     size = "small",
     srcs = ["dataclass_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -72,6 +74,7 @@ py_test(
     size = "small",
     srcs = ["shape_utils_test.py"],
     shard_count = 2,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

@@ -33,6 +33,7 @@ py_test(
     size = "small",
     srcs = ["constant_fwd_interpolation_test.py"],
     shard_count = 2,
+    strict_deps = False,
     deps = [
         ":constant_fwd_interpolation",
         "//tf_quant_finance",

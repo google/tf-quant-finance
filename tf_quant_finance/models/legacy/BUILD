@@ -47,6 +47,7 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["brownian_motion_utils_test.py"],
+    strict_deps = False,
     deps = [
         ":brownian_motion_utils",  # This dependency is deliberate. The bm utils will not be exported to top level TFF.
         # test util,
@@ -74,6 +75,7 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["brownian_motion_test.py"],
+    strict_deps = False,
     deps = [
         ":brownian_motion",
         # test util,

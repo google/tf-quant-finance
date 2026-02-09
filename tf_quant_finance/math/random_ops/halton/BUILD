@@ -38,6 +38,7 @@ py_test(
     timeout = "long",
     srcs = ["halton_test.py"],
     shard_count = 2,
+    strict_deps = False,
     deps = [
         # test util,
         "//tf_quant_finance/math",
