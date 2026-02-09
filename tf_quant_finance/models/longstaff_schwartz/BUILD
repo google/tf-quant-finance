@@ -11,6 +11,7 @@ package(
 py_library(
     name = "longstaff_schwartz",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":lsm",
         ":payoff_utils",
@@ -20,6 +21,7 @@ py_library(
 py_library(
     name = "lsm",
     srcs = ["lsm.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/types",
         "//tf_quant_finance/utils",
@@ -46,6 +48,7 @@ py_test(
 py_library(
     name = "payoff_utils",
     srcs = ["payoff_utils.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/types",
         # tensorflow dep,

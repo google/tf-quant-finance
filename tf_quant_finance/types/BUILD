@@ -10,6 +10,7 @@ package(
 py_library(
     name = "types",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":data_types",
     ],
@@ -18,6 +19,7 @@ py_library(
 py_library(
     name = "data_types",
     srcs = ["data_types.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/datetime",
         # numpy dep,

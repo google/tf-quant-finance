@@ -11,6 +11,7 @@ package(
 py_library(
     name = "approximations",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":calibration",
         ":european_options",
@@ -21,6 +22,7 @@ py_library(
 py_library(
     name = "european_options",
     srcs = ["european_options.py"],
+    strict_deps = False,
     deps = [
         ":implied_volatility",
         # tensorflow dep,
@@ -42,6 +44,7 @@ py_test(
 py_library(
     name = "implied_volatility",
     srcs = ["implied_volatility.py"],
+    strict_deps = False,
     deps = [
         # numpy dep,
         # tensorflow dep,
@@ -64,6 +67,7 @@ py_test(
 py_library(
     name = "calibration",
     srcs = ["calibration.py"],
+    strict_deps = False,
     deps = [
         ":european_options",
         ":implied_volatility",

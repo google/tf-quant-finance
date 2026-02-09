@@ -11,6 +11,7 @@ package(
 py_library(
     name = "analytics",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":cashflows",
         ":forwards",
@@ -21,6 +22,7 @@ py_library(
 py_library(
     name = "forwards",
     srcs = ["forwards.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math:segment_ops",
         # numpy dep,
@@ -45,6 +47,7 @@ py_test(
 py_library(
     name = "cashflows",
     srcs = ["cashflows.py"],
+    strict_deps = False,
     deps = [
         # numpy dep,
         # tensorflow dep,
@@ -68,6 +71,7 @@ py_test(
 py_library(
     name = "swap",
     srcs = ["swap.py"],
+    strict_deps = False,
     deps = [
         ":cashflows",
         # numpy dep,

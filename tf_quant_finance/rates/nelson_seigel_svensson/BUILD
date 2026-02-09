@@ -11,6 +11,7 @@ package(
 py_library(
     name = "nelson_seigel_svensson",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":nelson_seigel_svensson_interpolation",
         # tensorflow dep,
@@ -20,6 +21,7 @@ py_library(
 py_library(
     name = "nelson_seigel_svensson_interpolation",
     srcs = ["nelson_seigel_svensson_interpolation.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/types",
         "//tf_quant_finance/utils",

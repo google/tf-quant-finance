@@ -11,6 +11,7 @@ package(
 py_library(
     name = "hagan_west",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":bond_curve",
         ":monotone_convex",
@@ -20,6 +21,7 @@ py_library(
 py_library(
     name = "monotone_convex",
     srcs = ["monotone_convex.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math:diff_ops",
         "//tf_quant_finance/math:piecewise",
@@ -46,6 +48,7 @@ py_test(
 py_library(
     name = "bond_curve",
     srcs = ["bond_curve.py"],
+    strict_deps = False,
     deps = [
         ":monotone_convex",
         "//tf_quant_finance/math:pad",

@@ -11,6 +11,7 @@ package(
 py_library(
     name = "sabr",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":sabr_model",
         "//tf_quant_finance/models/sabr/approximations",
@@ -20,6 +21,7 @@ py_library(
 py_library(
     name = "sabr_model",
     srcs = ["sabr_model.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/black_scholes:implied_vol_newton_root",
         "//tf_quant_finance/math/random_ops",

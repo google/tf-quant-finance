@@ -11,6 +11,7 @@ package(
 py_library(
     name = "constant_fwd",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":constant_fwd_interpolation",
         # tensorflow dep,
@@ -20,6 +21,7 @@ py_library(
 py_library(
     name = "constant_fwd_interpolation",
     srcs = ["constant_fwd_interpolation.py"],
+    strict_deps = False,
     deps = [
         # numpy dep,
         # tensorflow dep,

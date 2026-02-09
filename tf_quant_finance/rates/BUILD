@@ -11,6 +11,7 @@ package(
 py_library(
     name = "rates",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":forwards",
         ":swap_curve_bootstrap",
@@ -26,6 +27,7 @@ py_library(
 py_library(
     name = "swap_curve_fit",
     srcs = ["swap_curve_fit.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math:gradient",
         "//tf_quant_finance/math/interpolation/linear:linear_interpolation",
@@ -40,6 +42,7 @@ py_library(
 py_library(
     name = "swap_curve_bootstrap",
     srcs = ["swap_curve_bootstrap.py"],
+    strict_deps = False,
     deps = [
         ":swap_curve_fit",
         "//tf_quant_finance/math/interpolation/linear:linear_interpolation",
@@ -54,6 +57,7 @@ py_library(
 py_library(
     name = "swap_curve_common",
     srcs = ["swap_curve_common.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/types",
         "//tf_quant_finance/utils",
@@ -81,6 +85,7 @@ py_test(
 py_library(
     name = "forwards",
     srcs = ["forwards.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance/math:segment_ops",
         # numpy dep,

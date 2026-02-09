@@ -11,6 +11,7 @@ package(
 py_library(
     name = "utils",
     srcs = ["__init__.py"],
+    strict_deps = False,
     deps = [
         ":dataclass",
         ":shape_utils",
@@ -21,6 +22,7 @@ py_library(
 py_library(
     name = "tf_functions",
     srcs = ["tf_functions.py"],
+    strict_deps = False,
     deps = [
         # numpy dep,
         # tensorflow dep,
@@ -42,6 +44,7 @@ py_test(
 py_library(
     name = "dataclass",
     srcs = ["dataclass.py"],
+    strict_deps = False,
 )
 
 py_test(
@@ -58,6 +61,7 @@ py_test(
 py_library(
     name = "shape_utils",
     srcs = ["shape_utils.py"],
+    strict_deps = False,
     deps = [
         # tensorflow dep,
     ],
