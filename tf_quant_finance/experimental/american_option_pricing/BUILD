@@ -62,6 +62,7 @@ py_test(
     timeout = "moderate",
     srcs = ["exercise_boundary_test.py"],
     shard_count = 2,
+    strict_deps = False,
     deps = [
         ":common",
         "//tf_quant_finance",
@@ -77,6 +78,7 @@ py_test(
     timeout = "moderate",
     srcs = ["andersen_lake_test.py"],
     shard_count = 10,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

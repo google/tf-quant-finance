@@ -137,6 +137,7 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["date_tensor_test.py"],
+    strict_deps = False,
     deps = [
         ":test_data",
         "//tf_quant_finance",
@@ -151,6 +152,7 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["date_utils_test.py"],
+    strict_deps = False,
     deps = [
         ":test_data",
         "//tf_quant_finance",
@@ -166,6 +168,7 @@ py_test(
     timeout = "moderate",
     srcs = ["holiday_calendar_test.py"],
     shard_count = 3,
+    strict_deps = False,
     deps = [
         ":bounded_holiday_calendar",
         ":test_data",
@@ -184,6 +187,7 @@ py_test(
     timeout = "moderate",
     srcs = ["schedules_test.py"],
     shard_count = 4,
+    strict_deps = False,
     deps = [
         ":test_data",
         "//tf_quant_finance",
@@ -221,6 +225,7 @@ py_test(
     size = "small",
     srcs = ["daycounts_test.py"],
     shard_count = 4,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

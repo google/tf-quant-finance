@@ -37,6 +37,7 @@ py_test(
     name = "american_option_test",
     srcs = ["american_option_test.py"],
     shard_count = 6,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

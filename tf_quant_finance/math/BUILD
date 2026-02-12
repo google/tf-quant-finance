@@ -43,6 +43,7 @@ py_test(
     name = "diff_ops_test",
     size = "small",
     srcs = ["diff_ops_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -65,6 +66,7 @@ py_test(
     size = "small",
     srcs = ["gradient_test.py"],
     shard_count = 4,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -88,6 +90,7 @@ py_test(
     timeout = "moderate",
     srcs = ["jacobian_test.py"],
     shard_count = 4,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -111,6 +114,7 @@ py_test(
     name = "segment_ops_test",
     size = "small",
     srcs = ["segment_ops_test.py"],
+    strict_deps = False,
     deps = [
         ":segment_ops",
         # test util,
@@ -134,6 +138,7 @@ py_test(
     size = "medium",
     srcs = ["piecewise_test.py"],
     shard_count = 5,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -159,6 +164,7 @@ py_test(
     timeout = "moderate",
     srcs = ["custom_loops_test.py"],
     shard_count = 12,
+    strict_deps = False,
     deps = [
         ":custom_loops",
         "//tf_quant_finance",
@@ -184,6 +190,7 @@ py_test(
     name = "pad_test",
     size = "small",
     srcs = ["pad_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

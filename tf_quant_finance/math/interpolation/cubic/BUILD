@@ -35,6 +35,7 @@ py_test(
     size = "medium",
     srcs = ["cubic_interpolation_test.py"],
     shard_count = 2,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

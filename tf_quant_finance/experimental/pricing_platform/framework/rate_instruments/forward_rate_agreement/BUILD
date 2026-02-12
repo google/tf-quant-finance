@@ -61,6 +61,7 @@ py_test(
     size = "small",
     srcs = ["proto_utils_test.py"],
     shard_count = 2,
+    strict_deps = False,
     deps = [
         ":proto_utils",
         "//tf_quant_finance",
@@ -74,6 +75,7 @@ py_test(
     name = "forward_rate_agreement_test",
     srcs = ["forward_rate_agreement_test.py"],
     shard_count = 2,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         "//tf_quant_finance/experimental/pricing_platform/framework/market_data",

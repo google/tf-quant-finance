@@ -41,6 +41,7 @@ py_library(
 py_test(
     name = "vanilla_prices_test",
     srcs = ["vanilla_prices_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -64,6 +65,7 @@ py_test(
     name = "brownian_bridge_test",
     srcs = ["brownian_bridge_test.py"],
     shard_count = 6,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -84,6 +86,7 @@ py_library(
 py_test(
     name = "crr_binomial_tree_test",
     srcs = ["crr_binomial_tree_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -119,6 +122,7 @@ py_test(
     name = "implied_vol_lib_test",
     size = "medium",
     srcs = ["implied_vol_lib_test.py"],
+    strict_deps = False,
     deps = [
         ":implied_vol_newton_root",
         ":implied_vol_utils",
@@ -143,6 +147,7 @@ py_library(
 py_test(
     name = "implied_vol_approximation_test",
     srcs = ["implied_vol_approximation_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -169,6 +174,7 @@ py_test(
     name = "implied_vol_newton_root_test",
     size = "medium",
     srcs = ["implied_vol_newton_root_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -193,6 +199,7 @@ py_library(
 py_test(
     name = "variance_swaps_test",
     srcs = ["variance_swaps_test.py"],
+    strict_deps = False,
     deps = [
         ":variance_swaps",
         "//tf_quant_finance",
@@ -218,6 +225,7 @@ py_library(
 py_test(
     name = "asian_prices_test",
     srcs = ["asian_prices_test.py"],
+    strict_deps = False,
     deps = [
         ":asian_prices",
         "//tf_quant_finance",

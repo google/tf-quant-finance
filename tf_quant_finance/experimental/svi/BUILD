@@ -35,6 +35,7 @@ py_test(
     size = "small",
     timeout = "long",
     srcs = ["calibration_test.py"],
+    strict_deps = False,
     deps = [
         ":calibration",
         ":parameterizations",
@@ -61,6 +62,7 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["parameterizations_test.py"],
+    strict_deps = False,
     deps = [
         ":parameterizations",
         "//tf_quant_finance",

@@ -43,6 +43,7 @@ py_test(
     size = "medium",
     srcs = ["american_option_impl_test.py"],
     shard_count = 4,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -88,6 +89,7 @@ py_test(
     name = "utils_test",
     size = "medium",
     srcs = ["utils_test.py"],
+    strict_deps = False,
     deps = [
         ":utils",
         # test util,

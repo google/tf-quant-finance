@@ -42,6 +42,7 @@ py_test(
     name = "market_data_test",
     size = "small",
     srcs = ["market_data_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -83,6 +84,7 @@ py_test(
     name = "utils_test",
     size = "small",
     srcs = ["utils_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -113,6 +115,7 @@ py_test(
     size = "small",
     srcs = ["rate_curve_test.py"],
     shard_count = 2,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -143,6 +146,7 @@ py_test(
     size = "small",
     srcs = ["volatility_surface_test.py"],
     shard_count = 2,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

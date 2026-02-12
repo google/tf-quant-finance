@@ -42,6 +42,7 @@ py_test(
     size = "medium",
     srcs = ["interest_rate_swap_test.py"],
     shard_count = 6,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -73,6 +74,7 @@ py_test(
     size = "small",
     srcs = ["proto_utils_test.py"],
     shard_count = 2,
+    strict_deps = False,
     deps = [
         ":proto_utils",
         "//tf_quant_finance",

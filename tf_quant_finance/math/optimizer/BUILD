@@ -21,6 +21,7 @@ py_test(
     name = "optimizer_test",
     size = "medium",
     srcs = ["optimizer_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -48,6 +49,7 @@ py_test(
     timeout = "long",
     srcs = ["conjugate_gradient_test.py"],
     shard_count = 10,
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

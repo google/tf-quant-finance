@@ -41,6 +41,7 @@ py_test(
     timeout = "long",
     srcs = ["local_volatility_model_test.py"],
     shard_count = 30,
+    strict_deps = False,
     tags = [
         "nomsan",  # TODO(b/231568581)
         "notsan",

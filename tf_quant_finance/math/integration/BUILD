@@ -100,6 +100,7 @@ py_test(
     name = "integration_test",
     size = "medium",
     srcs = ["integration_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,

@@ -131,6 +131,7 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["forward_rate_agreement_test.py"],
+    strict_deps = False,
     deps = [
         "//tf_quant_finance",
         # test util,
@@ -144,6 +145,7 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["eurodollar_futures_test.py"],
+    strict_deps = False,
     deps = [
         ":instruments",
         "//tf_quant_finance",
@@ -157,6 +159,7 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["overnight_index_linked_futures_test.py"],
+    strict_deps = False,
     deps = [
         ":instruments",
         "//tf_quant_finance",
@@ -170,6 +173,7 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["interest_rate_swap_test.py"],
+    strict_deps = False,
     deps = [
         ":instruments",
         "//tf_quant_finance",
@@ -183,6 +187,7 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["cashflow_stream_test.py"],
+    strict_deps = False,
     deps = [
         ":instruments",
         "//tf_quant_finance",
@@ -210,6 +215,7 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["bond_test.py"],
+    strict_deps = False,
     deps = [
         ":instruments",
         "//tf_quant_finance",
@@ -236,6 +242,7 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["swaption_test.py"],
+    strict_deps = False,
     deps = [
         ":instruments",
         "//tf_quant_finance",
@@ -263,6 +270,7 @@ py_test(
     timeout = "moderate",
     srcs = ["cap_floor_test.py"],
     shard_count = 2,
+    strict_deps = False,
     deps = [
         ":instruments",
         "//tf_quant_finance",
@@ -290,6 +298,7 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["floating_rate_note_test.py"],
+    strict_deps = False,
     deps = [
         ":instruments",
         "//tf_quant_finance",
@@ -317,6 +326,7 @@ py_test(
     timeout = "long",
     srcs = ["cms_swap_test.py"],
     shard_count = 10,
+    strict_deps = False,
     deps = [
         ":instruments",
         "//tf_quant_finance",
@@ -330,6 +340,7 @@ py_test(
     size = "small",
     timeout = "moderate",
     srcs = ["rate_curve_test.py"],
+    strict_deps = False,
     deps = [
         ":rate_curve",
         "//tf_quant_finance",
