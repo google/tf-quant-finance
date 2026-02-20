@@ -27,7 +27,7 @@ _REQUIRED_TENSORFLOW_VERSION = "2.3"  # pylint: disable=g-statement-before-impor
 
 
 # Ensure Python 3 is used.
-def _check_py_version():
+def _check_py_version() -> None:
   if sys.version_info[0] < 3:
     raise Exception("Please use Python 3. Python 2 is not supported.")
 
@@ -35,7 +35,7 @@ def _check_py_version():
 # Ensure TensorFlow is importable and its version is sufficiently recent. This
 # needs to happen before anything else, since the imports below will try to
 # import tensorflow, too.
-def _ensure_tf_install():  # pylint: disable=g-statement-before-imports
+def _ensure_tf_install() -> None:  # pylint: disable=g-statement-before-imports
   """Attempt to import tensorflow, and ensure its version is sufficient.
 
   Raises:

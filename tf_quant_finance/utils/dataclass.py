@@ -75,13 +75,13 @@ def dataclass(cls: Type[Any]) -> Type[Any]:
   cls = attr.s(cls, auto_attribs=True)
 
   # Define __iter__ and __len__ method to ensure tf.while_loop compatibility
-  def __iter__(self):  # pylint: disable=invalid-name
+  def __iter__(self) -> None:  # pylint: disable=invalid-name
     # Note that self.__attrs_attrs__ is a tuple so the iteration order is fixed
     for item in self.__attrs_attrs__:
       name = item.name
       yield getattr(self, name)
 
-  def __len__(self):  # pylint: disable=invalid-name
+  def __len__(self) -> int:  # pylint: disable=invalid-name
     return len(self.__attrs_attrs__)
 
   cls.__len__ = __len__
