@@ -458,7 +458,7 @@ def calibration(
 def _get_loss_for_price_based_calibration(
     *, prices, strikes, expiries, forwards, is_call_options,
     discount_rates, dividend_rates, optimizer_arg_handler, dtype):
-  """Creates a loss function to be used in volatility-based calibration."""
+  """Creates a loss function to be used in price-based calibration."""
 
   def _price_transform(x):
     return tf.math.log1p(x)
