@@ -18,6 +18,6 @@ import json
 
 
 def hasher(obj):
-  """Returns non-cryptographic hash of a JSON-serializable object."""
-  h = hashlib.md5(json.dumps(obj).encode())
+  """Returns a stable SHA-256 hash of a JSON-serializable object."""
+  h = hashlib.sha256(json.dumps(obj).encode())
   return h.hexdigest()
