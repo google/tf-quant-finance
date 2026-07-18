@@ -1,0 +1,172 @@
+version = 1
+revision = 3
+requires-python = "==3.12.*"
+resolution-markers = [
+    "platform_machine == 'x86_64' and sys_platform == 'linux'",
+]
+supported-markers = [
+    "platform_machine == 'x86_64' and sys_platform == 'linux'",
+]
+
+[options]
+prerelease-mode = "allow"
+
+[[package]]
+name = "jax"
+version = "0.9.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jaxlib" },
+    { name = "ml-dtypes" },
+    { name = "numpy" },
+    { name = "opt-einsum" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/92/4c/5aca25abd45fa38dd136e5ae2010376518c67950e1f9408e0c5c93fcf77d/jax-0.9.2.tar.gz", hash = "sha256:42b28017b3e6b57a44b0274cc15f5153239c4873959030399ac1afc009c22365", size = 2662784, upload-time = "2026-03-18T23:28:10.471Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/17/9c/e897231c880f69e32251d3b1145894d7a04e4342d9bef8d29644c440d11b/jax-0.9.2-py3-none-any.whl", hash = "sha256:822a8ae155ab42e7bc59f2ae7a28705bcfccb01a7e76abfc8ae996190cdc5598", size = 3099142, upload-time = "2026-03-18T23:25:59.94Z" },
+]
+
+[[package]]
+name = "jax-rocm7-pjrt"
+version = "0.9.2+rocm7.14.0a20260608"
+source = { registry = "https://rocm.nightlies.amd.com/v2/gfx1151/" }
+wheels = [
+    { url = "https://rocm.nightlies.amd.com/v2/gfx1151/jax_rocm7_pjrt-0.9.2%2Brocm7.14.0a20260608-py3-none-manylinux_2_28_x86_64.whl" },
+]
+
+[[package]]
+name = "jax-rocm7-plugin"
+version = "0.9.2+rocm7.14.0a20260608"
+source = { registry = "https://rocm.nightlies.amd.com/v2/gfx1151/" }
+dependencies = [
+    { name = "jax-rocm7-pjrt" },
+]
+wheels = [
+    { url = "https://rocm.nightlies.amd.com/v2/gfx1151/jax_rocm7_plugin-0.9.2%2Brocm7.14.0a20260608-cp312-cp312-manylinux_2_28_x86_64.whl" },
+]
+
+[[package]]
+name = "jaxlib"
+version = "0.9.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ml-dtypes" },
+    { name = "numpy" },
+    { name = "scipy" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/33/a0/ddb3a71359c1df61f3edc408936b5bda7ed402e78ae7e9ef6afd438577c6/jaxlib-0.9.2-cp312-cp312-manylinux_2_27_x86_64.whl", hash = "sha256:88b276a71f4f2071b1fd2e922abfd67c87c6977a551a1036febcea78d5ef7e22", size = 83318134, upload-time = "2026-03-18T23:27:16.237Z" },
+]
+
+[[package]]
+name = "ml-dtypes"
+version = "0.5.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0e/4a/c27b42ed9b1c7d13d9ba8b6905dece787d6259152f2309338aed29b2447b/ml_dtypes-0.5.4.tar.gz", hash = "sha256:8ab06a50fb9bf9666dd0fe5dfb4676fa2b0ac0f31ecff72a6c3af8e22c063453", size = 692314, upload-time = "2025-11-17T22:32:31.031Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3a/cb/28ce52eb94390dda42599c98ea0204d74799e4d8047a0eb559b6fd648056/ml_dtypes-0.5.4-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9ad459e99793fa6e13bd5b7e6792c8f9190b4e5a1b45c63aba14a4d0a7f1d5ff", size = 5009002, upload-time = "2025-11-17T22:31:52.001Z" },
+]
+
+[[package]]
+name = "numpy"
+version = "2.5.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/22/fd/89965aa4ac08c74998539fcbf24fa3540f3e15237fbeb6bcf9c908f4aade/numpy-2.5.1.tar.gz", hash = "sha256:a48a113e6afea91f5608793bafa7ef2ad481fefbda87ec5069f483de61cb9fa3", size = 20755553, upload-time = "2026-07-04T17:08:00.933Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b8/a9/6e73d68500f80773f65f0654ea932019d6694329a0eb0ed0533de38df376/numpy-2.5.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:59fda5e192b570217ec2580c96f00e9a7e12ef6866a900eb089b62c1a32545ca", size = 16672469, upload-time = "2026-07-04T17:06:24.064Z" },
+    { url = "https://files.pythonhosted.org/packages/83/d0/a39b2fbcde9cb17a1dac678f254b33a6336298af9df338824c685425d5e8/numpy-2.5.1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:e824c2acf8862052246be5a44c15da1777940c60d010dd2aab897824d9c430f9", size = 18431940, upload-time = "2026-07-04T17:06:29.521Z" },
+]
+
+[[package]]
+name = "opt-einsum"
+version = "3.4.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/8c/b9/2ac072041e899a52f20cf9510850ff58295003aa75525e58343591b0cbfb/opt_einsum-3.4.0.tar.gz", hash = "sha256:96ca72f1b886d148241348783498194c577fa30a8faac108586b14f1ba4473ac", size = 63004, upload-time = "2024-09-26T14:33:24.483Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/23/cd/066e86230ae37ed0be70aae89aabf03ca8d9f39c8aea0dec8029455b5540/opt_einsum-3.4.0-py3-none-any.whl", hash = "sha256:69bb92469f86a1565195ece4ac0323943e83477171b91d24c35afe028a90d7cd", size = 71932, upload-time = "2024-09-26T14:33:23.039Z" },
+]
+
+[[package]]
+name = "rocm"
+version = "7.14.0a20260608"
+source = { registry = "https://rocm.nightlies.amd.com/v2/gfx1151/" }
+dependencies = [
+    { name = "rocm-sdk-core" },
+]
+sdist = { url = "https://rocm.nightlies.amd.com/v2/gfx1151/rocm-7.14.0a20260608.tar.gz" }
+
+[package.optional-dependencies]
+devel = [
+    { name = "rocm-sdk-devel" },
+]
+libraries = [
+    { name = "rocm-sdk-libraries-gfx1151" },
+]
+
+[[package]]
+name = "rocm-sdk-core"
+version = "7.14.0a20260608"
+source = { registry = "https://rocm.nightlies.amd.com/v2/gfx1151/" }
+wheels = [
+    { url = "https://rocm.nightlies.amd.com/v2/gfx1151/rocm_sdk_core-7.14.0a20260608-py3-none-linux_x86_64.whl" },
+]
+
+[[package]]
+name = "rocm-sdk-devel"
+version = "7.14.0a20260608"
+source = { registry = "https://rocm.nightlies.amd.com/v2/gfx1151/" }
+wheels = [
+    { url = "https://rocm.nightlies.amd.com/v2/gfx1151/rocm_sdk_devel-7.14.0a20260608-py3-none-linux_x86_64.whl" },
+]
+
+[[package]]
+name = "rocm-sdk-libraries-gfx1151"
+version = "7.14.0a20260608"
+source = { registry = "https://rocm.nightlies.amd.com/v2/gfx1151/" }
+wheels = [
+    { url = "https://rocm.nightlies.amd.com/v2/gfx1151/rocm_sdk_libraries_gfx1151-7.14.0a20260608-py3-none-linux_x86_64.whl" },
+]
+
+[[package]]
+name = "scipy"
+version = "1.18.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a7/25/c2700dfaf6442b4effaa91af24ebce5dc9d31bb4a69706313aae70d72cd0/scipy-1.18.0.tar.gz", hash = "sha256:67b2ad2ad54c72ca6d04975a9b2df8c3638c34ddd5b28738e94fc2b57929d378", size = 30774447, upload-time = "2026-06-19T15:01:43.456Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/dd/aa/1b939f6c67ed68635bb538e6752d3dacc02f66535182e939a89581a44e9c/scipy-1.18.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1f55797419e16e7f30cf88ffb3113ce0467f00cfe3f70d5c281730b21769bfc2", size = 35287115, upload-time = "2026-06-19T14:59:59.411Z" },
+    { url = "https://files.pythonhosted.org/packages/84/ca/210d4759c7210bb7d269437421959b39a33434e2776b60c5cb8a763bb30a/scipy-1.18.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:4a55985d54c769c872e64b7f4c8a81cc30ef700cc04296abbbf3705439c126de", size = 37421717, upload-time = "2026-06-19T15:00:05.102Z" },
+]
+
+[[package]]
+name = "tf-quant-finance"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "jax" },
+    { name = "jax-rocm7-pjrt" },
+    { name = "jax-rocm7-plugin" },
+    { name = "jaxlib" },
+    { name = "numpy" },
+    { name = "rocm", extra = ["devel", "libraries"] },
+    { name = "rocm-sdk-core" },
+    { name = "scipy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jax", specifier = "==0.9.2" },
+    { name = "jax-rocm7-pjrt", index = "https://rocm.nightlies.amd.com/v2/gfx1151/" },
+    { name = "jax-rocm7-plugin", index = "https://rocm.nightlies.amd.com/v2/gfx1151/" },
+    { name = "jaxlib", specifier = "==0.9.2" },
+    { name = "numpy", specifier = ">=2.0" },
+    { name = "rocm", extras = ["libraries", "devel"], specifier = "==7.14.0a20260608", index = "https://rocm.nightlies.amd.com/v2/gfx1151/" },
+    { name = "rocm-sdk-core", specifier = "==7.14.0a20260608", index = "https://rocm.nightlies.amd.com/v2/gfx1151/" },
+    { name = "scipy" },
+]

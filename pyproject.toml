@@ -1,0 +1,47 @@
+[project]
+name = "tf-quant-finance"
+version = "0.0.0"
+description = "TF Quant Finance -> JAX migration (gfx1151 ROCm target)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "jax==0.9.2",          # frontend (PyPI); matches gfx1151 plugin/pjrt 0.9.2
+    "jaxlib==0.9.2",       # base jaxlib (PyPI, CPU); GPU backend comes via the plugin below
+    "jax-rocm7-plugin",    # ROCm GPU JAX plugin (gfx1151 index) — registers 'gpu' backend
+    "jax-rocm7-pjrt",      # ROCm PJRT runtime (gfx1151 index)
+    "rocm[libraries,devel]==7.14.0a20260608",  # MUST match jax-rocm7-plugin build date (ABI); mirrors rl-0dte's date-pinned torch+rocm
+    "rocm-sdk-core==7.14.0a20260608",
+    "numpy>=2.0",
+    "scipy",
+]
+
+# Mirror of ~/devv/2026/rl-0dte/pyproject.toml: AMD ships ROCm as pip wheels on
+# a per-arch nightly index. gfx1151 = Strix Halo Radeon 8060S.
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+
+[[tool.uv.index]]
+name = "rocm-nightly"
+url = "https://rocm.nightlies.amd.com/v2/gfx1151/"
+
+[tool.uv.sources]
+jax-rocm7-plugin = { index = "rocm-nightly" }
+jax-rocm7-pjrt = { index = "rocm-nightly" }
+rocm = { index = "rocm-nightly" }
+rocm-sdk-core = { index = "rocm-nightly" }
+
+[tool.uv]
+package = false  # repo root goes on sys.path via pytest pythonpath; not a built pkg yet
+# ponytail: ROCm nightlies ship only linux x86_64 (gfx1151 = RDNA 3.5 APU).
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+# ponytail: jaxlib transitive deps (rocm-sdk-libraries-gfx1151 etc.) exist on BOTH
+# PyPI and rocm-nightly; default first-index stops at PyPI. Search both.
+index-strategy = "unsafe-best-match"
+prerelease = "allow"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+# tf-quant-finance names test classes like VanillaPricesTest (suffix), not Test*
+python_classes = ["*Test", "Test*"]
+python_files = ["*_test.py", "test_*.py"]
+testpaths = ["tf_quant_finance"]

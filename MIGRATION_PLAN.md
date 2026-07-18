@@ -7,16 +7,50 @@
 > **Tooling:** [`uv`](https://github.com/astral-sh/uv) for all Python env/package
 > management; `pytest` via `uv run`.
 
-## Machine & tooling baseline (checked)
+## Machine & tooling baseline (verified)
 
-- `uv 0.11.29` installed at `/var/home/yangye/.local/bin/uv`.
-- Python interpreters available to uv: **3.12**, **3.13**, **3.14**
-  (system default `python` = 3.14.6). uv can fetch/pin any of them.
-- **Neither TensorFlow nor JAX is installed** anywhere on this machine
-> (pip / uv / conda / pipx all empty) → clean slate, nothing to uninstall.
-- JAX support window (per docs.jax.dev): Python **3.14 supported** through
-  July 2029, 3.13 through July 2028. We pin **3.12** for the broadest
-  ecosystem compatibility (numpy/scipy/finance deps); bump later if needed.
+- **`uv 0.11.29`** at `/var/home/yangye/.local/bin/uv`. Python 3.12 / 3.13 / 3.14
+  all fetchable via uv.
+- **GPU:** AMD Ryzen AI MAX+ 395, iGPU = **Radeon 8060S = `gfx1151`**
+  (RDNA 3.5 / Strix Halo), 40 CUs, APU (shared system RAM). ROCm kernel module
+  loaded, `/dev/kfd` + `/dev/dri/renderD128` present; but the install is
+  **partial** (no `/opt/rocm`, `rocm-core` absent) — the full toolkit comes in
+  via the pip wheel index below, not a system tarball.
+- **ROCm-as-pip-wheels** (the working pattern, mirrored from
+  `~/devv/2026/rl-0dte/pyproject.toml`): per-arch nightly index
+  `https://rocm.nightlies.amd.com/v2/gfx1151/`. Verified index contents:
+  - ✅ `jax-rocm7-plugin` + `jax-rocm7-pjrt` (the JAX **GPU backend**, plugin
+    split) — `0.9.2+rocm7.14.0a20260608`, cp311/312/313/314. The standalone
+    `jaxlib` on this index is **CPU-only** (backends `['cpu','tpu']`) — do NOT use it.
+  - ✅ `torch`, `rocm[libraries,devel]`, `rocm-sdk-core` (used by rl-0dte).
+  - ❌ `tensorflow` / `tensorflow-rocm` / `keras` → **404** on this index **and**
+    on the root `v2/` index. **There is no pip-installable TF-ROCm for gfx1151,
+    anywhere.**
+- **ABI gotcha (caused a segfault, now fixed):** the ROCm runtime wheels are
+  dated daily; the jax plugin is `+rocm7.14.0a20260608`. A loose
+  `rocm[libraries,devel]>=...` let uv pull the newer `20260612` runtime →
+  `make_c_api_client` segfault. **Pin rocm runtime to the SAME date as the
+  plugin** (`==7.14.0a20260608`). This is exactly how rl-0dte pins torch+rocm
+  to matching dates. Verified working: `jax.devices() -> [RocmDevice(id=0)]`.
+- **Implication (locked):**
+  - **TF baseline → CPU only.** PyPI `tensorflow` is CPU on this box; no TF-ROCm
+    wheel exists, so the pre-migration reference run is CPU. (A from-source
+    TF-ROCm build for gfx1151 is the *only* TF-GPU path — see sidebar; **rejected
+    by default** as it contradicts the wheel pattern and is multi-day/fragile.)
+  - **JAX target → native gfx1151 GPU.** `jax==0.9.2` + PyPI `jaxlib==0.9.2` +
+    `jax-rocm7-plugin`/`jax-rocm7-pjrt` 0.9.2 + date-matched `rocm` runtime, all
+    from the gfx1151 index. GPU activation needs no `LD_LIBRARY_PATH` (versions
+    match → plugin auto-locates libs); `conftest.py` calls
+    `rocm_sdk.initialize_process()` + enables x64 defensively.
+- Python pin: **3.12** — the intersection of TF (supports ≤3.13) and JAX
+  (supports 3.11–3.14) so **one env serves both** baseline and target.
+
+> **Sidebar — TF-ROCm from source (OPT-IN, not planned):** building
+> `tensorflow-rocm` from source against ROCm 7.x with a `gfx1151` target is the
+> only way to run the TF baseline on this GPU. It is fragile, multi-day, and
+> not on the wheel index our torch setup uses. If you want it anyway, it
+> becomes a separate track that does **not** block the migration; say so.
+> Otherwise TF stays CPU until deleted in Phase 6.
 
 ---
 
@@ -28,6 +62,8 @@
 | Test gate | **All 121 test files must pass** at the end; suite stays green per module as we go |
 | Strategy | **Shim-based incremental** → port module-by-module → delete shim → JAX-only |
 | Precision | **float64 mandatory** (quant finance; JAX disables x64 by default) |
+| Baseline | **TF on CPU** (no TF-ROCm wheel for gfx1151 — verified). Run all 121 tests green **first**, record it |
+| Target runtime | **JAX on gfx1151 ROCm GPU** via `jaxlib` from `rocm.nightlies.amd.com/v2/gfx1151/` (mirrors rl-0dte torch setup) |
 
 ## 2. Current-state inventory
 
@@ -129,19 +165,68 @@ Verified internal dep graph: `models/*` import `math.random`, `math.gradient`,
 `math.optimizer`, `math.pde`, `math.piecewise`; `black_scholes` imports `math`;
 `rates` imports `math` + `datetime`; `experimental/*` imports everything.
 
-### Phase 0 — Foundation (day 0)
-- [ ] **uv project init:** `uv init --no-readme --python 3.12` → creates `pyproject.toml` + `.python-version` (pins 3.12) + `uv.lock`.
-- [ ] **uv add runtime deps:** `uv add jax jaxlib numpy scipy`.
-- [ ] **uv add dev/group deps:** `uv add --group dev pytest pytest-xdist absl-py parameterized`.
-- [ ] **Keep TF temporarily** for diff validation only, isolated in an extra
-> dependency group so it never ships: `uv add --group legacy tensorflow`.
-> (Not installed today; uv installs it on demand into the legacy group.)
-- [ ] `.gitignore`: add `.venv/`, `__pycache__/`, `.pytest_cache/`, `*.egg-info/`.
-- [ ] `tf_quant_finance/__init__.py`: at top, `jax.config.update("jax_enable_x64", True)` **before any jax import** (global, mandatory).
+### Phase 0 — Foundation + TF baseline (FIRST, blocks everything)
+
+**Step 0.1 — TF baseline on CPU. Run all 121 tests green before touching any code.**
+This is the pre-migration reference; without it we cannot prove parity later.
+- [ ] `uv init --no-readme --python 3.12` (creates `pyproject.toml`, `.python-version`=3.12).
+- [ ] `uv add --group legacy tensorflow numpy`  (TF isolated in `legacy` group; CPU on this box — no gfx1151 TF-ROCm wheel exists).
+- [ ] `uv add --group dev pytest pytest-xdist absl-py parameterized`.
+- [ ] Install repo in editable mode so tests import `tf_quant_finance`: `uv add --group legacy -e .` (or a small `[tool.pytest.ini_options]` with `pythonpath=["."]`).
+- [ ] Run the full suite, capture the baseline:
+      `uv run --group legacy pytest tf_quant_finance -q > baseline_tf.txt 2>&1`
+- [ ] **Gate:** every test that passes on TF today is recorded; any pre-existing
+      failures are logged (not ours to fix) so we don't chase ghosts later.
+      Commit `baseline_tf.txt`.
+
+**Step 0.2 — JAX target on gfx1151 GPU (DONE, verified `[RocmDevice(id=0)]`).**
+- [x] gfx1151 ROCm nightly index + plugin-split deps + date-matched rocm runtime.
+      The GPU backend ships as `jax-rocm7-plugin` + `jax-rocm7-pjrt` (NOT the
+      CPU-only standalone `jaxlib` on the index). Working `pyproject.toml`:
+  ```toml
+  [project]
+  requires-python = ">=3.12,<3.13"
+  dependencies = [
+      "jax==0.9.2",          # frontend (PyPI); matches gfx1151 plugin/pjrt 0.9.2
+      "jaxlib==0.9.2",       # base jaxlib (PyPI, CPU); GPU backend via plugin below
+      "jax-rocm7-plugin",    # ROCm GPU JAX plugin (gfx1151 index) — registers 'gpu'
+      "jax-rocm7-pjrt",      # ROCm PJRT runtime (gfx1151 index)
+      "rocm[libraries,devel]==7.14.0a20260608",  # MUST match plugin build date (ABI)
+      "rocm-sdk-core==7.14.0a20260608",
+      "numpy>=2.0",
+      "scipy",
+  ]
+
+  [[tool.uv.index]]
+  name = "pypi"
+  url = "https://pypi.org/simple"
+
+  [[tool.uv.index]]
+  name = "rocm-nightly"
+  url = "https://rocm.nightlies.amd.com/v2/gfx1151/"
+
+  [tool.uv.sources]
+  jax-rocm7-plugin = { index = "rocm-nightly" }
+  jax-rocm7-pjrt = { index = "rocm-nightly" }
+  rocm = { index = "rocm-nightly" }
+  rocm-sdk-core = { index = "rocm-nightly" }
+
+  [tool.uv]
+  environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+  index-strategy = "unsafe-best-match"
+  prerelease = "allow"
+  ```
+- [ ] `uv sync` (CPU TF baseline) and `uv sync --no-group legacy` (JAX target)
+      both resolve. Verify GPU is seen: `uv run python -c "import jax; print(jax.devices())"`
+      → shows a `ROCM`/gpu device, not just `CpuDevice`.
+
+**Step 0.3 — library scaffolding.**
+- [ ] `.gitignore`: `.venv/`, `__pycache__/`, `.pytest_cache/`, `*.egg-info/`, `baseline_tf.txt` is kept (not ignored).
+- [ ] `tf_quant_finance/__init__.py`: at top, `jax.config.update("jax_enable_x64", True)` **before any jax import** (global, mandatory for quant precision).
 - [ ] Create `tf_quant_finance/_backend/` shim (§3) covering §4a entries.
 - [ ] Pick codemod tool: `ast-grep` or a `libcst` script for the mechanical rewrites in §4a. Keep the rule list versioned in `tools/tf2jax_codemod.py`.
-- [ ] Decide test runner now: `tf.test.TestCase` → `absltest`+`parameterized`+`unittest` (Phase 4), but until then tests still import `tf.test`. Land a `conftest.py` enabling x64 + `jax.config.update("jax_platform_name", ...)`.
-- [ ] Baseline: capture current TF test pass list (`uv run pytest --collect-only` → record) so we know what "green" means per module. Run everything through `uv run pytest` from here on.
+- [ ] `conftest.py`: enable x64, set `jax_platform_name`, and (for the TF baseline run) leave TF untouched — tests still `import tf.test` until Phase 4.
+- [ ] Record JAX-side per-module pass list target from `baseline_tf.txt` so we know what "green" means as each module ports.
 
 ### Phase 1 — Mechanical bulk codemod (repo-wide, one pass)
 Apply §4a across all non-test files via codemod, commit in small grouped chunks:
