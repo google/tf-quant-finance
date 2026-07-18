@@ -462,6 +462,11 @@ class TestCase(_unittest.TestCase):
     def assertNear(self, a, b, err, msg=None):
         self.assertLess(abs(float(a) - float(b)), err, msg=msg)
 
+    def assertArrayNear(self, a, b, tol, msg=None):
+        np.testing.assert_allclose(np.asarray(a, dtype=float),
+                                   np.asarray(b, dtype=float),
+                                   rtol=tol, atol=tol, err_msg=msg)
+
     def assertAllFinite(self, a, msg=None):
         arr = np.asarray(a)
         self.assertTrue(np.all(np.isfinite(arr)), msg=msg)
@@ -562,6 +567,14 @@ errors = _ptypes.SimpleNamespace(
 )
 
 
+class _UnconnectedGradients:
+    NONE = "none"
+    ZERO = "zero"
+
+
+UnconnectedGradients = _UnconnectedGradients
+
+
 # ---------------------------------------------------------------------------
 # gradients (best-effort; real rewrites in Phase 2/3)
 # ---------------------------------------------------------------------------
@@ -641,17 +654,38 @@ def make_ndarray(*a, **k):
 
 # ---------------------------------------------------------------------------
 # reduce_* at top level (tf.reduce_sum etc. -> jnp.sum etc.)
+# TF spells the first arg `input_tensor=`; accept it.
 # ---------------------------------------------------------------------------
-reduce_sum = jnp.sum
-reduce_mean = jnp.mean
-reduce_max = jnp.max
-reduce_min = jnp.min
-reduce_prod = jnp.prod
-reduce_any = jnp.any
-reduce_all = jnp.all
-reduce_std = jnp.std
-reduce_variance = jnp.var
-reduce_logsumexp = _jsp.special.logsumexp
+def _make_reduce(fn):
+    def wrapper(input_tensor=None, axis=None, keepdims=False, name=None,
+               **kwargs):
+        if input_tensor is None:
+            input_tensor = kwargs.pop("x", kwargs.pop("tensor", None))
+        return fn(input_tensor, axis=axis, keepdims=keepdims)
+    wrapper.__name__ = getattr(fn, "__name__", "reduce")
+    return wrapper
+
+
+reduce_sum = _make_reduce(jnp.sum)
+reduce_mean = _make_reduce(jnp.mean)
+reduce_max = _make_reduce(jnp.max)
+reduce_min = _make_reduce(jnp.min)
+reduce_prod = _make_reduce(jnp.prod)
+reduce_any = _make_reduce(jnp.any)
+reduce_all = _make_reduce(jnp.all)
+reduce_std = _make_reduce(jnp.std)
+reduce_variance = _make_reduce(jnp.var)
+reduce_logsumexp = _make_reduce(_jsp.special.logsumexp)
+math.reduce_sum = reduce_sum
+math.reduce_mean = reduce_mean
+math.reduce_max = reduce_max
+math.reduce_min = reduce_min
+math.reduce_prod = reduce_prod
+math.reduce_any = reduce_any
+math.reduce_all = reduce_all
+math.reduce_std = reduce_std
+math.reduce_variance = reduce_variance
+math.reduce_logsumexp = reduce_logsumexp
 
 
 # tf.where: 1-arg form returns indices of True; 3-arg form selects. Tolerate kwargs.
