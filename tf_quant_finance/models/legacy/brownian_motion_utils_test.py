@@ -15,8 +15,8 @@
 """Tests for `sample_paths` of `ItoProcess`."""
 
 import numpy as np
-import tensorflow.compat.v2 as tf
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance import _tf as tf
+from tf_quant_finance._tf import test_util
 from tf_quant_finance.models.legacy import brownian_motion_utils as bm_utils
 
 

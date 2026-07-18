@@ -14,19 +14,33 @@
 """Optimization methods."""
 
 
-from tensorflow_probability.python.optimizer import bfgs_minimize
-from tensorflow_probability.python.optimizer import converged_all
-from tensorflow_probability.python.optimizer import converged_any
-from tensorflow_probability.python.optimizer import differential_evolution_minimize
-from tensorflow_probability.python.optimizer import differential_evolution_one_step
-from tensorflow_probability.python.optimizer import lbfgs_minimize
-from tensorflow_probability.python.optimizer import linesearch
-from tensorflow_probability.python.optimizer import nelder_mead_minimize
-from tensorflow_probability.python.optimizer import nelder_mead_one_step
+# ponytail: tfp optimizers (bfgs/lbfgs/nelder_mead/differential_evolution) have no
+# direct JAX drop-in; Phase 2 rewires these to tfp.substrates.jax or jaxopt. Until
+# then guard the import so this module loads without tensorflow_probability; the
+# names are None and callers that actually invoke them fail at call-time.
+try:
+    from tensorflow_probability.python.optimizer import bfgs_minimize
+    from tensorflow_probability.python.optimizer import converged_all
+    from tensorflow_probability.python.optimizer import converged_any
+    from tensorflow_probability.python.optimizer import differential_evolution_minimize
+    from tensorflow_probability.python.optimizer import differential_evolution_one_step
+    from tensorflow_probability.python.optimizer import lbfgs_minimize
+    from tensorflow_probability.python.optimizer import linesearch
+    from tensorflow_probability.python.optimizer import nelder_mead_minimize
+    from tensorflow_probability.python.optimizer import nelder_mead_one_step
+except ImportError:
+    bfgs_minimize = None
+    converged_all = None
+    converged_any = None
+    differential_evolution_minimize = None
+    differential_evolution_one_step = None
+    lbfgs_minimize = None
+    linesearch = None
+    nelder_mead_minimize = None
+    nelder_mead_one_step = None
 
 from tf_quant_finance.math.optimizer.conjugate_gradient import ConjugateGradientParams
 from tf_quant_finance.math.optimizer.conjugate_gradient import minimize as conjugate_gradient_minimize
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     'bfgs_minimize',
@@ -42,4 +56,3 @@ _allowed_symbols = [
     'ConjugateGradientParams',
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

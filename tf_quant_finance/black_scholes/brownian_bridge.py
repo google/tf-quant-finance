@@ -26,7 +26,7 @@ exotic options.
 https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1265669
 """
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 
 def brownian_bridge_double(*,

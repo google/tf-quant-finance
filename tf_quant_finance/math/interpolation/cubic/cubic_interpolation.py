@@ -14,7 +14,7 @@
 """Cubic Spline interpolation framework."""
 
 import enum
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
@@ -89,7 +89,7 @@ def build(x_data: types.RealTensor,
   Typical Usage Example:
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
   import numpy as np
 

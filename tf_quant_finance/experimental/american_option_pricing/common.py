@@ -1,7 +1,6 @@
 """Helper functions for calculating American option prices."""
 import numpy as np
-import tensorflow.compat.v2 as tf
-from tensorflow_probability.python.internal import dtype_util
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 
@@ -46,5 +45,5 @@ def divide_with_positive_denominator(a, b):
 
 def machine_eps(dtype):
   """Returns the machine epsilon for the supplied dtype."""
-  dtype = dtype_util.as_numpy_dtype(tf.as_dtype(dtype))
+  dtype = tf.as_dtype(dtype)
   return np.finfo(dtype).eps

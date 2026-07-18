@@ -42,7 +42,6 @@ from tf_quant_finance.datetime.holiday_calendar_factory import create_holiday_ca
 from tf_quant_finance.datetime.schedules import BusinessDaySchedule
 from tf_quant_finance.datetime.schedules import PeriodicSchedule
 
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 PeriodTensor = periods.PeriodTensor
 
@@ -75,4 +74,3 @@ _allowed_symbols = [
     'daycount_thirty_360_isda',
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

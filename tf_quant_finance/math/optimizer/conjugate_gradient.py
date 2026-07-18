@@ -29,10 +29,16 @@ import collections
 
 from  typing import Callable, Tuple
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
-from tensorflow_probability.python.optimizer import converged_all
-from tensorflow_probability.python.optimizer import linesearch
+# ponytail: tfp optimizer helpers (converged_all, linesearch.hager_zhang) — Phase 2
+# rewires to tfp.substrates.jax / jaxopt. Guarded so the module imports without tfp.
+try:
+    from tensorflow_probability.python.optimizer import converged_all
+    from tensorflow_probability.python.optimizer import linesearch
+except ImportError:
+    converged_all = None
+    linesearch = None
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
 

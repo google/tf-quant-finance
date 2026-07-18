@@ -30,7 +30,7 @@ For more details, see Ref [1].
     Applications. Springer. 2010.
 """
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.math.random_ops import multivariate_normal as mvn
 from tf_quant_finance.models.legacy import brownian_motion_utils as bmu

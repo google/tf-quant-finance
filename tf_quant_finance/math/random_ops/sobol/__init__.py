@@ -17,11 +17,9 @@
 from tf_quant_finance.math.random_ops.sobol.sobol_impl import load_data
 from tf_quant_finance.math.random_ops.sobol.sobol_impl import sample
 
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     'load_data',
     'sample',
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

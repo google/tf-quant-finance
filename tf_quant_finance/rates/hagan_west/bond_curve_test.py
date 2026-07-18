@@ -17,8 +17,8 @@ import math
 from absl.testing import parameterized
 
 import numpy as np
-import tensorflow.compat.v2 as tf
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance import _tf as tf
+from tf_quant_finance._tf import test_util
 from tf_quant_finance.rates.hagan_west import bond_curve
 from tf_quant_finance.rates.hagan_west import monotone_convex
 

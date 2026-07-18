@@ -15,7 +15,7 @@
 """Utility functions for the Geometric Brownian Motion models."""
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 import tf_quant_finance as tff
 
 

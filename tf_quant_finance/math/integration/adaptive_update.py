@@ -1,6 +1,6 @@
 """Update function for intervals in adaptive numeric integration."""
 from typing import Optional
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 

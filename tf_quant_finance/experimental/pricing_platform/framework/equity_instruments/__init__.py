@@ -16,11 +16,9 @@
 from tf_quant_finance.experimental.pricing_platform.framework.equity_instruments import american_option
 from tf_quant_finance.experimental.pricing_platform.framework.equity_instruments import utils
 
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     "american_option",
     "utils",
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

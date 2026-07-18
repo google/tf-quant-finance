@@ -18,7 +18,6 @@ from tf_quant_finance.math.interpolation import cubic
 from tf_quant_finance.math.interpolation import interpolation_2d
 from tf_quant_finance.math.interpolation import linear
 
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     'cubic',
@@ -26,4 +25,3 @@ _allowed_symbols = [
     'linear',
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

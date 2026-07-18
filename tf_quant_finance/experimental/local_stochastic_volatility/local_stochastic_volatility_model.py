@@ -17,7 +17,7 @@
 import functools
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import datetime as dates
 from tf_quant_finance import math
@@ -460,7 +460,7 @@ def _create_corr_matrix(rho, dtype):
 
 def _machine_eps(dtype):
   """Returns the machine epsilon for the supplied dtype."""
-  dtype = tf.as_dtype(dtype).as_numpy_dtype
+  dtype = tf.as_dtype(dtype)
   eps = 1e-6 if dtype == np.float32 else 1e-10
   return eps
 

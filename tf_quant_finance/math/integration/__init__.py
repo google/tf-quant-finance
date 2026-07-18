@@ -19,7 +19,6 @@ from tf_quant_finance.math.integration.gauss_legendre import gauss_legendre
 from tf_quant_finance.math.integration.integrate import integrate
 from tf_quant_finance.math.integration.integrate import IntegrationMethod
 from tf_quant_finance.math.integration.simpson import simpson
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     'integrate',
@@ -29,4 +28,3 @@ _allowed_symbols = [
     'IntegrationMethod',
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

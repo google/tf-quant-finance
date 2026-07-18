@@ -17,7 +17,7 @@ import datetime
 import time
 
 import numpy as np
-import tensorflow as tf
+from tf_quant_finance import _tf as tf
 import tf_quant_finance as tff
 
 

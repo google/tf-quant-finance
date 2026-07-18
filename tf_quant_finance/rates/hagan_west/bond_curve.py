@@ -37,7 +37,7 @@ method described by Hagan and West in Ref [1, 2].
   Wilmott Magazine, pp. 70-81. May 2008.
 """
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils

@@ -17,7 +17,7 @@
 import functools
 from typing import Any, Callable, List, Optional, Union
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import black_scholes
 from tf_quant_finance import datetime
@@ -329,7 +329,7 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
 
   ```python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64

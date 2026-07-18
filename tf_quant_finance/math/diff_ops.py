@@ -14,7 +14,7 @@
 """Array difference ops."""
 
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 
 # TODO(b/136354274): Move this function to a math library and provide a more

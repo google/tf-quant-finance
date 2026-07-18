@@ -13,7 +13,7 @@
 # limitations under the License.
 """Functions for solving linear parabolic PDEs."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 from tf_quant_finance import utils
 from tf_quant_finance.math.pde.steppers.douglas_adi import douglas_adi_step
 from tf_quant_finance.math.pde.steppers.oscillation_damped_crank_nicolson import oscillation_damped_crank_nicolson_step
@@ -82,7 +82,7 @@ def solve_backward(start_time,
 
   #### Example. European call option pricing.
   ```python
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
   pde = tff.math.pde
 

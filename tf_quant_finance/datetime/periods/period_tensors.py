@@ -13,7 +13,7 @@
 # limitations under the License.
 """PeriodTensor definition."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.datetime import constants
 from tf_quant_finance.datetime import tensor_wrapper

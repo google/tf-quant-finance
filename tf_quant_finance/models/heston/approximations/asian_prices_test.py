@@ -16,10 +16,10 @@
 from absl.testing import parameterized
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 european_option_price = tff.models.heston.approximations.european_option_price
 asian_option_price = tff.models.heston.approximations.asian_option_price

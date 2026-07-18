@@ -13,7 +13,7 @@
 # limitations under the License.
 """Helper functions for computing jacobian."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 
 def jacobian(func, x, unconnected_gradients=None,

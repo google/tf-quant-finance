@@ -13,11 +13,11 @@
 # limitations under the License.
 """American option pricer test."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 import tf_quant_finance as tff
 
 from tf_quant_finance.experimental.pricing_platform.framework.equity_instruments.american_option import utils
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 
 @test_util.run_all_in_graph_and_eager_modes

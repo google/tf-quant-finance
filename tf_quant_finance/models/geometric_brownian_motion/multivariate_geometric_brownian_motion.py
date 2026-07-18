@@ -14,7 +14,7 @@
 
 """Multivariate Geometric Brownian Motion."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import utils as tff_utils
 from tf_quant_finance.math.pde import fd_solvers
@@ -39,7 +39,7 @@ class MultivariateGeometricBrownianMotion(ito_process.ItoProcess):
   ## Example
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
   corr_matrix = [[1, 0.1], [0.1, 1]]
   process = tff.models.MultivariateGeometricBrownianMotion(

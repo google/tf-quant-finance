@@ -14,11 +14,11 @@
 """Tests for the regression Monte Carlo algorithm."""
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.experimental.lsm_algorithm import lsm
 from tf_quant_finance.experimental.lsm_algorithm import payoff
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 
 @test_util.run_all_in_graph_and_eager_modes

@@ -13,7 +13,7 @@
 # limitations under the License.
 """Variance swap pricing using replicating portfolio approach."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 from tf_quant_finance.black_scholes import vanilla_prices
 from tf_quant_finance.math import diff_ops
 

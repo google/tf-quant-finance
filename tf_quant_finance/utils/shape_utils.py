@@ -15,7 +15,7 @@
 
 from typing import Tuple, Sequence, Union, Optional
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 
@@ -34,7 +34,7 @@ def get_shape(
 
   ####Example
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   x = tf.zeros([5, 2])
@@ -70,7 +70,7 @@ def common_shape(
 
   #### Example
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   args = [tf.ones([1, 2], dtype=tf.float64), tf.constant([[True], [False]])]
@@ -121,7 +121,7 @@ def broadcast_tensors(
 
   #### Example
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   args = [tf.ones([1, 2], dtype=tf.float64), tf.constant([[True], [False]])]
@@ -163,7 +163,7 @@ def broadcast_common_batch_shape(
 
   #### Example 1. Batch shape is all dimensions but the last one
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   # Two Tensors of shapes [2, 3] and [2]. The batch shape of the 1st Tensor is
@@ -176,7 +176,7 @@ def broadcast_common_batch_shape(
 
   #### Example 2. Specify ranks of event shapes
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   args = [tf.ones([2, 3], dtype=tf.float64), tf.constant([True, False])]

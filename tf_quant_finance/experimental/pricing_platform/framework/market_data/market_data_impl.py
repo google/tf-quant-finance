@@ -114,7 +114,7 @@ https://github.com/google/tf-quant-finance/tree/master/tf_quant_finance/experime
 import datetime
 from typing import Dict, Any, List, Optional, Tuple
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import datetime as dateslib
 from tf_quant_finance import math

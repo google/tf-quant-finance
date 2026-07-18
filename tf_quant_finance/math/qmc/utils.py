@@ -15,7 +15,7 @@
 
 from typing import Union
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 
@@ -29,7 +29,7 @@ def exp2(value: types.IntTensor) -> types.IntTensor:
   #### Examples
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   # Example: Computing the base-2 exponentiation of a range.
@@ -58,7 +58,7 @@ def log2(value: types.FloatTensor) -> types.FloatTensor:
   r"""Returns the point-wise base-2 logarithm a given `Tensor`.
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   # Example: Computing the base-2 logarithm of a given vector.
@@ -97,7 +97,7 @@ def tent_transform(value: types.FloatTensor) -> types.FloatTensor:
   #### Examples
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   # Example: Commputing the tent transform of a given vector.
@@ -124,7 +124,7 @@ def filter_tensor(value: types.IntTensor, bit_mask: types.IntTensor,
   #### Examples
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   # Example: Filtering a given vector based on a mask.

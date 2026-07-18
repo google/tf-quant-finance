@@ -13,11 +13,11 @@
 # limitations under the License.
 """Tests for proto_utils."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 import tf_quant_finance as tff
 
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.interest_rate_swap import proto_utils
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 framework = tff.experimental.pricing_platform.framework
 business_days = framework.core.business_days

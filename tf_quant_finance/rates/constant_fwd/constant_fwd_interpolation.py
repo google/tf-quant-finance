@@ -14,7 +14,7 @@
 
 """Constant forward interpolation method."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.math.interpolation.linear import linear_interpolation
 

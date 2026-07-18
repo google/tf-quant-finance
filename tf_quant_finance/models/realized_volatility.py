@@ -15,7 +15,7 @@
 
 import enum
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.math import diff_ops
 
@@ -83,7 +83,7 @@ def realized_volatility(sample_paths,
   Calculation of realized logarithmic volatility as in [1]:
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
   dtype=tf.float64
   num_samples = 1000

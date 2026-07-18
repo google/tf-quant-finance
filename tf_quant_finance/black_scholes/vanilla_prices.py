@@ -14,7 +14,7 @@
 """Black Scholes prices of a batch of European options."""
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 from tf_quant_finance import types
 __all__ = [
     'option_price',
@@ -797,7 +797,7 @@ def swaption_price(*,
 
   ````python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64

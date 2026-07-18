@@ -14,7 +14,7 @@
 
 """Geometric Brownian Motion model."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import utils as tff_utils
 from tf_quant_finance.math import piecewise as pw
@@ -43,7 +43,7 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
   ## Example
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
   process = tff.models.GeometricBrownianMotion(0.05, 1.0, dtype=tf.float64)
   times = [0.1, 0.2, 1.0]

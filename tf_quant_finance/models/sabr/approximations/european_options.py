@@ -13,7 +13,7 @@
 # limitations under the License.
 """Sabr Approximations to European Option prices."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.black_scholes import vanilla_prices
 from tf_quant_finance.models.sabr.approximations.implied_volatility import implied_volatility
@@ -43,7 +43,7 @@ def option_price(*,
   #### Example
   ```python
   import tf_quant_finance as tff
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
 
   prices = tff.models.sabr.approximations.european_option_price(
     strikes=np.array([90.0, 100.0]),

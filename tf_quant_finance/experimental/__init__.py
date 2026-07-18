@@ -21,7 +21,6 @@ from tf_quant_finance.experimental import lsm_algorithm
 from tf_quant_finance.experimental import pricing_platform
 from tf_quant_finance.experimental import svi
 import tf_quant_finance.experimental.io
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     "american_option_pricing",
@@ -34,4 +33,3 @@ _allowed_symbols = [
     "svi",
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

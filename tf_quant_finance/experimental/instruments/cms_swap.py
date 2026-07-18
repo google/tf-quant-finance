@@ -14,7 +14,7 @@
 """Constant maturity swaps."""
 
 import itertools
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 import tensorflow_probability as tfp
 from tf_quant_finance import black_scholes
 from tf_quant_finance import datetime as dates
@@ -30,7 +30,7 @@ class CMSCashflowStream(cs.CashflowStream):
   #### Example:
   ```python
   import numpy as np
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
   dates = tff.datetime
   instruments = tff.experimental.instruments
@@ -414,7 +414,7 @@ class CMSSwap(irs.InterestRateSwap):
 
   ```python
   import numpy as np
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
   dates = tff.datetime
   instruments = tff.experimental.instruments

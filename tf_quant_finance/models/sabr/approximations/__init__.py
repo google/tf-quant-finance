@@ -18,7 +18,6 @@ from tf_quant_finance.models.sabr.approximations.european_options import option_
 from tf_quant_finance.models.sabr.approximations.implied_volatility import implied_volatility
 from tf_quant_finance.models.sabr.approximations.implied_volatility import SabrApproximationType
 from tf_quant_finance.models.sabr.approximations.implied_volatility import SabrImpliedVolatilityType
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     'calibration',
@@ -28,4 +27,3 @@ _allowed_symbols = [
     'SabrImpliedVolatilityType',
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

@@ -14,7 +14,7 @@
 """Base class for Tensor wrappers."""
 
 import abc
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 
 class TensorWrapper(metaclass=abc.ABCMeta):

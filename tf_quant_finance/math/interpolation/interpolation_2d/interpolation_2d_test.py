@@ -15,10 +15,10 @@
 """Tests for interpolation_2d."""
 
 import numpy as np
-import tensorflow.compat.v1 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 interpolation_2d = tff.math.interpolation.interpolation_2d
 
 

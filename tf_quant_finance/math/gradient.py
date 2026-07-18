@@ -16,7 +16,7 @@
 
 import functools
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 
 def fwd_gradient(func_or_y, x, input_gradients=None, use_gradient_tape=False,

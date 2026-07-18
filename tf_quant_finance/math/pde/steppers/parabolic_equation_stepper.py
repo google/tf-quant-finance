@@ -13,7 +13,7 @@
 # limitations under the License.
 """Stepper for parabolic PDEs solving."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import utils
 

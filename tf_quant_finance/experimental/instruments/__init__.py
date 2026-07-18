@@ -25,7 +25,6 @@ from tf_quant_finance.experimental.instruments import overnight_index_linked_fut
 from tf_quant_finance.experimental.instruments import rate_curve
 from tf_quant_finance.experimental.instruments import rates_common
 from tf_quant_finance.experimental.instruments import swaption
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 Bond = bond.Bond
 CapAndFloor = cap_floor.CapAndFloor
@@ -73,4 +72,3 @@ _allowed_symbols = [
     'ratecurve_from_discounting_function',
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

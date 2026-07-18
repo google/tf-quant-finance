@@ -16,11 +16,9 @@
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.interest_rate_swap.interest_rate_swap_impl import InterestRateSwap
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.interest_rate_swap.interest_rate_swap_impl import InterestRateSwapConfig
 
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     "InterestRateSwap",
     "InterestRateSwapConfig",
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

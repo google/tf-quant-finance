@@ -14,7 +14,7 @@
 """Calculation of the Black-Scholes implied volatility via Newton's method."""
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.black_scholes import implied_vol_approximation as approx
 from tf_quant_finance.black_scholes import implied_vol_utils as utils

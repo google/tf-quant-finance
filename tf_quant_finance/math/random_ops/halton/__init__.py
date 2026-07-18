@@ -18,10 +18,8 @@ from tf_quant_finance.math.random_ops.halton.halton_impl import HaltonParams
 from tf_quant_finance.math.random_ops.halton.halton_impl import sample
 
 
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     'sample',
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

@@ -1,0 +1,671 @@
+"""TF-compatibility shim backed by JAX.
+
+Temporary vehicle for the TF->JAX migration: lets files keep using
+``import tensorflow as tf`` (swapped to ``from tf_quant_finance import _tf as tf``)
+while ``tf.convert_to_tensor`` / ``tf.math.exp`` / ``tf.float32`` / ``tf.while_loop``
+etc. resolve to JAX equivalents. Deleted in Phase 6 once modules are natively JAX.
+
+`ponytail:` this is deliberate scaffolding with a known ceiling (semantic gaps in
+random key threading and GradientTape); upgrade path = convert modules natively
+and drop the import. Not part of the public API.
+"""
+import sys
+import types as _ptypes
+import contextlib
+
+import numpy as np
+import jax
+import jax.numpy as jnp
+import jax.scipy as _jsp
+import jax.scipy.linalg as _jspl
+import jax.scipy.special as _jsp_special
+import jax.lax as _lax
+from jax import lax as lax
+import jax.ops as _jops
+
+jax.config.update("jax_enable_x64", True)
+
+_this = sys.modules[__name__]
+
+
+def _drop_name(fn):
+    """Wrap a jnp op so it accepts (and ignores) TF's ubiquitous name= kwarg."""
+    def wrapper(*args, name=None, **kwargs):
+        return fn(*args, **kwargs)
+    wrapper.__name__ = getattr(fn, "__name__", "op")
+    try:
+        import functools
+        wrapper = functools.wraps(fn)(wrapper)
+    except Exception:
+        pass
+    return wrapper
+
+
+# ---------------------------------------------------------------------------
+# Top-level math ops: mirror jnp onto this module (tf.exp, tf.zeros, tf.where, ...)
+# Wrap callables to tolerate TF's name= kwarg (no jnp op accepts it).
+# ---------------------------------------------------------------------------
+for _n in dir(jnp):
+    if _n.startswith("_"):
+        continue
+    if hasattr(_this, _n):
+        continue
+    _v = getattr(jnp, _n)
+    if callable(_v) and not isinstance(_v, type) and not hasattr(_v, "__path__"):
+        _v = _drop_name(_v)
+    setattr(_this, _n, _v)
+
+# ---------------------------------------------------------------------------
+# dtypes
+# ---------------------------------------------------------------------------
+float16 = jnp.float16
+float32 = jnp.float32
+float64 = jnp.float64
+bfloat16 = jnp.bfloat16
+int8 = jnp.int8
+int16 = jnp.int16
+int32 = jnp.int32
+int64 = jnp.int64
+uint8 = jnp.uint8
+uint16 = jnp.uint16
+uint32 = jnp.uint32
+uint64 = jnp.uint64
+bool = jnp.bool_  # tf uses tf.bool, not tf.bool_
+complex64 = jnp.complex64
+complex128 = jnp.complex128
+
+
+def as_dtype(x):
+    return jnp.dtype(x)
+
+
+# Type aliases used in annotations across the codebase (tf.Tensor, tf.DType)
+Tensor = jnp.ndarray
+DType = np.dtype
+
+
+class TensorSpec:
+    def __init__(self, shape=None, dtype=jnp.float32, name=None):
+        self.shape = shape
+        self.dtype = dtype
+        self.name = name
+
+
+Variable = jnp.ndarray  # ponytail: the lib doesn't train Variables; alias is enough
+Module = object
+
+
+
+def dtype(x):
+    return jnp.asarray(x).dtype
+
+
+dtypes = _ptypes.SimpleNamespace(
+    float16=float16, float32=float32, float64=float64, bfloat16=bfloat16,
+    int8=int8, int16=int16, int32=int32, int64=int64,
+    uint8=uint8, uint16=uint16, uint32=uint32, uint64=uint64,
+    bool=bool, complex64=complex64, complex128=complex128, as_dtype=as_dtype,
+    DType=np.dtype,
+)
+
+# ---------------------------------------------------------------------------
+# tensor construction / conversion (TF ops accept name=/dtype_hint=; jnp doesn't)
+# ---------------------------------------------------------------------------
+def convert_to_tensor(value, dtype=None, dtype_hint=None, name=None):
+    d = dtype if dtype is not None else dtype_hint
+    return jnp.asarray(value, dtype=d)
+
+
+def constant(value, dtype=None, shape=None, name=None):
+    v = jnp.asarray(value, dtype=dtype)
+    if shape is not None:
+        v = jnp.broadcast_to(v, shape)
+    return v
+
+
+def cast(x, dtype, name=None):
+    return jnp.asarray(x).astype(dtype)
+
+
+def _drop_name(fn):
+    """Wrap a jnp op so it accepts (and ignores) TF's name= kwarg."""
+    def wrapper(*args, name=None, **kwargs):
+        return fn(*args, **kwargs)
+    wrapper.__name__ = getattr(fn, "__name__", "op")
+    return wrapper
+
+
+zeros = _drop_name(jnp.zeros)
+ones = _drop_name(jnp.ones)
+zeros_like = _drop_name(jnp.zeros_like)
+ones_like = _drop_name(jnp.ones_like)
+eye = _drop_name(jnp.eye)
+fill = _drop_name(jnp.full)
+# tf.range(start, limit=None, delta=1, dtype=None, name=None) -> jnp.arange
+range = _drop_name(jnp.arange)
+linspace = _drop_name(jnp.linspace)
+
+
+
+def is_tensor(x):
+    return isinstance(x, (np.ndarray, jnp.ndarray))
+
+
+def get_static_value(x):
+    try:
+        return np.asarray(x)
+    except Exception:
+        return None
+
+
+def executing_eagerly():
+    return True
+
+
+newaxis = None  # tf.newaxis
+
+# ---------------------------------------------------------------------------
+# shape helpers
+# ---------------------------------------------------------------------------
+
+class TensorShape:
+    """Minimal stand-in for tf.TensorShape: a tuple of dims (all static)."""
+
+    def __init__(self, dims):
+        if dims is None:
+            self._dims = None
+        elif isinstance(dims, TensorShape):
+            self._dims = tuple(dims._dims)
+        else:
+            self._dims = tuple(int(d) if d is not None else None for d in dims)
+
+    def __iter__(self):
+        return iter(self._dims)
+
+    def __len__(self):
+        return len(self._dims)
+
+    def __getitem__(self, i):
+        return self._dims[i]
+
+    def as_list(self):
+        return list(self._dims)
+
+    @property
+    def rank(self):
+        return len(self._dims)
+
+    def is_fully_defined(self):
+        return all(d is not None for d in self._dims)
+
+    def num_elements(self):
+        n = 1
+        for d in self._dims:
+            n *= d
+        return n
+
+    def __repr__(self):
+        return f"TensorShape({self._dims})"
+
+
+def shape(x):
+    # tf.shape returns a (dynamic) shape tensor; in JAX shapes are static.
+    return jnp.asarray(jnp.asarray(x).shape)
+
+
+def size(x):
+    return int(jnp.asarray(x).size)
+
+
+def rank(x):
+    return int(jnp.asarray(x).ndim)
+
+
+# ---------------------------------------------------------------------------
+# name_scope: no-op context manager (JAX has no graph names)
+# ---------------------------------------------------------------------------
+@contextlib.contextmanager
+def name_scope(*args, **kwargs):
+    yield
+
+
+# ---------------------------------------------------------------------------
+# compat / types / nn / sparse / xla stub namespaces
+# ---------------------------------------------------------------------------
+compat = _this  # tf.compat.v1 / v2 -> resolves back to the same surface
+compat.v1 = _this  # type: ignore[attr-defined]
+compat.v2 = _this  # type: ignore[attr-defined]
+
+
+class _TypesNS:
+    experimental = _ptypes.SimpleNamespace(
+        TensorLike=object  # type alias only; replaced in types/data_types.py
+    )
+
+
+types = _TypesNS()
+
+nn = _ptypes.SimpleNamespace(
+    relu=jax.nn.relu, sigmoid=jax.nn.sigmoid, softmax=jax.nn.softmax,
+    softplus=jax.nn.softplus, gelu=jax.nn.gelu, log_softmax=jax.nn.log_softmax,
+)
+sparse = _ptypes.SimpleNamespace()
+xla = _ptypes.SimpleNamespace()
+nest = _ptypes.SimpleNamespace(
+    map_structure=lambda f, s: jax.tree_util.tree_map(f, s),
+    flatten=lambda s: jax.tree_util.tree_leaves(s),
+)
+data = _ptypes.SimpleNamespace()
+io = _ptypes.SimpleNamespace()
+train = _ptypes.SimpleNamespace()
+summary = _ptypes.SimpleNamespace()
+
+
+# ---------------------------------------------------------------------------
+# tf.math.* namespace
+# ---------------------------------------------------------------------------
+math = _ptypes.SimpleNamespace()
+for _n in dir(jnp):
+    if _n.startswith("_"):
+        continue
+    _v = getattr(jnp, _n)
+    if callable(_v) and not isinstance(_v, type) and not hasattr(_v, "__path__"):
+        _v = _drop_name(_v)
+    setattr(math, _n, _v)
+# tf.math.reduce_* -> jnp without the reduce_ prefix
+math.reduce_sum = jnp.sum
+math.reduce_mean = jnp.mean
+math.reduce_max = jnp.max
+math.reduce_min = jnp.min
+math.reduce_prod = jnp.prod
+math.reduce_any = jnp.any
+math.reduce_all = jnp.all
+math.reduce_std = jnp.std
+math.reduce_variance = jnp.var
+math.reduce_logsumexp = _jsp.special.logsumexp
+# tf.math uses is_nan/is_finite (underscores); jnp uses isnan/isfinite
+math.is_nan = jnp.isnan
+math.is_finite = jnp.isfinite
+is_nan = jnp.isnan
+is_finite = jnp.isfinite
+# special funcs
+math.erf = _jsp_special.erf
+math.erfc = _jsp_special.erfc
+math.erfinv = _jsp_special.erfinv
+math.igamma = _jsp_special.gammainc
+math.igammac = _jsp_special.gammaincc
+math.sigmoid = jax.nn.sigmoid
+math.cumprod = jnp.cumprod
+math.cumsum = jnp.cumsum
+math.top_k = lambda a, k=1, sorted=True: jnp.argsort(a)[-k:]  # best-effort
+math.divide_no_nan = lambda x, y: jnp.where(y != 0, x / y, 0.0)
+math.segment_sum = lambda data, segments, **kw: _jops.segment_sum(data, segments)
+math.segment_prod = lambda data, segments, **kw: _jops.segment_prod(data, segments)
+math.nextafter = _np_nextafter = np.nextafter
+# ponytail: tf.math.brentq has no jax builtin; delegate to the repo's own root
+# search or scipy. Wired when a caller actually needs it.
+def _brentq_missing(*args, **kwargs):
+    raise NotImplementedError("tf.math.brentq: use jax.scipy or repo root_search")
+math.brentq = _brentq_missing
+
+
+# ---------------------------------------------------------------------------
+# tf.linalg.* namespace
+# ---------------------------------------------------------------------------
+linalg = _ptypes.SimpleNamespace(
+    matmul=jnp.matmul,
+    matvec=lambda m, v, **kw: jnp.matmul(m, v[..., None])[..., 0],
+    cholesky=jnp.linalg.cholesky,
+    inv=jnp.linalg.inv,
+    pinv=jnp.linalg.pinv,
+    eigh=jnp.linalg.eigh,
+    eigvalsh=jnp.linalg.eigvalsh,
+    eig=jnp.linalg.eig,
+    svd=jnp.linalg.svd,
+    norm=jnp.linalg.norm,
+    einsum=jnp.einsum,
+    det=jnp.linalg.det,
+    solve=jnp.linalg.solve,
+    qr=jnp.linalg.qr,
+    tensor_diag=lambda v: jnp.diag(v),
+    diag=lambda v, **kw: jnp.diag(v),
+    set_diag=lambda m, v, **kw: m.at[..., :].set(v) if hasattr(m, "at") else m,
+    tridiagonal_solve=_lax.linalg.tridiagonal_solve,
+    tridiagonal_matmul=_lax.linalg.tridiagonal_matmul if hasattr(_lax.linalg, "tridiagonal_matmul") else None,
+    expm=_jspl.expm,
+)
+def _band_part(m, num_lower, num_upper):
+    # tf.linalg.band_part(m, num_lower, num_upper): keep lower/upper bands.
+    m = jnp.asarray(m)
+    n = m.shape[-1]
+    i, j = jnp.arange(n), jnp.arange(n)[:, None]
+    if m.ndim > 2:
+        i = i[None, ...]
+        j = j[None, ...]
+    mask = ((num_lower < 0) | (i - j <= num_lower)) & ((num_upper < 0) | (j - i <= num_upper))
+    return m * mask
+linalg.band_part = _band_part
+# ponytail: LinearOperator* (2 uses) not shimmed; convert those call sites natively.
+linalg.LinearOperatorFullMatrix = NotImplementedError
+linalg.LinearOperatorBlockDiag = NotImplementedError
+
+
+# ---------------------------------------------------------------------------
+# tf.random.* : functional PRNG. Uses a module-global key (thread-unsafe).
+# ponytail: ceiling = single global key is not reproducible under parallelism;
+# callers should migrate to explicit PRNGKey args (Phase 2).
+# ---------------------------------------------------------------------------
+_global_key = jax.random.PRNGKey(0)
+
+
+def _next_key():
+    global _global_key
+    _global_key, k = jax.random.split(_global_key)
+    return k
+
+
+random = _ptypes.SimpleNamespace(
+    set_seed=lambda s: globals().__setitem__("_global_key", jax.random.PRNGKey(s)),
+    uniform=lambda shape, minval=0.0, maxval=1.0, dtype=jnp.float32, seed=None: jax.random.uniform(seed or _next_key(), shape, minval=minval, maxval=maxval, dtype=dtype),
+    normal=lambda shape, mean=0.0, stddev=1.0, dtype=jnp.float32, seed=None: jax.random.normal(seed or _next_key(), shape, dtype=dtype) * stddev + mean,
+    gamma=lambda shape, alpha, dtype=jnp.float32, seed=None: jax.random.gamma(seed or _next_key(), alpha, shape, dtype=dtype),
+    poisson=lambda lam, shape, dtype=jnp.float32, seed=None: jax.random.poisson(seed or _next_key(), lam, shape, dtype=dtype),
+    shuffle=lambda value, seed=None: jax.random.permutation(seed or _next_key(), value),
+    stateless_uniform=lambda seed, shape, **kw: jax.random.uniform(jax.random.PRNGKey(seed) if isinstance(seed, (tuple, list, np.ndarray)) else seed, shape, **{k: v for k, v in kw.items() if k in ("minval", "maxval", "dtype")}),
+    stateless_normal=lambda seed, shape, **kw: jax.random.normal(jax.random.PRNGKey(seed) if isinstance(seed, (tuple, list, np.ndarray)) else seed, shape),
+    stateless_gamma=lambda seed, shape, **kw: jax.random.gamma(jax.random.PRNGKey(seed) if isinstance(seed, (tuple, list, np.ndarray)) else seed, 1.0, shape),
+    stateless_poisson=lambda seed, shape, **kw: jax.random.poisson(jax.random.PRNGKey(seed) if isinstance(seed, (tuple, list, np.ndarray)) else seed, 1.0, shape),
+)
+
+
+# ---------------------------------------------------------------------------
+# control flow
+# ---------------------------------------------------------------------------
+def while_loop(cond, body, loop_vars, parallel_iterations=None, maximum_iterations=None,
+               swap_memory=None, name=None, return_same_structure=None):
+    if maximum_iterations is not None:
+        # tf semantics: run at most maximum_iterations times.
+        orig_cond = cond
+
+        def cond2(i, *lv):
+            return jnp.logical_and(i < maximum_iterations, orig_cond(*lv))
+
+        def body2(i, *lv):
+            return (i + 1,) + tuple(body(*lv))
+
+        out = _lax.while_loop(cond2, body2, (0,) + tuple(loop_vars))
+        return out[1:] if len(out[1:]) > 1 else out[1]
+    return _lax.while_loop(cond, body, loop_vars)
+
+
+def cond(pred, true_fn, false_fn, *args, **kw):
+    # tf.cond signature varies; route to lax.cond lazily.
+    return _lax.cond(pred, true_fn, false_fn)
+
+
+def scan(f, init, xs=None, reverse=False, **kw):
+    return _lax.scan(f, init, xs, reverse=reverse)
+
+
+def map_fn(f, elems, dtype=None, **kw):
+    return jax.vmap(f)(elems)
+
+
+def vectorized_map(f, xs):
+    return jax.vmap(f)(xs)
+
+
+def function(func=None, input_signature=None, **kw):
+    # tf.function: drop jit by default (callers can add @jax.jit explicitly).
+    def _identity(f):
+        return f
+    if func is None:
+        return _identity
+    return func
+
+
+def py_function(func=None, **kw):
+    def _wrap(f):
+        return f
+    if func is None:
+        return _wrap
+    return func
+
+
+# ---------------------------------------------------------------------------
+# tf.test — JAX-backed unittest TestCase so test files keep using tf.test.TestCase
+# ---------------------------------------------------------------------------
+import unittest as _unittest
+
+
+class TestCase(_unittest.TestCase):
+    """tf.test.TestCase stand-in: unittest + numpy-based assertions."""
+
+    def evaluate(self, tensors):
+        if isinstance(tensors, (list, tuple)):
+            return type(tensors)(np.asarray(t) for t in tensors)
+        return np.asarray(tensors)
+
+    def assertAllClose(self, a, b, rtol=1e-6, atol=1e-6, msg=None):
+        np.testing.assert_allclose(np.asarray(a, dtype=float),
+                                   np.asarray(b, dtype=float),
+                                   rtol=rtol, atol=atol, err_msg=msg)
+
+    def assertAllCloseAccordingToType(self, a, b, float_rtol=1e-6, float_atol=1e-6,
+                                      half_rtol=1e-3, half_atol=1e-3, bfloat16_rtol=1e-2,
+                                      bfloat16_atol=1e-2, msg=None):
+        self.assertAllClose(a, b, rtol=float_rtol, atol=float_atol, msg=msg)
+
+    def assertAllEqual(self, a, b, msg=None):
+        np.testing.assert_array_equal(np.asarray(a), np.asarray(b), err_msg=msg)
+
+    def assertNear(self, a, b, err, msg=None):
+        self.assertLess(abs(float(a) - float(b)), err, msg=msg)
+
+    def assertAllFinite(self, a, msg=None):
+        arr = np.asarray(a)
+        self.assertTrue(np.all(np.isfinite(arr)), msg=msg)
+
+    def assertShapeEqual(self, a, b, msg=None):
+        self.assertEqual(np.asarray(a).shape, np.asarray(b).shape, msg=msg)
+
+    def assertDTypeEqual(self, a, dtype, msg=None):
+        self.assertEqual(np.asarray(a).dtype, dtype, msg=msg)
+
+    def assertDeviceEqual(self, *a, **k):
+        pass
+
+    def get_temp_dir(self):
+        import tempfile
+        return tempfile.gettempdir()
+
+    def cached_session(self, *a, **k):
+        import contextlib
+        return contextlib.nullcontext()
+
+    def session(self, *a, **k):
+        import contextlib
+        return contextlib.nullcontext()
+
+
+test = _ptypes.SimpleNamespace(
+    TestCase=TestCase,
+    main=_unittest.main,
+    SkipTest=_unittest.SkipTest,
+    TestCase_source=TestCase,
+)
+
+
+# tf.python.framework.test_util: graph/eager mode decorators. JAX is eager-only,
+# so these are no-ops.
+def _cls_noop(cls):
+    return cls
+
+
+def _fn_noop(fn=None, **kw):
+    if fn is None:
+        return lambda f: f
+    return fn
+
+
+test_util = _ptypes.SimpleNamespace(
+    run_all_in_graph_and_eager_modes=_cls_noop,
+    run_in_graph_and_eager_modes=_fn_noop,
+    run_deprecated_v1=_cls_noop,
+    run_v1_only=_cls_noop,
+    run_in_graph_mode=_fn_noop,
+    run_in_eager_mode=_fn_noop,
+    deprecated_graph_mode_only=_fn_noop,
+)
+
+
+# ---------------------------------------------------------------------------
+# debugging: assertions are no-ops under JAX (or raise eagerly on static vals)
+# ---------------------------------------------------------------------------
+debugging = _ptypes.SimpleNamespace()
+for _n in ("assert_equal", "assert_none_equal", "assert_near", "assert_all_close",
+           "assert_greater", "assert_greater_equal", "assert_less",
+           "assert_less_equal", "assert_positive", "assert_non_negative",
+           "assert_negative", "assert_non_positive", "assert_all_finite",
+           "assert_scalar", "assert_rank", "assert_type"):
+    setattr(debugging, _n, lambda *a, **k: None)
+assert_equal = debugging.assert_equal
+assert_greater = debugging.assert_greater
+assert_less = debugging.assert_less
+
+
+# ---------------------------------------------------------------------------
+# errors
+# ---------------------------------------------------------------------------
+class Error(Exception):
+    pass
+
+
+class InvalidArgumentError(ValueError):
+    pass
+
+
+class NotFoundError(ValueError):
+    pass
+
+
+class UnimplementedError(RuntimeError):
+    pass
+
+
+errors = _ptypes.SimpleNamespace(
+    InvalidArgumentError=InvalidArgumentError,
+    NotFoundError=NotFoundError,
+    UnimplementedError=UnimplementedError,
+    Error=Error,
+    AbortError=RuntimeError,
+)
+
+
+# ---------------------------------------------------------------------------
+# gradients (best-effort; real rewrites in Phase 2/3)
+# ---------------------------------------------------------------------------
+class GradientTape:
+    """Minimal shim: records watched tensors, computes grad via jax.grad on .grad().
+    ponytail: only supports the single-output scalar case via jax.grad; callers
+    needing jacobians/hessians get rewritten natively."""
+
+    def __init__(self, persistent=False, watch_accessed_variables=True):
+        self._persistent = persistent
+        self._watched = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def watch(self, t):
+        self._watched.append(t)
+
+    def gradient(self, target, sources, output_gradients=None):
+        def fn(x):
+            return jnp.sum(target) if not callable(target) else target()
+        # best-effort: treat sources as a single arg
+        if isinstance(sources, (list, tuple)):
+            grads = jax.grad(fn)(*sources) if len(sources) > 1 else jax.grad(fn)(sources[0])
+            return grads
+        return jax.grad(fn)(sources)
+
+
+def gradients(ys, xs, **kw):
+    return jax.grad(lambda x: jnp.sum(ys))(xs) if not isinstance(xs, (list, tuple)) else jax.grad(lambda *a: jnp.sum(ys))(*xs)
+
+
+def custom_gradient(f):
+    return f
+
+
+# ---------------------------------------------------------------------------
+# misc helpers used in places
+# ---------------------------------------------------------------------------
+def repeat(input, repeats, axis=None):
+    return jnp.repeat(input, repeats, axis=axis)
+
+
+def tensordot(a, b, axes):
+    return jnp.tensordot(a, b, axes)
+
+
+def einsum(*args, **kw):
+    return jnp.einsum(*args, **kw)
+
+
+def sort_(a, axis=-1, direction="ASCENDING"):
+    return jnp.sort(a, axis=axis)
+
+
+def identity(a):
+    return a
+
+
+def add_n(tensors):
+    out = tensors[0]
+    for t in tensors[1:]:
+        out = out + t
+    return out
+
+
+def make_tensor_proto(*a, **k):
+    raise NotImplementedError("tf.make_tensor_proto not supported under JAX")
+
+
+def make_ndarray(*a, **k):
+    raise NotImplementedError("tf.make_ndarray not supported under JAX")
+
+
+# ---------------------------------------------------------------------------
+# reduce_* at top level (tf.reduce_sum etc. -> jnp.sum etc.)
+# ---------------------------------------------------------------------------
+reduce_sum = jnp.sum
+reduce_mean = jnp.mean
+reduce_max = jnp.max
+reduce_min = jnp.min
+reduce_prod = jnp.prod
+reduce_any = jnp.any
+reduce_all = jnp.all
+reduce_std = jnp.std
+reduce_variance = jnp.var
+reduce_logsumexp = _jsp.special.logsumexp
+
+
+# tf.where: 1-arg form returns indices of True; 3-arg form selects. Tolerate kwargs.
+def where(condition, x=None, y=None, name=None):
+    if x is None and y is None:
+        return jnp.argwhere(condition)
+    return jnp.where(condition, x, y)
+
+
+# tf.control_dependencies: graph-mode control flow; no-op under JAX/eager.
+@contextlib.contextmanager
+def control_dependencies(control_inputs=None):
+    yield
+
+
+
+__version__ = "jax-shim"

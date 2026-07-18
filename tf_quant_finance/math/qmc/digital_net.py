@@ -29,7 +29,7 @@ With this convention, a set of `N` generating matrices with shape `(m, n)` is
 implemented as a single scalar `Tensor` of integers with shape `(N, n)`.
 """
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance.math.qmc import utils

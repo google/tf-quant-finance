@@ -14,7 +14,7 @@
 """Calibration methods for the SVI volatility model."""
 
 from typing import Callable, Tuple
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance.experimental.svi import parameterizations
@@ -58,7 +58,7 @@ def calibration(
 
   ```python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   forwards = np.array([2402.])

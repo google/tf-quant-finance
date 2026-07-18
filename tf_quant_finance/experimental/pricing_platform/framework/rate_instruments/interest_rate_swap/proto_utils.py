@@ -15,7 +15,7 @@
 
 from typing import Any, Dict, List, Tuple, Union
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import datetime as dateslib
 from tf_quant_finance.experimental.pricing_platform.framework import utils

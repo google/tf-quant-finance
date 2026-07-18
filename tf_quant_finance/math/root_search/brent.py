@@ -16,7 +16,7 @@
 
 from typing import Callable
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
@@ -365,7 +365,7 @@ def _prepare_brent_args(objective_fn,
       specified, this argument must be positive, broadcast with the shape of
       `left_bracket` and have the same dtype.
       Default value: `None` which translates to `4 *
-        numpy.finfo(left_bracket.dtype.as_numpy_dtype).eps`.
+        numpy.finfo(left_bracket.dtype).eps`.
     function_tolerance: Optional `Tensor` representing the tolerance used to
       check for roots. If the absolute value of `objective_fn` is smaller than
       or equal to `function_tolerance` at a given estimate, then that estimate
@@ -547,7 +547,7 @@ def _brent(objective_fn,
       specified, this argument must be positive, broadcast with the shape of
       `left_bracket` and have the same dtype.
       Default value: `None` which translates to `4 *
-        numpy.finfo(left_bracket.dtype.as_numpy_dtype).eps`.
+        numpy.finfo(left_bracket.dtype).eps`.
     function_tolerance: Optional `Tensor` representing the tolerance used to
       check for roots. If the absolute value of `objective_fn` is smaller than
       or equal to `function_tolerance` at a given estimate, then that estimate
@@ -673,7 +673,7 @@ def brentq(
   #### Examples
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   # Example 1: Roots of a single function for two pairs of starting points.
@@ -779,7 +779,7 @@ def brentq(
       specified, this argument must be positive, broadcast with the shape of
       `left_bracket` and have the same dtype.
       Default value: `None` which translates to `4 *
-        numpy.finfo(left_bracket.dtype.as_numpy_dtype).eps`.
+        numpy.finfo(left_bracket.dtype).eps`.
     function_tolerance: Optional `Tensor` representing the tolerance used to
       check for roots. If the absolute value of `objective_fn` is smaller than
       or equal to `function_tolerance` at a given estimate, then that estimate

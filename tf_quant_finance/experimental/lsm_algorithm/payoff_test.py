@@ -15,10 +15,10 @@
 
 from absl.testing import parameterized
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.experimental.lsm_algorithm import payoff as payoff_utils
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 # See Longstaff, F.A. and Schwartz, E.S., 2001. Valuing American options by
 # simulation: a simple least-squares approach.

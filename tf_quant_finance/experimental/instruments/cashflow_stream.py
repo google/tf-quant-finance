@@ -13,7 +13,7 @@
 # limitations under the License.
 """Cashflow streams."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 from tf_quant_finance import datetime as dates
 from tf_quant_finance.experimental.instruments import rates_common as rc
 
@@ -90,7 +90,7 @@ class FixedCashflowStream(CashflowStream):
 
   ```python
   import numpy as np
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
   dates = tff.datetime
   instruments = tff.experimental.instruments
@@ -299,7 +299,7 @@ class FloatingCashflowStream(CashflowStream):
 
   ```python
   import numpy as np
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
   dates = tff.datetime
   instruments = tff.experimental.instruments

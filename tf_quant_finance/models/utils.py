@@ -13,7 +13,7 @@
 # limitations under the License.
 """Common methods for model building."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 from tf_quant_finance.math import random_ops as random
 
 

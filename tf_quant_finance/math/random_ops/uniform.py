@@ -14,7 +14,7 @@
 
 """Uniform distribution with various random types."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.math.random_ops import halton
 from tf_quant_finance.math.random_ops import sobol

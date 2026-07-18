@@ -22,7 +22,6 @@ from tf_quant_finance.rates import nelson_seigel_svensson
 from tf_quant_finance.rates import swap_curve_bootstrap as swap_curve_boot_lib
 from tf_quant_finance.rates import swap_curve_fit as swap_curve_fit_lib
 from tf_quant_finance.rates.swap_curve_common import SwapCurveBuilderResult
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 swap_curve_fit = swap_curve_fit_lib.swap_curve_fit
 swap_curve_bootstrap = swap_curve_boot_lib.swap_curve_bootstrap
@@ -38,4 +37,3 @@ _allowed_symbols = [
     'SwapCurveBuilderResult',
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

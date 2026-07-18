@@ -34,7 +34,7 @@ def dataclass(cls: Type[Any]) -> Type[Any]:
   #### Examples
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   @tff.utils.dataclass

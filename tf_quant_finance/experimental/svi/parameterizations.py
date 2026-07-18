@@ -13,7 +13,7 @@
 # limitations under the License.
 """Parameterization utilities for the SVI volatility model."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 
@@ -53,7 +53,7 @@ def total_variance_from_raw_svi_parameters(
 
   ```python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   svi_parameters = np.array([-0.1825, 0.3306, -0.0988, 0.0368, 0.6011])
@@ -163,7 +163,7 @@ def implied_volatility_from_raw_svi_parameters(
 
   ```python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   svi_parameters = np.array([-0.1825, 0.3306, -0.0988, 0.0368, 0.6011])

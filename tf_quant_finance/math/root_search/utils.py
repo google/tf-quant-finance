@@ -14,11 +14,11 @@
 """Util common functions for brent and newton methods."""
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 
 def default_relative_root_tolerance(dtype):
   """Returns the default relative root tolerance used for a TensorFlow dtype."""
   if dtype is None:
     dtype = tf.float64
-  return 4 * np.finfo(dtype.as_numpy_dtype(0)).eps
+  return 4 * np.finfo(dtype(0)).eps

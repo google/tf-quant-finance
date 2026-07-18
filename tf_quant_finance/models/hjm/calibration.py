@@ -16,7 +16,7 @@
 from typing import Callable, Tuple
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 import tensorflow_probability as tfp
 
 from tf_quant_finance import types
@@ -156,7 +156,7 @@ def calibration_from_swaptions(
 
   ````python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64

@@ -15,7 +15,7 @@
 """Implementation of the regression MC algorithm of Longstaff and Schwartz."""
 
 import collections
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 
 LsmLoopVars = collections.namedtuple(

@@ -15,7 +15,7 @@
 
 import numpy as np
 from six.moves import range
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 
 def uniform_grid(minimums,

@@ -17,7 +17,6 @@ from tf_quant_finance.experimental.svi.calibration import calibration
 from tf_quant_finance.experimental.svi.parameterizations import implied_volatility_from_raw_svi_parameters
 from tf_quant_finance.experimental.svi.parameterizations import total_variance_from_raw_svi_parameters
 
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 # pyformat: disable
 _allowed_symbols = [
@@ -27,4 +26,3 @@ _allowed_symbols = [
 ]
 # pyformat: enable
 
-remove_undocumented(__name__, _allowed_symbols)

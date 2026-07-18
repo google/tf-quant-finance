@@ -34,7 +34,7 @@ including the regularity conditions that must be imposed on the coefficients
 
 import abc
 import six
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.math import random_ops
 

@@ -19,7 +19,6 @@ from tf_quant_finance.experimental.pricing_platform.framework import market_data
 from tf_quant_finance.experimental.pricing_platform.framework import rate_instruments
 
 
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     "core",
@@ -28,4 +27,3 @@ _allowed_symbols = [
     "rate_instruments",
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

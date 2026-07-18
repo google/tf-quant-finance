@@ -17,10 +17,10 @@ from os import path
 
 from absl.testing import parameterized
 import numpy as np
-import tensorflow as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.experimental import io
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 
 class IoTest(parameterized.TestCase, tf.test.TestCase):

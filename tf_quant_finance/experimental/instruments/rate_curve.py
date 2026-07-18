@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """Interest rate curve definition."""
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 from tf_quant_finance import datetime as dates
 from tf_quant_finance.math.interpolation import linear
 

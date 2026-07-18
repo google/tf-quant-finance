@@ -26,7 +26,7 @@ With this convention, a set of `N` generating vectors with shape `(n)` is
 implemented as a single integer `Tensor` with shape `(N)`.
 """
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance.math.qmc import utils
@@ -110,7 +110,7 @@ def lattice_rule_sample(generating_vectors: types.IntTensor,
   #### Examples
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   # Example: Sampling 1,000 points from 2D generating vectors.

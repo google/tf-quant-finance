@@ -13,7 +13,7 @@
 # limitations under the License.
 """Join a sequence of Ito Processes with specified correlations."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.models import euler_sampling
 from tf_quant_finance.models import generic_ito_process
@@ -55,7 +55,7 @@ class JoinedItoProcess(generic_ito_process.GenericItoProcess):
   # Example. # Black-scholes and Heston model join.
   ```python
   import numpy as np
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64

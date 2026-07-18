@@ -13,7 +13,7 @@
 # limitations under the License.
 """Collection of functions to create interest rate and equity swaps."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.rates.analytics import cashflows
 

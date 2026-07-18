@@ -15,7 +15,7 @@
 
 from typing import Union
 import numpy as np
-import tensorflow as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.datetime.date_tensor import DateTensor as TFFDateTensor
 

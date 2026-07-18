@@ -16,11 +16,9 @@
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.forward_rate_agreement.forward_rate_agreement_impl import ForwardRateAgreement
 from tf_quant_finance.experimental.pricing_platform.framework.rate_instruments.forward_rate_agreement.forward_rate_agreement_impl import ForwardRateAgreementConfig
 
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     "ForwardRateAgreement",
     "ForwardRateAgreementConfig",
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

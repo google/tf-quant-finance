@@ -12,6 +12,10 @@ dependencies = [
     "rocm-sdk-core==7.14.0a20260608",
     "numpy>=2.0",
     "scipy",
+    "attrs>=26.1.0",
+    "pandas>=3.0.3",
+    "six>=1.17.0",
+    "autograd>=1.9.1",
 ]
 
 # Mirror of ~/devv/2026/rl-0dte/pyproject.toml: AMD ships ROCm as pip wheels on
@@ -45,3 +49,11 @@ pythonpath = ["."]
 python_classes = ["*Test", "Test*"]
 python_files = ["*_test.py", "test_*.py"]
 testpaths = ["tf_quant_finance"]
+
+[dependency-groups]
+dev = [
+    "absl-py>=2.5.0",
+    "parameterized>=0.9.0",
+    "pytest>=9.1.1",
+    "pytest-xdist>=3.8.0",
+]

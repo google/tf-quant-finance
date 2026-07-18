@@ -20,7 +20,6 @@ from tf_quant_finance.utils.shape_utils import common_shape
 from tf_quant_finance.utils.shape_utils import get_shape
 from tf_quant_finance.utils.tf_functions import iterate_nested
 
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     'dataclass',
@@ -31,4 +30,3 @@ _allowed_symbols = [
     'iterate_nested'
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

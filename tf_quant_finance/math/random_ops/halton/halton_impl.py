@@ -15,7 +15,7 @@
 """Quasi Monte Carlo support: Halton sequence."""
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils
@@ -102,7 +102,7 @@ def sample(dim: int,
   #### Examples
 
   ```python
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tensorflow_probability as tfp
 
   # Produce the first 1000 members of the Halton sequence in 3 dimensions.

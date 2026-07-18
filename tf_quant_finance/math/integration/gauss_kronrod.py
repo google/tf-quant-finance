@@ -1,6 +1,6 @@
 """Adaptive Gauss-Kronrod quadrature algorithm for numeric integration."""
 from typing import Callable, Optional
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils

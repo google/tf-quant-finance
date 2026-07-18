@@ -15,8 +15,8 @@
 
 
 import numpy as np
-import tensorflow.compat.v2 as tf
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance import _tf as tf
+from tf_quant_finance._tf import test_util
 from tf_quant_finance.math import segment_ops
 
 
