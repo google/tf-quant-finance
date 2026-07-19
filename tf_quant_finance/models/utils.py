@@ -26,6 +26,10 @@ def generate_mc_normal_draws(num_normal_draws,
                              seed=None,
                              dtype=None,
                              name=None):
+  # JAX shapes must be int; these are documented graph-compilation constants.
+  num_normal_draws = int(np.asarray(num_normal_draws).item()) if hasattr(num_normal_draws, "item") else int(num_normal_draws)
+  num_time_steps = int(np.asarray(num_time_steps).item()) if hasattr(num_time_steps, "item") else int(num_time_steps)
+  num_sample_paths = int(np.asarray(num_sample_paths).item()) if hasattr(num_sample_paths, "item") else int(num_sample_paths)
   """Generates normal random samples to be consumed by a Monte Carlo algorithm.
 
   Many of Monte Carlo (MC) algorithms can be re-written so that all necessary
@@ -98,12 +102,12 @@ def generate_mc_normal_draws(num_normal_draws,
     if random_type in [random.RandomType.PSEUDO_ANTITHETIC,
                        random.RandomType.STATELESS_ANTITHETIC]:
       # Put `num_sample_paths` to the front for antithetic samplers
-      sample_shape = tf.concat([[num_sample_paths], batch_shape], axis=0)
+      sample_shape = [num_sample_paths] + [int(d) for d in batch_shape]
       is_antithetic = True
     else:
       # Note that for QMC sequences `num_sample_paths` should follow
       # `batch_shape`
-      sample_shape = tf.concat([batch_shape, [num_sample_paths]], axis=0)
+      sample_shape = [int(d) for d in batch_shape] + [num_sample_paths]
       is_antithetic = False
     normal_draws = random.mv_normal_sample(
         sample_shape,
@@ -114,7 +118,7 @@ def generate_mc_normal_draws(num_normal_draws,
     # Reshape and transpose
     normal_draws = tf.reshape(
         normal_draws,
-        tf.concat([sample_shape, [num_time_steps, num_normal_draws]], axis=0))
+        sample_shape + [num_time_steps, num_normal_draws])
     # Shape [steps_num] + batch_shape + [num_samples, dim]
     normal_draws_rank = len(normal_draws.shape)
     if is_antithetic and normal_draws_rank > 3:

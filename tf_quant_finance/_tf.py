@@ -198,7 +198,8 @@ class TensorShape:
         return len(self._dims)
 
     def is_fully_defined(self):
-        return all(d is not None for d in self._dims)
+        import builtins
+        return builtins.all(d is not None for d in self._dims)
 
     def num_elements(self):
         n = 1
@@ -661,7 +662,16 @@ def gradients(ys, xs, **kw):
 
 
 def custom_gradient(f):
-    return f
+    """tf.custom_gradient shim: call f and drop the (value, grad_fn) tuple,
+    returning just the value. JAX autodiff replaces the custom grad."""
+    import functools
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        result = f(*args, **kwargs)
+        if isinstance(result, tuple) and len(result) == 2 and callable(result[1]):
+            return result[0]
+        return result
+    return wrapper
 
 
 # ---------------------------------------------------------------------------
@@ -680,15 +690,38 @@ def gather(params, indices, axis=0, batch_dims=0, name=None,
 
 # tf.concat(values, axis): accept a sequence OR positional tensors, and coerce
 # list elements to arrays (jnp.concatenate rejects raw lists).
+# When concatenating shapes (empty + int dims), keep integer dtype instead of
+# letting an empty array default to float64 (common TF->JAX shape bug).
 def concat(values, axis=0, name=None, *more, **kwargs):
     if isinstance(values, (list, tuple)):
-        arrs = [jnp.asarray(v) for v in values]
+        seq = values
+    elif more:
+        seq = (values,) + more
     else:
-        arrs = [jnp.asarray(values)] + [jnp.asarray(v) for v in more]
+        try:
+            seq = list(values)  # generator / iterable (TF accepted these)
+        except TypeError:
+            seq = [values]
+    arrs = [jnp.asarray(v) for v in seq]
+    import builtins
+    has_nonempty = False
+    all_int_compatible = True
+    for a in arrs:
+        if a.size:
+            has_nonempty = True
+        if not (a.size == 0 or np.issubdtype(a.dtype, np.integer)):
+            all_int_compatible = False
+    if has_nonempty and all_int_compatible:
+        arrs = [a.astype(jnp.int32) for a in arrs]
     return jnp.concatenate(arrs, axis=axis)
 
 
 stack = _drop_name(jnp.stack)
+
+
+# tf.transpose uses `perm=`; jnp uses `axes=`.
+def transpose(a, perm=None, name=None, conjugate=False):
+    return jnp.transpose(a, axes=perm)
 
 
 gather_nd = jnp.take  # best-effort; callers needing advanced gather_nd convert natively
