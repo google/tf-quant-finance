@@ -180,6 +180,16 @@ wheels = [
 ]
 
 [[package]]
+name = "protobuf"
+version = "7.36.0rc1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/85/7d/1596dcca5d3a995a33e98bbb252a424259f82b606889e484d2f1560f776e/protobuf-7.36.0rc1.tar.gz", hash = "sha256:a7cf7138eff7c0d1c456eea80bc5854d02ac36a76460c33b3ebec216b2024d53", size = 484666, upload-time = "2026-07-09T21:29:43.102Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c3/73/321021b0703bf246ef28a0f96059980eeb197cde8718aefd0d6bbf7ca806/protobuf-7.36.0rc1-cp310-abi3-manylinux2014_x86_64.whl", hash = "sha256:6a4a9afd56d2c99e58c10634c6b635bd2424756f175565adec20ef2d8e791dc2", size = 339100, upload-time = "2026-07-09T21:29:39.006Z" },
+    { url = "https://files.pythonhosted.org/packages/db/06/9db878252b0d9477820a3cb8fcb2019e12c8315e45e66840f4a8458f95d1/protobuf-7.36.0rc1-py3-none-any.whl", hash = "sha256:6636d06b5cc85f557a8b52967e2bb4cb58d9a48a8efbb7f5b50e32972aea67a0", size = 176826, upload-time = "2026-07-09T21:29:42.262Z" },
+]
+
+[[package]]
 name = "pygments"
 version = "2.20.0"
 source = { registry = "https://pypi.org/simple" }
@@ -304,6 +314,7 @@ dependencies = [
     { name = "jaxlib" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "protobuf" },
     { name = "rocm", extra = ["devel", "libraries"] },
     { name = "rocm-sdk-core" },
     { name = "scipy" },
@@ -328,6 +339,7 @@ requires-dist = [
     { name = "jaxlib", specifier = "==0.9.2" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "pandas", specifier = ">=3.0.3" },
+    { name = "protobuf", specifier = ">=7.36.0rc1" },
     { name = "rocm", extras = ["libraries", "devel"], specifier = "==7.14.0a20260608", index = "https://rocm.nightlies.amd.com/v2/gfx1151/" },
     { name = "rocm-sdk-core", specifier = "==7.14.0a20260608", index = "https://rocm.nightlies.amd.com/v2/gfx1151/" },
     { name = "scipy" },

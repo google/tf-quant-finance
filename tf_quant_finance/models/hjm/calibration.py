@@ -17,7 +17,6 @@ from typing import Callable, Tuple
 
 import numpy as np
 from tf_quant_finance import _tf as tf
-import tensorflow_probability as tfp
 
 from tf_quant_finance import types
 from tf_quant_finance import utils
@@ -532,7 +531,7 @@ def calibration_from_swaptions(
 
       if calibrate_correlation:
         thetas = x[..., 2 * num_hjm_factors:]
-        thetas = tfp.math.clip_by_value_preserve_gradient(thetas, -25.0, 25.0)
+        thetas = tf.clip(thetas, -25.0, 25.0)
         x_corr = _correlation_matrix_using_hypersphere_decomposition(
             num_hjm_factors, _to_constrained(thetas, theta_lb, theta_ub))
       else:

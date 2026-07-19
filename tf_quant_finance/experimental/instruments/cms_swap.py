@@ -14,8 +14,8 @@
 """Constant maturity swaps."""
 
 import itertools
+import jax.scipy.stats as _jss
 from tf_quant_finance import _tf as tf
-import tensorflow_probability as tfp
 from tf_quant_finance import black_scholes
 from tf_quant_finance import datetime as dates
 from tf_quant_finance.experimental.instruments import cashflow_stream as cs
@@ -631,9 +631,9 @@ def _option_prices(*,
   value = tf.where(
       is_normal_model,
       tf.where(is_call_options, (forwards - strikes) * _ncdf(d) +
-               sqrt_var * tfp.distributions.Normal(mu, loc).prob(d),
+               sqrt_var * _jss.norm.pdf(d, mu, loc),
                (strikes - forwards) * _ncdf(-d) +
-               sqrt_var * tfp.distributions.Normal(mu, loc).prob(d)),
+               sqrt_var * _jss.norm.pdf(d, mu, loc)),
       black_scholes.option_price(
           volatilities=volatilities,
           strikes=strikes,

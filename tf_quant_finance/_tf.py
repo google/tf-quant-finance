@@ -256,8 +256,43 @@ nest = _ptypes.SimpleNamespace(
     flatten=lambda s: jax.tree_util.tree_leaves(s),
 )
 data = _ptypes.SimpleNamespace()
-io = _ptypes.SimpleNamespace()
-train = _ptypes.SimpleNamespace()
+
+
+class _ProtoMsg:
+    """Stub for TF protobuf message classes (tf.train.Example etc.).
+    ponytail: real serialization is unimplemented; only here so experimental.io
+    imports under JAX. Reimplement with numpy/plain files if needed (Phase 3)."""
+    def __init__(self, *args, **kwargs):
+        self.__dict__.update(kwargs)
+    def SerializeToString(self):
+        return b""
+    def ParseFromString(self, data):
+        return None
+
+
+GraphDef = _ProtoMsg  # tf.compat.v1.GraphDef placeholder
+
+
+train = _ptypes.SimpleNamespace(
+    Example=_ProtoMsg, Feature=_ProtoMsg, Features=_ProtoMsg,
+    BytesList=_ProtoMsg, FloatList=_ProtoMsg, Int64List=_ProtoMsg,
+)
+
+
+class _TFRecordWriter:
+    def __init__(self, *args, **kwargs):
+        pass
+    def write(self, *args, **kwargs):
+        pass
+    def close(self):
+        pass
+
+
+io = _ptypes.SimpleNamespace(
+    TFRecordWriter=_TFRecordWriter,
+    TFRecordDataset=lambda *a, **k: iter(()),
+    gfile=lambda *a, **k: None,
+)
 summary = _ptypes.SimpleNamespace()
 
 
@@ -642,12 +677,14 @@ def add_n(tensors):
     return out
 
 
-def make_tensor_proto(*a, **k):
-    raise NotImplementedError("tf.make_tensor_proto not supported under JAX")
+def make_tensor_proto(values, dtype=None, shape=None, verify_shape=False, name=None):
+    # ponytail: real TensorProto serialization unimplemented (experimental.io only);
+    # returns the array so the module imports. Reimplement if IO is needed.
+    return np.asarray(values)
 
 
-def make_ndarray(*a, **k):
-    raise NotImplementedError("tf.make_ndarray not supported under JAX")
+def make_ndarray(tensor_proto):
+    return np.asarray(tensor_proto)
 
 
 # ---------------------------------------------------------------------------

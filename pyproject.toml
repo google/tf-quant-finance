@@ -16,6 +16,7 @@ dependencies = [
     "pandas>=3.0.3",
     "six>=1.17.0",
     "autograd>=1.9.1",
+    "protobuf>=7.36.0rc1",
 ]
 
 # Mirror of ~/devv/2026/rl-0dte/pyproject.toml: AMD ships ROCm as pip wheels on
