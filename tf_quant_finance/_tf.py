@@ -433,34 +433,33 @@ def py_function(func=None, **kw):
 
 
 # ---------------------------------------------------------------------------
-# tf.test — JAX-backed unittest TestCase so test files keep using tf.test.TestCase
+# tf.test — back TestCase by absltest so @parameterized works and we get
+# assertAllClose / assertNear natively across the repo. Repo tests use the
+# pattern `class X(parameterized.TestCase, tf.test.TestCase)`, which requires
+# this base to be absltest (not parameterized) to keep a consistent MRO.
 # ---------------------------------------------------------------------------
 import unittest as _unittest
+from absl.testing import absltest as _absltest
 
 
-class TestCase(_unittest.TestCase):
-    """tf.test.TestCase stand-in: unittest + numpy-based assertions."""
+class TestCase(_absltest.TestCase):
+    """tf.test.TestCase stand-in: absltest.TestCase + tf-style evaluate()."""
 
     def evaluate(self, tensors):
         if isinstance(tensors, (list, tuple)):
             return type(tensors)(np.asarray(t) for t in tensors)
         return np.asarray(tensors)
 
+    # TF-specific asserts that absltest.TestCase lacks.
     def assertAllClose(self, a, b, rtol=1e-6, atol=1e-6, msg=None):
-        np.testing.assert_allclose(np.asarray(a, dtype=float),
-                                   np.asarray(b, dtype=float),
+        np.testing.assert_allclose(np.asarray(a), np.asarray(b),
                                    rtol=rtol, atol=atol, err_msg=msg)
 
-    def assertAllCloseAccordingToType(self, a, b, float_rtol=1e-6, float_atol=1e-6,
-                                      half_rtol=1e-3, half_atol=1e-3, bfloat16_rtol=1e-2,
-                                      bfloat16_atol=1e-2, msg=None):
-        self.assertAllClose(a, b, rtol=float_rtol, atol=float_atol, msg=msg)
+    def assertNear(self, a, b, err, msg=None):
+        self.assertLess(abs(float(np.asarray(a)) - float(np.asarray(b))), err, msg=msg)
 
     def assertAllEqual(self, a, b, msg=None):
         np.testing.assert_array_equal(np.asarray(a), np.asarray(b), err_msg=msg)
-
-    def assertNear(self, a, b, err, msg=None):
-        self.assertLess(abs(float(a) - float(b)), err, msg=msg)
 
     def assertArrayNear(self, a, b, tol, msg=None):
         np.testing.assert_allclose(np.asarray(a, dtype=float),
@@ -468,8 +467,7 @@ class TestCase(_unittest.TestCase):
                                    rtol=tol, atol=tol, err_msg=msg)
 
     def assertAllFinite(self, a, msg=None):
-        arr = np.asarray(a)
-        self.assertTrue(np.all(np.isfinite(arr)), msg=msg)
+        self.assertTrue(np.all(np.isfinite(np.asarray(a))), msg=msg)
 
     def assertShapeEqual(self, a, b, msg=None):
         self.assertEqual(np.asarray(a).shape, np.asarray(b).shape, msg=msg)
