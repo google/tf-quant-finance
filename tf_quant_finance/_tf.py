@@ -731,6 +731,15 @@ one_hot = _drop_name(jax.nn.one_hot)
 reverse = _drop_name(jnp.flip)
 
 
+def boolean_mask(tensor, mask, axis=None, name=None):
+    # tf.boolean_mask: select elements where mask is True (mask matches leading dims).
+    mask = jnp.asarray(mask)
+    tensor = jnp.asarray(tensor)
+    if axis is None:
+        return tensor[mask]
+    return jnp.compress(mask, tensor, axis=axis)
+
+
 def _complex(real, imag=None, name=None):
     if imag is None:
         return jnp.asarray(real, dtype=jnp.complex128)
