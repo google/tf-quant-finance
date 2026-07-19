@@ -12,13 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Uniform distribution with various random types."""
+"""Uniform distribution with various random types (JAX native)."""
 
-from tf_quant_finance import _tf as tf
+import jax
+import jax.numpy as jnp
+import numpy as np
 
 from tf_quant_finance.math.random_ops import halton
 from tf_quant_finance.math.random_ops import sobol
 from tf_quant_finance.math.random_ops.multivariate_normal import RandomType
+
+
+def _key(seed):
+  return jax.random.PRNGKey(int(seed))
 
 
 def uniform(
@@ -87,31 +93,27 @@ def uniform(
     ValueError: if `random_type` is `STATELESS` and the `seed` is `None`.
   """
   random_type = RandomType.PSEUDO if random_type is None else random_type
-  dtype = dtype or tf.float32
-  with tf.compat.v1.name_scope(name, default_name='uniform_distribution',
-                               values=[sample_shape]):
-
-    if random_type == RandomType.PSEUDO:
-      return tf.random.uniform(
-          shape=sample_shape + [dim], dtype=dtype, seed=seed)
-    elif random_type == RandomType.STATELESS:
-      if seed is None:
-        raise ValueError('`seed` must be supplied if the `random_type` is '
-                         'STATELESS.')
-      return tf.random.stateless_uniform(
-          shape=sample_shape + [dim], dtype=dtype, seed=seed, alg='philox')
-    # TODO(b/145104222): Add anthithetic sampling for the uniform distribution.
-    elif random_type == RandomType.PSEUDO_ANTITHETIC:
-      raise NotImplementedError(
-          'At the moment antithetic sampling is not supported for the uniform '
-          'distribution.')
-    else:
-      return _quasi_uniform(dim=dim,
-                            sample_shape=sample_shape,
-                            random_type=random_type,
-                            dtype=dtype,
-                            seed=seed,
-                            **kwargs)
+  dtype = dtype or jnp.float32
+  shape = tuple(sample_shape) + (dim,)
+  if random_type == RandomType.PSEUDO:
+    return jax.random.uniform(_key(seed if seed is not None else 0), shape, dtype=dtype)
+  elif random_type == RandomType.STATELESS:
+    if seed is None:
+      raise ValueError('`seed` must be supplied if the `random_type` is '
+                       'STATELESS.')
+    return jax.random.uniform(_key(seed), shape, dtype=dtype)
+  # TODO(b/145104222): Add antithetic sampling for the uniform distribution.
+  elif random_type == RandomType.PSEUDO_ANTITHETIC:
+    raise NotImplementedError(
+        'At the moment antithetic sampling is not supported for the uniform '
+        'distribution.')
+  else:
+    return _quasi_uniform(dim=dim,
+                          sample_shape=sample_shape,
+                          random_type=random_type,
+                          dtype=dtype,
+                          seed=seed,
+                          **kwargs)
 
 
 def _quasi_uniform(
@@ -123,9 +125,9 @@ def _quasi_uniform(
     **kwargs):
   """Quasi random draws from a uniform distribution on [0, 1)."""
   # Shape of the output
-  output_shape = tf.concat([sample_shape] + [[dim]], -1)
+  output_shape = tuple(sample_shape) + (dim,)
   # Number of quasi random samples
-  num_samples = tf.reduce_prod(sample_shape)
+  num_samples = int(np.prod(sample_shape))
   # Number of initial low discrepancy sequence numbers to skip
   if 'skip' in kwargs:
     skip = kwargs['skip']
@@ -142,12 +144,12 @@ def _quasi_uniform(
     else:
       randomization_params = None
     randomized = random_type == RandomType.HALTON_RANDOMIZED
-    # Shape [num_samples, dim] of the Sobol samples
+    # Shape [num_samples, dim] of the Halton samples
     low_discrepancy_seq, _ = halton.sample(
         dim=dim,
-        sequence_indices=tf.range(skip, skip + num_samples),
+        sequence_indices=jnp.arange(skip, skip + num_samples),
         randomized=randomized,
         randomization_params=randomization_params,
         seed=seed,
         dtype=dtype)
-  return  tf.reshape(low_discrepancy_seq, output_shape)
+  return jnp.reshape(low_discrepancy_seq, output_shape)

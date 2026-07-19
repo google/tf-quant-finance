@@ -402,17 +402,31 @@ def _next_key():
     return k
 
 
+def _to_key(seed):
+    """Coerce a TF-style seed (Python int, [2]-array, or jax key) to a PRNGKey."""
+    if seed is None:
+        return _next_key()
+    if isinstance(seed, (int, np.integer)):
+        return jax.random.PRNGKey(int(seed))
+    seed = np.asarray(seed)
+    if seed.shape == (2,) and np.issubdtype(seed.dtype, np.integer):
+        return jax.random.PRNGKey(int(seed[0]))  # ponytail: use first component
+    if seed.ndim == 1 and seed.shape[0] == 2:
+        return seed
+    return jax.random.PRNGKey(0)
+
+
 random = _ptypes.SimpleNamespace(
-    set_seed=lambda s: globals().__setitem__("_global_key", jax.random.PRNGKey(s)),
-    uniform=lambda shape, minval=0.0, maxval=1.0, dtype=jnp.float32, seed=None: jax.random.uniform(seed or _next_key(), shape, minval=minval, maxval=maxval, dtype=dtype),
-    normal=lambda shape, mean=0.0, stddev=1.0, dtype=jnp.float32, seed=None: jax.random.normal(seed or _next_key(), shape, dtype=dtype) * stddev + mean,
-    gamma=lambda shape, alpha, dtype=jnp.float32, seed=None: jax.random.gamma(seed or _next_key(), alpha, shape, dtype=dtype),
-    poisson=lambda lam, shape, dtype=jnp.float32, seed=None: jax.random.poisson(seed or _next_key(), lam, shape, dtype=dtype),
-    shuffle=lambda value, seed=None: jax.random.permutation(seed or _next_key(), value),
-    stateless_uniform=lambda seed, shape, **kw: jax.random.uniform(jax.random.PRNGKey(seed) if isinstance(seed, (tuple, list, np.ndarray)) else seed, shape, **{k: v for k, v in kw.items() if k in ("minval", "maxval", "dtype")}),
-    stateless_normal=lambda seed, shape, **kw: jax.random.normal(jax.random.PRNGKey(seed) if isinstance(seed, (tuple, list, np.ndarray)) else seed, shape),
-    stateless_gamma=lambda seed, shape, **kw: jax.random.gamma(jax.random.PRNGKey(seed) if isinstance(seed, (tuple, list, np.ndarray)) else seed, 1.0, shape),
-    stateless_poisson=lambda seed, shape, **kw: jax.random.poisson(jax.random.PRNGKey(seed) if isinstance(seed, (tuple, list, np.ndarray)) else seed, 1.0, shape),
+    set_seed=lambda s: globals().__setitem__("_global_key", jax.random.PRNGKey(int(s))),
+    uniform=lambda shape, minval=0.0, maxval=1.0, dtype=jnp.float32, seed=None, name=None: jax.random.uniform(_to_key(seed), shape, minval=minval, maxval=maxval, dtype=dtype),
+    normal=lambda shape, mean=0.0, stddev=1.0, dtype=jnp.float32, seed=None, name=None: jax.random.normal(_to_key(seed), shape, dtype=dtype) * stddev + mean,
+    gamma=lambda shape, alpha, dtype=jnp.float32, seed=None, name=None: jax.random.gamma(_to_key(seed), alpha, shape, dtype=dtype),
+    poisson=lambda lam, shape, dtype=jnp.float32, seed=None, name=None: jax.random.poisson(_to_key(seed), lam, shape, dtype=dtype),
+    shuffle=lambda value, seed=None: jax.random.permutation(_to_key(seed), value),
+    stateless_uniform=lambda seed, shape, minval=0.0, maxval=1.0, dtype=jnp.float32, **kw: jax.random.uniform(_to_key(seed), shape, minval=minval, maxval=maxval, dtype=dtype),
+    stateless_normal=lambda seed, shape, dtype=jnp.float32, **kw: jax.random.normal(_to_key(seed), shape, dtype=dtype),
+    stateless_gamma=lambda seed, shape, alpha=1.0, dtype=jnp.float32, **kw: jax.random.gamma(_to_key(seed), alpha, shape, dtype=dtype),
+    stateless_poisson=lambda seed, shape, lam=1.0, dtype=jnp.float32, **kw: jax.random.poisson(_to_key(seed), lam, shape, dtype=dtype),
 )
 
 
