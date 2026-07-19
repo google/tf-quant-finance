@@ -288,7 +288,7 @@ def sample(
       normal_draws = tf.convert_to_tensor(normal_draws, dtype=dtype,
                                           name='normal_draws')
       # Shape [num_time_points] + batch_shape + [num_samples, dim]
-      normal_draws_rank = normal_draws.shape.rank
+      normal_draws_rank = len(normal_draws.shape)
       perm = tf.concat(
           [[normal_draws_rank-2], tf.range(normal_draws_rank-2),
            [normal_draws_rank-1]], axis=0)
@@ -459,7 +459,7 @@ def _while_loop(*, steps_num, current_state,
   # Shape [num_time_points] + batch_shape + [num_samples, dim]
   result = result.stack()
   # transpose to shape batch_shape + [num_samples, num_time_points, dim]
-  n = result.shape.rank
+  n = len(result.shape)
   perm = list(range(1, n-1)) + [0, n - 1]
   return tf.transpose(result, perm)
 
@@ -470,7 +470,7 @@ def _for_loop(*, batch_shape, steps_num, current_state,
               keep_mask, random_type, seed, normal_draws):
   """Sample paths using custom for_loop."""
   del batch_shape
-  num_time_points = time_indices.shape.as_list()[:-1]
+  num_time_points = list(time_indices.shape)[:-1]
   if isinstance(num_time_points, int) and num_time_points == 1:
     iter_nums = steps_num
   else:
@@ -505,7 +505,7 @@ def _for_loop(*, batch_shape, steps_num, current_state,
     return tf.expand_dims(result, axis=-2)
   # result.shape=[num_time_points] + batch_shape + [num_samples, dim]
   # transpose to shape=batch_shape + [num_time_points, num_samples, dim]
-  n = result.shape.rank
+  n = len(result.shape)
   perm = list(range(1, n-1)) + [0, n - 1]
   return tf.transpose(result, perm)
 

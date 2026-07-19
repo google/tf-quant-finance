@@ -79,7 +79,7 @@ def make_polynomial_basis(degree):
       A `Tensor`s of shape `[degree * dim, num_samples]`.
     """
     samples = tf.convert_to_tensor(sample_paths)
-    dim = samples.shape.as_list()[-1]
+    dim = list(samples.shape)[-1]
     grid = tf.range(0, degree + 1, dtype=samples.dtype)
 
     samples_centered = samples - tf.math.reduce_mean(samples, axis=0)
@@ -193,7 +193,7 @@ def least_square_mc(sample_paths,
     sample_paths = tf.convert_to_tensor(sample_paths,
                                         dtype=dtype, name='sample_paths')
     exercise_times = tf.convert_to_tensor(exercise_times, name='exercise_times')
-    num_times = exercise_times.shape.as_list()[-1]
+    num_times = list(exercise_times.shape)[-1]
     if discount_factors is None:
       discount_factors = tf.ones(shape=exercise_times.shape,
                                  dtype=sample_paths.dtype,
@@ -201,7 +201,7 @@ def least_square_mc(sample_paths,
     else:
       discount_factors = tf.convert_to_tensor(
           discount_factors, dtype=dtype, name='discount_factors')
-      if discount_factors.shape.rank == 1:
+      if len(discount_factors.shape) == 1:
         discount_factors = tf.expand_dims(discount_factors, axis=0)
 
     discount_factors = tf.concat([
@@ -328,7 +328,7 @@ def _updated_cashflow(num_times, exercise_index, exercise_value,
   new_samp_masked = tf.expand_dims(scaled_do_exercise, 2)
   # This should be one on the current time step and zero otherwise.
   # This is an array with nonzero entries showing newly exercised payoffs.
-  pad_shape = scaled_do_exercise.shape.as_list()
+  pad_shape = list(scaled_do_exercise.shape)
   zeros_before = tf.zeros(pad_shape + [exercise_index - 1],
                           dtype=scaled_do_exercise.dtype)
   zeros_after = tf.zeros(pad_shape + [num_times - exercise_index],

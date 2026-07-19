@@ -679,7 +679,7 @@ def _backward_pde_coeffs(drift_fn, volatility_fn, discounting):
 
     # We currently have [dim, dim] as innermost dimensions, but the returned
     # tensor must have [dim, dim] as outermost dimensions.
-    rank = len(volatility.shape.as_list())
+    rank = len(list(volatility.shape))
     perm = [rank - 2, rank - 1] + list(range(rank - 2))
     volatility_times_volatility_t = tf.transpose(
         volatility_times_volatility_t, perm)
@@ -690,7 +690,7 @@ def _backward_pde_coeffs(drift_fn, volatility_fn, discounting):
 
     # We currently have [dim] as innermost dimension, but the returned
     # tensor must have [dim] as outermost dimension.
-    rank = len(mean.shape.as_list())
+    rank = len(list(mean.shape))
     perm = [rank - 1] + list(range(rank - 1))
     mean = tf.transpose(mean, perm)
     return mean

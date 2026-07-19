@@ -185,7 +185,7 @@ def realized_volatility(sample_paths,
       times = tf.convert_to_tensor(times, dtype=dtype, name='times')
       denominators = diff_ops.diff(times, order=1, exclusive=True, axis=axis)
     if returns_type == ReturnsType.ABS:
-      slices = transformed_paths.shape.rank * [slice(None)]
+      slices = len(transformed_paths.shape) * [slice(None)]
       slices[axis] = slice(None, -1)
       denominators = denominators * component_transform(
           transformed_paths[slices])

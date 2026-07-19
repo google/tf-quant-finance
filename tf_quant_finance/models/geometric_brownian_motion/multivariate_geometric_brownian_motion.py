@@ -110,10 +110,10 @@ class MultivariateGeometricBrownianMotion(ito_process.ItoProcess):
       else:
         self._corr_matrix = tf.convert_to_tensor(corr_matrix, dtype=self._dtype,
                                                  name="corr_matrix")
-        if self._corr_matrix.shape.as_list() != [dim, dim]:
+        if list(self._corr_matrix.shape) != [dim, dim]:
           raise ValueError("`corr_matrix` must be of shape [{0}, {0}] but is "
                            "of shape {1}".format(
-                               dim, self._corr_matrix.shape.as_list()))
+                               dim, list(self._corr_matrix.shape)))
 
   def dim(self):
     """The dimension of the process."""
@@ -654,7 +654,7 @@ def _backward_pde_coeffs(drift_fn, volatility_fn, discounting):
 
     # We currently have [dim, dim] as innermost dimensions, but the returned
     # tensor must have [dim, dim] as outermost dimensions.
-    rank = sigma.shape.rank
+    rank = len(sigma.shape)
     perm = [rank - 2, rank - 1] + list(range(rank - 2))
     sigma_times_sigma_t = tf.transpose(sigma_times_sigma_t, perm)
     return sigma_times_sigma_t / 2
@@ -664,7 +664,7 @@ def _backward_pde_coeffs(drift_fn, volatility_fn, discounting):
 
     # We currently have [dim] as innermost dimension, but the returned
     # tensor must have [dim] as outermost dimension.
-    rank = mu.shape.rank
+    rank = len(mu.shape)
     perm = [rank - 1] + list(range(rank - 1))
     mu = tf.transpose(mu, perm)
     return mu

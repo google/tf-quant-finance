@@ -294,7 +294,7 @@ class AmericanOption(instrument.Instrument):
           self._expiry_date.expand_dims(axis=-1))
       daycount_convention = discount_curve.daycount_convention
       day_count_fn = market_data_utils.get_daycount_fn(daycount_convention)
-      if spots.shape.rank > 0:
+      if len(spots.shape) > 0:
         spots = tf.gather(spots, self._equity_mask)
       if self._model == "BS-LSM":
         # TODO(b/168798725): volatility should be time-dependent

@@ -265,8 +265,8 @@ def _sample(*, dim, drift_fn, volatility_fn, grad_volatility_fn, times,
   sqrt_dt = tf.sqrt(dt)
   current_state = initial_state + tf.zeros([num_samples, dim],
                                            dtype=initial_state.dtype)
-  if dt.shape.is_fully_defined():
-    steps_num = dt.shape.as_list()[-1]
+  if (True):
+    steps_num = list(dt.shape)[-1]
   else:
     steps_num = tf.shape(dt)[-1]
   # In order to use low-discrepancy random_type we need to generate the sequence
@@ -419,7 +419,7 @@ def _while_loop(*, dim, steps_num, current_state, drift_fn, volatility_fn,
   # Shape [num_time_points] + [num_samples, dim]
   result = result.stack()
   # transpose to shape [num_samples, num_time_points, dim]
-  n = result.shape.rank
+  n = len(result.shape)
   perm = list(range(1, n-1)) + [0, n - 1]
   return tf.transpose(result, perm)
 
@@ -430,7 +430,7 @@ def _for_loop(*, dim, steps_num, current_state, drift_fn, volatility_fn,
               normal_draws, input_gradients, stratonovich_order,
               aux_normal_draws):
   """Sample paths using custom for_loop."""
-  num_time_points = time_indices.shape.as_list()[-1]
+  num_time_points = list(time_indices.shape)[-1]
   if num_time_points == 1:
     iter_nums = steps_num
   else:

@@ -269,7 +269,7 @@ class FixedCashflowStream(CashflowStream):
     cpn_dates, _ = self._generate_schedule(cpn_frequency, businessday_rule)
     payment_dates = cpn_dates[:, 1:]
 
-    notional = tf.repeat(notional, payment_dates.shape.as_list()[-1])
+    notional = tf.repeat(notional, list(payment_dates.shape)[-1])
     daycount_fractions = rc.get_daycount_fraction(
         cpn_dates[:, :-1],
         cpn_dates[:, 1:],
@@ -277,11 +277,11 @@ class FixedCashflowStream(CashflowStream):
         dtype=self._dtype)
 
     coupon_rate = tf.expand_dims(fixed_rate, axis=-1)
-    coupon_rate = tf.repeat(coupon_rate, payment_dates.shape.as_list()[-1])
+    coupon_rate = tf.repeat(coupon_rate, list(payment_dates.shape)[-1])
     contract_index = tf.repeat(tf.range(0, self._batch_size),
-                               payment_dates.shape.as_list()[-1])
+                               list(payment_dates.shape)[-1])
 
-    self._num_cashflows = payment_dates.shape.as_list()[-1]
+    self._num_cashflows = list(payment_dates.shape)[-1]
     self._payment_dates = payment_dates.reshape([-1])
     self._notional = notional
     self._daycount_fractions = tf.reshape(daycount_fractions, [-1])
@@ -510,15 +510,15 @@ class FloatingCashflowStream(CashflowStream):
         daycount_convention,
         dtype=self._dtype)
 
-    notional = tf.repeat(notional, payment_dates.shape.as_list()[-1])
-    coupon_basis = tf.repeat(coupon_basis, payment_dates.shape.as_list()[-1])
+    notional = tf.repeat(notional, list(payment_dates.shape)[-1])
+    coupon_basis = tf.repeat(coupon_basis, list(payment_dates.shape)[-1])
     coupon_multiplier = tf.repeat(coupon_multiplier,
-                                  payment_dates.shape.as_list()[-1])
+                                  list(payment_dates.shape)[-1])
 
     contract_index = tf.repeat(tf.range(0, self._batch_size),
-                               payment_dates.shape.as_list()[-1])
+                               list(payment_dates.shape)[-1])
 
-    self._num_cashflows = daycount_fractions.shape.as_list()[-1]
+    self._num_cashflows = list(daycount_fractions.shape)[-1]
     self._coupon_start_dates = coupon_start_dates.reshape([-1])
     self._coupon_end_dates = coupon_end_dates.reshape([-1])
     self._payment_dates = payment_dates.reshape([-1])

@@ -273,11 +273,11 @@ def price(
     is_payer_swaption = tf.convert_to_tensor(
         is_payer_swaption, dtype=tf.bool, name='is_payer_swaption')
 
-    if expiries.shape.rank < fixed_leg_payment_times.shape.rank - 1:
+    if len(expiries.shape) < len(fixed_leg_payment_times.shape) - 1:
       raise ValueError('Swaption expiries not specified for all swaptions '
                        'in the batch. Expected rank {} but received {}.'.format(
-                           fixed_leg_payment_times.shape.rank - 1,
-                           expiries.shape.rank))
+                           len(fixed_leg_payment_times.shape) - 1,
+                           len(expiries.shape)))
     # Add a dimension corresponding to multiple cashflows in a swap
     expiries = tf.expand_dims(expiries, axis=-1)
     # Expected shape: batch_shape + [m], where m is the number of fixed leg
@@ -303,7 +303,7 @@ def price(
       if reference_rate_fn(tf.constant([0.0], dtype=dtype)).shape.rank > 1:
         raise ValueError('Pricing swaptions using a batch of HJM models with '
                          'finite differences is not currently supported.')
-      instrument_batch_shape = expiries.shape.as_list()[:-1] or [1]
+      instrument_batch_shape = list(expiries.shape)[:-1] or [1]
       return _european_swaption_fd(
           instrument_batch_shape,
           model,

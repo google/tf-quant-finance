@@ -94,7 +94,7 @@ def make_polynomial_basis(degree):
     """
     sample_paths = tf.convert_to_tensor(sample_paths,
                                         name="sample_paths")
-    if sample_paths.shape.rank == 3:
+    if len(sample_paths.shape) == 3:
       sample_paths = tf.expand_dims(sample_paths, axis=0)
     shape = tf.shape(sample_paths)
     num_samples = shape[1]
@@ -232,7 +232,7 @@ def least_square_mc(sample_paths,
                                         dtype=dtype, name="sample_paths")
     dtype = sample_paths.dtype
     exercise_times = tf.convert_to_tensor(exercise_times, name="exercise_times")
-    num_times = exercise_times.shape.as_list()[-1]
+    num_times = list(exercise_times.shape)[-1]
     if discount_factors is None:
       discount_factors = tf.ones(shape=exercise_times.shape,
                                  dtype=dtype,
@@ -240,10 +240,10 @@ def least_square_mc(sample_paths,
     else:
       discount_factors = tf.convert_to_tensor(
           discount_factors, dtype=dtype, name="discount_factors")
-    if discount_factors.shape.rank == 1:
+    if len(discount_factors.shape) == 1:
       discount_factors = tf.reshape(discount_factors, [1, 1, -1])
 
-    rank_discount_factors = discount_factors.shape.rank
+    rank_discount_factors = len(discount_factors.shape)
     discount_factors = tf.pad(
         discount_factors, (rank_discount_factors - 1) * [[0, 0]] + [[1, 0]],
         constant_values=1)
@@ -313,7 +313,7 @@ def _continuation_value_fn(cashflow, discount_factors, exercise_index):
     return represents the sum of the cashflow discounted to present value for
     each sample path.
   """
-  _, _, num_cashflow = cashflow.shape.as_list()
+  _, _, num_cashflow = list(cashflow.shape)
   disc_factors_are_used = tf.range(num_cashflow + 1) >= exercise_index + 1
   discount_factors_slice = tf.transpose(
       tf.transpose(discount_factors)[exercise_index])

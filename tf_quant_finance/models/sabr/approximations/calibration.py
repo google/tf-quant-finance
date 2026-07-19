@@ -279,7 +279,7 @@ def calibration(
     dtype = dtype or prices.dtype
 
     # Extract batch shape
-    batch_shape = prices.shape.as_list()[:-1]
+    batch_shape = list(prices.shape)[:-1]
     if None in batch_shape:
       batch_shape = tf.shape(prices)[:-1]
 
@@ -307,7 +307,7 @@ def calibration(
     if alpha is None:
       # We set the initial value of alpha to be s.t. alpha * F^(beta - 1) is
       # on the order of 10%.
-      if forwards.shape.rank == 0:
+      if len(forwards.shape) == 0:
         forwards = forwards[tf.newaxis]
       # Shape compatible with batch_shape
       alpha = tf.math.reduce_mean(forwards, axis=-1)

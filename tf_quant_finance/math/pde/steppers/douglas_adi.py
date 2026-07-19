@@ -210,7 +210,7 @@ def _apply_mixed_term_explicitly(
       mixed_term_pp, mixed_term_pm, mixed_term_mp, mixed_term_mm
   ) = mixed_term
 
-  batch_rank = values_with_boundaries.shape.rank - n_dims
+  batch_rank = len(values_with_boundaries.shape) - n_dims
 
   # Below we multiply the mixed terms by inner value grid "shifted" diagonally.
   # With Robin boundary conditions, this shift is done by restoring the
@@ -347,7 +347,7 @@ def _trim_boundaries(tensor, from_dim, shifts=None):
   # [:-2], [-1, 1], and [2:], respectively.
   # For example _trim_boundaries(t, 1, (1, 0, -1)) with a rank-4
   #  tensor t yields t[:, 2:, 1:-1, :-2].
-  rank = tensor.shape.rank
+  rank = len(tensor.shape)
   slices = rank * [slice(None)]
   for i in range(from_dim, rank):
     slice_begin = 1

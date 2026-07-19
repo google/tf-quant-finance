@@ -126,6 +126,8 @@ def constant(value, dtype=None, shape=None, name=None):
 def cast(x, dtype, name=None):
     return jnp.asarray(x).astype(dtype)
 
+dtypes.cast = cast
+
 
 def _drop_name(fn):
     """Wrap a jnp op so it accepts (and ignores) TF's name= kwarg."""
@@ -323,6 +325,7 @@ math.is_nan = jnp.isnan
 math.is_finite = jnp.isfinite
 is_nan = jnp.isnan
 is_finite = jnp.isfinite
+math.cast = cast
 # special funcs
 math.erf = _jsp_special.erf
 math.erfc = _jsp_special.erfc
@@ -654,6 +657,35 @@ def repeat(input, repeats, axis=None):
     return jnp.repeat(input, repeats, axis=axis)
 
 
+# tf.gather(params, indices, axis) -> jnp.take (this jax has no jnp.gather).
+def gather(params, indices, axis=0, batch_dims=0, name=None,
+           validate_indices=None):
+    del batch_dims, name, validate_indices
+    return jnp.take(params, indices, axis=axis)
+
+
+gather_nd = jnp.take  # best-effort; callers needing advanced gather_nd convert natively
+
+
+one_hot = _drop_name(jax.nn.one_hot)
+reverse = _drop_name(jnp.flip)
+
+
+def _complex(real, imag=None, name=None):
+    if imag is None:
+        return jnp.asarray(real, dtype=jnp.complex128)
+    return jnp.asarray(real, dtype=jnp.complex128) + 1j * jnp.asarray(imag)
+
+
+complex = _complex
+scatter_nd = jnp.zeros  # ponytail: tf.scatter_nd callers should convert to x.at[].set(); placeholder
+bitwise = _ptypes.SimpleNamespace(
+    left_shift=jnp.left_shift, right_shift=jnp.right_shift,
+    bitwise_and=jnp.bitwise_and, bitwise_or=jnp.bitwise_or,
+    bitwise_xor=jnp.bitwise_xor, invert=jnp.bitwise_not,
+)
+
+
 def tensordot(a, b, axes):
     return jnp.tensordot(a, b, axes)
 
@@ -711,6 +743,22 @@ reduce_all = _make_reduce(jnp.all)
 reduce_std = _make_reduce(jnp.std)
 reduce_variance = _make_reduce(jnp.var)
 reduce_logsumexp = _make_reduce(_jsp.special.logsumexp)
+
+
+# tf.broadcast_static_shape / broadcast_dynamic_shape -> jnp.broadcast_shapes
+def broadcast_static_shape(shape1, shape2, name=None):
+    return tuple(jnp.broadcast_shapes((tuple(shape1), tuple(shape2))))
+
+
+def broadcast_dynamic_shape(shape1, shape2, name=None):
+    return jnp.broadcast_shapes((jnp.asarray(shape1), jnp.asarray(shape2)))
+
+
+# tf.slice(input, begin, size) -> lax.dynamic_slice
+def slice(input, begin, size, name=None):
+    import jax.lax as _l
+    return _l.dynamic_slice(input, tuple(np.asarray(begin).tolist()),
+                            tuple(np.asarray(size).tolist()))
 math.reduce_sum = reduce_sum
 math.reduce_mean = reduce_mean
 math.reduce_max = reduce_max

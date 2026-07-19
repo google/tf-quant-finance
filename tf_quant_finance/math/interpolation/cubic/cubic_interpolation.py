@@ -251,7 +251,7 @@ def interpolate(x: types.RealTensor,
         return tf.math.reduce_sum(
             tf.expand_dims(x, axis=-2) * encoding, axis=-1)
       else:
-        return tf.gather(x, encoding, axis=-1, batch_dims=x.shape.rank - 1)
+        return tf.gather(x, encoding, axis=-1, batch_dims=len(x.shape) - 1)
 
     x0 = get_slice(x_data, lower_encoding)
     x1 = get_slice(x_data, upper_encoding)

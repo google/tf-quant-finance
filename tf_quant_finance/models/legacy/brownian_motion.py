@@ -423,6 +423,6 @@ def _prefer_static_shape(tensor):
 def _prefer_static_rank(tensor):
   """Returns the static rank if fully specified else the dynamic rank."""
   tensor = tf.convert_to_tensor(tensor)
-  if tensor.shape.rank is None:
+  if len(tensor.shape) is None:
     return tf.rank(tensor)
-  return tensor.shape.rank
+  return len(tensor.shape)

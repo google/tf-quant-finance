@@ -121,7 +121,7 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
     # The correct number of samples
     num_samples = 10000
     with self.subTest('Shape'):
-      self.assertAllEqual(paths.shape.as_list(), [num_samples, 3, 1])
+      self.assertAllEqual(list(paths.shape), [num_samples, 3, 1])
     paths = self.evaluate(paths)
     means = np.mean(paths, axis=0).reshape([-1])
     covars = np.cov(paths.reshape([num_samples, -1]), rowvar=False)
@@ -160,7 +160,7 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
         times_grid=times_grid,
         seed=[1, 42])
     with self.subTest('Shape'):
-      self.assertAllEqual(paths.shape.as_list(), [num_samples, 3, 1])
+      self.assertAllEqual(list(paths.shape), [num_samples, 3, 1])
     paths = self.evaluate(paths)
     means = np.mean(paths, axis=0).reshape([-1])
     covars = np.cov(paths.reshape([num_samples, -1]), rowvar=False)

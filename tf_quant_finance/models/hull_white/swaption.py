@@ -232,11 +232,11 @@ def swaption_price(
     notional = tf.convert_to_tensor(notional, dtype=dtype, name='notional')
     is_payer_swaption = tf.convert_to_tensor(
         is_payer_swaption, dtype=tf.bool, name='is_payer_swaption')
-    if expiries.shape.rank < fixed_leg_payment_times.shape.rank - 1:
+    if len(expiries.shape) < len(fixed_leg_payment_times.shape) - 1:
       raise ValueError('Swaption expiries not specified for all swaptions '
                        'in the batch. Expected rank {} but received {}.'.format(
-                           fixed_leg_payment_times.shape.rank - 1,
-                           expiries.shape.rank))
+                           len(fixed_leg_payment_times.shape) - 1,
+                           len(expiries.shape)))
     # Add a dimension corresponding to multiple cashflows in a swap
     # Shape batch_shape + [1]
     expiries = tf.expand_dims(expiries, axis=-1)
@@ -568,18 +568,18 @@ def bermudan_swaption_price(
     else:
       basis_fn = lsm_basis
 
-    batch_shape = exercise_times.shape.as_list()[:-1]
+    batch_shape = list(exercise_times.shape)[:-1]
     unique_exercise_times, exercise_time_index = tf.unique(
         tf.reshape(exercise_times, shape=[-1]))
     exercise_time_index = tf.reshape(
         exercise_time_index, shape=exercise_times.shape)
 
-    if exercise_times.shape.rank < fixed_leg_payment_times.shape.rank - 1:
+    if len(exercise_times.shape) < len(fixed_leg_payment_times.shape) - 1:
       raise ValueError('Swaption exercise times not specified for all '
                        'swaptions in the batch. Expected rank '
                        '{} but received {}.'.format(
-                           fixed_leg_payment_times.shape.rank - 1,
-                           exercise_times.shape.rank))
+                           len(fixed_leg_payment_times.shape) - 1,
+                           len(exercise_times.shape)))
     # Add a dimension corresponding to multiple cashflows in a swap
     exercise_times = tf.expand_dims(exercise_times, axis=-1)
     exercise_times = tf.repeat(
@@ -689,8 +689,8 @@ def bermudan_swaption_price(
 
     # Transpose so that `time_index` is the leading dimension
     # (for XLA compatibility)
-    perm = [is_exercise_time.shape.rank - 1] + list(
-        range(is_exercise_time.shape.rank - 1))
+    perm = [len(is_exercise_time.shape) - 1] + list(
+        range(len(is_exercise_time.shape) - 1))
     is_exercise_time = tf.transpose(is_exercise_time, perm=perm)
     payoff_swap = tf.transpose(payoff_swap, perm=perm)
 
@@ -803,7 +803,7 @@ def _jamshidian_decomposition(hw_model,
       return return_value
 
     # batch_shape + [1, 1]
-    swap_shape = expiries.shape.as_list()[:-1] + [1] + [1]
+    swap_shape = list(expiries.shape)[:-1] + [1] + [1]
     lower_bound = -1 * tf.ones(swap_shape, dtype=dtype)
     upper_bound = 1 * tf.ones(swap_shape, dtype=dtype)
     # Solve Eq.(1)
@@ -903,8 +903,8 @@ def _map_payoff_to_sim_times(indices, payoff, num_samples):
   indices = tf.expand_dims(indices, axis=0)
   indices = tf.repeat(indices, num_samples, axis=0)
   index_list = list()
-  tensor_shape = np.array(indices.shape.as_list())
-  output_shape = indices.shape.as_list()[:-1] + [
+  tensor_shape = np.array(list(indices.shape))
+  output_shape = list(indices.shape)[:-1] + [
       tf.math.reduce_max(indices) + 1
   ]
   num_elements = np.prod(tensor_shape)

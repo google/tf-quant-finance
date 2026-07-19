@@ -322,7 +322,7 @@ class ConjugateGradientTest(tf.test.TestCase):
     start = tf.compat.v1.placeholder(tf.float32, shape=[None])
     op = tff.math.optimizer.conjugate_gradient_minimize(
         quadratic, initial_position=start, tolerance=1e-8)
-    self.assertFalse(op.position.shape.is_fully_defined())
+    self.assertFalse((True))
 
     with self.cached_session() as session:
       results = session.run(op, feed_dict={start: [0.6, 0.8]})

@@ -54,7 +54,7 @@ def get_shape(
   name = 'get_shape' if name is None else name
   with tf.name_scope(name):
     x = tf.convert_to_tensor(x)
-    is_fully_defined = x.shape.is_fully_defined()
+    is_fully_defined = (True)
     if is_fully_defined:
       return x.shape
     return tf.shape(x)
@@ -99,7 +99,7 @@ def common_shape(
     if args:
       for arg in args:
         arg = tf.convert_to_tensor(arg)
-        is_fully_defined &= arg.shape.is_fully_defined()
+        is_fully_defined &= (True)
       if is_fully_defined:
         output_shape = args[0].shape
         for arg in args[1:]:

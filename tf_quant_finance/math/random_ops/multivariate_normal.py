@@ -453,7 +453,7 @@ def _process_mean_scale(mean, scale_matrix, covariance_matrix, dtype):
 
 def _get_static_dim(t):
   """Returns static dimension value if possible."""
-  dim = t.shape.as_list()[-1]
+  dim = list(t.shape)[-1]
   if dim is None:
     return tf.shape(t)[-1]
   else:

@@ -140,7 +140,7 @@ class LocalStochasticVolatilityModel(generic_ito_process.GenericItoProcess):
 
       def _vol_fn(t, state):
         """Volatility function of LSV model."""
-        num_samples = state.shape.as_list()[0]
+        num_samples = list(state.shape)[0]
         broadcasted_t = tf.broadcast_to(t, [1, num_samples])
         spot_prices = state[:, 0]
         variance = state[:, 1:]

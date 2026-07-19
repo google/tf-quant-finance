@@ -144,7 +144,7 @@ class Interpolation2D:
           y, self._spline_yz, name="interpolation_in_y_direction")
       # Interpolate the value of the function along x-direction
       # Prepare xy for linear interpolation. Put the batch dims in front
-      xy_rank = xy.shape.rank
+      xy_rank = len(xy.shape)
       perm = [xy_rank - 1] + list(range(xy_rank - 1))
       # Shape [num_points] + batch_shape + [num_x_data_points]
       yx = tf.transpose(xy, perm=perm)

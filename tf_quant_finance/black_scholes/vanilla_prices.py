@@ -407,7 +407,7 @@ def barrier_price(*,
     strikes_term = call_or_put * strikes * discount_factors
 
     # rank is used to stack elements and reduce_sum
-    strike_rank = strikes.shape.rank
+    strike_rank = len(strikes.shape)
 
     # Constructing Matrix with first and second algebraic terms for each
     # integral [strike.shape, 12]

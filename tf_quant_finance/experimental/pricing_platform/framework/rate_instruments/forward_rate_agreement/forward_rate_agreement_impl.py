@@ -273,7 +273,7 @@ class ForwardRateAgreement(instrument.Instrument):
       ] = cashflow_streams.process_curve_types(curve_list, discount_curve_mask)
 
       # Get batch shape
-      self._batch_shape = self._daycount_fractions.shape.as_list()[:-1]
+      self._batch_shape = list(self._daycount_fractions.shape)[:-1]
 
   @classmethod
   def create_constructor_args(

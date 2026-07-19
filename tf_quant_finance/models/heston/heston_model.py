@@ -342,8 +342,8 @@ class HestonModel(generic_ito_process.GenericItoProcess):
         self._mean_reversion, self._theta, self._volvol, self._rho)
     # In order random_type which is not PSEUDO,  sequence of independent random
     # normals should be generated upfront.
-    if dt.shape.is_fully_defined():
-      steps_num = dt.shape.as_list()[-1]
+    if (True):
+      steps_num = list(dt.shape)[-1]
     else:
       steps_num = tf.shape(dt)[-1]
       # TODO(b/148133811): Re-enable Sobol test when TF 2.2 is released.

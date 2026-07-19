@@ -398,7 +398,7 @@ class BoundedHolidayCalendar(holiday_calendar.HolidayCalendar):
 
 
 def _resolve_calendar_boundaries(holidays, start_year, end_year):
-  if holidays is None or holidays.shape.num_elements() in [None, 0]:
+  if holidays is None or int(__import__("numpy").prod(holidays.shape)) in [None, 0]:
     if start_year is None or end_year is None:
       raise ValueError("Please specify either holidays or both start_year and "
                        "end_year arguments")

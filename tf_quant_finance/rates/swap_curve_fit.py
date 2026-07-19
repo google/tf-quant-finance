@@ -613,7 +613,7 @@ def _create_curve_building_tensors(float_leg_start_times,
         tf.fill(tf.shape(float_leg_start_times[i]), i))
     calc_groups_fixed.append(tf.fill(tf.shape(fixed_leg_end_times[i]), i))
     settle_time = pv_settlement_times[i]
-    if settle_time.shape.rank > 0:
+    if len(settle_time.shape) > 0:
       settle_time = tf.expand_dims(settle_time, axis=-1)
     # shape [batch_shape, float_leg_start_times[i].shape]
     stf = settle_time + tf.zeros_like(float_leg_start_times[i])
@@ -628,14 +628,14 @@ def _create_curve_building_tensors(float_leg_start_times,
   num_groups_float = len(calc_groups_float)  # Number of instruments
   calc_groups_float = tf.concat(calc_groups_float, axis=-1)
   # Shape batch_shape + [num_groups_float, calc_groups_float.shape[0]]
-  axis = calc_groups_float.shape.rank - 1
+  axis = len(calc_groups_float.shape) - 1
   calc_groups_float_mat = tf.one_hot(
       calc_groups_float, num_groups_float, axis=axis, dtype=dtype)
   # Fixed leg groups
   num_groups_fixed = len(calc_groups_fixed)
   calc_groups_fixed = tf.concat(calc_groups_fixed, axis=-1)
   # Shape batch_shape + [num_groups_fixed, calc_groups_fixed.shape[0]]
-  axis = calc_groups_fixed.shape.rank - 1
+  axis = len(calc_groups_fixed.shape) - 1
   calc_groups_fixed_mat = tf.one_hot(
       calc_groups_fixed, num_groups_fixed, axis=axis, dtype=dtype)
   settle_times_float = tf.concat(settle_times_float, axis=-1)

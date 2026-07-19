@@ -82,13 +82,13 @@ def _put_valuer(sample_paths, time_index, strikes, dtype=None):
   strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')
   sample_paths = tf.convert_to_tensor(sample_paths, dtype=dtype,
                                       name='sample_paths')
-  if sample_paths.shape.rank == 3:
+  if len(sample_paths.shape) == 3:
     # Expand shape to [num_samples, 1, num_times, dim]
     sample_paths = tf.expand_dims(sample_paths, axis=1)
   else:
     # Transpose to [num_samples, batch_size, num_times, dim]
     sample_paths = tf.transpose(sample_paths, [1, 0, 2, 3])
-  num_samples, batch_size, _, dim = sample_paths.shape.as_list()
+  num_samples, batch_size, _, dim = list(sample_paths.shape)
 
   slice_sample_paths = tf.slice(sample_paths, [0, 0, time_index, 0],
                                 [num_samples, batch_size, 1, dim])

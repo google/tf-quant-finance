@@ -108,10 +108,10 @@ class PiecewiseConstantFunc(object):
       self._dtype = dtype or self._jump_locations.dtype
       self._values = tf.convert_to_tensor(values, dtype=self._dtype,
                                           name='values')
-      shape_values = self._values.shape.as_list()
+      shape_values = list(self._values.shape)
 
-      shape_jump_locations = self._jump_locations.shape.as_list()
-      batch_rank = self._jump_locations.shape.rank - 1
+      shape_jump_locations = list(self._jump_locations.shape)
+      batch_rank = len(self._jump_locations.shape) - 1
       self._batch_rank = batch_rank
       if None not in shape_values and None not in shape_jump_locations:
         if shape_values[:batch_rank] != shape_jump_locations[:-1]:
@@ -286,14 +286,14 @@ def _piecewise_constant_function(x, jump_locations, values,
   """Computes value of the piecewise constant function."""
   # Initializer already verified that `jump_locations` and `values` have the
   # same shape
-  batch_shape = jump_locations.shape.as_list()[:-1]
+  batch_shape = list(jump_locations.shape)[:-1]
   # Check that the batch shape of `x` is the same as of `jump_locations` and
   # `values`
-  batch_shape_x = x.shape.as_list()[:batch_rank]
+  batch_shape_x = list(x.shape)[:batch_rank]
   if batch_shape_x != batch_shape:
     raise ValueError('Batch shape of `x` is {1} but should be {0}'.format(
         batch_shape, batch_shape_x))
-  if x.shape.as_list()[:batch_rank]:
+  if list(x.shape)[:batch_rank]:
     no_batch_shape = False
   else:
     no_batch_shape = True
@@ -316,19 +316,19 @@ def _piecewise_constant_integrate(x1, x2, jump_locations, values, batch_rank):
   # Initializer already verified that `jump_locations` and `values` have the
   # same shape.
   # Expand batch size to one if there is no batch shape.
-  if x1.shape.as_list()[:batch_rank]:
+  if list(x1.shape)[:batch_rank]:
     no_batch_shape = False
   else:
     no_batch_shape = True
     x1 = tf.expand_dims(x1, 0)
     x2 = tf.expand_dims(x2, 0)
-  if not jump_locations.shape.as_list()[:-1]:
+  if not list(jump_locations.shape)[:-1]:
     jump_locations = tf.expand_dims(jump_locations, 0)
     values = tf.expand_dims(values, 0)
     batch_rank += 1
   # Compute integral values between the jump locations
   event_shape = tf.shape(values)[(batch_rank+1):]
-  event_rank = values.shape.rank - batch_rank - 1
+  event_rank = len(values.shape) - batch_rank - 1
   num_data_points = tf.shape(values)[batch_rank]
   diff = jump_locations[..., 1:] - jump_locations[..., :-1]
   # Broadcast `diff` to the shape of

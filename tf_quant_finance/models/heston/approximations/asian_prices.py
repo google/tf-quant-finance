@@ -219,7 +219,7 @@ def asian_option_price(
 
     # Add control dependencies for TF1 compatibility
     with tf.control_dependencies(assertions):
-      if sampling_times.shape.rank:
+      if len(sampling_times.shape):
         # In this case sampling_times has some `batch_shape`
         batch_shape = utils.common_shape(
             variances, expiries, theta, volvol, strikes, rho, sampling_times[0])
@@ -266,7 +266,7 @@ def asian_option_price(
 
     forwards = tf.broadcast_to(forwards, batch_shape)
     spots = tf.broadcast_to(spots, batch_shape)
-    batch_rank = spots.shape.rank
+    batch_rank = len(spots.shape)
 
     #  To account for seasoning, we keep pricing time fixed at t=0 and adjust
     #  the pricing parameters as follows:

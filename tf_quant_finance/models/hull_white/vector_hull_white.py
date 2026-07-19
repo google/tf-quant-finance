@@ -214,7 +214,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
           # If initial_discount_rate_fn returns a Tensor of the same input,
           # expand the output dimension to `input_shape + [1]`. Otherwise,
           # it is expected that `r` is of shape `input_shape + [dim]`.
-          if r.shape.rank == x.shape.rank:
+          if len(r.shape) == len(x.shape):
             r = tf.expand_dims(r, axis=-1)
           # Shape `x.shape + [dim]`
           return -r * tf.expand_dims(x, axis=-1)
@@ -230,7 +230,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         # If initial_discount_rate_fn returns a Tensor of the same input,
         # expand the output dimension to `input_shape + [1]`. Otherwise,
         # it is expected that `r` is of shape `input_shape + [dim]`.
-        if r.shape.rank == t.shape.rank:
+        if len(r.shape) == len(t.shape):
           r = tf.expand_dims(r, axis=-1)
         return r
 
@@ -285,7 +285,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         corr_matrix = tf.eye(self._dim, dtype=volatility.dtype)
 
       return volatility * corr_matrix + tf.zeros(
-          x.shape.as_list()[:-1] + [self._dim, self._dim],
+          list(x.shape)[:-1] + [self._dim, self._dim],
           dtype=volatility.dtype)
 
     # Drift function
@@ -620,7 +620,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       maturities = tf.convert_to_tensor(maturities, self._dtype)
       # Flatten it because `PiecewiseConstantFunction` expects the first
       # dimension to be broadcastable to [dim]
-      input_shape_times = times.shape.as_list()
+      input_shape_times = list(times.shape)
       times_flat = tf.reshape(times, shape=[-1])
       # The shape of `mean_reversion` will be (dim,n) where `n` is the number
       # of elements in `times`.
@@ -657,8 +657,8 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         times, times_grid, *params)
     # Add zeros as a starting location
     dt = times[1:] - times[:-1]
-    if dt.shape.is_fully_defined():
-      steps_num = dt.shape.as_list()[-1]
+    if (True):
+      steps_num = list(dt.shape)[-1]
     else:
       steps_num = tf.shape(dt)[-1]
       # TODO(b/148133811): Re-enable Sobol test when TF 2.2 is released.
@@ -776,7 +776,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
     # Shape [num_time_points] + [num_samples, dim]
     rate_paths = rate_paths.stack()
     # transpose to shape [num_samples, num_time_points, dim]
-    n = rate_paths.shape.rank
+    n = len(rate_paths.shape)
     perm = list(range(1, n-1)) + [0, n - 1]
     return tf.transpose(rate_paths, perm)
 
@@ -960,7 +960,7 @@ def _get_parameters(times, *params):
   for param in params:
     if hasattr(param, 'is_piecewise_constant') and param.is_piecewise_constant:
       jump_locations = param.jump_locations()
-      if jump_locations.shape.rank > 1:
+      if len(jump_locations.shape) > 1:
         # Shape [num_times, dim]
         res.append(tf.transpose(param(times)))
       else:
@@ -1062,8 +1062,8 @@ def _input_type(param, dim, dtype, name):
   else:
     # Otherwise, input is a `Tensor`, return a `PiecewiseConstantFunc`.
     param = tf.convert_to_tensor(param, dtype=dtype, name=name)
-    param_shape = param.shape.as_list()
-    param_rank = param.shape.rank
+    param_shape = list(param.shape)
+    param_rank = len(param.shape)
     # If `param` is not a scalar, check that it is of correct shape
     if param_shape:
       if param_shape[-1] != dim:

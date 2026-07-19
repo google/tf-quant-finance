@@ -117,7 +117,7 @@ def options_price_from_samples(
     # an extra dimenstion (corresponding to `curve_times`).
     discount_factors_builder = tf.expand_dims(discount_factors_builder, axis=1)
     discount_factors_simulated = tf.repeat(
-        discount_factors_builder, p_t_tau.shape.as_list()[1], axis=1)
+        discount_factors_builder, list(p_t_tau.shape)[1], axis=1)
 
     # `sim_times` and `curve_times` are sorted for simulation. We need to
     # select the indices corresponding to our input.
@@ -155,9 +155,9 @@ def options_price_from_samples(
 
 def _prepare_indices(idx0, idx1, idx2, idx3):
   """Prepare indices to get relevant slice from discount curve simulations."""
-  len0 = idx0.shape.as_list()[0]
-  len1 = idx1.shape.as_list()[0]
-  len3 = idx3.shape.as_list()[0]
+  len0 = list(idx0.shape)[0]
+  len1 = list(idx1.shape)[0]
+  len3 = list(idx3.shape)[0]
   idx0 = tf.repeat(idx0, len1 * len3)
   idx1 = tf.tile(tf.repeat(idx1, len3), [len0])
   idx2 = tf.tile(tf.repeat(idx2, len3), [len0])

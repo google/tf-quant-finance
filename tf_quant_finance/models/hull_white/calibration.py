@@ -355,7 +355,7 @@ def calibration_from_swaptions(
     if volatility_based_calibration:
       def reference_rate_squeeze_fn(t):
         r = reference_rate_fn(t)
-        if r.shape.as_list()[-1] == 1:
+        if list(r.shape)[-1] == 1:
           r = tf.squeeze(r, axis=-1)
         return r
       swap_rate, annuity = swap.ir_swap_par_rate_and_annuity(

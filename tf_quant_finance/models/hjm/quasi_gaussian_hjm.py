@@ -230,7 +230,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       """Volatility function of qG-HJM."""
       # Get parameter values at time `t`
       x = state[..., :self._factors]
-      batch_shape_x = x.shape.as_list()[:-1]
+      batch_shape_x = list(x.shape)[:-1]
       r_t = self._instant_forward_rate_fn(t) + tf.reduce_sum(
           x, axis=-1, keepdims=True)
       volatility = self._volatility(t, r_t)
@@ -253,7 +253,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       x = state[..., :self._factors]
       y = state[..., self._factors:]
 
-      batch_shape_x = x.shape.as_list()[:-1]
+      batch_shape_x = list(x.shape)[:-1]
       y = tf.reshape(y, batch_shape_x + [self._factors, self._factors])
       r_t = (self._instant_forward_rate_fn(t) +
              tf.reduce_sum(x, axis=-1, keepdims=True))

@@ -56,7 +56,7 @@ class ShapeUtilsTest(parameterized.TestCase, tf.test.TestCase):
       return tff.utils.get_shape(x)
     shape = self.evaluate(fn(x))
 
-    self.assertAllEqual(shape, x.shape.as_list())
+    self.assertAllEqual(shape, list(x.shape))
 
   def test_broadcast_tensors_shapes(self):
     args = [tf.ones([1, 2], dtype=tf.float64),

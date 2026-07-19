@@ -287,7 +287,7 @@ def calibration(
     dtype = dtype or prices.dtype
 
     # Extract batch shape
-    batch_shape = prices.shape.as_list()[:-1]
+    batch_shape = list(prices.shape)[:-1]
     if None in batch_shape:
       batch_shape = tff.utils.get_shape(prices)[:-1]
 

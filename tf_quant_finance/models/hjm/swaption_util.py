@@ -119,8 +119,8 @@ def discount_factors_and_bond_prices_from_samples(
   except:
     raise ValueError('The leading dimensions of `expiries` of shape {} are not '
                      'compatible with the batch shape {} of the model.'.format(
-                         expiries.shape.as_list(),
-                         p_t_tau.shape.as_list()[:-4]))
+                         list(expiries.shape),
+                         list(p_t_tau.shape)[:-4]))
 
   if discount_factors is None:
     dt = tf.concat(axis=0, values=[[0.0], sim_times[1:] - sim_times[:-1]])

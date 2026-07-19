@@ -256,7 +256,7 @@ def multidim_parabolic_equation_step(
     inner_first_order_coeff_fn = (
         inner_first_order_coeff_fn or (lambda *args: [None] * n_dims))
 
-    batch_rank = len(value_grid.shape.as_list()) - len(coord_grid)
+    batch_rank = len(list(value_grid.shape)) - len(coord_grid)
 
     # Get information on default boundary conditions
     # For each dimension we verify if either of the upper of lower boundaries
@@ -1065,7 +1065,7 @@ def _get_grid_delta(coord_grid, dim):
   # Retrieves delta along given dimension, assuming the grid is uniform.
   delta = coord_grid[dim][..., 1] - coord_grid[dim][..., 0]
   n = len(coord_grid)
-  if delta.shape.rank == 0:
+  if len(delta.shape) == 0:
     return delta
   else:  # Grid has a batch shape
     # Delta grid should broadcase with value grid
@@ -1132,7 +1132,7 @@ def _reshape_boundary_conds(raw_coeff, trim_from, expand_dim_at,
   """Reshapes boundary condition coefficients."""
   # If the coefficient is None, a number or a rank-0 tensor, return as-is.
   if (not tf.is_tensor(raw_coeff)
-      or len(raw_coeff.shape.as_list()) == 0):  # pylint: disable=g-explicit-length-test
+      or len(list(raw_coeff.shape)) == 0):  # pylint: disable=g-explicit-length-test
     return raw_coeff
   # See explanation why we trim boundaries and expand dims in places where this
   # function is used.
@@ -1149,7 +1149,7 @@ def _slice(tensor, dim, start, end):
   # _slice(t, 1, 3, 5) is same as t[:, 3:5].
   # For a slice unbounded to the right, set end=0: _slice(t, 1, -3, 0) is same
   # as t[:, -3:].
-  rank = tensor.shape.rank
+  rank = len(tensor.shape)
   slices = rank * [slice(None)]
   if end == 0:
     end = None
@@ -1175,7 +1175,7 @@ def _trim_boundaries(tensor, from_dim, shifts=None,
   # trimming indices. E.g.,
   # _trim_boundaries(t, 1, lower_trim_indices=[1, 2, 3])  with a rank-4 tensor t
   # yields t[:, 1:-1, 2:-1, 3:-1].
-  rank = tensor.shape.rank
+  rank = len(tensor.shape)
   slices = rank * [slice(None)]
   for i in range(from_dim, rank):
     if lower_trim_indices is None:

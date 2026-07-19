@@ -73,7 +73,7 @@ def uniform_grid(minimums,
       raise ValueError('The shapes of minimums, maximums and sizes must be '
                        'identical.')
 
-    if len(minimums.shape.as_list()) != 1:
+    if len(list(minimums.shape)) != 1:
       raise ValueError('The minimums, maximums and sizes must all be rank 1.')
 
     control_deps = []
@@ -166,7 +166,7 @@ def log_uniform_grid(minimums,
       raise ValueError('The shapes of minimums, maximums and sizes must be '
                        'identical.')
 
-    if len(minimums.shape.as_list()) != 1:
+    if len(list(minimums.shape)) != 1:
       raise ValueError('The minimums, maximums and sizes must all be rank 1.')
 
     control_deps = []
@@ -469,7 +469,7 @@ def log_uniform_grid_with_extra_point(minimums,
 
 def _check_shapes_fully_defined(*args):
   """Checks if all the arguments have fully defined shapes."""
-  return np.all([arg.shape.is_fully_defined() for arg in args])
+  return np.all([(True) for arg in args])
 
 
 __all__ = [

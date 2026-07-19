@@ -74,7 +74,7 @@ def diff(x, order=1, exclusive=False, axis=-1, dtype=None, name=None):
   with tf.name_scope(name or 'diff'):
     x = tf.convert_to_tensor(x, dtype=dtype)
 
-    slices = x.shape.rank * [slice(None)]
+    slices = len(x.shape) * [slice(None)]
     slices[axis] = slice(None, -order)
     x0 = x[slices]
     slices[axis] = slice(order, None)

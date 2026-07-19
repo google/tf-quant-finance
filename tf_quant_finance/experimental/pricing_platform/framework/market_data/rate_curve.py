@@ -143,8 +143,8 @@ class RateCurve(pmd.RateCurve):
   def set_discount_factor_nodes(self, values: types.FloatTensor):
     """Update discount factors at the interpolation nodes with new values."""
     values = tf.convert_to_tensor(values, dtype=self._dtype)
-    values_shape = values.shape.as_list()
-    nodes_shape = self.discount_factor_nodes.shape.as_list()
+    values_shape = list(values.shape)
+    nodes_shape = list(self.discount_factor_nodes.shape)
     if values_shape != nodes_shape:
       raise ValueError("New values should have shape {0} but are of "
                        "shape {1}".format(nodes_shape, values_shape))

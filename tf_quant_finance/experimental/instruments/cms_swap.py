@@ -303,23 +303,23 @@ class CMSCashflowStream(cs.CashflowStream):
     notional = tf.repeat(
         tf.convert_to_tensor([x.notional for x in coupon_spec],
                              dtype=self._dtype),
-        payment_dates.shape.as_list()[-1])
+        list(payment_dates.shape)[-1])
 
     coupon_basis = tf.repeat(tf.convert_to_tensor(
         [x.coupon_basis for x in coupon_spec], dtype=self._dtype),
-                             payment_dates.shape.as_list()[-1])
+                             list(payment_dates.shape)[-1])
 
     coupon_multiplier = tf.repeat(tf.convert_to_tensor(
         [x.coupon_multiplier for x in coupon_spec], dtype=self._dtype),
-                                  payment_dates.shape.as_list()[-1])
+                                  list(payment_dates.shape)[-1])
 
     contract_index = tf.repeat(
         tf.range(0, len(coupon_spec)),
-        payment_dates.shape.as_list()[-1])
+        list(payment_dates.shape)[-1])
 
     cms_fixed_leg = [x.fixed_leg for x in coupon_spec]
     cms_float_leg = [x.float_leg for x in coupon_spec]
-    self._num_cashflows = daycount_fractions.shape.as_list()[-1]
+    self._num_cashflows = list(daycount_fractions.shape)[-1]
     self._swap = irs.InterestRateSwap(
         cms_start_dates.reshape([-1]),
         cms_end_dates.reshape([-1]),

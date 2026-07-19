@@ -116,7 +116,7 @@ def generate_mc_normal_draws(num_normal_draws,
         normal_draws,
         tf.concat([sample_shape, [num_time_steps, num_normal_draws]], axis=0))
     # Shape [steps_num] + batch_shape + [num_samples, dim]
-    normal_draws_rank = normal_draws.shape.rank
+    normal_draws_rank = len(normal_draws.shape)
     if is_antithetic and normal_draws_rank > 3:
       # Permutation for the case when the batch_shape is present
       perm = [normal_draws_rank-2] + list(
@@ -187,11 +187,11 @@ def maybe_update_along_axis(*,
                                       name='new_tensor')
     ind = tf.convert_to_tensor(ind, name='ind')
     do_update = tf.convert_to_tensor(do_update, name='do_update')
-    size_along_axis = tensor.shape.as_list()[axis]
+    size_along_axis = list(tensor.shape)[axis]
     def _write_update_to_result():
       size_along_axis_dynamic = tf.shape(tensor)[axis]
       one_hot = tf.one_hot(ind, depth=size_along_axis_dynamic)
-      mask_size = tensor.shape.rank
+      mask_size = len(tensor.shape)
       mask_shape = tf.pad(
           [size_along_axis_dynamic],
           paddings=[[axis, mask_size - axis - 1]], constant_values=1)

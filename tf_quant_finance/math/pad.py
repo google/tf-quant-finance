@@ -74,7 +74,7 @@ def pad_tensors(tensors, pad_values=None, dtype=None, name=None):
     pad_values = _prepare_pad_values(pad_values, tensors, dtype)
     for pad_value, t in zip(pad_values, tensors):
       paddings = (
-          (t.shape.rank - 1) * [[0, 0]] + [[0, max_size - tf.shape(t)[-1]]])
+          (len(t.shape) - 1) * [[0, 0]] + [[0, max_size - tf.shape(t)[-1]]])
       # Padded value has to be a constant
       constant_values = tf.reduce_min(t) - 1
       pad_t = tf.pad(t, paddings, mode="CONSTANT",

@@ -512,8 +512,8 @@ def calibration_from_swaptions(
       init_corr = tf.range(0.1, num_thetas + 0.1, dtype=dtype) / num_thetas
     else:
       init_corr = []
-      if mean_reversion.shape.rank > 1:
-        init_corr = [[]] * mean_reversion.shape.rank
+      if len(mean_reversion.shape) > 1:
+        init_corr = [[]] * len(mean_reversion.shape)
 
     initial_guess = tf.concat([
         _to_unconstrained(mean_reversion, mr_lb, mr_ub),

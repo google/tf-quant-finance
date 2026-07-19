@@ -97,7 +97,7 @@ def make_polynomial_basis(
     """
     sample_paths = tf.convert_to_tensor(sample_paths,
                                         name="sample_paths")
-    if sample_paths.shape.rank == 3:
+    if len(sample_paths.shape) == 3:
       sample_paths = tf.expand_dims(sample_paths, axis=0)
     shape = tf.shape(sample_paths)
     num_samples = shape[1]
@@ -243,11 +243,11 @@ def least_square_mc(sample_paths: types.RealTensor,
     else:
       discount_factors = tf.convert_to_tensor(
           discount_factors, dtype=dtype, name="discount_factors")
-    if discount_factors.shape.rank == 0:
+    if len(discount_factors.shape) == 0:
       discount_factors = tf.reshape(discount_factors, [1, 1, 1])
-    if discount_factors.shape.rank == 1:
+    if len(discount_factors.shape) == 1:
       discount_factors = tf.reshape(discount_factors, [1, 1, -1])
-    elif discount_factors.shape.rank == 2:
+    elif len(discount_factors.shape) == 2:
       discount_factors = tf.reshape(discount_factors, [1, -1])
     discount_factors = tf.pad(
         discount_factors, 2 * [[0, 0]] + [[1, 0]],
