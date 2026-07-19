@@ -755,8 +755,29 @@ def repeat(input, repeats, axis=None):
 # tf.gather(params, indices, axis) -> jnp.take (this jax has no jnp.gather).
 def gather(params, indices, axis=0, batch_dims=0, name=None,
            validate_indices=None):
-    del batch_dims, name, validate_indices
+    del name, validate_indices
+    params = jnp.asarray(params)
+    indices = jnp.asarray(indices)
+    if batch_dims:
+        # Pair the leading `batch_dims` axes of params and indices, gather along `axis`.
+        def _g(p, idx):
+            return p[idx] if axis == 0 else jnp.take(p, idx, axis=axis - batch_dims)
+        for _ in range(batch_dims):
+            _g = jax.vmap(_g)
+        return _g(params, indices)
     return jnp.take(params, indices, axis=axis)
+
+
+def searchsorted(sorted_seq, values, side='left', out_type=None, name=None):
+    sorted_seq = jnp.asarray(sorted_seq)
+    values = jnp.asarray(values)
+    if sorted_seq.ndim <= 1:
+        return jnp.searchsorted(sorted_seq, values, side=side)
+    # Batched: vmap a 1-D searchsorted over the shared leading batch axes.
+    v = lambda s, val: jnp.searchsorted(s, val, side=side)
+    for _ in range(sorted_seq.ndim - 1):
+        v = jax.vmap(v)
+    return v(sorted_seq, values)
 
 
 # tf.concat(values, axis): accept a sequence OR positional tensors, and coerce
