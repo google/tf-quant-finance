@@ -17,6 +17,7 @@
 from absl.testing import parameterized
 
 import numpy as np
+import jax
 from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
@@ -100,16 +101,15 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
                                          dtype=dtype)
     # strikes of shape [1, 4] so that prices are of shape [1]
     strikes = self.strikes[None]
-    with tf.GradientTape(persistent=True) as tape:
-      tape.watch([mean_reversion_1d, volatility_1d])
-      price = tff.models.hull_white.cap_floor_price(
+    def _price(mean_reversion, volatility):
+      return tff.models.hull_white.cap_floor_price(
           strikes=strikes,
           expiries=self.expiries,
           maturities=self.maturities,
           daycount_fractions=self.daycount_fractions,
           notional=100.0,
-          mean_reversion=mean_reversion_1d,
-          volatility=volatility_1d,
+          mean_reversion=mean_reversion,
+          volatility=volatility,
           reference_rate_fn=self.discount_rate_1d_fn,
           use_analytic_pricing=use_analytic_pricing,
           num_samples=10_000,
@@ -117,8 +117,10 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
           random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
           seed=[42, 42],
           dtype=dtype)
-      grad_mr = tape.gradient(price, mean_reversion_1d)
-      grad_vol = tape.gradient(price, volatility_1d)
+    price = _price(mean_reversion_1d, volatility_1d)
+    grad_mr, grad_vol = jax.grad(
+        lambda mr, vol: tf.reduce_sum(_price(mr, vol)))(
+            mean_reversion_1d, volatility_1d)
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [1])
     price = self.evaluate(price)

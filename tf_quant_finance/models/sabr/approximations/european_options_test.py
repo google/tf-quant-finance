@@ -16,6 +16,7 @@
 from absl.testing import parameterized
 
 import numpy as np
+import jax
 from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
@@ -95,9 +96,8 @@ class SabrApproximationEuropeanOptionsTest(parameterized.TestCase,
     volvol = tf.convert_to_tensor(volvol, dtype=dtype)
     is_call = tf.convert_to_tensor(is_call)
 
-    with tf.GradientTape(persistent=True) as tape:
-      tape.watch([forwards, strikes, expiries, alpha, beta, rho, volvol])
-      price = tff.models.sabr.approximations.european_option_price(
+    def _price(forwards, strikes, expiries, alpha, beta, rho, volvol):
+      return tff.models.sabr.approximations.european_option_price(
           forwards=forwards,
           strikes=strikes,
           expiries=expiries,
@@ -108,11 +108,11 @@ class SabrApproximationEuropeanOptionsTest(parameterized.TestCase,
           volvol=volvol,
           volatility_type=vol_type,
           dtype=dtype)
-      grad = tape.gradient(
-          target=price,
-          sources=[forwards, strikes, expiries, alpha, beta, rho, volvol])
+    grad = self.evaluate(jax.grad(
+        lambda *a: tf.reduce_sum(_price(*a)),
+        (0, 1, 2, 3, 4, 5, 6))(
+            forwards, strikes, expiries, alpha, beta, rho, volvol))
 
-    grad = self.evaluate(grad)
     self.assertTrue(all(np.all(np.isfinite(x)) for x in grad))
 
   @parameterized.parameters([NORMAL, LOGNORMAL])
