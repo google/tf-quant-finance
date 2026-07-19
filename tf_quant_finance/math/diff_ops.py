@@ -76,9 +76,9 @@ def diff(x, order=1, exclusive=False, axis=-1, dtype=None, name=None):
 
     slices = len(x.shape) * [slice(None)]
     slices[axis] = slice(None, -order)
-    x0 = x[slices]
+    x0 = x[tuple(slices)]
     slices[axis] = slice(order, None)
-    x1 = x[slices]
+    x1 = x[tuple(slices)]
     exclusive_diff = x1 - x0
 
     if exclusive:

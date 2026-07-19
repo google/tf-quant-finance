@@ -664,6 +664,19 @@ def gather(params, indices, axis=0, batch_dims=0, name=None,
     return jnp.take(params, indices, axis=axis)
 
 
+# tf.concat(values, axis): accept a sequence OR positional tensors, and coerce
+# list elements to arrays (jnp.concatenate rejects raw lists).
+def concat(values, axis=0, name=None, *more, **kwargs):
+    if isinstance(values, (list, tuple)):
+        arrs = [jnp.asarray(v) for v in values]
+    else:
+        arrs = [jnp.asarray(values)] + [jnp.asarray(v) for v in more]
+    return jnp.concatenate(arrs, axis=axis)
+
+
+stack = _drop_name(jnp.stack)
+
+
 gather_nd = jnp.take  # best-effort; callers needing advanced gather_nd convert natively
 
 
