@@ -15,6 +15,8 @@
 
 from typing import Callable, List, Optional
 
+import jax
+import jax.numpy as jnp
 from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
@@ -406,61 +408,58 @@ def _while_loop(*, steps_num, current_state,
                 drift_fn, volatility_fn, wiener_mean,
                 num_samples, times, dt, sqrt_dt, num_requested_times,
                 keep_mask, swap_memory, random_type, seed, normal_draws, dtype):
-  """Sample paths using tf.while_loop."""
-  written_count = 0
-  if isinstance(num_requested_times, int) and num_requested_times == 1:
-    record_samples = False
-    result = current_state
-  else:
-    # If more than one sample has to be recorded, create a TensorArray
-    record_samples = True
-    element_shape = current_state.shape
-    result = tf.TensorArray(dtype=dtype,
-                            size=num_requested_times,
-                            element_shape=element_shape,
-                            clear_after_read=False)
-    # Include initial state, if necessary
-    result = result.write(written_count, current_state)
-  written_count += tf.cast(keep_mask[0], dtype=tf.int32)
-  # Define sampling while_loop body function
-  def cond_fn(i, written_count, *args):
-    # It can happen that `times_grid[-1] > times[-1]` in which case we have
-    # to terminate when `written_count` reaches `num_requested_times`
-    del args
-    return tf.math.logical_and(i < steps_num,
-                               written_count < num_requested_times)
+  """Sample paths (JAX native): counted loop -> lax.scan with a result carry.
 
-  def step_fn(i, written_count, current_state, result):
-    return _euler_step(
-        i=i,
-        written_count=written_count,
-        current_state=current_state,
-        result=result,
-        drift_fn=drift_fn,
-        volatility_fn=volatility_fn,
-        wiener_mean=wiener_mean,
-        num_samples=num_samples,
-        times=times,
-        dt=dt,
-        sqrt_dt=sqrt_dt,
-        keep_mask=keep_mask,
-        random_type=random_type,
-        seed=seed,
-        normal_draws=normal_draws,
-        record_samples=record_samples)
-  # Sample paths
-  _, _, _, result = tf.while_loop(
-      cond_fn, step_fn, (0, written_count, current_state, result),
-      maximum_iterations=steps_num,
-      swap_memory=swap_memory)
-  if not record_samples:
-    # shape batch_shape + [num_samples, 1, dim]
-    return tf.expand_dims(result, axis=-2)
-  # Shape [num_time_points] + batch_shape + [num_samples, dim]
-  result = result.stack()
-  # transpose to shape batch_shape + [num_samples, num_time_points, dim]
+  Replaces tf.while_loop + tf.TensorArray. `keep_mask[i]` selects which of the
+  `steps_num+1` times are 'requested' output times; states at those times are
+  recorded into a result array indexed by a running `written_count`.
+  """
+  del swap_memory
+  single = isinstance(num_requested_times, int) and num_requested_times == 1
+
+  def _draw(i):
+    if normal_draws is not None:
+      return normal_draws[i] * sqrt_dt[i]
+    return random.mv_normal_sample(
+        (num_samples,), mean=wiener_mean, random_type=random_type,
+        seed=seed) * sqrt_dt[i]
+
+  def _next(i, current_state):
+    current_time = times[i + 1]
+    dw = _draw(i)
+    dt_inc = dt[i] * drift_fn(current_time, current_state)
+    dw_inc = tf.linalg.matvec(volatility_fn(current_time, current_state), dw)
+    return current_state + dt_inc + dw_inc
+
+  if single:
+    def body(carry, i):
+      return _next(i, carry), None
+    (final,), _ = jax.lax.scan(body, current_state, xs=jnp.arange(steps_num))
+    return tf.expand_dims(final, axis=-2)
+
+  # record_samples: scan steps_num, carrying (state, result[num_requested, ...], wc)
+  result = tf.zeros([num_requested_times] + list(current_state.shape), dtype=dtype)
+  wc = jnp.asarray(0, dtype=jnp.int32)
+  # Record the initial state at slot 0 if requested (keep_mask[0]).
+  rec0 = jnp.asarray(keep_mask[0], dtype=jnp.int32)
+  result = jnp.where(rec0 == 1, result.at[0].set(current_state), result)
+  wc = wc + rec0
+
+  def body_rec(carry, i):
+    state, result, wc = carry
+    next_state = _next(i, state)
+    rec = jnp.asarray(keep_mask[i + 1], dtype=jnp.int32)
+    new_result = result.at[wc].set(next_state)
+    result = jnp.where(rec == 1, new_result, result)
+    wc = wc + rec
+    return (next_state, result, wc), None
+
+  (_, result, _), _ = jax.lax.scan(
+      body_rec, (current_state, result, wc), xs=jnp.arange(steps_num))
+  # result.shape = [num_requested_times] + batch + [num_samples, dim]
+  # transpose to batch + [num_requested_times, num_samples, dim]
   n = len(result.shape)
-  perm = list(range(1, n-1)) + [0, n - 1]
+  perm = list(range(1, n - 1)) + [0, n - 1]
   return tf.transpose(result, perm)
 
 

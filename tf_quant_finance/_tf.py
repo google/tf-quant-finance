@@ -300,6 +300,57 @@ summary = _ptypes.SimpleNamespace()
 
 
 # ---------------------------------------------------------------------------
+# tf.TensorArray: register as a JAX pytree so it is a valid (functional) carry
+# for lax.while_loop/scan. This lets the models' while_loop+TensorArray sampling
+# paths run unchanged via the shim instead of per-model rewrites.
+# ---------------------------------------------------------------------------
+class TensorArray:
+    def __init__(self, dtype=None, size=None, element_shape=None, dynamic_size=None,
+                 clear_after_read=None, infer_shape=None, name=None, **kw):
+        self.dtype = jnp.dtype(dtype) if dtype is not None else jnp.float32
+        self.size = int(size) if size is not None else 0
+        es = element_shape
+        if es is None:
+            self.element_shape = ()
+        elif hasattr(es, "shape"):
+            self.element_shape = tuple(np.asarray(es).tolist())
+        else:
+            self.element_shape = tuple(int(d) for d in es)
+        self._data = jnp.zeros((self.size,) + self.element_shape, dtype=self.dtype)
+
+    def write(self, index, value):
+        import copy
+        new = copy.copy(self)
+        new._data = self._data.at[index].set(jnp.asarray(value, dtype=self.dtype))
+        return new
+
+    def read(self, index):
+        return self._data[index]
+
+    def stack(self):
+        return self._data
+
+    def unstack(self, value):
+        import copy
+        new = copy.copy(self)
+        new._data = jnp.asarray(value)
+        return new
+
+    def tree_flatten(self):
+        return (self._data,), (self.dtype, self.size, self.element_shape)
+
+    @classmethod
+    def tree_unflatten(cls, aux, children):
+        new = cls.__new__(cls)
+        new.dtype, new.size, new.element_shape = aux
+        new._data = children[0]
+        return new
+
+
+jax.tree_util.register_pytree_node_class(TensorArray)
+
+
+# ---------------------------------------------------------------------------
 # tf.math.* namespace
 # ---------------------------------------------------------------------------
 math = _ptypes.SimpleNamespace()
@@ -435,20 +486,40 @@ random = _ptypes.SimpleNamespace(
 # control flow
 # ---------------------------------------------------------------------------
 def while_loop(cond, body, loop_vars, parallel_iterations=None, maximum_iterations=None,
-               swap_memory=None, name=None, return_same_structure=None):
+               swap_memory=None, name=None, return_same_structure=None,
+               shape_invariants=None):
+    del parallel_iterations, swap_memory, name, return_same_structure, shape_invariants
+    # TF convention: cond/body are called as cond(*loop_vars). lax.while_loop
+    # passes the carry as a single positional, so adapt by (un)packing.
+    is_seq = isinstance(loop_vars, (list, tuple))
+    vars_tuple = tuple(loop_vars) if is_seq else (loop_vars,)
+
+    def cond_jax(carry):
+        return cond(*carry) if is_seq else cond(carry)
+
+    def body_jax(carry):
+        return body(*carry) if is_seq else body(carry)
+
     if maximum_iterations is not None:
-        # tf semantics: run at most maximum_iterations times.
-        orig_cond = cond
+        maxit = maximum_iterations
 
-        def cond2(i, *lv):
-            return jnp.logical_and(i < maximum_iterations, orig_cond(*lv))
+        def cond2(carry):
+            i, rest = carry[0], carry[1:]
+            c = cond(*rest) if is_seq else cond(rest[0])
+            return jnp.logical_and(i < maxit, c)
 
-        def body2(i, *lv):
-            return (i + 1,) + tuple(body(*lv))
+        def body2(carry):
+            i, rest = carry[0], carry[1:]
+            nxt = body(*rest) if is_seq else body(rest[0])
+            nxt_t = tuple(nxt) if isinstance(nxt, (list, tuple)) else (nxt,)
+            return (i + 1,) + nxt_t
 
-        out = _lax.while_loop(cond2, body2, (0,) + tuple(loop_vars))
-        return out[1:] if len(out[1:]) > 1 else out[1]
-    return _lax.while_loop(cond, body, loop_vars)
+        out = _lax.while_loop(cond2, body2, (jnp.asarray(0),) + vars_tuple)
+        rest = out[1:]
+        return rest if (is_seq and len(rest) > 1) else rest[0]
+
+    out = _lax.while_loop(cond_jax, body_jax, vars_tuple)
+    return out if (is_seq and len(out) > 1) else out[0]
 
 
 def cond(pred, true_fn, false_fn, *args, **kw):
