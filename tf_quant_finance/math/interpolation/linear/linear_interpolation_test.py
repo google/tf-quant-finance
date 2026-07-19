@@ -1,3 +1,4 @@
+import jax
 # Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -253,14 +254,8 @@ class LinearInterpolation(tf.test.TestCase, parameterized.TestCase):
 
     y_data = tf.convert_to_tensor([[10.0, -1.0, -5.0], [7.0, 9.0, 20.0]],
                                   dtype=tf.float64)
-    if tf.executing_eagerly():
-      with tf.GradientTape(watch_accessed_variables=False) as tape:
-        tape.watch(y_data)
-        value = _value_helper_fn(y_data=y_data)
-        gradients = tape.gradient(value, y_data)
-    else:
-      value = _value_helper_fn(y_data=y_data)
-      gradients = tf.gradients(value, y_data)[0]
+    gradients = jax.grad(lambda yd: _value_helper_fn(y_data=yd))(y_data)
+    value = _value_helper_fn(y_data=y_data)
 
     gradients = tf.convert_to_tensor(gradients)
 
