@@ -441,15 +441,11 @@ linalg.band_part = _band_part
 def _tridiagonal_solve(diagonals, rhs, partial_pivots=True,
                       perturbation_singular=0.0, name=None, **kw):
     # TF: diagonals = (superdiag, diag, subdiag). jax: (dl=sub, d=diag, du=super).
+    del partial_pivots, perturbation_singular, name, kw
     import jax.lax as _ll
     super_d, diag, sub = (jnp.asarray(d) for d in diagonals)
     rhs = jnp.asarray(rhs)
-    if hasattr(_ll.linalg, "tridiagonal_solve"):
-        return _ll.linalg.tridiagonal_solve(sub, diag, super_d, rhs,
-                                            transpose_rhs=False,
-                                            lower=True)
-    # Fallback: Thomas algorithm not available; let numpy solve per-batch.
-    raise NotImplementedError("jax.lax.linalg.tridiagonal_solve unavailable")
+    return _ll.linalg.tridiagonal_solve(sub, diag, super_d, rhs)
 
 
 linalg.tridiagonal_solve = _tridiagonal_solve
@@ -866,7 +862,12 @@ def _complex(real, imag=None, name=None):
 
 
 complex = _complex
-scatter_nd = jnp.zeros  # ponytail: tf.scatter_nd callers should convert to x.at[].set(); placeholder
+def _scatter_nd(indices, updates, shape, name=None):
+    out = jnp.zeros(shape)
+    return out.at[tuple(jnp.asarray(i) for i in indices)].set(jnp.asarray(updates))
+
+
+scatter_nd = _scatter_nd
 bitwise = _ptypes.SimpleNamespace(
     left_shift=jnp.left_shift, right_shift=jnp.right_shift,
     bitwise_and=jnp.bitwise_and, bitwise_or=jnp.bitwise_or,

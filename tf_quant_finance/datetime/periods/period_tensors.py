@@ -126,7 +126,7 @@ class PeriodTensor(tensor_wrapper.TensorWrapper):
   def __repr__(self):
     output = "PeriodTensor: shape={}".format(self.shape)
     if tf.executing_eagerly():
-      return output + ", quantities={}".format(repr(self._quantity.numpy()))
+      return output + ", quantities={}".format(repr(np.asarray(self._quantity)))
     return output
 
 

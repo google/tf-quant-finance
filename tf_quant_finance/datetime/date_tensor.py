@@ -390,7 +390,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     output = "DateTensor: shape={}".format(self.shape)
     if tf.executing_eagerly():
       contents_np = np.stack(
-          (self._years.numpy(), self._months.numpy(), self._days.numpy()),
+          (np.asarray(self._years), np.asarray(self._months), np.asarray(self._days)),
           axis=-1)
       return output + ", contents={}".format(repr(contents_np))
     return output
