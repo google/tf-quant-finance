@@ -903,7 +903,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         tf.gather(vn, time_index, batch_dims=1), t, sigma_t, mr_t, c)
     exp_x_t = exp_x_t + tf.gather(ex_at_vol_knots, time_index, batch_dims=1)
     exp_x_t = (exp_x_t[:, 1:] - exp_x_t[:, :-1]) * tf.math.exp(
-        -tf.broadcast_to(mr_t, tf.shape(t))[:, 1:] * t[:, 1:])
+        -tf.broadcast_to(mr_t, t.shape)[:, 1:] * t[:, 1:])
     return exp_x_t
 
   def _y_integral(self, t0, t, vol, k):
@@ -945,7 +945,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
     var_x_t = var_x_t + tf.gather(varx_at_vol_knots, time_index, batch_dims=1)
 
     var_x_t = (var_x_t[:, 1:] - var_x_t[:, :-1]) * tf.math.exp(
-        -2 * tf.broadcast_to(mr_t, tf.shape(t))[:, 1:] * t[:, 1:])
+        -2 * tf.broadcast_to(mr_t, t.shape)[:, 1:] * t[:, 1:])
     return var_x_t
 
   def _variance_int(self, t0, t, vol, k):

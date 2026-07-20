@@ -78,7 +78,7 @@ def root_finder(value_and_grad_func,
       judged to have converged it will no longer be updated. If all elements
       converge before `max_iterations` is reached then the root finder will
       return early. If None, it would be set according to the `dtype`,
-      which is 4 * np.finfo(dtype(0)).eps.
+      which is 4 * np.finfo(dtype).eps.
       Default value: 2e-7.
     relative_tolerance: positive `double`, default 0. See the document for
       `tolerance`.

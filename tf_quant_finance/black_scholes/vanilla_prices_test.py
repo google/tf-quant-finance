@@ -19,7 +19,8 @@ from absl.testing import parameterized
 
 import numpy as np
 from tf_quant_finance import _tf as tf
-import tensorflow_probability as tfp
+import jax
+import jax.scipy.stats as _jss
 
 import tf_quant_finance as tff
 from tf_quant_finance._tf import test_util
@@ -230,8 +231,7 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     discount_factors = np.random.beta(a=1.0, b=1.0, size=num_examples)
 
     cdf_values = self.evaluate(
-        tfp.distributions.Normal(loc=log_loc,
-                                 scale=log_scale).cdf(np.log(strikes)))
+        _jss.norm.cdf(np.log(strikes), loc=log_loc, scale=log_scale))
 
     expected_prices = discount_factors * (
         call_options + ((-1.0)**call_options) * cdf_values)
@@ -501,70 +501,28 @@ class VanillaPrice(parameterized.TestCase, tf.test.TestCase):
     expiries = tf.convert_to_tensor(expiries, dtype=dtype)
     forwards = tf.convert_to_tensor(forwards, dtype=dtype)
 
-    with tf.GradientTape(persistent=True) as tape:
-      tape.watch([vol, strikes, expiries, forwards])
-      price = tff.black_scholes.option_price(
-          volatilities=vol,
-          strikes=strikes,
-          expiries=expiries,
-          forwards=forwards,
-          is_call_options=is_call,
-          is_normal_volatility=is_normal,
-          dtype=dtype)
-      grad = tape.gradient(
-          target=price, sources=[vol, strikes, expiries, forwards])
+    def _grads(v, s, e, f):
+      # Gradient of summed option_price wrt (vol, strikes, expiries, forwards).
+      return jax.grad(
+          lambda a, b, c, d: tf.reduce_sum(tff.black_scholes.option_price(
+              volatilities=a, strikes=b, expiries=c, forwards=d,
+              is_call_options=is_call, is_normal_volatility=is_normal,
+              dtype=dtype)),
+          (0, 1, 2, 3))(v, s, e, f)
 
-    grad = self.evaluate(grad)
+    grad = self.evaluate(_grads(vol, strikes, expiries, forwards))
     self.assertTrue(all(np.all(np.isfinite(x)) for x in grad))
 
-    with tf.GradientTape(persistent=True) as tape:
-      tape.watch([vol, strikes, expiries, forwards])
-      price_perturb_vol = tff.black_scholes.option_price(
-          volatilities=vol + 1e-6,
-          strikes=strikes,
-          expiries=expiries,
-          forwards=forwards,
-          is_call_options=is_call,
-          is_normal_volatility=is_normal,
-          dtype=dtype)
-      grad_perturb_vol = tape.gradient(
-          target=price_perturb_vol, sources=[vol, strikes, expiries, forwards])
-
-    grad_perturb_vol = self.evaluate(grad_perturb_vol)
+    grad_perturb_vol = self.evaluate(
+        _grads(vol + 1e-6, strikes, expiries, forwards))
     self.assertAllClose(grad, grad_perturb_vol, rtol=1e-4)
 
-    with tf.GradientTape(persistent=True) as tape:
-      tape.watch([vol, strikes, expiries, forwards])
-      price_perturb_expiries = tff.black_scholes.option_price(
-          volatilities=vol,
-          strikes=strikes,
-          expiries=expiries + 1e-6,
-          forwards=forwards,
-          is_call_options=is_call,
-          is_normal_volatility=is_normal,
-          dtype=dtype)
-      grad_perturb_expiries = tape.gradient(
-          target=price_perturb_expiries,
-          sources=[vol, strikes, expiries, forwards])
-
-    grad_perturb_expiries = self.evaluate(grad_perturb_expiries)
+    grad_perturb_expiries = self.evaluate(
+        _grads(vol, strikes, expiries + 1e-6, forwards))
     self.assertAllClose(grad, grad_perturb_expiries, rtol=1e-4)
 
-    with tf.GradientTape(persistent=True) as tape:
-      tape.watch([vol, strikes, expiries, forwards])
-      price_perturb_strikes = tff.black_scholes.option_price(
-          volatilities=vol,
-          strikes=strikes + 1e-6,
-          expiries=expiries,
-          forwards=forwards,
-          is_call_options=is_call,
-          is_normal_volatility=is_normal,
-          dtype=dtype)
-      grad_perturb_strikes = tape.gradient(
-          target=price_perturb_strikes,
-          sources=[vol, strikes, expiries, forwards])
-
-    grad_perturb_strikes = self.evaluate(grad_perturb_strikes)
+    grad_perturb_strikes = self.evaluate(
+        _grads(vol, strikes + 1e-6, expiries, forwards))
     self.assertAllClose(grad, grad_perturb_strikes, rtol=1e-4)
 
   @parameterized.named_parameters(

@@ -110,7 +110,7 @@ def common_shape(
         return output_shape
       output_shape = tf.shape(args[0])
       for arg in args[1:]:
-        output_shape = tf.broadcast_dynamic_shape(output_shape, tf.shape(arg))
+        output_shape = tf.broadcast_dynamic_shape(output_shape, arg.shape)
       return output_shape
 
 

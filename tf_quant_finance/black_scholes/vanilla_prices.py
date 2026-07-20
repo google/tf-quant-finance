@@ -177,7 +177,7 @@ def option_price(*,
       return discount_factors * undiscounted_calls
     undiscounted_forward = forwards - strikes
     undiscounted_puts = undiscounted_calls - undiscounted_forward
-    predicate = tf.broadcast_to(is_call_options, tf.shape(undiscounted_calls))
+    predicate = tf.broadcast_to(is_call_options, undiscounted_calls.shape)
     return discount_factors * tf.where(predicate, undiscounted_calls,
                                        undiscounted_puts)
 
@@ -600,7 +600,7 @@ def binary_price(*,
       return discount_factors * undiscounted_calls
 
     undiscounted_puts = 1 - undiscounted_calls
-    predicate = tf.broadcast_to(is_call_options, tf.shape(undiscounted_calls))
+    predicate = tf.broadcast_to(is_call_options, undiscounted_calls.shape)
     return discount_factors * tf.where(predicate, undiscounted_calls,
                                        undiscounted_puts)
 
@@ -759,7 +759,7 @@ def asset_or_nothing_price(*,
     if is_call_options is None:
       return discount_factors * undiscounted_calls
     undiscounted_puts = forwards - undiscounted_calls
-    predicate = tf.broadcast_to(is_call_options, tf.shape(undiscounted_calls))
+    predicate = tf.broadcast_to(is_call_options, undiscounted_calls.shape)
     return discount_factors * tf.where(predicate, undiscounted_calls,
                                        undiscounted_puts)
 

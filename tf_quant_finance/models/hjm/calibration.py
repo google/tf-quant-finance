@@ -482,8 +482,8 @@ def calibration_from_swaptions(
                          axis=-1)
       swap_rate = tf.gather_nd(swap_rate, indices)
       annuity = tf.gather_nd(annuity, indices)
-      swap_rate = tf.reshape(swap_rate, tf.shape(prices))
-      annuity = tf.reshape(annuity, tf.shape(prices))
+      swap_rate = tf.reshape(swap_rate, prices.shape)
+      annuity = tf.reshape(annuity, prices.shape)
       target_values = _price_to_normal_vol(prices, swap_rate, annuity)
     else:
       target_values = prices

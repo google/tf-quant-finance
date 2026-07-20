@@ -21,4 +21,4 @@ def default_relative_root_tolerance(dtype):
   """Returns the default relative root tolerance used for a TensorFlow dtype."""
   if dtype is None:
     dtype = tf.float64
-  return 4 * np.finfo(dtype(0)).eps
+  return 4 * np.finfo(dtype).eps

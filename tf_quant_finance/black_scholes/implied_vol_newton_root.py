@@ -356,7 +356,7 @@ def _make_black_lognormal_objective_and_vega_func(
     if is_call_options is not None:
       put_prices = implied_prices - norm_forwards + norm_strikes
       implied_prices = tf.where(
-          tf.broadcast_to(is_call_options, tf.shape(put_prices)),
+          tf.broadcast_to(is_call_options, put_prices.shape),
           implied_prices, put_prices)
     vega = norm_forwards * _pdf(d1) * sqrt_t / discount_factors
     return implied_prices - normalized_prices, vega
