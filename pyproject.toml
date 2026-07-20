@@ -17,6 +17,8 @@ dependencies = [
     "six>=1.17.0",
     "autograd>=1.9.1",
     "protobuf>=7.36.0rc1",
+    "tensorflow-probability>=0.25.0",
+    "jaxopt>=0.8.5",
 ]
 
 # Mirror of ~/devv/2026/rl-0dte/pyproject.toml: AMD ships ROCm as pip wheels on

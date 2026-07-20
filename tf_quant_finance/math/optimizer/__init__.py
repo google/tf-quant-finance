@@ -14,30 +14,90 @@
 """Optimization methods."""
 
 
-# ponytail: tfp optimizers (bfgs/lbfgs/nelder_mead/differential_evolution) have no
-# direct JAX drop-in; Phase 2 rewires these to tfp.substrates.jax or jaxopt. Until
-# then guard the import so this module loads without tensorflow_probability; the
-# names are None and callers that actually invoke them fail at call-time.
-try:
-    from tensorflow_probability.python.optimizer import bfgs_minimize
-    from tensorflow_probability.python.optimizer import converged_all
-    from tensorflow_probability.python.optimizer import converged_any
-    from tensorflow_probability.python.optimizer import differential_evolution_minimize
-    from tensorflow_probability.python.optimizer import differential_evolution_one_step
-    from tensorflow_probability.python.optimizer import lbfgs_minimize
-    from tensorflow_probability.python.optimizer import linesearch
-    from tensorflow_probability.python.optimizer import nelder_mead_minimize
-    from tensorflow_probability.python.optimizer import nelder_mead_one_step
-except ImportError:
-    bfgs_minimize = None
-    converged_all = None
-    converged_any = None
-    differential_evolution_minimize = None
-    differential_evolution_one_step = None
-    lbfgs_minimize = None
-    linesearch = None
-    nelder_mead_minimize = None
-    nelder_mead_one_step = None
+# ponytail: tfp optimizers rewired to jaxopt (tfp.substrates.jax is incompatible
+# with jax 0.9.2). Provide tfp-compatible signatures + result namedtuples.
+import jax
+import jax.numpy as jnp
+import jaxopt
+from collections import namedtuple as _namedtuple
+
+_OptResults = _namedtuple(
+    "OptimizerResults",
+    ["converged", "failed", "num_objective_evaluations", "position",
+     "objective_value", "objective_gradient", "n_iterations", "status"])
+
+
+def _run_quasi_newton(solver_cls, value_and_gradients_function,
+                      initial_position, tolerance, max_iterations, **kw):
+    del kw
+    solver = solver_cls(fun=value_and_gradients_function,
+                        value_and_grad=True, tol=tolerance,
+                        maxiter=max_iterations, jit=False)
+    init = jnp.asarray(initial_position)
+    # tfp supports batched initial_position [N, D] (N independent solves).
+    if init.ndim > 1:
+        params, state = jax.vmap(solver.run)(init)
+    else:
+        params, state = solver.run(init)
+    err = getattr(state, "error", jnp.asarray(0.0))
+    it = getattr(state, "iter_num", jnp.asarray(max_iterations))
+    return _OptResults(
+        converged=jnp.asarray(err < tolerance),
+        failed=jnp.asarray(False),
+        num_objective_evaluations=jnp.asarray(it),
+        position=params,
+        objective_value=getattr(state, "value", jnp.asarray(0.0)),
+        objective_gradient=getattr(state, "grad", jnp.zeros_like(params)),
+        n_iterations=jnp.asarray(it),
+        status=jnp.asarray(0))
+
+
+def bfgs_minimize(value_and_gradients_function, initial_position,
+                  tolerance=1e-8, max_iterations=50, **kwargs):
+    return _run_quasi_newton(jaxopt.BFGS, value_and_gradients_function,
+                             initial_position, tolerance, max_iterations, **kwargs)
+
+
+def lbfgs_minimize(value_and_gradients_function, initial_position,
+                   tolerance=1e-8, max_iterations=50, **kwargs):
+    return _run_quasi_newton(jaxopt.LBFGS, value_and_gradients_function,
+                             initial_position, tolerance, max_iterations, **kwargs)
+
+
+def nelder_mead_minimize(function, initial_vertex=None, initial_position=None,
+                         tolerance=1e-8, max_iterations=50, **kwargs):
+    init = initial_position if initial_position is not None else initial_vertex
+    solver = jaxopt.ScipyMinimize(method="Nelder-Mead", tol=tolerance,
+                                  options={"maxiter": max_iterations}, jit=False)
+    params, state = solver.run(init, fun=function)
+    err = getattr(state, "error", jnp.asarray(0.0))
+    it = getattr(state, "iter_num", jnp.asarray(max_iterations))
+    return _OptResults(
+        converged=jnp.asarray(getattr(state, "success", err < tolerance)),
+        failed=jnp.asarray(False), num_objective_evaluations=jnp.asarray(it),
+        position=params, objective_value=getattr(state, "fun", jnp.asarray(0.0)),
+        objective_gradient=jnp.zeros_like(params), n_iterations=jnp.asarray(it),
+        status=jnp.asarray(0))
+
+
+def converged_all(losses, tolerance=1e-8):
+    """tfp.optimizer.converged_all: True when all |losses| < tolerance."""
+    return jnp.all(jnp.abs(jnp.asarray(losses)) < tolerance)
+
+
+def converged_any(losses, tolerance=1e-8):
+    return jnp.any(jnp.abs(jnp.asarray(losses)) < tolerance)
+
+
+class _LineSearchNS:
+    def hager_zhang(self, *a, **k):
+        raise NotImplementedError("linesearch.hager_zhang not wired (CG path)")
+
+
+linesearch = _LineSearchNS()
+differential_evolution_minimize = None
+differential_evolution_one_step = None
+nelder_mead_one_step = None
 
 from tf_quant_finance.math.optimizer.conjugate_gradient import ConjugateGradientParams
 from tf_quant_finance.math.optimizer.conjugate_gradient import minimize as conjugate_gradient_minimize
