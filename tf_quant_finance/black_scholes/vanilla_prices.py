@@ -186,7 +186,7 @@ def option_price(*,
       d1 = tf.math.divide_no_nan((forwards - strikes), sqrt_var)
       undiscounted_calls = tf.where(
           sqrt_var > 0.0, (forwards - strikes) * _ncdf(d1) +
-          sqrt_var * tf.math.exp(-0.5 * d1**2) / np.sqrt(2 * np.pi),
+          sqrt_var * tf.math.exp(-0.5 * d1**2) / jnp.asarray(np.sqrt(2 * np.pi), dtype=sqrt_var.dtype),
           tf.math.maximum(forwards - strikes, 0.0))
 
     if is_call_options is None:
@@ -769,7 +769,7 @@ def asset_or_nothing_price(*,
       undiscounted_calls = tf.where(
           sqrt_var > 0.0,
           forwards * _ncdf(d1) +
-          sqrt_var * tf.math.exp(-0.5 * d1**2) / np.sqrt(2 * np.pi),
+          sqrt_var * tf.math.exp(-0.5 * d1**2) / jnp.asarray(np.sqrt(2 * np.pi), dtype=sqrt_var.dtype),
           tf.where(forwards > strikes, forwards, 0.))
 
     if is_call_options is None:
@@ -965,7 +965,9 @@ def swaption_price(*,
 
 
 def _ncdf(x):
-  return (tf.math.erf(x / _SQRT_2) + 1) / 2
+  # dtype-aware sqrt(2) to avoid promoting float32 inputs to float64.
+  sqrt2 = jnp.asarray(np.sqrt(2.0), dtype=x.dtype)
+  return (tf.math.erf(x / sqrt2) + 1) / 2
 
 
 _SQRT_2 = np.sqrt(2.0, dtype=np.float64)
