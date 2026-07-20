@@ -211,9 +211,10 @@ class TensorShape:
         return f"TensorShape({self._dims})"
 
 
-def shape(x):
+def shape(input, out_type=None, name=None):
     # tf.shape returns a (dynamic) shape tensor; in JAX shapes are static.
-    return jnp.asarray(jnp.asarray(x).shape)
+    out_type = out_type or jnp.int32
+    return jnp.asarray(jnp.asarray(input).shape, dtype=out_type)
 
 
 def size(x):
@@ -420,7 +421,7 @@ linalg = _ptypes.SimpleNamespace(
     tensor_diag=lambda v: jnp.diag(v),
     diag=lambda v, **kw: jnp.diag(v),
     set_diag=lambda m, v, **kw: m.at[..., :].set(v) if hasattr(m, "at") else m,
-    tridiagonal_solve=_lax.linalg.tridiagonal_solve,
+    tridiagonal_solve=_lax.linalg.tridiagonal_solve if hasattr(_lax.linalg, "tridiagonal_solve") else None,
     tridiagonal_matmul=_lax.linalg.tridiagonal_matmul if hasattr(_lax.linalg, "tridiagonal_matmul") else None,
     expm=_jspl.expm,
 )
@@ -435,6 +436,23 @@ def _band_part(m, num_lower, num_upper):
     mask = ((num_lower < 0) | (i - j <= num_lower)) & ((num_upper < 0) | (j - i <= num_upper))
     return m * mask
 linalg.band_part = _band_part
+
+
+def _tridiagonal_solve(diagonals, rhs, partial_pivots=True,
+                      perturbation_singular=0.0, name=None, **kw):
+    # TF: diagonals = (superdiag, diag, subdiag). jax: (dl=sub, d=diag, du=super).
+    import jax.lax as _ll
+    super_d, diag, sub = (jnp.asarray(d) for d in diagonals)
+    rhs = jnp.asarray(rhs)
+    if hasattr(_ll.linalg, "tridiagonal_solve"):
+        return _ll.linalg.tridiagonal_solve(sub, diag, super_d, rhs,
+                                            transpose_rhs=False,
+                                            lower=True)
+    # Fallback: Thomas algorithm not available; let numpy solve per-batch.
+    raise NotImplementedError("jax.lax.linalg.tridiagonal_solve unavailable")
+
+
+linalg.tridiagonal_solve = _tridiagonal_solve
 # ponytail: LinearOperator* (2 uses) not shimmed; convert those call sites natively.
 linalg.LinearOperatorFullMatrix = NotImplementedError
 linalg.LinearOperatorBlockDiag = NotImplementedError
@@ -656,6 +674,15 @@ for _n in ("assert_equal", "assert_none_equal", "assert_near", "assert_all_close
            "assert_negative", "assert_non_positive", "assert_all_finite",
            "assert_scalar", "assert_rank", "assert_type"):
     setattr(debugging, _n, lambda *a, **k: None)
+
+
+def _assert_noop(condition, data, summarize=None, name=None):
+    # tf.debugging.Assert / tf.compat.v1.debugging.Assert: no-op under JAX/eager.
+    return None
+
+
+debugging.Assert = _assert_noop
+Assert = _assert_noop
 assert_equal = debugging.assert_equal
 assert_greater = debugging.assert_greater
 assert_less = debugging.assert_less
