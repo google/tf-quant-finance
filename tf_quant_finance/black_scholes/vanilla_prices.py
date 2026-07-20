@@ -14,8 +14,24 @@
 """Black Scholes prices of a batch of European options."""
 
 import numpy as np
+import jax
+import jax.numpy as jnp
 from tf_quant_finance import _tf as tf
 from tf_quant_finance import types
+
+
+@jax.custom_jvp
+def _safe_sqrt(x):
+  """sqrt with gradient 0 at 0 (avoids 0*inf=nan in differentiable pricing)."""
+  return jnp.sqrt(x)
+
+
+@_safe_sqrt.defjvp
+def _safe_sqrt_jvp(primals, tangents):
+  (x,), (tx,) = primals, tangents
+  root = jnp.sqrt(x)
+  safe_root = jnp.where(root > 0, root, 1.0)  # avoid 0/0=nan in the tangent
+  return root, jnp.where(root > 0, 0.5 * tx / safe_root, 0.0)
 __all__ = [
     'option_price',
     'barrier_price',
@@ -158,7 +174,7 @@ def option_price(*,
       spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
       forwards = spots * tf.exp((discount_rates - dividend_rates) * expiries)
 
-    sqrt_var = volatilities * tf.math.sqrt(expiries)
+    sqrt_var = volatilities * _safe_sqrt(expiries)
     if not is_normal_volatility:  # lognormal model
       d1 = tf.math.divide_no_nan(tf.math.log(forwards / strikes),
                                  sqrt_var) + sqrt_var / 2
@@ -387,7 +403,7 @@ def barrier_price(*,
                              dtype=dtype)
 
     # Calculate params for integrals
-    sqrt_var = volatilities * tf.math.sqrt(expiries)
+    sqrt_var = volatilities * _safe_sqrt(expiries)
     mu = (discount_rates - dividend_rates) - ((volatilities**2) / 2)
     lamda = 1 + (mu / (volatilities**2))
     x = (tf.math.log(spots / strikes) / (sqrt_var)) + (lamda * sqrt_var)
@@ -583,7 +599,7 @@ def binary_price(*,
       spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
       forwards = spots / discount_factors
 
-    sqrt_var = volatilities * tf.math.sqrt(expiries)
+    sqrt_var = volatilities * _safe_sqrt(expiries)
 
     if is_normal_volatility:  # normal model
       d2 = (forwards - strikes) / sqrt_var
@@ -741,7 +757,7 @@ def asset_or_nothing_price(*,
       spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
       forwards = spots * tf.exp((discount_rates - dividend_rates) * expiries)
 
-    sqrt_var = volatilities * tf.math.sqrt(expiries)
+    sqrt_var = volatilities * _safe_sqrt(expiries)
 
     if not is_normal_volatility:  # lognormal model
       d1 = tf.math.divide_no_nan(tf.math.log(forwards / strikes),

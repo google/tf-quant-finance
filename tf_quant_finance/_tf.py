@@ -389,7 +389,15 @@ math.sigmoid = jax.nn.sigmoid
 math.cumprod = jnp.cumprod
 math.cumsum = jnp.cumsum
 math.top_k = lambda a, k=1, sorted=True: jnp.argsort(a)[-k:]  # best-effort
-math.divide_no_nan = lambda x, y: jnp.where(y != 0, x / y, 0.0)
+def _divide_no_nan(x, y, name=None):
+    # ponytail: safe denom avoids JAX '0*inf=nan' in the masked-division VJP.
+    y = jnp.asarray(y)
+    safe_y = jnp.where(y != 0, y, 1.0)
+    return jnp.where(y != 0, x / safe_y, 0.0)
+
+
+math.divide_no_nan = _divide_no_nan
+divide_no_nan = _divide_no_nan
 math.segment_sum = lambda data, segments, **kw: _jops.segment_sum(data, segments)
 math.segment_prod = lambda data, segments, **kw: _jops.segment_prod(data, segments)
 math.nextafter = _np_nextafter = np.nextafter

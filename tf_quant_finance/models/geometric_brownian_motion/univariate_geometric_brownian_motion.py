@@ -722,5 +722,5 @@ def _sqrt_no_nan_jvp(primals, tangents):
   (x,), (tx,) = primals, tangents
   root = jnp.sqrt(x)
   # Gradient is 0.5 * upstream / root, but 0 where root == 0 (avoid inf/NaN).
-  grad_tangent = jnp.where(root > 0, 0.5 * tx / root, 0.0)
+  safe_root = jnp.where(root > 0, root, 1.0); grad_tangent = jnp.where(root > 0, 0.5 * tx / safe_root, 0.0)
   return root, grad_tangent
