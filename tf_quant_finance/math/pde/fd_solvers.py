@@ -634,7 +634,7 @@ def _solve(
     name=None):
   """Common code for solve_backward and solve_forward."""
   if (num_steps is None) == (time_step is None):
-    raise ValueError('Exactly one of num_steps or time_step'
+    raise tf.errors.InvalidArgumentError('Exactly one of num_steps or time_step'
                      ' should be supplied.')
   coord_grid = [
       tf.convert_to_tensor(dim_grid, dtype=values_grid.dtype)

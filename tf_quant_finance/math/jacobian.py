@@ -36,7 +36,7 @@ def jacobian(func, x, unconnected_gradients=None, parallel_iterations=None,
   """
   del unconnected_gradients, parallel_iterations, experimental_use_pfor, name
   if not callable(func):
-    raise ValueError("`func` should be a callable.")
+    raise tf.errors.InvalidArgumentError("`func` should be a callable.")
   x, is_batch = _prepare_args(x)
   jac = jax.vmap(jax.jacfwd(func))(x)
   return jac if is_batch else jac[0]

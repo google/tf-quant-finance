@@ -146,7 +146,7 @@ def tensor_repr(swap_data, dtype=None):
   pay_leg = swap_data["pay_leg"]
   receive_leg = swap_data["receive_leg"]
   if pay_leg.currency != receive_leg.currency:
-    raise ValueError("Pay and receive legs should have the same currency")
+    raise tf.errors.InvalidArgumentError("Pay and receive legs should have the same currency")
   if isinstance(pay_leg, coupon_specs.FixedCouponSpecs):
     res["pay_leg"] = fixed_leg_tensor_repr(
         pay_leg, res["config"], dtype)
@@ -265,14 +265,14 @@ def update_leg(
   """Adds new leg info to the current leg."""
   if isinstance(current_leg, coupon_specs.FixedCouponSpecs):
     if not isinstance(leg, coupon_specs.FixedCouponSpecs):
-      raise ValueError("Both `current_leg` and `leg` should beof the same "
+      raise tf.errors.InvalidArgumentError("Both `current_leg` and `leg` should beof the same "
                        "fixed or float type.")
     current_leg.notional_amount += leg.notional_amount
     current_leg.fixed_rate += leg.fixed_rate
     current_leg.settlement_days += leg.settlement_days
   else:
     if not isinstance(leg, coupon_specs.FloatCouponSpecs):
-      raise ValueError("Both `current_leg` and `leg` should beof the same "
+      raise tf.errors.InvalidArgumentError("Both `current_leg` and `leg` should beof the same "
                        "fixed or float type.")
     current_leg.notional_amount += leg.notional_amount
     update_rate_index(current_leg.floating_rate_type, leg.floating_rate_type)
@@ -287,7 +287,7 @@ def update_leg_v2(
   """Adds new leg info to the current leg."""
   if isinstance(current_leg, coupon_specs.FixedCouponSpecs):
     if not isinstance(leg, coupon_specs.FixedCouponSpecs):
-      raise ValueError("Both `current_leg` and `leg` should beof the same "
+      raise tf.errors.InvalidArgumentError("Both `current_leg` and `leg` should beof the same "
                        "fixed or float type.")
     current_leg.currency += leg.currency
     current_leg.notional_amount += leg.notional_amount
@@ -298,7 +298,7 @@ def update_leg_v2(
         current_leg.coupon_frequency[1] + leg.coupon_frequency[1])
   else:
     if not isinstance(leg, coupon_specs.FloatCouponSpecs):
-      raise ValueError("Both `current_leg` and `leg` should beof the same "
+      raise tf.errors.InvalidArgumentError("Both `current_leg` and `leg` should beof the same "
                        "fixed or float type.")
     current_leg.currency += leg.currency
     current_leg.notional_amount += leg.notional_amount
@@ -318,7 +318,7 @@ def update_rate_index(
     index: rate_indices.RateIndex):
   """Creates a dictionary of grouped protos."""
   if current_index.type != index.type:
-    raise ValueError(f"Can not join {current_index.type} and {index.type}")
+    raise tf.errors.InvalidArgumentError(f"Can not join {current_index.type} and {index.type}")
   current_index.name = current_index.name + index.name
   current_index.source = current_index.source + index.source
 

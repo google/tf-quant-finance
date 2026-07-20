@@ -285,7 +285,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       if times_grid is None:
         if time_step is None:
           if num_time_steps is None:
-            raise ValueError(
+            raise tf.errors.InvalidArgumentError(
                 'When `times_grid` is not supplied, either `num_time_steps` '
                 'or `time_step` should be defined.')
           else:
@@ -294,7 +294,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
             time_step = times[-1] / tf.cast(num_time_steps, dtype=self._dtype)
         else:
           if num_time_steps is not None:
-            raise ValueError(
+            raise tf.errors.InvalidArgumentError(
                 'Both `time_step` and `num_time_steps` can not be `None` '
                 'simultaneously when calling sample_paths of HestonModel.')
           time_step = tf.convert_to_tensor(time_step, dtype=self._dtype,
@@ -348,7 +348,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       steps_num = tf.shape(dt)[-1]
       # TODO(b/148133811): Re-enable Sobol test when TF 2.2 is released.
       if random_type == random.RandomType.SOBOL:
-        raise ValueError('Sobol sequence for Euler sampling is temporarily '
+        raise tf.errors.InvalidArgumentError('Sobol sequence for Euler sampling is temporarily '
                          'unsupported when `time_step` or `times` have a '
                          'non-constant value')
 
@@ -495,7 +495,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
     for param_name in ['_mean_reversion', '_theta']:
       param = getattr(self, param_name)
       if not isinstance(param, tf.Tensor):
-        raise ValueError(f'Only constant values supported for {param_name}')
+        raise tf.errors.InvalidArgumentError(f'Only constant values supported for {param_name}')
     name = name or (self._name + '_expected_total_variance')
     with tf.name_scope(name):
       future_times = tf.convert_to_tensor(

@@ -143,7 +143,7 @@ class JoinedItoProcess(generic_ito_process.GenericItoProcess):
       dim = 0  # Dimension of the process
       for process in processes:
         if not isinstance(process, ito_process.ItoProcess):
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               "All input process of JoinedItoProcess must be instances "
               "of the ItoProcess class.")
         self._processes.append(process)
@@ -152,7 +152,7 @@ class JoinedItoProcess(generic_ito_process.GenericItoProcess):
         if dtype is None:
           dtype = process.dtype()
         elif dtype != process.dtype():
-          raise ValueError("All processes should have the same `dtype`")
+          raise tf.errors.InvalidArgumentError("All processes should have the same `dtype`")
       self._corr_structure = [
           corr if callable(corr) else tf.convert_to_tensor(
               corr, dtype=dtype, name="corr")
@@ -256,7 +256,7 @@ class JoinedItoProcess(generic_ito_process.GenericItoProcess):
       ValueError: If `time_step` is not supplied.
     """
     if time_step is None:
-      raise ValueError("`time_step` has to be supplied for JoinedItoProcess "
+      raise tf.errors.InvalidArgumentError("`time_step` has to be supplied for JoinedItoProcess "
                        "`sample_paths` method.")
     name = name or self._name + "sample_paths"
     with tf.name_scope(name):

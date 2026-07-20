@@ -60,7 +60,7 @@ def pad_tensors(tensors, pad_values=None, dtype=None, name=None):
     ValueError: If input is not an instance of a list or a tuple.
   """
   if not isinstance(tensors, (tuple, list)):
-    raise ValueError(
+    raise tf.errors.InvalidArgumentError(
         f"`tensors` should be a list or a tuple but have type {type(tensors)}")
   if not tensors:
     return []

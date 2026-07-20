@@ -506,28 +506,28 @@ def _perform_static_validation(bond_cashflows, bond_cashflow_times,
                                present_values, pv_settle_times):
   """Performs static validation on the arguments."""
   if len(bond_cashflows) != len(bond_cashflow_times):
-    raise ValueError(
+    raise tf.errors.InvalidArgumentError(
         'Cashflow times and bond_cashflows must be of the same length.'
         'bond_cashflows are of size'
         ' {} and times of size {}'.format(
             len(bond_cashflows), len(bond_cashflow_times)))
 
   if len(bond_cashflows) != len(present_values):
-    raise ValueError(
+    raise tf.errors.InvalidArgumentError(
         'Present values and bond_cashflows must be of the same length.'
         'bond_cashflows are of size'
         ' {} and PVs of size {}'.format(
             len(bond_cashflows), len(present_values)))
 
   if len(present_values) != len(pv_settle_times):
-    raise ValueError(
+    raise tf.errors.InvalidArgumentError(
         'Present value settlement times and present values must be of'
         'the same length. Settlement times are of size'
         ' {} and PVs of size {}'.format(
             len(pv_settle_times), len(present_values)))
 
   if len(bond_cashflows) < 2:
-    raise ValueError(
+    raise tf.errors.InvalidArgumentError(
         'At least two bonds must be supplied to calibrate the curve.'
         'Found {}.'.format(len(bond_cashflows)))
 

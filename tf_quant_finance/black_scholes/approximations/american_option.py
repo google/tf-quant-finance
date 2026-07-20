@@ -152,9 +152,9 @@ def adesi_whaley(
       (a) If both `forwards` and `spots` are supplied or if neither is supplied.
   """
   if (spots is None) == (forwards is None):
-    raise ValueError('Either spots or forwards must be supplied but not both.')
+    raise tf.errors.InvalidArgumentError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
-    raise ValueError('At most one of discount_rates and discount_factors may '
+    raise tf.errors.InvalidArgumentError('At most one of discount_rates and discount_factors may '
                      'be supplied')
   with tf.name_scope(name or 'adesi_whaley'):
     volatilities = tf.convert_to_tensor(
@@ -453,9 +453,9 @@ def bjerksund_stensland(*,
     ValueError: If both `discount_rates` and `discount_factors` is supplied.
   """
   if (spots is None) == (forwards is None):
-    raise ValueError('Either spots or forwards must be supplied but not both.')
+    raise tf.errors.InvalidArgumentError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
-    raise ValueError('At most one of discount_rates and discount_factors may '
+    raise tf.errors.InvalidArgumentError('At most one of discount_rates and discount_factors may '
                      'be supplied')
   with tf.name_scope(name or 'option_price'):
     strikes = tf.convert_to_tensor(strikes, dtype=dtype, name='strikes')

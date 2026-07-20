@@ -99,7 +99,7 @@ class RateCurve(pmd.RateCurve):
         interpolator = constant_fwd
         self._interpolation_method = _InterpolationMethod.CONSTANT_FORWARD
       else:
-        raise ValueError(f"Unknown interpolation method {interpolator}.")
+        raise tf.errors.InvalidArgumentError(f"Unknown interpolation method {interpolator}.")
       self._dates = dateslib.convert_to_date_tensor(maturity_dates)
       self._valuation_date = dateslib.convert_to_date_tensor(
           valuation_date)
@@ -146,7 +146,7 @@ class RateCurve(pmd.RateCurve):
     values_shape = list(values.shape)
     nodes_shape = list(self.discount_factor_nodes.shape)
     if values_shape != nodes_shape:
-      raise ValueError("New values should have shape {0} but are of "
+      raise tf.errors.InvalidArgumentError("New values should have shape {0} but are of "
                        "shape {1}".format(nodes_shape, values_shape))
     self._discount_factor_nodes = values
 
@@ -157,7 +157,7 @@ class RateCurve(pmd.RateCurve):
     """Returns interpolated rates at `interpolation_dates`."""
 
     if interpolation_dates is None and interpolation_times is None:
-      raise ValueError("Either interpolation_dates or interpolation times "
+      raise tf.errors.InvalidArgumentError("Either interpolation_dates or interpolation times "
                        "must be supplied.")
     if interpolation_dates is not None:
       interpolation_dates = dateslib.convert_to_date_tensor(
@@ -184,7 +184,7 @@ class RateCurve(pmd.RateCurve):
     """Returns discount factors at `interpolation_dates`."""
 
     if interpolation_dates is None and interpolation_times is None:
-      raise ValueError("Either interpolation_dates or interpolation times "
+      raise tf.errors.InvalidArgumentError("Either interpolation_dates or interpolation times "
                        "must be supplied.")
     if interpolation_dates is not None:
       interpolation_dates = dateslib.convert_to_date_tensor(
@@ -237,10 +237,10 @@ class RateCurve(pmd.RateCurve):
       compounded forward rate.
     """
     if start_date is None and start_time is None:
-      raise ValueError("Either start_date or start_times "
+      raise tf.errors.InvalidArgumentError("Either start_date or start_times "
                        "must be supplied.")
     if maturity_date is None and maturity_time is None:
-      raise ValueError("Either maturity_date or maturity_time must be "
+      raise tf.errors.InvalidArgumentError("Either maturity_date or maturity_time must be "
                        "supplied.")
 
     if start_date is not None and maturity_date is not None:

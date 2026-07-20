@@ -208,7 +208,7 @@ def sample(dim: int,
        arXiv:1706.02808_, 2017. https://arxiv.org/abs/1706.02808
   """
   if (num_results is None) == (sequence_indices is None):
-    raise ValueError('Either `num_results` or `sequence_indices` must be'
+    raise tf.errors.InvalidArgumentError('Either `num_results` or `sequence_indices` must be'
                      ' specified but not both.')
   dtype = dtype or tf.float32
 

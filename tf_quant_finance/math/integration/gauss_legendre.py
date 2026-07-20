@@ -63,7 +63,7 @@ def gauss_legendre(func: Callable[[types.FloatTensor], types.FloatTensor],
     upper = tf.convert_to_tensor(upper, dtype=dtype, name='upper')
     roots = gauss_constants.legendre_roots.get(num_points, None)
     if roots is None:
-      raise ValueError(f'Unsupported value for `num_points`: {num_points}')
+      raise tf.errors.InvalidArgumentError(f'Unsupported value for `num_points`: {num_points}')
     coefficients = gauss_constants.legendre_weights
     lower = tf.expand_dims(lower, -1)
     upper = tf.expand_dims(upper, -1)

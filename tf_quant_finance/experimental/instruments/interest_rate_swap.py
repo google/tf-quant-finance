@@ -281,7 +281,7 @@ class InterestRateSwap:
           self._start_date, self._maturity_date, leg, dtype=self._dtype)
       self._floating_leg = leg_
     else:
-      raise ValueError('Unreconized leg type.')
+      raise tf.errors.InvalidArgumentError('Unreconized leg type.')
 
     return leg_
 

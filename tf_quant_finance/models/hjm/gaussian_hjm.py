@@ -297,7 +297,7 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
     with tf.name_scope(name):
       times = tf.convert_to_tensor(times, self._dtype)
       if len(times.shape) != 1:
-        raise ValueError('`times` should be a rank 1 Tensor. '
+        raise tf.errors.InvalidArgumentError('`times` should be a rank 1 Tensor. '
                          'Rank is {} instead.'.format(len(times.shape)))
       return self._sample_paths(times, time_step, num_time_steps, num_samples,
                                 random_type, skip, seed)

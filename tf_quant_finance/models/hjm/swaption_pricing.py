@@ -274,7 +274,7 @@ def price(
         is_payer_swaption, dtype=tf.bool, name='is_payer_swaption')
 
     if len(expiries.shape) < len(fixed_leg_payment_times.shape) - 1:
-      raise ValueError('Swaption expiries not specified for all swaptions '
+      raise tf.errors.InvalidArgumentError('Swaption expiries not specified for all swaptions '
                        'in the batch. Expected rank {} but received {}.'.format(
                            len(fixed_leg_payment_times.shape) - 1,
                            len(expiries.shape)))
@@ -301,7 +301,7 @@ def price(
 
       # TODO(b/192294347): Enable pricing using batch of HJM models.
       if reference_rate_fn(tf.constant([0.0], dtype=dtype)).shape.rank > 1:
-        raise ValueError('Pricing swaptions using a batch of HJM models with '
+        raise tf.errors.InvalidArgumentError('Pricing swaptions using a batch of HJM models with '
                          'finite differences is not currently supported.')
       instrument_batch_shape = list(expiries.shape)[:-1] or [1]
       return _european_swaption_fd(
@@ -335,7 +335,7 @@ def price(
           is_payer_swaption, times, time_step, num_time_steps, curve_times,
           num_samples, random_type, skip, seed, dtype, name + '_mc')
     else:
-      raise ValueError('Swaption Valuation using {} is not supported'.format(
+      raise tf.errors.InvalidArgumentError('Swaption Valuation using {} is not supported'.format(
           str(valuation_method)))
 
 
@@ -347,7 +347,7 @@ def _european_swaption_mc(model, expiries,
   """Price European swaptions using Monte-Carlo."""
   with tf.name_scope(name):
     if (times is None) and (time_step is None) and (num_time_steps is None):
-      raise ValueError(
+      raise tf.errors.InvalidArgumentError(
           'One of `times`, `time_step` or `num_time_steps` must be '
           'provided for simulation based swaption valuation.')
 

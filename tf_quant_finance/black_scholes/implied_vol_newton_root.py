@@ -136,7 +136,7 @@ def implied_vol(*,
       supplied.
   """
   if (spots is None) == (forwards is None):
-    raise ValueError('Either spots or forwards must be supplied but not both.')
+    raise tf.errors.InvalidArgumentError('Either spots or forwards must be supplied but not both.')
 
   with tf.compat.v1.name_scope(
       name,

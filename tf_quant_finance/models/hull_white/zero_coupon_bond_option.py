@@ -188,7 +188,7 @@ def bond_option_price(
           is_call_options)
 
     if time_step is None:
-      raise ValueError('`time_step` must be provided for simulation '
+      raise tf.errors.InvalidArgumentError('`time_step` must be provided for simulation '
                        'based bond option valuation.')
 
     def sample_discount_curve_paths_fn(times, curve_times, num_samples):
@@ -269,7 +269,7 @@ def _bond_option_variance(model, option_expiry, bond_maturity):
   """
   # pylint: disable=protected-access
   if model._sample_with_generic:
-    raise ValueError('The paramerization of `mean_reversion` and/or '
+    raise tf.errors.InvalidArgumentError('The paramerization of `mean_reversion` and/or '
                      '`volatility` does not support analytic computation '
                      'of bond option variance.')
   mean_reversion = model.mean_reversion(option_expiry)

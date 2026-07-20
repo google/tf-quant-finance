@@ -183,7 +183,7 @@ def sample(
   name = name or 'milstein_sample'
   with tf.name_scope(name):
     if stratonovich_order <= 0:
-      raise ValueError('`stratonovich_order` must be a positive integer.')
+      raise tf.errors.InvalidArgumentError('`stratonovich_order` must be a positive integer.')
     times = tf.convert_to_tensor(times, dtype=dtype)
     if dtype is None:
       dtype = times.dtype
@@ -194,11 +194,11 @@ def sample(
     num_requested_times = tff_utils.get_shape(times)[0]
     # Create a time grid for the Milstein scheme.
     if num_time_steps is not None and time_step is not None:
-      raise ValueError('Only one of either `num_time_steps` or `time_step` '
+      raise tf.errors.InvalidArgumentError('Only one of either `num_time_steps` or `time_step` '
                        'should be defined but not both')
     if time_step is None:
       if num_time_steps is None:
-        raise ValueError('Either `num_time_steps` or `time_step` should be '
+        raise tf.errors.InvalidArgumentError('Either `num_time_steps` or `time_step` should be '
                          'defined.')
       num_time_steps = tf.convert_to_tensor(
           num_time_steps, dtype=tf.int32, name='num_time_steps')

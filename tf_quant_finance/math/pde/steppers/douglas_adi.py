@@ -149,7 +149,7 @@ def douglas_adi_scheme(theta):
   """
 
   if theta < 0 or theta > 1:
-    raise ValueError('Theta should be in the interval [0, 1].')
+    raise tf.errors.InvalidArgumentError('Theta should be in the interval [0, 1].')
 
   def _marching_scheme(
       value_grid, t1, t2, equation_params_fn, append_boundaries_fn, n_dims,
@@ -324,7 +324,7 @@ def _get_permutation(tensor, n_dims, active_dim):
   is "3", and swap it with the last dimension "4".
   """
   if not tensor.shape:
-    raise ValueError("Tensor's rank should be static")
+    raise tf.errors.InvalidArgumentError("Tensor's rank should be static")
   rank = len(tensor.shape)
   batch_rank = rank - n_dims
   if active_dim == n_dims - 1:

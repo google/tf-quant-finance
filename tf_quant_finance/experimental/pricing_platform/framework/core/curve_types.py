@@ -27,7 +27,7 @@ def _init_currency(
     try:
       return getattr(currencies.Currency, currency)
     except KeyError:
-      raise ValueError(f"{currency} is not a valid currency")
+      raise tf.errors.InvalidArgumentError(f"{currency} is not a valid currency")
   return currency
 
 

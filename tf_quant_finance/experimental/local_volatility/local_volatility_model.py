@@ -437,7 +437,7 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
     self._precompute_iv = precompute_iv
     if precompute_iv:
       if (times_grid is None or spot_grid is None):
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             'When `precompute_iv` is True, both `times_grid` and `spot_grid` '
             'must be supplied')
       self._times_grid = times_grid
@@ -517,7 +517,7 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
       if self.precompute_iv():
         if (time_step is not None or num_time_steps is not None or
             times_grid is not None):
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               '`time_step`, `num_time_steps`, or `times_grid` cannot be used'
               'with the interpolated LVM')
         times_grid = self._times_grid
@@ -609,7 +609,7 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
     """
     name = name or 'from_market_data'
     if precompute_iv and (times_grid is None or spot_grid is None):
-      raise ValueError(
+      raise tf.errors.InvalidArgumentError(
           'When `precompute_iv` is True, both `times_grid` and `spot_grid` must'
           ' be supplied')
     with tf.name_scope(name):
@@ -761,7 +761,7 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
     """
     name = name or 'from_volatility_surface'
     if precompute_iv and (times_grid is None or spot_grid is None):
-      raise ValueError(
+      raise tf.errors.InvalidArgumentError(
           'When `precompute_iv` is True, both `times_grid` and `spot_grid` must'
           ' be supplied')
     with tf.name_scope(name):

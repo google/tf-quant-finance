@@ -597,7 +597,7 @@ def _leverage_function_using_pde(*, risk_free_rate, dividend_yield, lv_model,
 
   """
   if variance_model.dim() > 1:
-    raise ValueError("The default model of Leverage function doesn\'t support "
+    raise tf.errors.InvalidArgumentError("The default model of Leverage function doesn\'t support "
                      "the variance process with more than 1 factor.")
 
   pde_grid_tol = _machine_eps(dtype)

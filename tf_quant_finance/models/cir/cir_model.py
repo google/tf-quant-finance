@@ -211,7 +211,7 @@ class CirModel(generic_ito_process.GenericItoProcess):
       if random_type is None:
         random_type = random.RandomType.PSEUDO
       if random_type == random.RandomType.STATELESS and seed is None:
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             "`seed` equal to None is not supported with STATELESS random type.")
 
       return self._sample_paths(
@@ -337,4 +337,4 @@ class CirModel(generic_ito_process.GenericItoProcess):
       seed_fn = lambda seed, _: seed
       return tf.random.poisson, tf.random.gamma, seed_fn, seed_fn
     else:
-      raise ValueError("Only STATELESS and PSEUDO random types are supported.")
+      raise tf.errors.InvalidArgumentError("Only STATELESS and PSEUDO random types are supported.")

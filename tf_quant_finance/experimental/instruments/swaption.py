@@ -172,7 +172,7 @@ class Swaption:
                                                   forward_swap_rate,
                                                   strike, expiry_time)
       else:
-        raise ValueError('Unsupported model.')
+        raise tf.errors.InvalidArgumentError('Unsupported model.')
 
       return self._swap.notional[-1] * swap_annuity * option_value
 

@@ -83,4 +83,4 @@ def integrate(
     elif method == IntegrationMethod.GAUSS_LEGENDRE:
       return gauss_legendre(func, lower, upper, dtype=dtype, **kwargs)
     else:
-      raise ValueError('Unknown method: %s.' % method)
+      raise tf.errors.InvalidArgumentError('Unknown method: %s.' % method)

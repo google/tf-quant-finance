@@ -70,13 +70,13 @@ def arrays_all_close(test_obj, a, b, atol, msg=None):
   atol = convert_to_ndarray(test_obj, atol)
   # Check the shapes are the same.
   if a.shape != b.shape:
-    raise ValueError("Mismatched shapes a.shape() = {}".format(a.shape) +
+    raise tf.errors.InvalidArgumentError("Mismatched shapes a.shape() = {}".format(a.shape) +
                      ", b.shape= {}".format(b.shape) +
                      ", atol.shape = {}".format(atol.shape) +
                      ". ({}).".format(msg))
   abs_diff = np.abs(a - b)
   if np.any(abs_diff >= atol):
-    raise ValueError("Expected and actual values differ by more than the " +
+    raise tf.errors.InvalidArgumentError("Expected and actual values differ by more than the " +
                      "tolerance.\n a = {}".format(a) +
                      "\n b = {}".format(b) +
                      "\n abs_diff = {}".format(abs_diff) +

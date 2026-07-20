@@ -254,13 +254,13 @@ def sample(
     num_requested_times = tff_utils.get_shape(times)[0]
     # Create a time grid for the Euler scheme.
     if num_time_steps is not None and time_step is not None:
-      raise ValueError(
+      raise tf.errors.InvalidArgumentError(
           'When `times_grid` is not supplied only one of either '
           '`num_time_steps` or `time_step` should be defined but not both.')
     if times_grid is None:
       if time_step is None:
         if num_time_steps is None:
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               'When `times_grid` is not supplied, either `num_time_steps` '
               'or `time_step` should be defined.')
         num_time_steps = tf.convert_to_tensor(
@@ -298,7 +298,7 @@ def sample(
       num_samples = tf.shape(normal_draws)[-2]
       draws_dim = normal_draws.shape[-1]
       if dim != draws_dim:
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             '`dim` should be equal to `normal_draws.shape[2]` but are '
             '{0} and {1} respectively'.format(dim, draws_dim))
       if validate_args:

@@ -175,11 +175,11 @@ def multivariate_normal(sample_shape,
   random_type = RandomType.PSEUDO if random_type is None else random_type
   # Convert sample_shape to a list
   if mean is None and covariance_matrix is None and scale_matrix is None:
-    raise ValueError('At least one of mean, covariance_matrix or scale_matrix'
+    raise tf.errors.InvalidArgumentError('At least one of mean, covariance_matrix or scale_matrix'
                      ' must be specified.')
 
   if covariance_matrix is not None and scale_matrix is not None:
-    raise ValueError('Only one of covariance matrix or scale matrix'
+    raise tf.errors.InvalidArgumentError('Only one of covariance matrix or scale matrix'
                      ' must be specified')
 
   name = name or 'multivariate_normal'
@@ -263,7 +263,7 @@ def _mvnormal_pseudo(sample_shape,
                                seed=seed)
   else:
     if seed is None:
-      raise ValueError('`seed` should be specified if the `random_type` is '
+      raise tf.errors.InvalidArgumentError('`seed` should be specified if the `random_type` is '
                        '`STATELESS` or `STATELESS_ANTITHETIC`')
     samples = tf.random.stateless_normal(
         shape=output_shape, dtype=dtype, seed=seed, alg='philox')
@@ -382,7 +382,7 @@ def _mvnormal_quasi(sample_shape,
     # construction time.
     dim = tf.get_static_value(dim)
     if dim is None:
-      raise ValueError('For Sobol sequences, dimension should be known at graph'
+      raise tf.errors.InvalidArgumentError('For Sobol sequences, dimension should be known at graph'
                        ' construction time.')
     # Shape [num_samples, dim] of the Sobol samples
     low_discrepancy_seq = sobol.sample(

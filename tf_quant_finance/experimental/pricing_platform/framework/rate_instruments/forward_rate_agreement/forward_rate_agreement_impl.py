@@ -237,7 +237,7 @@ class ForwardRateAgreement(instrument.Instrument):
       if rate_index_curves is None:
         rate_index_curves = []
         if len(self._currency) != len(self._rate_index):
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               "When rate_index_curves` is not supplied, number of currencies "
               "and rate indices should be the same `but it is {0} and "
               "{1}".format(len(self._currency), len(self._rate_index)))

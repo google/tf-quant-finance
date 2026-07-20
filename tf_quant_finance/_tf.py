@@ -549,7 +549,7 @@ def map_fn(f, elems, dtype=None, **kw):
     return jax.vmap(f)(elems)
 
 
-def vectorized_map(f, xs):
+def vectorized_map(f, xs, fallback_to_while_loop=True, **kw):
     return jax.vmap(f)(xs)
 
 
@@ -663,17 +663,50 @@ test_util = _ptypes.SimpleNamespace(
 # ---------------------------------------------------------------------------
 # debugging: assertions are no-ops under JAX (or raise eagerly on static vals)
 # ---------------------------------------------------------------------------
-debugging = _ptypes.SimpleNamespace()
-for _n in ("assert_equal", "assert_none_equal", "assert_near", "assert_all_close",
-           "assert_greater", "assert_greater_equal", "assert_less",
-           "assert_less_equal", "assert_positive", "assert_non_negative",
-           "assert_negative", "assert_non_positive", "assert_all_finite",
-           "assert_scalar", "assert_rank", "assert_type"):
-    setattr(debugging, _n, lambda *a, **k: None)
+def _chk(cond, msg=None):
+    """Eager validation: raise InvalidArgumentError if cond is concretely False;
+    no-op if cond is a tracer (can't evaluate under jit)."""
+    try:
+        ok = bool(np.asarray(cond).all())
+    except Exception:
+        return None
+    if not ok:
+        raise InvalidArgumentError(msg or "assertion failed")
+    return None
+
+
+debugging = _ptypes.SimpleNamespace(
+    assert_positive=lambda x, message=None, **k: _chk(np.asarray(x) > 0, message),
+    assert_non_negative=lambda x, message=None, **k: _chk(np.asarray(x) >= 0, message),
+    assert_negative=lambda x, message=None, **k: _chk(np.asarray(x) < 0, message),
+    assert_non_positive=lambda x, message=None, **k: _chk(np.asarray(x) <= 0, message),
+    assert_less=lambda a, b, message=None, **k: _chk(np.asarray(a) < np.asarray(b), message),
+    assert_less_equal=lambda a, b, message=None, **k: _chk(np.asarray(a) <= np.asarray(b), message),
+    assert_greater=lambda a, b, message=None, **k: _chk(np.asarray(a) > np.asarray(b), message),
+    assert_greater_equal=lambda a, b, message=None, **k: _chk(np.asarray(a) >= np.asarray(b), message),
+    assert_equal=lambda a, b, message=None, **k: _chk(np.asarray(a) == np.asarray(b), message),
+    assert_none_equal=lambda a, b, message=None, **k: _chk(np.asarray(a) != np.asarray(b), message),
+    assert_all_finite=lambda x, message=None, **k: _chk(np.isfinite(np.asarray(x, dtype=float)), message),
+    assert_near=lambda a, b, rtol=None, atol=None, message=None, **k: _chk(
+        np.isclose(np.asarray(a, dtype=float), np.asarray(b, dtype=float),
+                  rtol=rtol or 1e-6, atol=atol or 0.0), message),
+    assert_all_close=lambda a, b, rtol=None, atol=None, message=None, **k: _chk(
+        np.isclose(np.asarray(a, dtype=float), np.asarray(b, dtype=float),
+                  rtol=rtol or 1e-6, atol=atol or 1e-6), message),
+    assert_scalar=None, assert_rank=lambda *a, **k: None, assert_type=lambda *a, **k: None,
+)
 
 
 def _assert_noop(condition, data, summarize=None, name=None):
-    # tf.debugging.Assert / tf.compat.v1.debugging.Assert: no-op under JAX/eager.
+    # tf.debugging.Assert: in TF graph mode this raises at runtime. Under JAX/eager
+    # we validate eagerly when the condition is concrete (so assertRaises tests
+    # pass); traced conditions can't be evaluated, so no-op.
+    try:
+        ok = bool(np.asarray(condition).all())
+    except Exception:
+        return None
+    if not ok:
+        raise InvalidArgumentError(repr(data))
     return None
 
 

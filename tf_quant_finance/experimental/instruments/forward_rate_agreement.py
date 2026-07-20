@@ -126,7 +126,7 @@ class ForwardRateAgreement:
     self._name = name or 'forward_rate_agreement'
 
     if rate_term is None and maturity_date is None:
-      raise ValueError(
+      raise tf.errors.InvalidArgumentError(
           'Error creating FRA. Either rate_term or maturity_date is required.')
 
     with tf.name_scope(self._name):

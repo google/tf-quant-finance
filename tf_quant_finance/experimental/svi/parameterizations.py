@@ -101,10 +101,10 @@ def total_variance_from_raw_svi_parameters(
   """
 
   if (strikes is None) != (forwards is None):
-    raise ValueError(
+    raise tf.errors.InvalidArgumentError(
         'Either both `forwards` and `strikes` must be supplied, or neither.')
   if (log_moneyness is None) == (forwards is None):
-    raise ValueError(
+    raise tf.errors.InvalidArgumentError(
         'Exactly one of `log_moneyness` or `forwards` must be provided.')
 
   name = name or 'svi_total_variance'

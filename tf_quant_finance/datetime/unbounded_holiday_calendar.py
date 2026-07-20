@@ -107,7 +107,7 @@ class UnboundedHolidayCalendar(holiday_calendar.HolidayCalendar):
           _get_month(maybe_prev_biz_ordinal), date_tensor.month())
       return tf.where(take_next, maybe_next_biz_day, maybe_prev_biz_day)
 
-    raise ValueError('Unsupported roll convention: {}'.format(roll_convention))
+    raise tf.errors.InvalidArgumentError('Unsupported roll convention: {}'.format(roll_convention))
 
   def add_period_and_roll(self,
                           date_tensor,

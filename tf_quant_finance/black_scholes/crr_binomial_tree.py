@@ -14,6 +14,8 @@
 """Black Scholes prices of options using CRR binomial trees."""
 
 from tf_quant_finance import _tf as tf
+import jax
+import jax.numpy as jnp
 
 
 # TODO(b/150447187): Generalize to time dependent parameters.
@@ -174,24 +176,26 @@ def option_price_binomial(*,
         tf.math.exp(-discount_rates * dt), axis=-1)
     ln_up = tf.expand_dims(ln_up, axis=-1)
 
-    def one_step_back(current_values, current_log_spot_grid):
+    def one_step_back(carry, _):
+      # Binomial backward induction. The grid naturally shrinks by one column per
+      # step; pad back to full width so the JAX carry shape stays static. The
+      # padded/inactive columns are never read by the (shrinking) active region.
+      current_values, current_log_spot_grid = carry
       next_values = (current_values[..., 1:] * p_dn
                      + current_values[..., :-1] * p_up)
       next_log_spot_grid = current_log_spot_grid[..., :-1] - ln_up
       next_values = value_mod_fn(next_values, tf.math.exp(next_log_spot_grid))
-      return discount_factors * next_values, next_log_spot_grid
+      next_values = discount_factors * next_values
+      pad = tf.zeros(next_values.shape[:-1] + (1,), dtype=next_values.dtype)
+      next_values = tf.concat([next_values, pad], -1)
+      next_log_spot_grid = tf.concat([next_log_spot_grid, pad], -1)
+      return (next_values, next_log_spot_grid), None
 
-    def should_continue(current_values, current_log_spot_grid):
-      del current_values, current_log_spot_grid
-      return True
-
-    batch_shape = values_grid.shape[:-1]
-    pv, _ = tf.while_loop(
-        should_continue,
+    (final_values, _), _ = jax.lax.scan(
         one_step_back, (values_grid, log_spot_grid),
-        maximum_iterations=tf.cast(num_steps, dtype=tf.int32),
-        shape_invariants=(tf.TensorShape(list(batch_shape) + [None]),
-                          tf.TensorShape(list(batch_shape) + [None])))
+        xs=jnp.arange(int(num_steps)))
+    # After num_steps the active region has shrunk to the root at index 0.
+    pv = final_values[..., 0:1]
     return tf.where(
         expiries > 0,
         tf.squeeze(pv, axis=-1),

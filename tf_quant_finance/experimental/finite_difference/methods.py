@@ -220,4 +220,4 @@ def shift(x, offsets):
 
 def _check_not_too_large(num_values):
   if num_values > 10e6:
-    raise ValueError('Attempting to create an array with more than 10M values')
+    raise tf.errors.InvalidArgumentError('Attempting to create an array with more than 10M values')

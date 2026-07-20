@@ -84,7 +84,7 @@ def sample(dim: int,
     control_dependencies = []
     if validate_args:
       if dim < 1:
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             'Dimension must be greater than zero. Supplied {}'.format(dim))
       control_dependencies.append(
           tf.debugging.assert_greater(

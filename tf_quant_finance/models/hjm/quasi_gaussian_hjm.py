@@ -220,7 +220,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
         try:
           self._sqrt_rho = tf.linalg.cholesky(self._rho)
         except:
-          raise ValueError('The input correlation matrix is not '
+          raise tf.errors.InvalidArgumentError('The input correlation matrix is not '
                            'positive semidefinite.')
       else:
         self._sqrt_rho = _get_valid_sqrt_matrix(self._rho)
@@ -357,7 +357,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
     with tf.name_scope(name):
       times = tf.convert_to_tensor(times, self._dtype)
       if len(times.shape) != 1:
-        raise ValueError('`times` should be a rank 1 Tensor. '
+        raise tf.errors.InvalidArgumentError('`times` should be a rank 1 Tensor. '
                          'Rank is {} instead.'.format(len(times.shape)))
       return self._sample_paths(
           times, time_step, num_time_steps, num_samples, random_type, skip,

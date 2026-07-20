@@ -187,7 +187,7 @@ class CapAndFloor:
         caplet_prices = self._price_lognormal_rate(valuation_date, market,
                                                    pricing_context)
       else:
-        raise ValueError(f'Unsupported model {model}.')
+        raise tf.errors.InvalidArgumentError(f'Unsupported model {model}.')
 
       return tf.math.segment_sum(caplet_prices, self._contract_index)
 

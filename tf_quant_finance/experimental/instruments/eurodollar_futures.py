@@ -123,12 +123,12 @@ class EurodollarFutures:
     if (rate_term is None) == (maturity_date is None):
       msg = ('Error creating the EurodollarFutures contract. '
              'Either rate_term or maturity_date is required.')
-      raise ValueError(msg)
+      raise tf.errors.InvalidArgumentError(msg)
 
     if rate_term is not None and maturity_date is not None:
       msg = ('Error creating the EurodollarFutures contract.'
              ' Both rate_term or maturity_date are specified.')
-      raise ValueError(msg)
+      raise tf.errors.InvalidArgumentError(msg)
 
     with tf.name_scope(self._name):
       self._dtype = dtype

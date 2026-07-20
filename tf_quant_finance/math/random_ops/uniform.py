@@ -99,7 +99,7 @@ def uniform(
     return jax.random.uniform(_key(seed if seed is not None else 0), shape, dtype=dtype)
   elif random_type == RandomType.STATELESS:
     if seed is None:
-      raise ValueError('`seed` must be supplied if the `random_type` is '
+      raise tf.errors.InvalidArgumentError('`seed` must be supplied if the `random_type` is '
                        'STATELESS.')
     return jax.random.uniform(_key(seed), shape, dtype=dtype)
   # TODO(b/145104222): Add antithetic sampling for the uniform distribution.

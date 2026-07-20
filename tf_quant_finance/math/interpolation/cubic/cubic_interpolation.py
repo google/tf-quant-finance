@@ -155,7 +155,7 @@ def build(x_data: types.RealTensor,
 
     if boundary_condition_type == BoundaryConditionType.FIXED_FIRST_DERIVATIVE:
       if left_boundary_value is None or right_boundary_value is None:
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             'Expected non-empty left_boundary_value/right_boundary_value when '
             'boundary_condition_type is FIXED_FIRST_DERIVATIVE, actual '
             'left_boundary_value {0}, actual right_boundary_value {1}'.format(

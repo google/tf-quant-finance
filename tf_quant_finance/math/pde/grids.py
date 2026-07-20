@@ -66,15 +66,15 @@ def uniform_grid(minimums,
     sizes = tf.convert_to_tensor(sizes, name='sizes')
     # Check that the shape of `sizes` is statically defined.
     if not _check_shapes_fully_defined(minimums, maximums, sizes):
-      raise ValueError('The shapes of minimums, maximums and sizes '
+      raise tf.errors.InvalidArgumentError('The shapes of minimums, maximums and sizes '
                        'must be fully defined.')
 
     if not (minimums.shape == maximums.shape and minimums.shape == sizes.shape):
-      raise ValueError('The shapes of minimums, maximums and sizes must be '
+      raise tf.errors.InvalidArgumentError('The shapes of minimums, maximums and sizes must be '
                        'identical.')
 
     if len(list(minimums.shape)) != 1:
-      raise ValueError('The minimums, maximums and sizes must all be rank 1.')
+      raise tf.errors.InvalidArgumentError('The minimums, maximums and sizes must all be rank 1.')
 
     control_deps = []
     if validate_args:
@@ -159,15 +159,15 @@ def log_uniform_grid(minimums,
     sizes = tf.convert_to_tensor(sizes, name='sizes')
     # Check that the shape of `sizes` is statically defined.
     if not _check_shapes_fully_defined(minimums, maximums, sizes):
-      raise ValueError('The shapes of minimums, maximums and sizes '
+      raise tf.errors.InvalidArgumentError('The shapes of minimums, maximums and sizes '
                        'must be fully defined.')
 
     if not (minimums.shape == maximums.shape and minimums.shape == sizes.shape):
-      raise ValueError('The shapes of minimums, maximums and sizes must be '
+      raise tf.errors.InvalidArgumentError('The shapes of minimums, maximums and sizes must be '
                        'identical.')
 
     if len(list(minimums.shape)) != 1:
-      raise ValueError('The minimums, maximums and sizes must all be rank 1.')
+      raise tf.errors.InvalidArgumentError('The minimums, maximums and sizes must all be rank 1.')
 
     control_deps = []
     if validate_args:
@@ -226,7 +226,7 @@ def rectangular_grid(axis_locations,
   """
   with tf.compat.v1.name_scope(name, 'rectangular_grid', [axis_locations]):
     if not axis_locations:
-      raise ValueError('The axis locations parameter cannot be empty.')
+      raise tf.errors.InvalidArgumentError('The axis locations parameter cannot be empty.')
     locations = [
         tf.convert_to_tensor(
             location, dtype=dtype, name='location_axis_{}'.format(i))
@@ -314,11 +314,11 @@ def uniform_grid_with_extra_point(minimums,
     sizes = tf.convert_to_tensor(sizes, name='sizes')
     # Check that the shape of `sizes` is statically defined.
     if not _check_shapes_fully_defined(minimums, maximums, sizes):
-      raise ValueError('The shapes of minimums, maximums and sizes '
+      raise tf.errors.InvalidArgumentError('The shapes of minimums, maximums and sizes '
                        'must be fully defined.')
 
     if minimums.shape != maximums.shape:
-      raise ValueError('The shapes of minimums and maximums must be identical.')
+      raise tf.errors.InvalidArgumentError('The shapes of minimums and maximums must be identical.')
 
     control_deps = []
     if validate_args:
@@ -426,11 +426,11 @@ def log_uniform_grid_with_extra_point(minimums,
     batch_shape = tf.shape(extra_grid_point)[0]
     # Check that the shape of `sizes` is statically defined.
     if not _check_shapes_fully_defined(minimums, maximums, sizes):
-      raise ValueError('The shapes of minimums, maximums and sizes '
+      raise tf.errors.InvalidArgumentError('The shapes of minimums, maximums and sizes '
                        'must be fully defined.')
 
     if minimums.shape != maximums.shape:
-      raise ValueError('The shapes of minimums and maximums must be identical.')
+      raise tf.errors.InvalidArgumentError('The shapes of minimums and maximums must be identical.')
 
     control_deps = []
     if validate_args:

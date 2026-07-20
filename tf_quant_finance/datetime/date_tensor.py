@@ -342,7 +342,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
       d = adjust_day(y, m, self._days)
       return from_year_month_day(y, m, d, validate=False)
 
-    raise ValueError("Unrecognized period type: {}".format(period_type))
+    raise tf.errors.InvalidArgumentError("Unrecognized period type: {}".format(period_type))
 
   def __sub__(self, period_tensor):
     """Subtracts a tensor of periods.
@@ -469,7 +469,7 @@ def convert_to_date_tensor(date_inputs):
     as_ordinals = tf.convert_to_tensor(date_inputs, dtype=tf.int32)
     return from_ordinals(as_ordinals)
   except ValueError as e:
-    raise ValueError("Failed to convert inputs to DateTensor. "
+    raise tf.errors.InvalidArgumentError("Failed to convert inputs to DateTensor. "
                      "Unrecognized format. Error: " + e)
 
 

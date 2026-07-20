@@ -106,7 +106,7 @@ def common_shape(
           try:
             output_shape = tf.broadcast_static_shape(output_shape, arg.shape)
           except ValueError:
-            raise ValueError(f'Shapes of {args} are incompatible')
+            raise tf.errors.InvalidArgumentError(f'Shapes of {args} are incompatible')
         return output_shape
       output_shape = tf.shape(args[0])
       for arg in args[1:]:
@@ -210,7 +210,7 @@ def broadcast_common_batch_shape(
     if event_ranks is None:
       event_ranks = [1] * len(args)
     if len(event_ranks) != len(args):
-      raise ValueError(
+      raise tf.errors.InvalidArgumentError(
           '`args` and `event_dims` should be of the same length but are {0} '
           'and {1} elements, respectively'.format(len(event_ranks), len(args)))
     dummies = [tf.zeros(get_shape(arg)[:-d])

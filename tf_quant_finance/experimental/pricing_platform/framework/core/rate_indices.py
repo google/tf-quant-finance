@@ -48,7 +48,7 @@ class RateIndex:
       try:
         self.type = getattr(RateIndexType, self.type)
       except KeyError:
-        raise ValueError(f"{self.type} is not a valid rate index type.")
+        raise tf.errors.InvalidArgumentError(f"{self.type} is not a valid rate index type.")
 
   @classmethod
   def from_proto(cls, proto: rate_indices_pb2.RateIndex) -> "RateIndex":

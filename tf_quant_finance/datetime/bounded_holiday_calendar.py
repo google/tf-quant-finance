@@ -320,7 +320,7 @@ class BoundedHolidayCalendar(holiday_calendar.HolidayCalendar):
       return tf.where(tf.equal(dates_preceding.month(), original_dates.month()),
                       preceding, following)
 
-    raise ValueError("Unrecognized convention: {}".format(convention))
+    raise tf.errors.InvalidArgumentError("Unrecognized convention: {}".format(convention))
 
   def _compute_is_bus_day_table(self):
     """Computes and caches "is business day" table."""
@@ -400,7 +400,7 @@ class BoundedHolidayCalendar(holiday_calendar.HolidayCalendar):
 def _resolve_calendar_boundaries(holidays, start_year, end_year):
   if holidays is None or int(__import__("numpy").prod(holidays.shape)) in [None, 0]:
     if start_year is None or end_year is None:
-      raise ValueError("Please specify either holidays or both start_year and "
+      raise tf.errors.InvalidArgumentError("Please specify either holidays or both start_year and "
                        "end_year arguments")
     return start_year, end_year
 

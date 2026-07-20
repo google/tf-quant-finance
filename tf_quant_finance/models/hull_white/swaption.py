@@ -233,7 +233,7 @@ def swaption_price(
     is_payer_swaption = tf.convert_to_tensor(
         is_payer_swaption, dtype=tf.bool, name='is_payer_swaption')
     if len(expiries.shape) < len(fixed_leg_payment_times.shape) - 1:
-      raise ValueError('Swaption expiries not specified for all swaptions '
+      raise tf.errors.InvalidArgumentError('Swaption expiries not specified for all swaptions '
                        'in the batch. Expected rank {} but received {}.'.format(
                            len(fixed_leg_payment_times.shape) - 1,
                            len(expiries.shape)))
@@ -257,7 +257,7 @@ def swaption_price(
                                  name + '_analytic_valuation')
 
     if time_step is None:
-      raise ValueError('`time_step` must be provided for simulation '
+      raise tf.errors.InvalidArgumentError('`time_step` must be provided for simulation '
                        'based bond option valuation.')
 
     # Monte-Carlo pricing
@@ -575,7 +575,7 @@ def bermudan_swaption_price(
         exercise_time_index, shape=exercise_times.shape)
 
     if len(exercise_times.shape) < len(fixed_leg_payment_times.shape) - 1:
-      raise ValueError('Swaption exercise times not specified for all '
+      raise tf.errors.InvalidArgumentError('Swaption exercise times not specified for all '
                        'swaptions in the batch. Expected rank '
                        '{} but received {}.'.format(
                            len(fixed_leg_payment_times.shape) - 1,
@@ -607,7 +607,7 @@ def bermudan_swaption_price(
                                    dtype)
     # Monte-Carlo pricing
     if time_step is None:
-      raise ValueError('`time_step` must be provided for LSM valuation.')
+      raise tf.errors.InvalidArgumentError('`time_step` must be provided for LSM valuation.')
 
     sim_times = unique_exercise_times
     longest_exercise_time = sim_times[-1]

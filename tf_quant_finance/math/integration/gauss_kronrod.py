@@ -75,9 +75,9 @@ def _non_adaptive_gauss_kronrod(
     # Shape [num_points - legendre_num_points]
     stieltjes_roots = gauss_constants.stieltjes_roots.get(num_points, None)
     if legendre_roots is None:
-      raise ValueError(f'Unsupported value for `num_points`: {num_points}')
+      raise tf.errors.InvalidArgumentError(f'Unsupported value for `num_points`: {num_points}')
     if stieltjes_roots is None:
-      raise ValueError(f'Unsupported value for `num_points`: {num_points}')
+      raise tf.errors.InvalidArgumentError(f'Unsupported value for `num_points`: {num_points}')
     # Shape batch_shape + [1]
     lower = tf.expand_dims(lower, -1)
     upper = tf.expand_dims(upper, -1)

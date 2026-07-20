@@ -378,7 +378,7 @@ def swap_curve_bootstrap(
     else:
       # TODO(b/144600429): Create a logic for a meaningful initial state of the
       # curve
-      raise ValueError('Initial state of the curve is not specified.')
+      raise tf.errors.InvalidArgumentError('Initial state of the curve is not specified.')
 
     return _build_swap_curve(float_leg_start_times,
                              float_leg_end_times,

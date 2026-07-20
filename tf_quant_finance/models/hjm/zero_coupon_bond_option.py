@@ -147,7 +147,7 @@ def bond_option_price(
     computed option prices.
   """
   if time_step is None:
-    raise ValueError('`time_step` must be provided for simulation based '
+    raise tf.errors.InvalidArgumentError('`time_step` must be provided for simulation based '
                      'bond option valuation.')
 
   name = name or 'hjm_bond_option_price'

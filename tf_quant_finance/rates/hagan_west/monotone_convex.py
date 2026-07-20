@@ -362,7 +362,7 @@ def interpolate_forward_rate(interpolation_times,
   """
 
   if (yields is None) == (discrete_forwards is None):
-    raise ValueError('Exactly one of yields or discrete forwards must'
+    raise tf.errors.InvalidArgumentError('Exactly one of yields or discrete forwards must'
                      ' be supplied.')
 
   with tf.compat.v1.name_scope(
@@ -487,7 +487,7 @@ def interpolate_yields(interpolation_times,
   """
 
   if (yields is None) == (discrete_forwards is None):
-    raise ValueError('Exactly one of yields or discrete forwards must'
+    raise tf.errors.InvalidArgumentError('Exactly one of yields or discrete forwards must'
                      ' be supplied.')
 
   with tf.compat.v1.name_scope(

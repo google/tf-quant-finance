@@ -175,7 +175,7 @@ class AmericanOption(instrument.Instrument):
       self._equity = cashflow_streams.to_list(equity)
       if len(self._currency) != len(self._equity):
         if len(self._currency) > 1 and len(self._equity) > 1:
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               "Number of currencies and equities should be the same "
               "but it is {0} and {1}".format(len(self._currency),
                                              len(self._equity)))
@@ -317,7 +317,7 @@ class AmericanOption(instrument.Instrument):
             seed=self._seed)
         return self._short_position * self._contract_amount * prices
       else:
-        raise ValueError("Only BS-LSM model is supported. "
+        raise tf.errors.InvalidArgumentError("Only BS-LSM model is supported. "
                          "Supplied {}".format(self._model))
 
   @property

@@ -92,14 +92,14 @@ class PeriodTensor(tensor_wrapper.TensorWrapper):
   def __add__(self, other):
     """Adds another PeriodTensor of the same type."""
     if other.period_type() != self._period_type:
-      raise ValueError("Mixing different period types is not supported")
+      raise tf.errors.InvalidArgumentError("Mixing different period types is not supported")
 
     return PeriodTensor(self._quantity + other.quantity(), self._period_type)
 
   def __sub__(self, other):
     """Subtracts another PeriodTensor of the same type."""
     if other.period_type() != self._period_type:
-      raise ValueError("Mixing different period types is not supported")
+      raise tf.errors.InvalidArgumentError("Mixing different period types is not supported")
 
     return PeriodTensor(self._quantity - other.quantity(), self._period_type)
 
@@ -116,7 +116,7 @@ class PeriodTensor(tensor_wrapper.TensorWrapper):
     q = op_fn([t.quantity() for t in tensor_wrappers])
     period_type = tensor_wrappers[0].period_type()
     if not all(t.period_type() == period_type for t in tensor_wrappers[1:]):
-      raise ValueError("Combined PeriodTensors must have the same PeriodType")
+      raise tf.errors.InvalidArgumentError("Combined PeriodTensors must have the same PeriodType")
     return PeriodTensor(q, period_type)
 
   def _apply_op(self, op_fn):

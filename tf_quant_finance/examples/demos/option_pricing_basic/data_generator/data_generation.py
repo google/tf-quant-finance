@@ -131,7 +131,7 @@ def upload_to_gcs(gcs_path: str, local_files: List[str]) -> None:
 def write_local(local_file_path: str, data_class: object) -> None:
   """Writes a dataclass object to file."""
   if not dataclasses.is_dataclass(data_class):
-    raise ValueError('Object to write must be a dataclass')
+    raise tf.errors.InvalidArgumentError('Object to write must be a dataclass')
   data = dataclasses.asdict(data_class)
   with tff.experimental.io.ArrayDictWriter(local_file_path) as writer:
     writer.write(data)

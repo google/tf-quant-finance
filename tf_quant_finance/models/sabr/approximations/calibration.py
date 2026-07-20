@@ -431,7 +431,7 @@ def _get_loss_for_volatility_based_calibration(*, prices, strikes, expiries,
   elif volatility_type == SabrImpliedVolatilityType.NORMAL:
     underlying_distribution = UnderlyingDistribution.NORMAL
   else:
-    raise ValueError('Unsupported `volatility_type`!')
+    raise tf.errors.InvalidArgumentError('Unsupported `volatility_type`!')
   target_implied_vol = black_scholes.implied_vol(
       prices=prices,
       strikes=strikes,

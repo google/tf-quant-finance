@@ -410,11 +410,11 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         times_grid = tf.convert_to_tensor(times_grid, self._dtype,
                                           name='times_grid')
       if len(times.shape) != 1:
-        raise ValueError('`times` should be a rank 1 Tensor. '
+        raise tf.errors.InvalidArgumentError('`times` should be a rank 1 Tensor. '
                          'Rank is {} instead.'.format(len(times.shape)))
       if self._sample_with_generic:
         if time_step is None and times_grid is None:
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               'Either `time_step` or `times_grid` has to be specified when '
               'at least one of the parameters is a generic callable.')
         initial_state = self._instant_forward_rate_fn(0.0)
@@ -439,7 +439,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         num_samples = tf.shape(normal_draws)[1]
         draws_dim = normal_draws.shape[2]
         if self._dim != draws_dim:
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               '`dim` should be equal to `normal_draws.shape[2]` but are '
               '{0} and {1} respectively'.format(self._dim, draws_dim))
       return self._sample_paths(
@@ -542,7 +542,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
     """
     # Parameters must be piecewise constants for now
     if not self._is_piecewise_constant:
-      raise ValueError('All paramaters `mean_reversion`, `volatility`, and '
+      raise tf.errors.InvalidArgumentError('All paramaters `mean_reversion`, `volatility`, and '
                        '`corr_matrix`must be piecewise constant functions.')
     name = name or self._name + '_sample_discount_curve_paths'
     with tf.name_scope(name):
@@ -663,7 +663,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       steps_num = tf.shape(dt)[-1]
       # TODO(b/148133811): Re-enable Sobol test when TF 2.2 is released.
       if random_type == random.RandomType.SOBOL:
-        raise ValueError('Sobol sequence for Euler sampling is temporarily '
+        raise tf.errors.InvalidArgumentError('Sobol sequence for Euler sampling is temporarily '
                          'unsupported when `time_step` or `times` have a '
                          'non-constant value')
     if normal_draws is None:
@@ -1041,12 +1041,12 @@ def _input_type(param, dim, dtype, name):
       jump_locations = param.jump_locations()
       jumps_shape = jump_locations.shape
       if jumps_shape.rank > 2:
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             'Batch rank of `jump_locations` should be `1` for all piecewise '
             'constant arguments but {} instead'.format(len(jumps_shape[:-1])))
       if jumps_shape.rank == 2:
         if dim != jumps_shape[0]:
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               'Batch shape of `jump_locations` should be either empty or '
               '`[{0}]` but `[{1}]` instead'.format(dim, jumps_shape[0]))
       if name == 'mean_reversion' and jumps_shape[0] > 0:
@@ -1068,7 +1068,7 @@ def _input_type(param, dim, dtype, name):
     if param_shape:
       if param_shape[-1] != dim:
         # This is an error, we need as many parameters as the number of `dim`
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             'Length of {} ({}) should be the same as `dims`({}).'.format(
                 name, param_shape[0], dim))
     else:

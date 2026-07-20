@@ -140,7 +140,7 @@ def weighted_implicit_explicit_scheme(theta):
     `value_grid` and represents an approximate solution `u(t2)`.
   """
   if theta < 0 or theta > 1:
-    raise ValueError(
+    raise tf.errors.InvalidArgumentError(
         '`theta` should be in [0, 1]. Supplied: {}'.format(theta))
 
   def _marching_scheme(value_grid, t1, t2, equation_params_fn):

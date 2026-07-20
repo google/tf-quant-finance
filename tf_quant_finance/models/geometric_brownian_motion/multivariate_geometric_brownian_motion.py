@@ -111,7 +111,7 @@ class MultivariateGeometricBrownianMotion(ito_process.ItoProcess):
         self._corr_matrix = tf.convert_to_tensor(corr_matrix, dtype=self._dtype,
                                                  name="corr_matrix")
         if list(self._corr_matrix.shape) != [dim, dim]:
-          raise ValueError("`corr_matrix` must be of shape [{0}, {0}] but is "
+          raise tf.errors.InvalidArgumentError("`corr_matrix` must be of shape [{0}, {0}] but is "
                            "of shape {1}".format(
                                dim, list(self._corr_matrix.shape)))
 
@@ -250,7 +250,7 @@ class MultivariateGeometricBrownianMotion(ito_process.ItoProcess):
       num_samples = tff_utils.get_shape(normal_draws)[1]
       draws_dim = tff_utils.get_shape(normal_draws)[2]
       if self._dim != draws_dim:
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             "`dim` should be equal to `normal_draws.shape[2]` but are "
             "{0} and {1} respectively".format(self._dim, draws_dim))
     times = tf.concat([[0], times], -1)

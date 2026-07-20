@@ -213,7 +213,7 @@ def implied_volatility(*,
       return (adj_alpha * (1.0 / sqrt_adj_moneyness) * (1.0 / denom) *
               zeta_by_xhat * (1.0 + correction_1 + correction_2 + correction_3))
     else:
-      raise ValueError('Invalid value of `volatility_type`')
+      raise tf.errors.InvalidArgumentError('Invalid value of `volatility_type`')
 
 
 def _epsilon(dtype):

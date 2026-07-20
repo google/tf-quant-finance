@@ -150,7 +150,7 @@ class PeriodicSchedule:
     """
     if end_of_month and tenor.period_type() not in [constants.PeriodType.MONTH,
                                                     constants.PeriodType.YEAR]:
-      raise ValueError(
+      raise tf.errors.InvalidArgumentError(
           "end_of_month may only be used with tenors of PeriodType.MONTH or "
           "PeriodType.YEAR"
       )

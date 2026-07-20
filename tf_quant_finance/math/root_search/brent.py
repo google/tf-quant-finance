@@ -397,7 +397,7 @@ def _prepare_brent_args(objective_fn,
   """
   stopping_policy_fn = stopping_policy_fn or tf.reduce_all
   if not callable(stopping_policy_fn):
-    raise ValueError('stopping_policy_fn must be callable')
+    raise tf.errors.InvalidArgumentError('stopping_policy_fn must be callable')
 
   left_bracket = tf.convert_to_tensor(left_bracket, name='left_bracket')
   right_bracket = tf.convert_to_tensor(

@@ -123,9 +123,9 @@ class GenericItoProcess(ito_process.ItoProcess):
         or `volatility_fn` is not supplied.
     """
     if dim < 1:
-      raise ValueError('Dimension must be 1 or greater.')
+      raise tf.errors.InvalidArgumentError('Dimension must be 1 or greater.')
     if drift_fn is None or volatility_fn is None:
-      raise ValueError('Both drift and volatility functions must be supplied.')
+      raise tf.errors.InvalidArgumentError('Both drift and volatility functions must be supplied.')
     self._dim = dim
     self._drift_fn = drift_fn
     self._volatility_fn = volatility_fn

@@ -115,12 +115,12 @@ class PiecewiseConstantFunc(object):
       self._batch_rank = batch_rank
       if None not in shape_values and None not in shape_jump_locations:
         if shape_values[:batch_rank] != shape_jump_locations[:-1]:
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               'Batch shapes of `values` and `jump_locations` should '
               'be the same but are {0} and {1}'.format(
                   shape_values[:-1], shape_jump_locations[:-1]))
         if shape_values[batch_rank] - 1 != shape_jump_locations[-1]:
-          raise ValueError('Event shape of `values` should have one more '
+          raise tf.errors.InvalidArgumentError('Event shape of `values` should have one more '
                            'element than the event shape of `jump_locations` '
                            'but are {0} and {1}'.format(
                                shape_values[-1], shape_jump_locations[-1]))
@@ -291,7 +291,7 @@ def _piecewise_constant_function(x, jump_locations, values,
   # `values`
   batch_shape_x = list(x.shape)[:batch_rank]
   if batch_shape_x != batch_shape:
-    raise ValueError('Batch shape of `x` is {1} but should be {0}'.format(
+    raise tf.errors.InvalidArgumentError('Batch shape of `x` is {1} but should be {0}'.format(
         batch_shape, batch_shape_x))
   if list(x.shape)[:batch_rank]:
     no_batch_shape = False

@@ -230,7 +230,7 @@ class Swaption(instrument.Instrument):
         option_value = self._price_hull_white_1_factor(
             valuation_date, market, strike, expiry_time)
       else:
-        raise ValueError("Unsupported model.")
+        raise tf.errors.InvalidArgumentError("Unsupported model.")
 
       return option_value
 

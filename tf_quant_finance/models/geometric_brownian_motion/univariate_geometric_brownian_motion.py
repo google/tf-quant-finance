@@ -15,6 +15,8 @@
 """Geometric Brownian Motion model."""
 
 from tf_quant_finance import _tf as tf
+import jax
+import jax.numpy as jnp
 
 from tf_quant_finance import utils as tff_utils
 from tf_quant_finance.math import piecewise as pw
@@ -281,7 +283,7 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
       num_samples = tf.shape(normal_draws)[1]
       draws_dim = normal_draws.shape[2]
       if draws_dim != 1:
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             '`dim` should be equal to `1` but is {0}'.format(draws_dim))
     # Create a set of zeros that is the right shape to add a '0' as the first
     # element for each series of times.
@@ -709,10 +711,16 @@ def _coord_grid_to_mesh_grid(coord_grid):
   return tf.stack(values=tf.meshgrid(*coord_grid, indexing='ij'), axis=-1)
 
 
-@tf.custom_gradient
+@jax.custom_jvp
 def _sqrt_no_nan(x):
   """Returns square root with a gradient at 0 being 0."""
-  root = tf.math.sqrt(x)
-  def grad(upstream):
-    return tf.math.divide_no_nan(upstream, root) / 2
-  return root, grad
+  return jnp.sqrt(x)
+
+
+@_sqrt_no_nan.defjvp
+def _sqrt_no_nan_jvp(primals, tangents):
+  (x,), (tx,) = primals, tangents
+  root = jnp.sqrt(x)
+  # Gradient is 0.5 * upstream / root, but 0 where root == 0 (avoid inf/NaN).
+  grad_tangent = jnp.where(root > 0, 0.5 * tx / root, 0.0)
+  return root, grad_tangent
