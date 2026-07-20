@@ -118,7 +118,7 @@ def root_finder(value_and_grad_func,
     def _updater(counter, parameters, converged, failed):
       """Updates each parameter via Newton's method."""
       values, gradients = value_and_grad_func(parameters)
-      deltas = tf.math.divide(values, gradients)
+      deltas = tf.cast(tf.math.divide(values, gradients), dtype=parameters.dtype)
 
       converged = tf.abs(
           deltas) < relative_tolerance * tf.abs(values) + tolerance

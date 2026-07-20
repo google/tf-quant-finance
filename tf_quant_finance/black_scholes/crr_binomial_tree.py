@@ -190,8 +190,8 @@ def option_price_binomial(*,
         should_continue,
         one_step_back, (values_grid, log_spot_grid),
         maximum_iterations=tf.cast(num_steps, dtype=tf.int32),
-        shape_invariants=(tf.TensorShape(batch_shape + [None]),
-                          tf.TensorShape(batch_shape + [None])))
+        shape_invariants=(tf.TensorShape(list(batch_shape) + [None]),
+                          tf.TensorShape(list(batch_shape) + [None])))
     return tf.where(
         expiries > 0,
         tf.squeeze(pv, axis=-1),
