@@ -337,7 +337,7 @@ def _piecewise_constant_integrate(x1, x2, jump_locations, values, batch_rank):
     diff = tf.expand_dims(diff, -1)
   slice_indices = batch_rank * [slice(None)]
   slice_indices += [slice(1, num_data_points - 1)]
-  integrals = tf.cumsum(values[slice_indices] * diff, batch_rank)
+  integrals = tf.cumsum(values[tuple(slice_indices)] * diff, batch_rank)
   # Pad integrals with zero values on left and right.
   batch_shape = tf.shape(integrals)[:batch_rank]
   pad_shape = tf.concat([batch_shape, [1], event_shape], axis=0)
