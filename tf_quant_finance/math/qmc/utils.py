@@ -88,7 +88,7 @@ def get_shape(
     `Tensor` of integers with rank 1.
   """
   result = value.shape
-  return tf.shape(value) if None in result.as_list() else result
+  return tf.shape(value) if None in result else result
 
 
 def tent_transform(value: types.FloatTensor) -> types.FloatTensor:

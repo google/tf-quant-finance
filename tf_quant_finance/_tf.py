@@ -144,7 +144,18 @@ ones_like = _drop_name(jnp.ones_like)
 eye = _drop_name(jnp.eye)
 fill = _drop_name(jnp.full)
 # tf.range(start, limit=None, delta=1, dtype=None, name=None) -> jnp.arange
-range = _drop_name(jnp.arange)
+def _tf_range(start=None, limit=None, delta=None, dtype=None, name=None, **kw):
+    # tf.range(start, limit=None, delta=1, dtype) -> jnp.arange(start, stop, step)
+    del name, kw
+    if isinstance(start, (int, float)) and limit is None and delta is None:
+        # tf.range(n) -> 0..n-1
+        return jnp.arange(start, dtype=dtype)
+    if delta is None:
+        return jnp.arange(start, limit, dtype=dtype)
+    return jnp.arange(start, limit, delta, dtype=dtype)
+
+
+range = _tf_range
 linspace = _drop_name(jnp.linspace)
 
 
@@ -217,7 +228,7 @@ def shape(input, out_type=None, name=None):
     return jnp.asarray(jnp.asarray(input).shape, dtype=out_type)
 
 
-def size(x):
+def size(x, out_type=None, name=None):
     return int(jnp.asarray(x).size)
 
 
