@@ -405,12 +405,13 @@ def _cumsum(x, axis=0, exclusive=False, reverse=False, name=None):
     out = jnp.cumsum(x, axis=axis)
     if exclusive:
         # drop the first element along axis, prepend a zero
+        import builtins
         zeros_shape = list(out.shape)
         zeros_shape[axis] = 1
         z = jnp.zeros(zeros_shape, dtype=out.dtype)
         out = jnp.concatenate([z, out], axis=axis)
-        sl = [slice(None)] * out.ndim
-        sl[axis] = slice(None, -1)
+        sl = [builtins.slice(None)] * out.ndim
+        sl[axis] = builtins.slice(None, -1)
         out = out[tuple(sl)]
     if reverse:
         out = jnp.flip(out, axis)
@@ -941,9 +942,19 @@ def _complex(real, imag=None, name=None):
 
 
 complex = _complex
+
+
+def placeholder_with_default(input, shape=None, name=None):
+    return jnp.asarray(input)
 def _scatter_nd(indices, updates, shape, name=None):
-    out = jnp.zeros(shape)
-    return out.at[tuple(jnp.asarray(i) for i in indices)].set(jnp.asarray(updates))
+    updates = jnp.asarray(updates)
+    out = jnp.zeros(shape, dtype=updates.dtype)
+    indices = jnp.asarray(indices)
+    if indices.ndim <= 1:
+        return out.at[indices].set(updates)
+    # indices shape [N, ndim]: N index tuples -> tuple of ndim index arrays.
+    idx_tuple = tuple(indices[:, d] for d in range(indices.shape[-1]))
+    return out.at[idx_tuple].set(updates)
 
 
 scatter_nd = _scatter_nd
