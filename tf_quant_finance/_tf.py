@@ -453,7 +453,11 @@ def _tridiagonal_solve(diagonals, rhs, partial_pivots=True,
     import jax.lax as _ll
     super_d, diag, sub = (jnp.asarray(d) for d in diagonals)
     rhs = jnp.asarray(rhs)
-    return _ll.linalg.tridiagonal_solve(sub, diag, super_d, rhs)
+    squeeze = (rhs.ndim == 1)
+    if squeeze:
+        rhs = rhs[:, None]  # jax tridiagonal_solve needs rhs of rank >= 2
+    out = _ll.linalg.tridiagonal_solve(sub, diag, super_d, rhs)
+    return out[:, 0] if squeeze else out
 
 
 linalg.tridiagonal_solve = _tridiagonal_solve
@@ -647,12 +651,15 @@ test = _ptypes.SimpleNamespace(
 
 # tf.python.framework.test_util: graph/eager mode decorators. JAX is eager-only,
 # so these are no-ops.
-def _cls_noop(cls):
-    return cls
+def _cls_noop(x=None):
+    """Class decorator that works as @deco, @deco(), or @deco('reason')."""
+    if x is None or isinstance(x, str):
+        return lambda c: c
+    return x
 
 
-def _fn_noop(fn=None, **kw):
-    if fn is None:
+def _fn_noop(fn=None, *args, **kw):
+    if fn is None or isinstance(fn, str):
         return lambda f: f
     return fn
 
