@@ -398,7 +398,27 @@ math.igamma = _jsp_special.gammainc
 math.igammac = _jsp_special.gammaincc
 math.sigmoid = jax.nn.sigmoid
 math.cumprod = jnp.cumprod
-math.cumsum = jnp.cumsum
+def _cumsum(x, axis=0, exclusive=False, reverse=False, name=None):
+    x = jnp.asarray(x)
+    if reverse:
+        x = jnp.flip(x, axis)
+    out = jnp.cumsum(x, axis=axis)
+    if exclusive:
+        # drop the first element along axis, prepend a zero
+        zeros_shape = list(out.shape)
+        zeros_shape[axis] = 1
+        z = jnp.zeros(zeros_shape, dtype=out.dtype)
+        out = jnp.concatenate([z, out], axis=axis)
+        sl = [slice(None)] * out.ndim
+        sl[axis] = slice(None, -1)
+        out = out[tuple(sl)]
+    if reverse:
+        out = jnp.flip(out, axis)
+    return out
+
+
+math.cumsum = _cumsum
+cumsum = _cumsum
 math.top_k = lambda a, k=1, sorted=True: jnp.argsort(a)[-k:]  # best-effort
 def _divide_no_nan(x, y, name=None):
     # ponytail: safe denom avoids JAX '0*inf=nan' in the masked-division VJP.
