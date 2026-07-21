@@ -526,6 +526,22 @@ def _to_key(seed):
     return jax.random.PRNGKey(0)
 
 
+def _stateless_uniform(shape, seed, minval=0.0, maxval=1.0, dtype=jnp.float32, name=None, **kw):
+    return jax.random.uniform(_to_key(seed), shape, minval=minval, maxval=maxval, dtype=dtype)
+
+
+def _stateless_normal(shape, seed, mean=0.0, stddev=1.0, dtype=jnp.float32, name=None, **kw):
+    return jax.random.normal(_to_key(seed), shape, dtype=dtype) * stddev + mean
+
+
+def _stateless_gamma(shape, seed, alpha, dtype=jnp.float32, name=None, **kw):
+    return jax.random.gamma(_to_key(seed), alpha, shape, dtype=dtype)
+
+
+def _stateless_poisson(shape, seed, lam, dtype=jnp.float32, name=None, **kw):
+    return jax.random.poisson(_to_key(seed), lam, shape, dtype=dtype)
+
+
 random = _ptypes.SimpleNamespace(
     set_seed=lambda s: globals().__setitem__("_global_key", jax.random.PRNGKey(int(s))),
     uniform=lambda shape, minval=0.0, maxval=1.0, dtype=jnp.float32, seed=None, name=None: jax.random.uniform(_to_key(seed), shape, minval=minval, maxval=maxval, dtype=dtype),
@@ -533,10 +549,10 @@ random = _ptypes.SimpleNamespace(
     gamma=lambda shape, alpha, dtype=jnp.float32, seed=None, name=None: jax.random.gamma(_to_key(seed), alpha, shape, dtype=dtype),
     poisson=lambda lam, shape, dtype=jnp.float32, seed=None, name=None: jax.random.poisson(_to_key(seed), lam, shape, dtype=dtype),
     shuffle=lambda value, seed=None: jax.random.permutation(_to_key(seed), value),
-    stateless_uniform=lambda seed, shape, minval=0.0, maxval=1.0, dtype=jnp.float32, **kw: jax.random.uniform(_to_key(seed), shape, minval=minval, maxval=maxval, dtype=dtype),
-    stateless_normal=lambda seed, shape, dtype=jnp.float32, **kw: jax.random.normal(_to_key(seed), shape, dtype=dtype),
-    stateless_gamma=lambda seed, shape, alpha=1.0, dtype=jnp.float32, **kw: jax.random.gamma(_to_key(seed), alpha, shape, dtype=dtype),
-    stateless_poisson=lambda seed, shape, lam=1.0, dtype=jnp.float32, **kw: jax.random.poisson(_to_key(seed), lam, shape, dtype=dtype),
+    stateless_uniform=_stateless_uniform,
+    stateless_normal=_stateless_normal,
+    stateless_gamma=_stateless_gamma,
+    stateless_poisson=_stateless_poisson,
 )
 
 
