@@ -458,24 +458,43 @@ linalg = _ptypes.SimpleNamespace(
     det=jnp.linalg.det,
     solve=jnp.linalg.solve,
     qr=jnp.linalg.qr,
-    tensor_diag=lambda v: jnp.diag(v),
-    diag=lambda v, **kw: jnp.diag(v),
+    tensor_diag=lambda v, **kw: _create_diag(v),
+    diag=lambda v, k=0, **kw: _create_diag(v, k),
     set_diag=lambda m, v, **kw: m.at[..., :].set(v) if hasattr(m, "at") else m,
     tridiagonal_solve=_lax.linalg.tridiagonal_solve if hasattr(_lax.linalg, "tridiagonal_solve") else None,
     tridiagonal_matmul=_lax.linalg.tridiagonal_matmul if hasattr(_lax.linalg, "tridiagonal_matmul") else None,
     expm=_jspl.expm,
 )
 def _band_part(m, num_lower, num_upper):
-    # tf.linalg.band_part(m, num_lower, num_upper): keep lower/upper bands.
+    # tf.linalg.band_part(m, num_lower, num_upper): keep `num_lower` sub-diagonals
+    # and `num_upper` super-diagonals. num_lower<0 = all below, num_upper<0 = all above.
     m = jnp.asarray(m)
     n = m.shape[-1]
-    i, j = jnp.arange(n), jnp.arange(n)[:, None]
+    row = jnp.arange(n)[:, None]   # (n, 1)
+    col = jnp.arange(n)[None, :]   # (1, n)
+    mask = ((num_lower < 0) | ((row - col) <= num_lower)) & \
+           ((num_upper < 0) | ((col - row) <= num_upper))
     if m.ndim > 2:
-        i = i[None, ...]
-        j = j[None, ...]
-    mask = ((num_lower < 0) | (i - j <= num_lower)) & ((num_upper < 0) | (j - i <= num_upper))
+        mask = jnp.broadcast_to(mask, m.shape)
     return m * mask
 linalg.band_part = _band_part
+
+
+def _create_diag(v, k=0):
+    """tf.linalg.diag: create a (batched) diagonal matrix from `v`.
+
+    jnp.diag only creates from 1-D input and extracts from 2-D; TF creates
+    (batched) diagonal matrices for any rank."""
+    v = jnp.asarray(v)
+    if v.ndim == 1:
+        return jnp.diag(v, k)
+    n = v.shape[-1]
+    eye = jnp.eye(n, dtype=v.dtype)
+    return v[..., :, None] * eye  # [..., n, n]
+
+
+linalg.diag = _create_diag
+linalg.tensor_diag = _create_diag
 
 
 def _tridiagonal_solve(diagonals, rhs, partial_pivots=True,
@@ -958,6 +977,15 @@ def _complex(real, imag=None, name=None):
 
 
 complex = _complex
+
+
+def tensor_scatter_nd_update(tensor, indices, updates, name=None):
+    tensor = jnp.asarray(tensor)
+    indices = jnp.asarray(indices)
+    if indices.ndim <= 1:
+        return tensor.at[indices].set(jnp.asarray(updates))
+    idx_tuple = tuple(indices[:, d] for d in range(indices.shape[-1]))
+    return tensor.at[idx_tuple].set(jnp.asarray(updates))
 
 
 def placeholder_with_default(input, shape=None, name=None):
