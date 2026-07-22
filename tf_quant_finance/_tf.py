@@ -1088,11 +1088,11 @@ reduce_logsumexp = _make_reduce(_jsp.special.logsumexp)
 
 # tf.broadcast_static_shape / broadcast_dynamic_shape -> jnp.broadcast_shapes
 def broadcast_static_shape(shape1, shape2, name=None):
-    return tuple(jnp.broadcast_shapes((tuple(shape1), tuple(shape2))))
+    return tuple(jnp.broadcast_shapes(tuple(shape1), tuple(shape2)))
 
 
 def broadcast_dynamic_shape(shape1, shape2, name=None):
-    return jnp.broadcast_shapes((jnp.asarray(shape1), jnp.asarray(shape2)))
+    return jnp.broadcast_shapes(jnp.asarray(shape1), jnp.asarray(shape2))
 
 
 # tf.slice(input, begin, size) -> lax.dynamic_slice
