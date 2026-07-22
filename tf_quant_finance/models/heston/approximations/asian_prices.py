@@ -256,6 +256,9 @@ def asian_option_price(
     if dividend_rates is None:
       dividend_rates = tf.convert_to_tensor(
           0.0, dtype=dtype, name='dividend_rates')
+    else:
+      dividend_rates = tf.convert_to_tensor(
+          dividend_rates, dtype=dtype, name='dividend_rates')
 
     if forwards is not None:
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
