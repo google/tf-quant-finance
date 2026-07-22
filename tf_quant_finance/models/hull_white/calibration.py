@@ -378,7 +378,7 @@ def calibration_from_swaptions(
     initial_guess = tf.concat(
         [_to_unconstrained(mean_reversion.values(), mr_lb, mr_ub),
          _to_unconstrained(volatility.values(), vol_lb, vol_ub)], axis=0)
-    num_mean_reversion = mean_reversion.values().shape.as_list()[0]
+    num_mean_reversion = mean_reversion.values().shape[0]
     scaled_target = _scale(target_values, target_lb, target_ub)
 
     @make_val_and_grad_fn
@@ -743,7 +743,7 @@ def calibration_from_cap_floors(
         _to_unconstrained(mean_reversion.values(), mr_lb, mr_ub),
         _to_unconstrained(volatility.values(), vol_lb, vol_ub)
     ], axis=0)
-    num_mean_reversion = mean_reversion.values().shape.as_list()[0]
+    num_mean_reversion = mean_reversion.values().shape[0]
     scaled_target = _scale(target_values, target_lb, target_ub)
 
     @make_val_and_grad_fn

@@ -142,6 +142,16 @@ ones = _drop_name(jnp.ones)
 zeros_like = _drop_name(jnp.zeros_like)
 ones_like = _drop_name(jnp.ones_like)
 eye = _drop_name(jnp.eye)
+
+
+def _eye(num_rows, num_columns=None, batch_shape=None, dtype=jnp.float32, name=None):
+    e = jnp.eye(num_rows, num_columns, dtype=dtype)
+    if batch_shape:
+        e = jnp.broadcast_to(e, tuple(batch_shape) + e.shape)
+    return e
+
+
+eye = _eye
 fill = _drop_name(jnp.full)
 # tf.range(start, limit=None, delta=1, dtype=None, name=None) -> jnp.arange
 def _tf_range(start=None, limit=None, delta=None, dtype=None, name=None, **kw):
@@ -443,8 +453,16 @@ math.brentq = _brentq_missing
 # ---------------------------------------------------------------------------
 # tf.linalg.* namespace
 # ---------------------------------------------------------------------------
+def _matmul(a, b, transpose_a=False, transpose_b=False, adjoint_a=False, adjoint_b=False, name=None, **kw):
+    if transpose_a or adjoint_a:
+        a = jnp.swapaxes(a, -1, -2)
+    if transpose_b or adjoint_b:
+        b = jnp.swapaxes(b, -1, -2)
+    return jnp.matmul(a, b)
+
+
 linalg = _ptypes.SimpleNamespace(
-    matmul=jnp.matmul,
+    matmul=_matmul,
     matvec=lambda m, v, **kw: jnp.matmul(m, v[..., None])[..., 0],
     cholesky=jnp.linalg.cholesky,
     inv=jnp.linalg.inv,

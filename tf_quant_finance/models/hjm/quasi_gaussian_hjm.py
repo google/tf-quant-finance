@@ -191,7 +191,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
           mean_reversion, dtype=dtype, name='mean_reversion')
       def _infer_batch_shape():
         zero = tf.constant([0], dtype=self._dtype)
-        return _initial_discount_rate_fn(zero).shape.as_list()[:-1]
+        return list(_initial_discount_rate_fn(zero).shape[:-1])
 
       self._batch_shape = _infer_batch_shape()
       self._batch_rank = len(self._batch_shape)
