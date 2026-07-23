@@ -85,4 +85,4 @@ def diff(x, order=1, exclusive=False, axis=-1, dtype=None, name=None):
       return exclusive_diff
 
     slices[axis] = slice(None, order)
-    return tf.concat([x[slices], exclusive_diff], axis=axis)
+    return tf.concat([x[tuple(slices)], exclusive_diff], axis=axis)

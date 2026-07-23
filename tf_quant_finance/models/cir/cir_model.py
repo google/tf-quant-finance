@@ -85,7 +85,7 @@ class CirModel(generic_ito_process.GenericItoProcess):
         """`param` must has shape `batch_shape + [1]`."""
         param_shape = tff_utils.get_shape(param)
         # Last rank is `1`
-        return param_shape[:-1]
+        return list(param_shape[:-1])
 
       # Converts params to `Tensor` with shape `batch_shape + [1]`
       self._theta = _convert_param_to_tensor(theta)
@@ -98,7 +98,7 @@ class CirModel(generic_ito_process.GenericItoProcess):
       def _drift_fn(t, x):
         del t
 
-        expand_rank = tff_utils.get_shape(x).rank - self._batch_shape_rank - 1
+        expand_rank = len(tff_utils.get_shape(x)) - self._batch_shape_rank - 1
         # `axis` is -2, because the new dimension needs to be added before `1`
         theta_expand = self._expand_param_on_rank(
             self._theta, expand_rank, axis=-2)

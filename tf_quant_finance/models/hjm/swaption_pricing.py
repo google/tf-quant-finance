@@ -533,7 +533,7 @@ def _european_swaption_fd(batch_shape, model, exercise_times,
     idx = tf.squeeze(idx) if dim > 1 else tf.reshape(idx, shape=[1])
     slices = [slice(None)] + [slice(i, i + 1) for i in tf.unstack(idx)]
     # shape = batch_shape + [1] * dim
-    option_value = res[0][slices]
+    option_value = res[0][tuple(slices)]
     # shape = batch_shape
     option_value = tf.squeeze(option_value, axis=list(range(-dim, 0)))
 

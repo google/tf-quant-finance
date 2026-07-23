@@ -520,11 +520,17 @@ def _tridiagonal_solve(diagonals, rhs, partial_pivots=True,
     # TF: diagonals = (superdiag, diag, subdiag). jax: (dl=sub, d=diag, du=super).
     del partial_pivots, perturbation_singular, name, kw
     import jax.lax as _ll
-    super_d, diag, sub = (jnp.asarray(d) for d in diagonals)
+    # TF supports diagonals_format 'sequence' (tuple/list of 3) or 'matrix' ([...,3,k]).
+    if isinstance(diagonals, (tuple, list)) and len(diagonals) == 3:
+        super_d, diag, sub = (jnp.asarray(d) for d in diagonals)
+    else:
+        d = jnp.asarray(diagonals)
+        super_d, diag, sub = d[..., 0, :], d[..., 1, :], d[..., 2, :]
     rhs = jnp.asarray(rhs)
     squeeze = (rhs.ndim == 1)
     if squeeze:
         rhs = rhs[:, None]  # jax tridiagonal_solve needs rhs of rank >= 2
+    import jax.lax as _ll
     out = _ll.linalg.tridiagonal_solve(sub, diag, super_d, rhs)
     return out[:, 0] if squeeze else out
 
@@ -602,7 +608,12 @@ def while_loop(cond, body, loop_vars, parallel_iterations=None, maximum_iteratio
     del parallel_iterations, swap_memory, name, return_same_structure, shape_invariants
     # TF convention: cond/body are called as cond(*loop_vars). lax.while_loop
     # passes the carry as a single positional, so adapt by (un)packing.
-    is_seq = isinstance(loop_vars, (list, tuple))
+    # TF unpacks the carry into cond(*loop_vars). A single ndarray is one arg;
+    # tuples/lists and pytree-like objects (e.g. @utils.dataclass with __iter__/
+    # __len__ but no .shape) are unpacked.
+    is_seq = isinstance(loop_vars, (list, tuple)) or (
+        hasattr(loop_vars, "__iter__") and hasattr(loop_vars, "__len__")
+        and not hasattr(loop_vars, "shape"))
     vars_tuple = tuple(loop_vars) if is_seq else (loop_vars,)
 
     def cond_jax(carry):

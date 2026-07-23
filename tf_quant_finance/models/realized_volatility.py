@@ -188,7 +188,7 @@ def realized_volatility(sample_paths,
       slices = len(transformed_paths.shape) * [slice(None)]
       slices[axis] = slice(None, -1)
       denominators = denominators * component_transform(
-          transformed_paths[slices])
+          transformed_paths[tuple(slices)])
     path_statistics = result_transform(
         tf.math.reduce_sum(diffs / denominators, axis=axis))
     if scaling_factors is not None:
