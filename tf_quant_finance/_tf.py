@@ -480,7 +480,7 @@ linalg = _ptypes.SimpleNamespace(
     diag=lambda v, k=0, **kw: _create_diag(v, k),
     set_diag=lambda m, v, **kw: m.at[..., :].set(v) if hasattr(m, "at") else m,
     tridiagonal_solve=_lax.linalg.tridiagonal_solve if hasattr(_lax.linalg, "tridiagonal_solve") else None,
-    tridiagonal_matmul=_lax.linalg.tridiagonal_matmul if hasattr(_lax.linalg, "tridiagonal_matmul") else None,
+    tridiagonal_matmul=None,
     expm=_jspl.expm,
 )
 def _band_part(m, num_lower, num_upper):
@@ -512,6 +512,25 @@ def _create_diag(v, k=0):
 
 
 linalg.diag = _create_diag
+
+
+def _tridiagonal_matmul(diagonals, rhs, diagonals_format='sequence', **kw):
+    """tf.linalg.tridiagonal_matmul: multiply tridiagonal matrix by rhs."""
+    if isinstance(diagonals, (tuple, list)) and len(diagonals) == 3:
+        super_d, diag, sub = (jnp.asarray(d) for d in diagonals)
+    else:
+        d = jnp.asarray(diagonals)
+        super_d, diag, sub = d[..., 0, :], d[..., 1, :], d[..., 2, :]
+    rhs = jnp.asarray(rhs)
+    result = diag[..., :, None] * rhs
+    # super[i] = M[i,i+1]: result[i] += super[i]*rhs[i+1]  (for i < m-1)
+    result = result.at[..., :-1, :].add(super_d[..., :-1, None] * rhs[..., 1:, :])
+    # sub[i] = M[i+1,i]: result[i+1] += sub[i]*rhs[i]  (for i < m-1)
+    result = result.at[..., 1:, :].add(sub[..., :-1, None] * rhs[..., :-1, :])
+    return result
+
+
+linalg.tridiagonal_matmul = _tridiagonal_matmul
 linalg.tensor_diag = _create_diag
 
 
@@ -981,6 +1000,13 @@ def concat(values, axis=0, name=None, *more, **kwargs):
 
 stack = _drop_name(jnp.stack)
 
+
+def _pad(tensor, paddings, mode='CONSTANT', name=None, constant_values=0, **kw):
+    mode_map = {'CONSTANT': 'constant', 'REFLECT': 'reflect', 'SYMMETRIC': 'symmetric'}
+    return jnp.pad(tensor, jnp.asarray(paddings), mode=mode_map.get(str(mode).upper(), str(mode).lower()))
+
+
+pad = _pad
 
 # tf.transpose uses `perm=`; jnp uses `axes=`.
 def transpose(a, perm=None, name=None, conjugate=False):
