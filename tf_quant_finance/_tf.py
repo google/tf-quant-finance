@@ -517,22 +517,26 @@ linalg.tensor_diag = _create_diag
 
 def _tridiagonal_solve(diagonals, rhs, partial_pivots=True,
                       perturbation_singular=0.0, name=None, **kw):
-    # TF: diagonals = (superdiag, diag, subdiag). jax: (dl=sub, d=diag, du=super).
+    # TF: diagonals = (superdiag, diag, subdiag) or matrix [...,3,k].
+    # jax 0.9.2 lax.linalg.tridiagonal_solve(dl, d, du, b) requires:
+    #   - dl/d/du all SAME shape [..., m] (NOT m-1)
+    #   - b shape [..., m, nrhs] (always needs the trailing nrhs dim)
     del partial_pivots, perturbation_singular, name, kw
     import jax.lax as _ll
-    # TF supports diagonals_format 'sequence' (tuple/list of 3) or 'matrix' ([...,3,k]).
     if isinstance(diagonals, (tuple, list)) and len(diagonals) == 3:
         super_d, diag, sub = (jnp.asarray(d) for d in diagonals)
     else:
         d = jnp.asarray(diagonals)
         super_d, diag, sub = d[..., 0, :], d[..., 1, :], d[..., 2, :]
     rhs = jnp.asarray(rhs)
-    squeeze = (rhs.ndim == 1)
-    if squeeze:
-        rhs = rhs[:, None]  # jax tridiagonal_solve needs rhs of rank >= 2
-    import jax.lax as _ll
+    # Add trailing nrhs=1 dim if rhs lacks it (jax requires [..., m, nrhs]).
+    squeeze_rhs = (rhs.ndim <= diag.ndim)
+    if squeeze_rhs:
+        rhs = rhs[..., None]
     out = _ll.linalg.tridiagonal_solve(sub, diag, super_d, rhs)
-    return out[:, 0] if squeeze else out
+    if squeeze_rhs:
+        out = out[..., 0]
+    return out
 
 
 linalg.tridiagonal_solve = _tridiagonal_solve
