@@ -91,7 +91,18 @@ class TensorSpec:
         self.name = name
 
 
-Variable = jnp.ndarray  # ponytail: the lib doesn't train Variables; alias is enough
+def Variable(initial_value=None, dtype=None, trainable=True, name=None, **kw):
+    """tf.Variable shim: returns a mutable numpy array (for test counters etc.)."""
+    import numpy as _np
+    d = dtype if dtype is not None else _np.float32
+    return _np.asarray(initial_value, dtype=d)
+
+
+def assign_add(ref, value, **kw):
+    """tf.compat.v1.assign_add shim: in-place add on numpy array."""
+    import numpy as _np
+    ref += _np.asarray(value, dtype=ref.dtype)
+    return ref
 Module = object
 
 
@@ -849,6 +860,8 @@ Assert = _assert_noop
 assert_equal = debugging.assert_equal
 assert_greater = debugging.assert_greater
 assert_less = debugging.assert_less
+assert_less_equal = debugging.assert_less_equal
+assert_greater_equal = debugging.assert_greater_equal
 
 
 # ---------------------------------------------------------------------------

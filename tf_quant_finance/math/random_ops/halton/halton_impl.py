@@ -266,7 +266,7 @@ def sample(dim: int,
       # dimensions, then the 10th prime (29) we will end up computing 29^10 even
       # though we don't need it. We avoid this by setting the exponents for each
       # axes to 0 beyond the maximum value needed for that dimension.
-      exponents_by_axes = tf.tile([tf.range(max_size, dtype=dtype)], [dim, 1])
+      exponents_by_axes = tf.tile(tf.expand_dims(tf.range(max_size, dtype=dtype), 0), [dim, 1])
 
       # The mask is true for those coefficients that are irrelevant.
       weight_mask = exponents_by_axes >= max_sizes_by_axes

@@ -434,7 +434,7 @@ def _while_loop(*, steps_num, current_state,
   if single:
     def body(carry, i):
       return _next(i, carry), None
-    (final,), _ = jax.lax.scan(body, current_state, xs=jnp.arange(steps_num))
+    final, _ = jax.lax.scan(body, current_state, xs=jnp.arange(steps_num))
     return tf.expand_dims(final, axis=-2)
 
   # record_samples: scan steps_num, carrying (state, result[num_requested, ...], wc)
