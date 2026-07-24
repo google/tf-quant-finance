@@ -951,7 +951,13 @@ def gather(params, indices, axis=0, batch_dims=0, name=None,
     if batch_dims:
         # Pair the leading `batch_dims` axes of params and indices, gather along `axis`.
         def _g(p, idx):
-            return p[idx] if axis == 0 else jnp.take(p, idx, axis=axis - batch_dims)
+            if axis == 0:
+                return p[idx]
+            # Axis relative to the de-batched array: positive axes subtract
+            # batch_dims (leading dims removed by vmap); negative axes unchanged
+            # (trailing dims unaffected).
+            rel_axis = axis - batch_dims if axis >= 0 else axis
+            return jnp.take(p, idx, axis=rel_axis)
         for _ in range(batch_dims):
             _g = jax.vmap(_g)
         return _g(params, indices)
