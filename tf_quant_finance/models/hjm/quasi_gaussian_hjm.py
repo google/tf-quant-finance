@@ -239,11 +239,14 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       diffusion_x = tf.broadcast_to(
           tf.expand_dims(self._sqrt_rho, axis=self._batch_rank) * volatility,
           batch_shape_x + [self._factors, self._factors])
-      paddings = tf.constant(
-          [[0, 0]]*len(batch_shape_x) + [[0, self._factors**2],
-                                         [0, self._factors**2]],
-          dtype=tf.int32)
-      diffusion = tf.pad(diffusion_x, paddings)
+      # Pad last 2 dims to full state dimension f + f^2.
+      # Avoids tf.pad (requires static pad_width, breaks inside scan).
+      f = self._factors
+      f2 = f * f
+      pad1 = tf.zeros(batch_shape_x + [f, f2], dtype=diffusion_x.dtype)
+      diff = tf.concat([diffusion_x, pad1], axis=-1)  # [..., f, f+f2]
+      pad2 = tf.zeros(batch_shape_x + [f2, f + f2], dtype=diffusion_x.dtype)
+      diffusion = tf.concat([diff, pad2], axis=-2)   # [..., f+f2, f+f2]
 
       return diffusion
 
