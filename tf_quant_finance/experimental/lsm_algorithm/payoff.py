@@ -84,9 +84,8 @@ def _put_valuer(sample_paths, time_index, strike_price, dtype=None, name=None):
       sample_paths = tf.transpose(sample_paths, [1, 0, 2, 3])
     num_samples, batch_size, _, dim = list(sample_paths.shape)
 
-    slice_sample_paths = tf.slice(sample_paths, [0, 0, time_index, 0],
-                                  [num_samples, batch_size, 1, dim])
-    slice_sample_paths = tf.squeeze(slice_sample_paths, 2)
+    # Use dynamic indexing instead of tf.slice (time_index is traced).
+    slice_sample_paths = sample_paths[:, :, time_index, :]
     average = tf.math.reduce_mean(slice_sample_paths, axis=-1)
     return tf.nn.relu(strike_price - average)
 

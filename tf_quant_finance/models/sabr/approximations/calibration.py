@@ -16,6 +16,7 @@
 from typing import Callable, Tuple
 
 from tf_quant_finance import _tf as tf
+import numpy as np
 
 from tf_quant_finance import black_scholes
 from tf_quant_finance import types

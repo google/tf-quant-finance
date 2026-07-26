@@ -78,7 +78,7 @@ def options_price_from_samples(
       `options_price_from_samples`.
 
   Returns:
-    A `Tensor` of real dtype and shape `strikes.shape + [dim]` containing the
+    A `Tensor` of real dtype and shape `list(strikes.shape) + [dim]` containing the
     computed option prices.
   """
   name = name or 'options_price_from_samples'
@@ -133,18 +133,18 @@ def options_price_from_samples(
     # The shape after `gather_nd` would be (num_samples*num_strikes*dim,)
     payoff_discount_factors_builder = tf.gather_nd(discount_factors_simulated,
                                                    gather_index)
-    # Reshape to `[num_samples] + strikes.shape + [dim]`
+    # Reshape to `[num_samples] + list(strikes.shape) + [dim]`
     payoff_discount_factors = tf.reshape(payoff_discount_factors_builder,
-                                         [num_samples] + strikes.shape + [dim])
+                                         [num_samples] + list(strikes.shape) + [dim])
     payoff_bond_price_builder = tf.gather_nd(p_t_tau, gather_index)
     payoff_bond_price = tf.reshape(payoff_bond_price_builder,
-                                   [num_samples] + strikes.shape + [dim])
+                                   [num_samples] + list(strikes.shape) + [dim])
 
     is_call_options = tf.reshape(
         tf.broadcast_to(is_call_options, strikes.shape),
-        [1] + strikes.shape + [1])
+        [1] + list(strikes.shape) + [1])
 
-    strikes = tf.reshape(strikes, [1] + strikes.shape + [1])
+    strikes = tf.reshape(strikes, [1] + list(strikes.shape) + [1])
     payoff = tf.where(is_call_options,
                       tf.math.maximum(payoff_bond_price - strikes, 0.0),
                       tf.math.maximum(strikes - payoff_bond_price, 0.0))

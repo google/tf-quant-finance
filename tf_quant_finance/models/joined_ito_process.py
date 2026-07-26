@@ -188,7 +188,7 @@ class JoinedItoProcess(generic_ito_process.GenericItoProcess):
           vol = tf.convert_to_tensor(p.volatility_fn()(t, position),
                                      dtype=dtype,
                                      name="volatility")
-          vol = tf.broadcast_to(vol, position.shape + [dim])
+          vol = tf.broadcast_to(vol, list(position.shape) + [dim])
           vols.append(vol)
           i1 += dim
         # Convert block diagonal volatilities to a dense correlation matrix
@@ -296,7 +296,7 @@ def _get_parameters(times, *params):
       # Used only in drift and volatility computation.
       # Here `times` is of shape [1]
       t = tf.squeeze(times)
-      # The result has to have shape [1] + param.shape
+      # The result has to have shape [1] + list(param.shape)
       param_value = tf.convert_to_tensor(param(t), dtype=times.dtype,
                                          name="param_value")
       res.append(tf.expand_dims(param_value, 0))

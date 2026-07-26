@@ -756,7 +756,7 @@ def _cbnd(dh, dk, rho):
   # of rho, for efficiency reasons on the GPU.
   def transformed_bvn(hk, hs, asr):
     def transformed_bvn_distribution(x):
-      # Shape bvn.shape + [1]
+      # Shape list(bvn.shape) + [1]
       hk_exp = tf.expand_dims(hk, axis=-1)
       hs_exp = tf.expand_dims(hs, axis=-1)
       asr_exp = tf.expand_dims(asr, axis=-1)

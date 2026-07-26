@@ -37,7 +37,7 @@ _MAX_INDEX_BY_DTYPE = {tf.float32: 2**24 - 1, np.float32: 2**24 - 1,
 # The number of coefficients we use to represent each Halton number when
 # expressed in the (prime) base for an event dimension. In theory this should be
 # infinite, but in practice it is useful to cap this based on data type.
-_NUM_COEFFS_BY_DTYPE = {tf.float32: 24, np.float32: 24,
+_NUM_COEFFS_BY_DTYPE = {tf.float32: 24, np.float32: 24, np.dtype("float32"): 24,
                         tf.float64: 54, np.float64: 54}
 
 

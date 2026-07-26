@@ -213,7 +213,7 @@ def least_square_mc(sample_paths,
     # Calculate the payoff of each path if exercised now. Shape
     # [num_samples, payoff_dim]
     exercise_value = payoff_fn(sample_paths, tick)
-    zeros = tf.zeros(exercise_value.shape + [num_times - 1],
+    zeros = tf.zeros(list(exercise_value.shape) + [num_times - 1],
                      dtype=exercise_value.dtype)
     exercise_value = tf.expand_dims(exercise_value, -1)
 
@@ -293,7 +293,7 @@ def expected_exercise_fn(design, continuation_value, exercise_value):
   # hence we create multiple copies of the regression design (basis) matrix and
   # zero out rows for out of the money paths under each payoff.
   batch_design = tf.broadcast_to(
-      tf.expand_dims(design, -1), design.shape + [continuation_value.shape[-1]])
+      tf.expand_dims(design, -1), list(design.shape) + [continuation_value.shape[-1]])
   mask = tf.cast(exercise_value > 0, design.dtype)
   # Zero out contributions from samples we'd never exercise at this point (i.e.,
   # these extra observations do not change the regression coefficients).

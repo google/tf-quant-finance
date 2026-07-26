@@ -35,19 +35,33 @@ def _run_quasi_newton(solver_cls, value_and_gradients_function,
                         maxiter=max_iterations, jit=False)
     init = jnp.asarray(initial_position)
     # tfp supports batched initial_position [N, D] (N independent solves).
+    # jaxopt's vmap triggers TracerBoolConversionError in line search; use
+    # a Python loop instead (slower but correct).
     if init.ndim > 1:
-        params, state = jax.vmap(solver.run)(init)
+        all_params = []
+        all_states = []
+        for i in range(init.shape[0]):
+            p, s = solver.run(init[i])
+            all_params.append(p)
+            all_states.append(s)
+        params = jnp.stack(all_params)
+        err = jnp.stack([getattr(s, 'error', jnp.asarray(0.0)) for s in all_states])
+        it = jnp.stack([getattr(s, 'iter_num', jnp.asarray(max_iterations)) for s in all_states])
+        val = jnp.stack([getattr(s, 'value', jnp.asarray(0.0)) for s in all_states])
+        grad = jnp.stack([getattr(s, 'grad', jnp.zeros_like(init[0])) for s in all_states])
     else:
         params, state = solver.run(init)
-    err = getattr(state, "error", jnp.asarray(0.0))
-    it = getattr(state, "iter_num", jnp.asarray(max_iterations))
+        err = getattr(state, "error", jnp.asarray(0.0))
+        it = getattr(state, "iter_num", jnp.asarray(max_iterations))
+        val = getattr(state, "value", jnp.asarray(0.0))
+        grad = getattr(state, "grad", jnp.zeros_like(params))
     return _OptResults(
         converged=jnp.asarray(err < tolerance),
         failed=jnp.asarray(False),
         num_objective_evaluations=jnp.asarray(it),
         position=params,
-        objective_value=getattr(state, "value", jnp.asarray(0.0)),
-        objective_gradient=getattr(state, "grad", jnp.zeros_like(params)),
+        objective_value=val,
+        objective_gradient=grad,
         n_iterations=jnp.asarray(it),
         status=jnp.asarray(0))
 
@@ -80,12 +94,12 @@ def nelder_mead_minimize(function, initial_vertex=None, initial_position=None,
         status=jnp.asarray(0))
 
 
-def converged_all(losses, tolerance=1e-8):
-    """tfp.optimizer.converged_all: True when all |losses| < tolerance."""
+def converged_all(losses, tolerance=1e-8, *args, **kw):
+    """tfp.optimizer.converged_all: True when all values are within tolerance."""
     return jnp.all(jnp.abs(jnp.asarray(losses)) < tolerance)
 
 
-def converged_any(losses, tolerance=1e-8):
+def converged_any(losses, tolerance=1e-8, *args, **kw):
     return jnp.any(jnp.abs(jnp.asarray(losses)) < tolerance)
 
 

@@ -14,6 +14,7 @@
 """Sabr Approximations to European Option prices."""
 
 from tf_quant_finance import _tf as tf
+import numpy as np
 
 from tf_quant_finance.black_scholes import vanilla_prices
 from tf_quant_finance.models.sabr.approximations.implied_volatility import implied_volatility

@@ -167,6 +167,9 @@ def option_price(*,
     if dividend_rates is None:
       dividend_rates = tf.convert_to_tensor(
           0.0, dtype=dtype, name='dividend_rates')
+    else:
+      dividend_rates = tf.convert_to_tensor(
+          dividend_rates, dtype=dtype, name='dividend_rates')
 
     if forwards is not None:
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
@@ -592,6 +595,9 @@ def binary_price(*,
     if dividend_rates is None:
       dividend_rates = tf.convert_to_tensor(
           0.0, dtype=dtype, name='dividend_rates')
+    else:
+      dividend_rates = tf.convert_to_tensor(
+          dividend_rates, dtype=dtype, name='dividend_rates')
 
     if forwards is not None:
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
@@ -750,6 +756,9 @@ def asset_or_nothing_price(*,
     if dividend_rates is None:
       dividend_rates = tf.convert_to_tensor(
           0.0, dtype=dtype, name='dividend_rates')
+    else:
+      dividend_rates = tf.convert_to_tensor(
+          dividend_rates, dtype=dtype, name='dividend_rates')
 
     if forwards is not None:
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
@@ -864,7 +873,7 @@ def swaption_price(*,
       time to expiration of the swaptions.
     floating_leg_start_times: A real `Tensor` of the same dtype as
       `volatilities`. The times when accrual begins for each payment in the
-      floating leg. The shape of this input should be `expiries.shape + [m]` or
+      floating leg. The shape of this input should be `list(expiries.shape) + [m]` or
       `batch_shape + [m]` where `m` denotes the number of floating payments in
       each leg.
     floating_leg_end_times: A real `Tensor` of the same dtype as `volatilities`.

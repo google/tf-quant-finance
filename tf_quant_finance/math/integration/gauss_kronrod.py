@@ -42,7 +42,7 @@ def _non_adaptive_gauss_kronrod(
     func: Represents a function to be integrated. It must be a callable of a
       single `Tensor` parameter and return a `Tensor` of the same shape and
       dtype as its input. It will be called with a `Tensor` of shape
-      `lower.shape + [n]` (where n is integer number of points) and of the same
+      `list(lower.shape) + [n]` (where n is integer number of points) and of the same
       `dtype` as `lower`.
     lower: Represents the lower limits of integration. `func` will be integrated
       between each pair of points defined by `lower` and `upper`.
@@ -135,7 +135,7 @@ def gauss_kronrod(func: Callable[[types.FloatTensor], types.FloatTensor],
     func: Represents a function to be integrated. It must be a callable of a
       single `Tensor` parameter and return a `Tensor` of the same shape and
       dtype as its input. It will be called with a `Tensor` of shape
-      `lower.shape + [n,  num_points]` (where `n` is defined by the algorithm
+      `list(lower.shape) + [n,  num_points]` (where `n` is defined by the algorithm
       and represents the number of subintervals) and of the same `dtype` as
       `lower`.
     lower: Represents the lower limits of integration. `func` will be integrated

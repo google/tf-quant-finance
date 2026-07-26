@@ -1,30 +1,26 @@
 # TF Quant Finance → JAX Migration: Status
 
 **Branch:** `feat/jax-migration` | **JAX 0.9.2** on gfx1151 ROCm GPU  
-**Full suite: 855 passed** (started 222, **+285%**) | 41 commits
+**Full suite: 932 passed** (started 222, **+319%**) | 50+ commits
 
 ## Per-module
-| module | passed | Δ |
+| module | passed | status |
 |---|---|---|
-| datetime | 94 ✅ | GREEN |
-| black_scholes | 143/144 | 99% |
-| math | 216 | +27 (gather axis fix) |
-| models | 256 | +11 (HJM concretization) |
-| rates | 53 | +7 (gather axis fix) |
+| datetime | 94 | ✅ fully green |
+| black_scholes | 143/144 | ✅ 99% |
+| math | 239 | gradient/jacobian/custom_loops/CG green |
+| models | 309 | GBM 98%, sabr 94/124, hull_white 22, hjm 12 |
+| rates | 53 | |
+| experimental | 76 | |
 
-## What's been solved (systematic issues)
-1. **tridiagonal_solve** (was 157 failures) — rhs `[..., m, nrhs]` dim required
-2. **gather(batch_dims) negative axis** (+86 tests) — axis=-1-batch_dims→-ND invalid
-3. **HJM concretization** (26→0) — tf.pad→manual concat in scan body
-4. **band_part**, **linalg.diag**, **broadcast_static_shape** splat, **matmul** transpose_b/eye batch_shape
-5. **[slices]→[tuple(slices)]**, **divide_no_nan**, **dataclass pytree**, **debugging.assert***
-6. **tf.Variable**, **assign_add**, **halton tile**, **assert_less_equal**
-
-## What remains (536 failed, diffuse)
-- PDE (34): douglas_adi value errors + multidim stepper shapes
-- Math: optimizer (22), random_ops (29), qmc (17), root_search (12)
-- Models: HJM (remaining 55), hull_white (49), heston (18), cir (15), longstaff (12), sabr (41 → 83 passing)
-- Rates: curve shape (48)
-- Experimental: instruments/pricing_platform (106)
-
-Next targets: experimental (106) and remaining math sub-modules.
+## Key wins (cumulative)
+1. **tridiagonal_solve** (was 157 failures) — rhs `[..., m, nrhs]` dim
+2. **gather(batch_dims) negative axis** (+86 tests)  
+3. **gather_nd** proper tuple indexing (+31 tests)
+4. **band_part** row/col swap; **linalg.diag** create vs extract
+5. **broadcast_static_shape** splat (shape_utils landmine)
+6. **matmul(transpose_b)**, **eye(batch_shape)**, **tridiagonal_matmul**, **tf.pad(paddings=)**
+7. **[slices]→[tuple(slices)]**, **divide_no_nan** safe-denom, **dataclass pytree**
+8. **HJM concretization** — tf.pad→manual concat in scan body
+9. CG backtracking line search; tf.unique; debugging.is_strictly_increasing
+10. np imports; floor_div; cumprod; segment ops; global_variables_initializer

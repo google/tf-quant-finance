@@ -252,7 +252,7 @@ def least_square_mc(sample_paths,
     # Calculate the payoff of each path if exercised now. Shape
     # [num_samples, batch_size]
     exercise_value = payoff_fn(sample_paths, time_index)
-    zeros = tf.zeros(exercise_value.shape + [num_times - 1],
+    zeros = tf.zeros(list(exercise_value.shape) + [num_times - 1],
                      dtype=dtype)
     exercise_value = tf.expand_dims(exercise_value, axis=-1)
 

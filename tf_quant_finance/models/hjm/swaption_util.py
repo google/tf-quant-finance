@@ -109,7 +109,7 @@ def discount_factors_and_bond_prices_from_samples(
 
   dim = tf.shape(p_t_tau)[-1]
   model_batch_shape = tf.shape(p_t_tau)[:-4]
-  model_batch_rank = p_t_tau.shape[:-4].rank
+  model_batch_rank = len(p_t_tau.shape[:-4])
   instr_batch_shape = tf.shape(expiries)[model_batch_rank:]
   try:
     swaptionlet_shape = tf.concat(
@@ -196,7 +196,7 @@ def _gather_tensor_at_swaption_payoff(param, indices):
     A `Tensor` of same dtype as `param` and shape
     `[num_samples, batch_shape, num_indices, dim]`.
   """
-  batch_rank = param.shape[:-4].rank
+  batch_rank = len(param.shape[:-4])
   # Transpose to shape `[batch_shape, curve_times, sim_times, dim, num_samples]`
   perm = (list(range(batch_rank)) +
           [batch_rank + 1, batch_rank + 2, batch_rank + 3, batch_rank])

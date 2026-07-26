@@ -643,11 +643,9 @@ def while_loop(cond, body, loop_vars, parallel_iterations=None, maximum_iteratio
     # TF convention: cond/body are called as cond(*loop_vars). lax.while_loop
     # passes the carry as a single positional, so adapt by (un)packing.
     # TF unpacks the carry into cond(*loop_vars). A single ndarray is one arg;
-    # tuples/lists and pytree-like objects (e.g. @utils.dataclass with __iter__/
-    # __len__ but no .shape) are unpacked.
-    is_seq = isinstance(loop_vars, (list, tuple)) or (
-        hasattr(loop_vars, "__iter__") and hasattr(loop_vars, "__len__")
-        and not hasattr(loop_vars, "shape"))
+    # tuples/lists are unpacked. Dataclass-like objects (registered pytrees via
+    # @utils.dataclass) are treated as single args (not unpacked).
+    is_seq = isinstance(loop_vars, (list, tuple))
     vars_tuple = tuple(loop_vars) if is_seq else (loop_vars,)
 
     def cond_jax(carry):
@@ -675,7 +673,7 @@ def while_loop(cond, body, loop_vars, parallel_iterations=None, maximum_iteratio
         return rest if (is_seq and len(rest) > 1) else rest[0]
 
     out = _lax.while_loop(cond_jax, body_jax, vars_tuple)
-    return out if (is_seq and len(out) > 1) else out[0]
+    return out if is_seq else out[0]
 
 
 def cond(pred, true_fn, false_fn, *args, **kw):
@@ -726,6 +724,12 @@ class TestCase(_absltest.TestCase):
     """tf.test.TestCase stand-in: absltest.TestCase + tf-style evaluate()."""
 
     def evaluate(self, tensors):
+        # Preserve namedtuples and dataclass-like objects; only convert
+        # plain lists/tuples and leaf tensors to numpy.
+        if hasattr(tensors, "_fields"):
+            return type(tensors)(*[self.evaluate(v) for v in tensors])
+        if hasattr(tensors, "__attrs_attrs__"):
+            return type(tensors)(*[self.evaluate(getattr(tensors, a.name)) for a in tensors.__attrs_attrs__])
         if isinstance(tensors, (list, tuple)):
             return type(tensors)(np.asarray(t) for t in tensors)
         return np.asarray(tensors)
@@ -742,6 +746,11 @@ class TestCase(_absltest.TestCase):
         np.testing.assert_array_equal(np.asarray(a), np.asarray(b), err_msg=msg)
 
     def assertArrayNear(self, a, b, tol, msg=None):
+        np.testing.assert_allclose(np.asarray(a, dtype=float),
+                                   np.asarray(b, dtype=float),
+                                   rtol=tol, atol=tol, err_msg=msg)
+
+    def assertNDArrayNear(self, a, b, tol, msg=None):
         np.testing.assert_allclose(np.asarray(a, dtype=float),
                                    np.asarray(b, dtype=float),
                                    rtol=tol, atol=tol, err_msg=msg)
@@ -838,7 +847,9 @@ debugging = _ptypes.SimpleNamespace(
     assert_all_close=lambda a, b, rtol=None, atol=None, message=None, **k: _chk(
         np.isclose(np.asarray(a, dtype=float), np.asarray(b, dtype=float),
                   rtol=rtol or 1e-6, atol=atol or 1e-6), message),
-    assert_scalar=None, assert_rank=lambda *a, **k: None, assert_type=lambda *a, **k: None,
+    assert_rank=lambda *a, **k: None, assert_type=lambda *a, **k: None,
+    is_strictly_increasing=lambda x, message=None, **k: _chk(jnp.all(jnp.diff(jnp.asarray(x)) > 0), message),
+    is_non_decreasing=lambda x, message=None, **k: _chk(jnp.all(jnp.diff(jnp.asarray(x)) >= 0), message),
 )
 
 
@@ -857,6 +868,7 @@ def _assert_noop(condition, data, summarize=None, name=None):
 
 debugging.Assert = _assert_noop
 Assert = _assert_noop
+compat.v1.debugging = debugging
 assert_equal = debugging.assert_equal
 assert_greater = debugging.assert_greater
 assert_less = debugging.assert_less
@@ -1032,7 +1044,60 @@ def transpose(a, perm=None, name=None, conjugate=False):
     return jnp.transpose(a, axes=perm)
 
 
+matmul = _matmul
+
+
+floor_div = jnp.floor_divide
+realdiv = jnp.true_divide
+cumprod = jnp.cumprod
+argmax = jnp.argmax
+argmin = jnp.argmin
+is_finite = jnp.isfinite
+is_nan = jnp.isnan
+is_inf = jnp.isinf
+logical_not = jnp.logical_not
+logical_or = jnp.logical_or
+logical_and = jnp.logical_and
+logical_xor = jnp.logical_xor
+floormod = jnp.mod
+truediv = jnp.true_divide
+unsorted_segment_max = lambda data, segment_ids, num_segments=None, **kw: jax.ops.segment_max(data, segment_ids)
+unsorted_segment_sum = lambda data, segment_ids, num_segments=None, **kw: jax.ops.segment_sum(data, segment_ids)
+unsorted_segment_min = lambda data, segment_ids, num_segments=None, **kw: jax.ops.segment_min(data, segment_ids)
+unsorted_segment_prod = lambda data, segment_ids, num_segments=None, **kw: jax.ops.segment_prod(data, segment_ids)
+
+
+def _unique(values, out_idx=None, name=None):
+    """tf.unique returns (unique_values, idx). jnp.unique returns only values."""
+    values = jnp.asarray(values)
+    # jnp.unique with return_index=True returns (unique, indices, counts)
+    # but indices are of first occurrence, not the TF mapping. Use a manual approach.
+    uniq = jnp.unique(values)
+    # Build idx: for each element in values, find its index in uniq.
+    idx = jnp.searchsorted(uniq, values)
+    return uniq, idx
+
+
+unique = _unique
+
+
 gather_nd = jnp.take  # best-effort; callers needing advanced gather_nd convert natively
+
+
+def _gather_nd(params, indices, name=None, batch_dims=0, **kw):
+    """tf.gather_nd: gather elements at N-dimensional indices.
+    indices shape [..., num_dims] -> output shape indices.shape[:-1] + params.shape[num_dims:]."""
+    params = jnp.asarray(params)
+    indices = jnp.asarray(indices)
+    if indices.ndim == 1:
+        return params[tuple(indices)]
+    # Split indices into per-dimension arrays and use tuple indexing
+    num_dims = indices.shape[-1]
+    idx_tuple = tuple(indices[..., d] for d in range(num_dims))
+    return params[idx_tuple]
+
+
+gather_nd = _gather_nd
 
 
 one_hot = _drop_name(jax.nn.one_hot)
@@ -1068,6 +1133,18 @@ def tensor_scatter_nd_update(tensor, indices, updates, name=None):
 
 def placeholder_with_default(input, shape=None, name=None):
     return jnp.asarray(input)
+
+
+def _global_variables_initializer():
+    return None
+
+
+def _global_variables():
+    return []
+
+
+compat.v1.global_variables_initializer = _global_variables_initializer
+compat.v1.global_variables = _global_variables
 def _scatter_nd(indices, updates, shape, name=None):
     updates = jnp.asarray(updates)
     out = jnp.zeros(shape, dtype=updates.dtype)

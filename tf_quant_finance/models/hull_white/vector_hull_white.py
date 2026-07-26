@@ -85,10 +85,10 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
 
   dtype = tf.float64
   # Mean-reversion is constant for the two processes. `mean_reversion(t)`
-  # has shape `[dim] + t.shape`.
+  # has shape `[dim] + list(t.shape)`.
   mean_reversion = [0.03, 0.02]
   # Volatility is a piecewise constant function with jumps at the same locations
-  # for both Hull-White processes. `volatility(t)` has shape `[dim] + t.shape`.
+  # for both Hull-White processes. `volatility(t)` has shape `[dim] + list(t.shape)`.
   volatility = tff.math.piecewise.PiecewiseConstantFunc(
       jump_locations=[[0.1, 2.], [0.1, 2.]],
       values=[[0.01, 0.02, 0.01], [0.01, 0.015, 0.01]],
@@ -180,7 +180,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
           `is_piecewise_constant` set to `True`. In this case the object
           should have a method `jump_locations(self)` that returns a
           `Tensor` of shape `[num_jumps]`. `corr_matrix(t)` should return a
-          `Tensor` of shape `t.shape + [dim, dim]`, where `t` is a rank 1
+          `Tensor` of shape `list(t.shape) + [dim, dim]`, where `t` is a rank 1
           `Tensor` of the same `dtype` as the output.
          (b) A callable that accepts scalars (stands for time `t`) and returns a
          `Tensor` of shape `[dim, dim]`.
@@ -216,7 +216,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
           # it is expected that `r` is of shape `input_shape + [dim]`.
           if len(r.shape) == len(x.shape):
             r = tf.expand_dims(r, axis=-1)
-          # Shape `x.shape + [dim]`
+          # Shape `list(x.shape) + [dim]`
           return -r * tf.expand_dims(x, axis=-1)
 
         rate = -gradient.fwd_gradient(
@@ -788,21 +788,21 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                            y_t):
     """Compute discount bond prices using Eq. 10.18 in Ref [2]."""
 
-    # Shape `times.shape + [dim]`
+    # Shape `list(times.shape) + [dim]`
     f_0_t = self._instant_forward_rate_fn(times)
     # Shape `short_rate.shape`
     x_t = short_rate - f_0_t
     discount_rates_times = self._initial_discount_rate_fn(times)
     times_expand = tf.expand_dims(times, axis=-1)
-    # Shape `times.shape + [dim]`
+    # Shape `list(times.shape) + [dim]`
     p_0_t = tf.math.exp(-discount_rates_times * times_expand)
-    # Shape `times.shape + [dim]`
+    # Shape `list(times.shape) + [dim]`
     discount_rates_maturities = self._initial_discount_rate_fn(maturities)
     maturities_expand = tf.expand_dims(maturities, axis=-1)
-    # Shape `times.shape + [dim]`
+    # Shape `list(times.shape) + [dim]`
     p_0_t_tau = tf.math.exp(
         -discount_rates_maturities * maturities_expand) / p_0_t
-    # Shape `times.shape + [dim]`
+    # Shape `list(times.shape) + [dim]`
     g_t_tau = (1. - tf.math.exp(
         -mean_reversion * (maturities_expand - times_expand))) / mean_reversion
     # Shape `x_t.shape`
@@ -972,7 +972,7 @@ def _get_parameters(times, *params):
       # Used only in drift and volatility computation.
       # Here `times` is of shape [1]
       t = tf.squeeze(times)
-      # The result has to have shape [1] + param.shape
+      # The result has to have shape [1] + list(param.shape)
       res.append(tf.expand_dims(param(t), 0))
     else:
       res.append(param + tf.zeros(times.shape + param.shape, dtype=times.dtype))
@@ -1040,11 +1040,11 @@ def _input_type(param, dim, dtype, name):
     if param.is_piecewise_constant:
       jump_locations = param.jump_locations()
       jumps_shape = jump_locations.shape
-      if jumps_shape.rank > 2:
+      if len(jumps_shape) > 2:
         raise tf.errors.InvalidArgumentError(
             'Batch rank of `jump_locations` should be `1` for all piecewise '
             'constant arguments but {} instead'.format(len(jumps_shape[:-1])))
-      if jumps_shape.rank == 2:
+      if len(jumps_shape) == 2:
         if dim != jumps_shape[0]:
           raise tf.errors.InvalidArgumentError(
               'Batch shape of `jump_locations` should be either empty or '

@@ -240,15 +240,15 @@ def calibration_from_swaptions(
       expiration of the swaptions.
     floating_leg_start_times: A real `Tensor` of the same dtype as `prices`. The
       times when accrual begins for each payment in the floating leg. The shape
-      of this input should be `expiries.shape + [m]` where `m` denotes the
+      of this input should be `list(expiries.shape) + [m]` where `m` denotes the
       number of floating payments in each leg.
     floating_leg_end_times: A real `Tensor` of the same dtype as `prices`. The
       times when accrual ends for each payment in the floating leg. The shape of
-      this input should be `expiries.shape + [m]` where `m` denotes the number
+      this input should be `list(expiries.shape) + [m]` where `m` denotes the number
       of floating payments in each leg.
     fixed_leg_payment_times: A real `Tensor` of the same dtype as `prices`. The
       payment times for each payment in the fixed leg. The shape of this input
-      should be `expiries.shape + [n]` where `n` denotes the number of fixed
+      should be `list(expiries.shape) + [n]` where `n` denotes the number of fixed
       payments in each leg.
     floating_leg_daycount_fractions: A real `Tensor` of the same dtype and
       compatible shape as `floating_leg_start_times`. The daycount fractions for
@@ -469,7 +469,7 @@ def calibration_from_swaptions(
           float_leg_start_times, float_leg_end_times, fixed_leg_payment_times,
           fixed_leg_daycount_fractions, reference_rate_fn)
       # Because we require `reference_rate_fn` to return a Tensor of shape
-      # `[batch_shape] + t.shape`, we get cross product terms that we don't
+      # `[batch_shape] + list(t.shape)`, we get cross product terms that we don't
       # need. The logic below takes `swap_rate` and `annuity` from shape
       # `[batch_shape, batch_shape, num_instruments]` to
       # `[batch_shape, num_instruments]`

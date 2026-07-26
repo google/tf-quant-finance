@@ -183,15 +183,15 @@ def calibration_from_swaptions(
       expiration of the swaptions.
     floating_leg_start_times: A real `Tensor` of the same dtype as `expiries`.
       The times when accrual begins for each payment in the floating leg. The
-      shape of this input should be `expiries.shape + [m]` where `m` denotes
+      shape of this input should be `list(expiries.shape) + [m]` where `m` denotes
       the number of floating payments in each leg.
     floating_leg_end_times: A real `Tensor` of the same dtype as `expiries`.
       The times when accrual ends for each payment in the floating leg. The
-      shape of this input should be `expiries.shape + [m]` where `m` denotes
+      shape of this input should be `list(expiries.shape) + [m]` where `m` denotes
       the number of floating payments in each leg.
     fixed_leg_payment_times: A real `Tensor` of the same dtype as `expiries`.
       The payment times for each payment in the fixed leg. The shape of this
-      input should be `expiries.shape + [n]` where `n` denotes the number of
+      input should be `list(expiries.shape) + [n]` where `n` denotes the number of
       fixed payments in each leg.
     floating_leg_daycount_fractions: A real `Tensor` of the same dtype and
       compatible shape as `floating_leg_start_times`. The daycount fractions

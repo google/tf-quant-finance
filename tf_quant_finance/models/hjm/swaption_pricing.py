@@ -130,7 +130,7 @@ def price(
       broadcastable to `model_batch_shape`.
     fixed_leg_payment_times: A real `Tensor` of the same dtype as `expiries`.
       The payment times for each payment in the fixed leg. The shape of this
-      input should be `expiries.shape + [n]` where `n` denotes the number of
+      input should be `list(expiries.shape) + [n]` where `n` denotes the number of
       fixed payments in each leg. The `fixed_leg_payment_times` should be
       greater-than or equal-to the corresponding expiries.
     fixed_leg_daycount_fractions: A real `Tensor` of the same dtype and
@@ -300,7 +300,7 @@ def price(
           dtype=dtype)
 
       # TODO(b/192294347): Enable pricing using batch of HJM models.
-      if reference_rate_fn(tf.constant([0.0], dtype=dtype)).shape.rank > 1:
+      if len(reference_rate_fn(tf.constant([0.0], dtype=dtype)).shape) > 1:
         raise tf.errors.InvalidArgumentError('Pricing swaptions using a batch of HJM models with '
                          'finite differences is not currently supported.')
       instrument_batch_shape = list(expiries.shape)[:-1] or [1]

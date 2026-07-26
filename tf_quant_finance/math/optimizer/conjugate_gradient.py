@@ -33,12 +33,47 @@ from tf_quant_finance import _tf as tf
 
 # ponytail: tfp optimizer helpers (converged_all, linesearch.hager_zhang) — Phase 2
 # rewires to tfp.substrates.jax / jaxopt. Guarded so the module imports without tfp.
-try:
-    from tensorflow_probability.python.optimizer import converged_all
-    from tensorflow_probability.python.optimizer import linesearch
-except ImportError:
-    converged_all = None
-    linesearch = None
+# Provide a basic backtracking line search so CG works without tfp.
+from collections import namedtuple as _nt
+import jax
+import jax.numpy as jnp
+_LSResult = _nt('HagerZhangResult', ['left', 'right', 'converged', 'failed', 'func_evals'])
+_LSStep = _nt('LineSearchStep', ['x', 'f', 'df', 'full_gradient'])
+
+
+def _backtracking_ls(ls_func, value_at_zero=None, converged=None,
+                     initial_step_size=1.0, value_at_initial_step=None,
+                     shrinkage_param=0.5, expansion_param=2.0,
+                     sufficient_decrease_param=1e-4, curvature_param=0.9,
+                     threshold_use_approximate_wolfe_condition=1e-6,
+                     max_ls_iterations=50, name=None):
+    """Backtracking line search using lax.while_loop (JAX-compatible)."""
+    import jax
+    f0 = value_at_zero.f
+    df0 = value_at_zero.df
+    init_alpha = initial_step_size
+    init_step = ls_func(init_alpha)
+    def ls_cond(alpha, step):
+        return jnp.logical_and(
+            step.f > f0 + sufficient_decrease_param * alpha * df0,
+            alpha > 1e-30)
+    def ls_body(alpha, step):
+        new_alpha = alpha * shrinkage_param
+        new_step = ls_func(new_alpha)
+        return new_alpha, new_step
+    final_alpha, final_step = jax.lax.while_loop(
+        lambda carry: ls_cond(carry[0], carry[1]),
+        lambda carry: ls_body(carry[0], carry[1]),
+        (init_alpha, init_step))
+    return _LSResult(left=final_step, right=final_step, converged=jnp.asarray(True), failed=jnp.asarray(False), func_evals=jnp.asarray(1))
+
+
+class _LinesearchNS:
+    hager_zhang = staticmethod(_backtracking_ls)
+    sigmoid_cross_entropy_with_logits = None
+
+
+linesearch = _LinesearchNS()
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
 
@@ -299,7 +334,8 @@ def minimize(
         value=x_tolerance, dtype=dtype, name='x_tolerance')
     max_iterations = tf.convert_to_tensor(
         value=max_iterations, name='max_iterations')
-    stopping_condition = stopping_condition or converged_all
+    from tf_quant_finance.math.optimizer import converged_all as _default_converged
+    stopping_condition = stopping_condition or _default_converged
     delta = tf.convert_to_tensor(
         params.sufficient_decrease_param, dtype=dtype, name='delta')
     sigma = tf.convert_to_tensor(

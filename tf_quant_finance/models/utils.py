@@ -14,6 +14,7 @@
 """Common methods for model building."""
 
 from tf_quant_finance import _tf as tf
+import numpy as np
 from tf_quant_finance.math import random_ops as random
 
 

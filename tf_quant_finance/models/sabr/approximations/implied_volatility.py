@@ -16,6 +16,7 @@
 import enum
 
 from tf_quant_finance import _tf as tf
+import numpy as np
 
 
 @enum.unique
