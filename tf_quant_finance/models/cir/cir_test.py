@@ -471,7 +471,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     with self.subTest("GreaterEqualThanZero"):
       self.assertAllGreaterEqual(samples, 0.0)
     with self.subTest("Shape"):
-      self.assertEqual(batch_shape + [num_samples, times.shape[0], dim],
+      self.assertShapeEqual(batch_shape + [num_samples, times.shape[0], dim],
                        samples.shape)
 
   def get_mean_and_var(self, samples, axis):

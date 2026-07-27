@@ -607,11 +607,15 @@ def _to_key(seed):
         return _next_key()
     if isinstance(seed, (int, np.integer)):
         return jax.random.PRNGKey(int(seed))
-    seed = np.asarray(seed)
-    if seed.shape == (2,) and np.issubdtype(seed.dtype, np.integer):
-        return jax.random.PRNGKey(int(seed[0]))  # ponytail: use first component
-    if seed.ndim == 1 and seed.shape[0] == 2:
-        return seed
+    seed = jnp.asarray(seed)
+    if seed.shape == (2,):
+        # [2]-tensor seed: combine both components to make a unique PRNGKey.
+        # Use fold_in to mix seed[1] into the key created from seed[0].
+        # This ensures (s0, s1) and (s0, s1+i) produce different keys.
+        key = jax.random.PRNGKey(jnp.asarray(seed[0], dtype=jnp.uint32))
+        return jax.random.fold_in(key, jnp.asarray(seed[1], dtype=jnp.uint32))
+    if seed.ndim == 0:
+        return jax.random.PRNGKey(int(seed))
     return jax.random.PRNGKey(0)
 
 
@@ -623,20 +627,25 @@ def _stateless_normal(shape, seed, mean=0.0, stddev=1.0, dtype=jnp.float32, name
     return jax.random.normal(_to_key(seed), shape, dtype=dtype) * stddev + mean
 
 
-def _stateless_gamma(shape, seed, alpha, dtype=jnp.float32, name=None, **kw):
-    return jax.random.gamma(_to_key(seed), alpha, shape, dtype=dtype)
+def _stateless_gamma(shape, seed, alpha, beta=None, dtype=jnp.float32, name=None, **kw):
+    r = jax.random.gamma(_to_key(seed), alpha, shape, dtype=dtype)
+    if beta is not None:
+        r = r / jnp.asarray(beta, dtype=dtype)  # TF beta is rate (inverse scale)
+    return r
 
 
-def _stateless_poisson(shape, seed, lam, dtype=jnp.float32, name=None, **kw):
-    return jax.random.poisson(_to_key(seed), lam, shape, dtype=dtype)
+def _stateless_poisson(shape, seed, lam=1.0, dtype=jnp.float32, name=None, **kw):
+    # jax.random.poisson returns int; cast to requested dtype.
+    r = jax.random.poisson(_to_key(seed), lam, shape)
+    return jnp.asarray(r, dtype=dtype)
 
 
 random = _ptypes.SimpleNamespace(
     set_seed=lambda s: globals().__setitem__("_global_key", jax.random.PRNGKey(int(s))),
     uniform=lambda shape, minval=0.0, maxval=1.0, dtype=jnp.float32, seed=None, name=None: jax.random.uniform(_to_key(seed), shape, minval=minval, maxval=maxval, dtype=dtype),
     normal=lambda shape, mean=0.0, stddev=1.0, dtype=jnp.float32, seed=None, name=None: jax.random.normal(_to_key(seed), shape, dtype=dtype) * stddev + mean,
-    gamma=lambda shape, alpha, dtype=jnp.float32, seed=None, name=None: jax.random.gamma(_to_key(seed), alpha, shape, dtype=dtype),
-    poisson=lambda lam, shape, dtype=jnp.float32, seed=None, name=None: jax.random.poisson(_to_key(seed), lam, shape, dtype=dtype),
+    gamma=lambda shape, alpha, beta=None, dtype=jnp.float32, seed=None, name=None: (jax.random.gamma(_to_key(seed), alpha, shape, dtype=dtype) / (beta if beta is not None else 1.0)),
+    poisson=lambda lam, shape, dtype=jnp.float32, seed=None, name=None: jax.random.poisson(_to_key(seed), lam, shape).astype(dtype),
     shuffle=lambda value, seed=None: jax.random.permutation(_to_key(seed), value),
     stateless_uniform=_stateless_uniform,
     stateless_normal=_stateless_normal,
@@ -766,6 +775,28 @@ class TestCase(_absltest.TestCase):
         np.testing.assert_allclose(np.asarray(a, dtype=float),
                                    np.asarray(b, dtype=float),
                                    rtol=tol, atol=tol, err_msg=msg)
+
+    def assertNotAllClose(self, a, b, rtol=1e-6, atol=1e-6, msg=None):
+        try:
+            np.testing.assert_allclose(np.asarray(a), np.asarray(b),
+                                       rtol=rtol, atol=atol)
+            raise AssertionError(msg or "Arrays are unexpectedly close")
+        except AssertionError:
+            if "unexpectedly" in str(msg or ""):
+                raise
+            pass  # arrays are NOT close -> assertion passes
+
+    def assertAllGreaterEqual(self, a, b, msg=None):
+        np.testing.assert_array_less(np.asarray(b) - 1e-12, np.asarray(a), err_msg=msg)
+
+    def assertAllGreater(self, a, b, msg=None):
+        np.testing.assert_array_less(np.asarray(b), np.asarray(a), err_msg=msg)
+
+    def assertAllLessEqual(self, a, b, msg=None):
+        np.testing.assert_array_less(np.asarray(a) - 1e-12, np.asarray(b), err_msg=msg)
+
+    def assertAllLess(self, a, b, msg=None):
+        np.testing.assert_array_less(np.asarray(a), np.asarray(b), err_msg=msg)
 
     def assertAllFinite(self, a, msg=None):
         self.assertTrue(np.all(np.isfinite(np.asarray(a))), msg=msg)
