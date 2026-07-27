@@ -542,6 +542,18 @@ def _tridiagonal_matmul(diagonals, rhs, diagonals_format='sequence', **kw):
 
 
 linalg.tridiagonal_matmul = _tridiagonal_matmul
+linalg.eye = _eye
+linalg.norm = jnp.linalg.norm
+linalg.inv = jnp.linalg.inv
+linalg.det = jnp.linalg.det
+linalg.solve = jnp.linalg.solve
+linalg.qr = jnp.linalg.qr
+linalg.svd = jnp.linalg.svd
+linalg.eig = jnp.linalg.eig
+linalg.eigvals = jnp.linalg.eigvals
+linalg.matrix_rank = jnp.linalg.matrix_rank
+linalg.slogdet = jnp.linalg.slogdet
+linalg.lstsq = jnp.linalg.lstsq
 linalg.tensor_diag = _create_diag
 
 
@@ -670,7 +682,7 @@ def while_loop(cond, body, loop_vars, parallel_iterations=None, maximum_iteratio
 
         out = _lax.while_loop(cond2, body2, (jnp.asarray(0),) + vars_tuple)
         rest = out[1:]
-        return rest if (is_seq and len(rest) > 1) else rest[0]
+        return rest if is_seq else rest[0]
 
     out = _lax.while_loop(cond_jax, body_jax, vars_tuple)
     return out if is_seq else out[0]
@@ -731,7 +743,7 @@ class TestCase(_absltest.TestCase):
         if hasattr(tensors, "__attrs_attrs__"):
             return type(tensors)(*[self.evaluate(getattr(tensors, a.name)) for a in tensors.__attrs_attrs__])
         if isinstance(tensors, (list, tuple)):
-            return type(tensors)(np.asarray(t) for t in tensors)
+            return type(tensors)(self.evaluate(t) for t in tensors)
         return np.asarray(tensors)
 
     # TF-specific asserts that absltest.TestCase lacks.
@@ -1176,8 +1188,8 @@ def sort_(a, axis=-1, direction="ASCENDING"):
     return jnp.sort(a, axis=axis)
 
 
-def identity(a):
-    return a
+def identity(input, name=None):
+    return jnp.asarray(input)
 
 
 def add_n(tensors):
@@ -1235,8 +1247,18 @@ def broadcast_dynamic_shape(shape1, shape2, name=None):
 # tf.slice(input, begin, size) -> lax.dynamic_slice
 def slice(input, begin, size, name=None):
     import jax.lax as _l
-    return _l.dynamic_slice(input, tuple(np.asarray(begin).tolist()),
-                            tuple(np.asarray(size).tolist()))
+    input = jnp.asarray(input)
+    # size must be concrete; try to evaluate. begin can be traced.
+    try:
+        sz = tuple(int(s) for s in np.asarray(size).ravel())
+    except Exception:
+        sz = tuple(input.shape)  # fallback: full slice
+    begin_arr = jnp.asarray(begin)
+    if begin_arr.ndim == 1:
+        start_indices = begin_arr
+    else:
+        start_indices = begin_arr.ravel()
+    return _l.dynamic_slice(input, start_indices, sz)
 math.reduce_sum = reduce_sum
 math.reduce_mean = reduce_mean
 math.reduce_max = reduce_max

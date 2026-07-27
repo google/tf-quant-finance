@@ -411,15 +411,15 @@ def _prepare_brent_args(objective_fn,
   value_at_left_bracket = tf.convert_to_tensor(
       value_at_left_bracket,
       name='value_at_left_bracket',
-      dtype=left_bracket.dtype.base_dtype)
+      dtype=left_bracket.dtype)
   value_at_right_bracket = tf.convert_to_tensor(
       value_at_right_bracket,
       name='value_at_right_bracket',
-      dtype=left_bracket.dtype.base_dtype)
+      dtype=left_bracket.dtype)
 
   if relative_root_tolerance is None:
     relative_root_tolerance = utils.default_relative_root_tolerance(
-        left_bracket.dtype.base_dtype)
+        left_bracket.dtype)
 
   absolute_root_tolerance = tf.convert_to_tensor(
       absolute_root_tolerance,
