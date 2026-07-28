@@ -17,7 +17,7 @@ from absl.testing import parameterized
 
 import numpy as np
 from tf_quant_finance import _tf as tf
-import tensorflow_probability as tfp
+from tf_quant_finance._tf import tfp
 
 import tf_quant_finance as tff
 from tf_quant_finance._tf import test_util
@@ -238,7 +238,7 @@ class CubicInterpolationTest(tf.test.TestCase, parameterized.TestCase):
       expected = np.array([[[0.00900778, 0.02702703], [0.04705774, 1.]],
                            [[0.33135411, 0.2], [0.01756963, 0.00689655]]],
                           dtype=dtype)
-      self.assertEqual(result.dtype.as_numpy_dtype, dtype)
+      self.assertEqual(result.dtype, dtype)
       result = self.evaluate(result)
       np.testing.assert_almost_equal(expected, result)
 

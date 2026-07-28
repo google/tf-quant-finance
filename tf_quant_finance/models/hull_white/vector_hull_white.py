@@ -857,7 +857,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   def _compute_yt(self, t, mr_t, sigma_t):
     """Computes y(t) as described in [1], section 10.1.6.1."""
     # Shape [dim, num_times]
-    t = tf.broadcast_to(t, tf.concat([[self._dim], tf.shape(t)], axis=-1))
+    t = tf.broadcast_to(t, [self._dim] + list(t.shape))
     time_index = tf.searchsorted(self._jump_locations, t)
     y_between_vol_knots = self._y_integral(
         self._padded_knots, self._jump_locations, self._jump_values_vol,
@@ -876,7 +876,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   def _conditional_mean_x(self, t, mr_t, sigma_t):
     """Computes the drift term in [1], Eq. 10.39."""
     # Shape [dim, num_times]
-    t = tf.broadcast_to(t, tf.concat([[self._dim], tf.shape(t)], axis=-1))
+    t = tf.broadcast_to(t, [self._dim] + list(t.shape))
     time_index = tf.searchsorted(self._jump_locations, t)
     vn = tf.concat([self._zero_padding, self._jump_locations], axis=1)
     y_between_vol_knots = self._y_integral(self._padded_knots,
@@ -925,7 +925,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   def _conditional_variance_x(self, t, mr_t, sigma_t):
     """Computes the variance of x(t), see [1], Eq. 10.41."""
     # Shape [dim, num_times]
-    t = tf.broadcast_to(t, tf.concat([[self._dim], tf.shape(t)], axis=-1))
+    t = tf.broadcast_to(t, [self._dim] + list(t.shape))
     var_x_between_vol_knots = self._variance_int(self._padded_knots,
                                                  self._jump_locations,
                                                  self._jump_values_vol,

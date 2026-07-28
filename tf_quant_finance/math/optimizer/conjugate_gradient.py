@@ -54,9 +54,10 @@ def _backtracking_ls(ls_func, value_at_zero=None, converged=None,
     init_alpha = initial_step_size
     init_step = ls_func(init_alpha)
     def ls_cond(alpha, step):
-        return jnp.logical_and(
+        # Scalar reduction for batch: all elements must satisfy Armijo.
+        return jnp.all(jnp.logical_and(
             step.f > f0 + sufficient_decrease_param * alpha * df0,
-            alpha > 1e-30)
+            alpha > 1e-30))
     def ls_body(alpha, step):
         new_alpha = alpha * shrinkage_param
         new_step = ls_func(new_alpha)
@@ -70,7 +71,10 @@ def _backtracking_ls(ls_func, value_at_zero=None, converged=None,
 
 class _LinesearchNS:
     hager_zhang = staticmethod(_backtracking_ls)
-    sigmoid_cross_entropy_with_logits = None
+    sigmoid_cross_entropy_with_logits = staticmethod(
+        lambda *args, **kw: jnp.where(kw.get('labels', args[1]) == 0,
+            jnp.log1p(jnp.exp(-jnp.abs(args[0]))) + jnp.maximum(args[0], 0),
+            jnp.log1p(jnp.exp(-jnp.abs(args[0]))) - args[0]))
 
 
 linesearch = _LinesearchNS()

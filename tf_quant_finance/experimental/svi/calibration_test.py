@@ -17,7 +17,7 @@ from absl.testing import parameterized
 
 import numpy as np
 from tf_quant_finance import _tf as tf
-import tensorflow_probability as tfp
+from tf_quant_finance._tf import tfp
 
 import tf_quant_finance as tff
 from tf_quant_finance._tf import test_util

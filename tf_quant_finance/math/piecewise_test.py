@@ -67,7 +67,7 @@ class Piecewise(parameterized.TestCase, tf.test.TestCase):
                                                        dtype=dtype)
       # Also verifies left-continuity
       value = piecewise_func(x)
-      self.assertEqual(value.dtype.as_numpy_dtype, dtype)
+      self.assertEqual(value.dtype, dtype)
       expected_value = np.array([3., 3., 4., 5.])
       self.assertAllEqual(value, expected_value)
 
@@ -80,7 +80,7 @@ class Piecewise(parameterized.TestCase, tf.test.TestCase):
       piecewise_func = piecewise.PiecewiseConstantFunc(jump_locations, values,
                                                        dtype=dtype)
       value = piecewise_func.integrate(x, x + 4.1)
-      self.assertEqual(value.dtype.as_numpy_dtype, dtype)
+      self.assertEqual(value.dtype, dtype)
       expected_value = np.array([0.41, 1.05, 1.46, 1.66, 1.86, 2.41, 2.46])
       self.assertAllClose(value, expected_value, atol=1e-5, rtol=1e-5)
 
@@ -100,7 +100,7 @@ class Piecewise(parameterized.TestCase, tf.test.TestCase):
     # Also verifies right-continuity
     value = piecewise_func(x, left_continuous=False)
     with self.subTest('Dtype'):
-      self.assertEqual(value.dtype.as_numpy_dtype, dtype)
+      self.assertEqual(value.dtype, dtype)
     expected_value = np.array([[[3.0, 4.0, 4.0, 5.0],
                                 [3.0, 4.0, 4.0, 4.0]],
                                [[3.0, 4.0, 5.0, 5.0],
@@ -150,7 +150,7 @@ class Piecewise(parameterized.TestCase, tf.test.TestCase):
                                                      dtype=dtype)
     value = piecewise_func.integrate(x, x + 1.1)
     with self.subTest('Dtype'):
-      self.assertEqual(value.dtype.as_numpy_dtype, dtype)
+      self.assertEqual(value.dtype, dtype)
     expected_value = np.array([[[4.3, 4.4, 4.4, 5.5],
                                 [3.3, 4.4, 4.4, 4.5]],
                                [[3.4, 4.5, 5.5, 5.5],

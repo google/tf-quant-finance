@@ -70,7 +70,7 @@ class UniformTest(tf.test.TestCase):
                                               skip=skip,
                                               dtype=dtype)
       self.assertAllClose(sample, expected_samples)
-      self.assertEqual(sample.dtype.as_numpy_dtype, dtype)
+      self.assertEqual(sample.dtype, dtype)
 
   def test_halton_randomization_params(self):
     """Tests samples for the randomized Halton sequence."""

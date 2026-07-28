@@ -74,6 +74,12 @@ bool = jnp.bool_  # tf uses tf.bool, not tf.bool_
 complex64 = jnp.complex64
 complex128 = jnp.complex128
 
+# Add TF-compat dtype attribute as_numpy_dtype to JAX dtype type aliases.
+for _dt in [float16, float32, float64, bfloat16, int8, int16, int32, int64,
+            uint8, uint16, uint32, uint64, bool, complex64, complex128]:
+    _dt.as_numpy_dtype = _dt
+    _dt.name = _dt.__name__
+
 
 def as_dtype(x):
     return jnp.dtype(x)
@@ -938,8 +944,8 @@ debugging = _ptypes.SimpleNamespace(
         np.isclose(np.asarray(a, dtype=float), np.asarray(b, dtype=float),
                   rtol=rtol or 1e-6, atol=atol or 1e-6), message),
     assert_rank=lambda *a, **k: None, assert_type=lambda *a, **k: None,
-    is_strictly_increasing=lambda x, message=None, **k: _chk(jnp.all(jnp.diff(jnp.asarray(x)) > 0), message),
-    is_non_decreasing=lambda x, message=None, **k: _chk(jnp.all(jnp.diff(jnp.asarray(x)) >= 0), message),
+    is_strictly_increasing=lambda x, message=None, **k: jnp.all(jnp.diff(jnp.asarray(x)) > 0),
+    is_non_decreasing=lambda x, message=None, **k: jnp.all(jnp.diff(jnp.asarray(x)) >= 0),
 )
 
 
@@ -992,6 +998,52 @@ errors = _ptypes.SimpleNamespace(
     Error=Error,
     AbortError=RuntimeError,
 )
+
+
+# tfp (tensorflow_probability) compat shim: provides optimizer.bfgs_minimize etc.
+# so test files can `import tensorflow_probability as tfp` -> use our optimizer.
+class _TfpOptimizer:
+    @staticmethod
+    def bfgs_minimize(value_and_gradients_function, initial_position,
+                      tolerance=1e-8, max_iterations=50, **kwargs):
+        from tf_quant_finance.math.optimizer import bfgs_minimize as _bfgs
+        return _bfgs(value_and_gradients_function, initial_position,
+                     tolerance=tolerance, max_iterations=max_iterations, **kwargs)
+
+    @staticmethod
+    def lbfgs_minimize(value_and_gradients_function, initial_position,
+                      tolerance=1e-8, max_iterations=50, **kwargs):
+        from tf_quant_finance.math.optimizer import lbfgs_minimize as _lbfgs
+        return _lbfgs(value_and_gradients_function, initial_position,
+                      tolerance=tolerance, max_iterations=max_iterations, **kwargs)
+
+    converged_all = staticmethod(lambda losses, tolerance=1e-8, *a, **k:
+        __import__('tf_quant_finance.math.optimizer', fromlist=['converged_all']).converged_all(losses, tolerance))
+
+tfp = _ptypes.SimpleNamespace(optimizer=_TfpOptimizer)
+
+
+# Minimal tfp.distributions.Normal and tfp.stats shim for tests that use them.
+class _NormalDist:
+    """Minimal Normal(loc, scale) with prob() and mean()."""
+    def __init__(self, loc, scale):
+        self.loc = jnp.asarray(loc, dtype=jnp.float64)
+        self.scale = jnp.asarray(scale, dtype=jnp.float64)
+    def prob(self, x):
+        x = jnp.asarray(x, dtype=self.loc.dtype)
+        z = (x - self.loc) / self.scale
+        return jnp.exp(-0.5 * z**2) / (self.scale * jnp.sqrt(2 * jnp.pi))
+    def mean(self):
+        return self.loc
+    def stddev(self):
+        return self.scale
+    def sample(self, shape, seed=None):
+        from tf_quant_finance._tf import _to_key
+        return self.loc + self.scale * jax.random.normal(_to_key(seed), shape, dtype=self.loc.dtype)
+
+tfp.distributions = _ptypes.SimpleNamespace(Normal=_NormalDist)
+tfp.stats = _ptypes.SimpleNamespace(
+    stddev=lambda x, sample_axis=0, **kw: jnp.std(jnp.asarray(x), axis=sample_axis))
 
 
 class _UnconnectedGradients:

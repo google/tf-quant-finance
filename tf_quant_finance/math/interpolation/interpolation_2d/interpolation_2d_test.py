@@ -45,7 +45,7 @@ class Interpolation2DTest(tf.test.TestCase):
           times_data, strike_data, total_variance, dtype=dtype)
       interpolated_vols = interpolator.interpolate(times, strikes)
       with self.subTest("CorrectDtype"):
-        self.assertEqual(interpolated_vols.dtype.as_numpy_dtype, dtype)
+        self.assertEqual(interpolated_vols.dtype, dtype)
       with self.subTest("CorrectShape"):
         self.assertAllClose(list(interpolated_vols.shape), [3])
       expected_vols = np.array([0.382399, 0.716694, 1.125])
@@ -81,7 +81,7 @@ class Interpolation2DTest(tf.test.TestCase):
     interpolated_values = interpolator.interpolate(times, strikes)
 
     with self.subTest("CorrectDtype"):
-      self.assertEqual(interpolated_values.dtype.as_numpy_dtype, dtype)
+      self.assertEqual(interpolated_values.dtype, dtype)
     with self.subTest("CorrectShape"):
       self.assertAllClose(list(interpolated_values.shape), [2, 3])
     expected_vols = np.array([[0.38239871, 0.71669375, 1.125],
@@ -135,7 +135,7 @@ class Interpolation2DTest(tf.test.TestCase):
       result = interpolator.interpolate(x_values, y_values)
 
       with self.subTest("CorrectDtype"):
-        self.assertEqual(result.dtype.as_numpy_dtype, dtype)
+        self.assertEqual(result.dtype, dtype)
       with self.subTest("CorrectShape"):
         self.assertAllClose(list(result.shape), [12])
       expected_result = np.array(
@@ -189,7 +189,7 @@ class Interpolation2DTest(tf.test.TestCase):
       result = interpolator.interpolate(x_values, y_values)
 
       with self.subTest("CorrectDtype"):
-        self.assertEqual(result.dtype.as_numpy_dtype, dtype)
+        self.assertEqual(result.dtype, dtype)
       with self.subTest("CorrectShape"):
         self.assertAllClose(list(result.shape), [6])
       x0 = y_values_list[0]

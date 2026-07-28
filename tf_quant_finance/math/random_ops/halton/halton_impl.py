@@ -109,7 +109,7 @@ def sample(dim: int,
 
   ```python
   from tf_quant_finance import _tf as tf
-  import tensorflow_probability as tfp
+  from tf_quant_finance._tf import tfp
 
   # Produce the first 1000 members of the Halton sequence in 3 dimensions.
   num_results = 1000

@@ -104,6 +104,10 @@ def converged_any(losses, tolerance=1e-8, *args, **kw):
 
 
 class _LineSearchNS:
+    def sigmoid_cross_entropy_with_logits(self, *a, **k):
+        return jnp.where(k.get("labels", a[1]) == 0,
+            jnp.log1p(jnp.exp(-jnp.abs(a[0]))) + jnp.maximum(a[0], 0),
+            jnp.log1p(jnp.exp(-jnp.abs(a[0]))) - a[0])
     def hager_zhang(self, *a, **k):
         raise NotImplementedError("linesearch.hager_zhang not wired (CG path)")
 
