@@ -15,6 +15,7 @@
 
 from tf_quant_finance import _tf as tf
 import numpy as np
+import jax.numpy as jnp
 from tf_quant_finance.math import random_ops as random
 
 
@@ -334,20 +335,30 @@ def block_diagonal_to_dense(*matrices):
 def cumsum_using_matvec(input_tensor):
   """Computes cumsum using matrix algebra."""
   dtype = input_tensor.dtype
-  axis_length = tf.shape(input_tensor)[-1]
-  ones = tf.ones([axis_length, axis_length], dtype=dtype)
-  lower_triangular = tf.linalg.band_part(ones, -1, 0)
-  cumsum = tf.linalg.matvec(lower_triangular, input_tensor)
+  # Use static shape when available (jit/while_loop safe).
+  axis_length = input_tensor.shape[-1] if input_tensor.shape[-1] is not None else tf.shape(input_tensor)[-1]
+  if isinstance(axis_length, int):
+    ones = tf.ones([axis_length, axis_length], dtype=dtype)
+  else:
+    # Dynamic fallback: lazily construct the matrix at runtime.
+    n = axis_length
+    idx = jnp.arange(n)
+    ones = (idx[:, None] >= idx[None, :]).astype(dtype)
+  cumsum = tf.linalg.matvec(ones, input_tensor)
   return cumsum
 
 
 def cumprod_using_matvec(input_tensor):
   """Computes cumprod using matrix algebra."""
   dtype = input_tensor.dtype
-  axis_length = tf.shape(input_tensor)[-1]
-  ones = tf.ones([axis_length, axis_length], dtype=dtype)
-  lower_triangular = tf.linalg.band_part(ones, -1, 0)
-  cumsum = tf.linalg.matvec(lower_triangular, tf.math.log(input_tensor))
+  axis_length = input_tensor.shape[-1] if input_tensor.shape[-1] is not None else tf.shape(input_tensor)[-1]
+  if isinstance(axis_length, int):
+    ones = tf.ones([axis_length, axis_length], dtype=dtype)
+  else:
+    n = axis_length
+    idx = jnp.arange(n)
+    ones = (idx[:, None] >= idx[None, :]).astype(dtype)
+  cumsum = tf.linalg.matvec(ones, tf.math.log(input_tensor))
   return tf.math.exp(cumsum)
 
 

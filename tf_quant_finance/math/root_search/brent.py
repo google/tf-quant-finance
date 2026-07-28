@@ -16,6 +16,7 @@
 
 from typing import Callable
 
+import jax
 from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
@@ -627,14 +628,13 @@ def _brent(objective_fn,
       ]
 
     with tf.compat.v1.control_dependencies(assertions):
-      result = tf.while_loop(
-          # Negate `_should_stop` to determine if the search should continue.
-          # This means, in particular, that tf.reduce_*all* will return only
-          # when the search is finished for *all* starting points.
-          lambda loop_vars: ~_should_stop(loop_vars, params.stopping_policy_fn),
-          lambda state: _brent_loop_body(state, params, constants),
-          loop_vars=[state],
-          maximum_iterations=max_iterations)
+      # Use fori_loop (supports VJP). Early-stop: keep carry when converged.
+      # Note: _brent_loop_body returns [state] (list), but fori_loop carry is state.
+      def _fori_body(i, s):
+        should_stop = _should_stop(s, params.stopping_policy_fn)
+        nxt = _brent_loop_body(s, params, constants)[0]  # unwrap list
+        return jax.lax.cond(should_stop, lambda: s, lambda: nxt)
+      result = (jax.lax.fori_loop(0, max_iterations, _fori_body, state),)
 
   state = result[0]
   converged = tf.math.abs(state.value_at_best_estimate) <= function_tolerance

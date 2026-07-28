@@ -258,7 +258,7 @@ def _estimate_initial_position(log_moneyness, total_variance):
   b = (e_xy - e_x * e_y) / var_x
   a = e_y - b * e_x
 
-  initial_position = tf.transpose([a, b, rho, m, sigma])
+  initial_position = tf.transpose(tf.stack([a, b, rho, m, sigma]))
   return initial_position
 
 
@@ -288,7 +288,7 @@ def _raw_svi_to_unconstrained(parameters):
   logb = tf.math.log(b)
   r = tf.math.log1p(rho) - tf.math.log1p(-rho)
   logsigma = tf.math.log(sigma)
-  return tf.transpose([logminvar, logb, r, m, logsigma])
+  return tf.transpose(tf.stack([logminvar, logb, r, m, logsigma]))
 
 
 def _unconstrained_to_raw_svi(unconstrained_parameters):
@@ -312,4 +312,4 @@ def _unconstrained_to_raw_svi(unconstrained_parameters):
   a = tf.math.exp(
       unconstrained_parameters[..., 0]) - b * sigma * tf.math.sqrt(1 - rho**2)
   # Return shape: `[batch_size, 5]`
-  return tf.transpose([a, b, rho, m, sigma])
+  return tf.transpose(tf.stack([a, b, rho, m, sigma]))

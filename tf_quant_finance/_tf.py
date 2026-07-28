@@ -699,11 +699,17 @@ def while_loop(cond, body, loop_vars, parallel_iterations=None, maximum_iteratio
     # @utils.dataclass) carry __iter__/__len__ so TF unpacks their fields too.
     is_seq = isinstance(loop_vars, (list, tuple))
     dc_type = None
-    if not is_seq and hasattr(loop_vars, '__iter__') and hasattr(loop_vars, '__len__'):
-        # attrs/dataclass with __iter__/__len__ (e.g. @utils.dataclass): unpack fields
-        dc_type = type(loop_vars)
-        loop_vars = tuple(loop_vars)
-        is_seq = True
+    if is_seq:
+        # Capture namedtuple type for reconstruction.
+        if isinstance(loop_vars, tuple) and hasattr(loop_vars, '_fields'):
+            dc_type = type(loop_vars)
+    elif hasattr(loop_vars, '__iter__') and hasattr(loop_vars, '__len__'):
+        # Avoid 0-d arrays (which have __iter__/__len__ but can't iterate).
+        if not (hasattr(loop_vars, 'ndim') and loop_vars.ndim == 0):
+            # attrs/dataclass with __iter__/__len__ (e.g. @utils.dataclass): unpack fields
+            dc_type = type(loop_vars)
+            loop_vars = tuple(loop_vars)
+            is_seq = True
     vars_tuple = tuple(loop_vars) if is_seq else (loop_vars,)
 
     def _reconstruct(t):
@@ -713,38 +719,40 @@ def while_loop(cond, body, loop_vars, parallel_iterations=None, maximum_iteratio
         return dc_type(*t)
 
     def cond_jax(carry):
-        return cond(*carry) if is_seq else cond(carry)
+        return cond(*carry) if is_seq else cond(carry[0])
 
     def _unpack(result):
         # Normalize body output to a tuple matching carry structure.
         if is_seq:
             if isinstance(result, (list, tuple)):
                 return tuple(result)
+            # Avoid iterating over a 0-d array (e.g. scalar).
+            if hasattr(result, 'ndim') and result.ndim == 0:
+                return (result,)
             if hasattr(result, '__iter__') and hasattr(result, '__len__'):
                 return tuple(result)  # dataclass -> fields
             return (result,)
-        return result
+        return (result,)  # always wrap non-seq result to match vars_tuple
 
     def body_jax(carry):
-        return _unpack(body(*carry) if is_seq else body(carry))
+        nxt = body(*carry) if is_seq else body(carry[0])
+        return _unpack(nxt)
 
     if maximum_iterations is not None:
         maxit = maximum_iterations
+        # Use fori_loop (supports VJP) when maximum_iterations is bounded.
+        # fori_loop runs maxit iterations; early stop via cond check.
+        def fori_body(i, carry):
+            nxt = _unpack(body(*carry) if is_seq else body(carry[0]))
+            c = cond(*carry) if is_seq else cond(carry[0])
+            # When cond is False (stop), keep previous carry.
+            # Use pytree-aware where to handle state objects.
+            return tuple(
+                jax.tree.map(lambda a, b: jnp.where(c, a, b), a_elem, b_elem)
+                for a_elem, b_elem in zip(nxt, carry))
 
-        def cond2(carry):
-            i, rest = carry[0], carry[1:]
-            c = cond(*rest) if is_seq else cond(rest[0])
-            return jnp.logical_and(i < maxit, c)
-
-        def body2(carry):
-            i, rest = carry[0], carry[1:]
-            nxt = body(*rest) if is_seq else body(rest[0])
-            nxt_t = _unpack(nxt)
-            return (i + 1,) + nxt_t
-
-        out = _lax.while_loop(cond2, body2, (jnp.asarray(0),) + vars_tuple)
-        rest = out[1:]
-        return _reconstruct(rest) if is_seq else rest[0]
+        out = _lax.fori_loop(0, maxit, fori_body, vars_tuple)
+        return _reconstruct(out) if is_seq else out[0]
 
     out = _lax.while_loop(cond_jax, body_jax, vars_tuple)
     return _reconstruct(out) if is_seq else out[0]
@@ -1399,6 +1407,7 @@ math.reduce_all = reduce_all
 math.reduce_std = reduce_std
 math.reduce_variance = reduce_variance
 math.reduce_logsumexp = reduce_logsumexp
+math.squared_difference = lambda x, y, name=None: (x - y) ** 2
 
 
 # tf.where: 1-arg form returns indices of True; 3-arg form selects. Tolerate kwargs.

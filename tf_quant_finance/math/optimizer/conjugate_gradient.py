@@ -66,7 +66,10 @@ def _backtracking_ls(ls_func, value_at_zero=None, converged=None,
         lambda carry: ls_cond(carry[0], carry[1]),
         lambda carry: ls_body(carry[0], carry[1]),
         (init_alpha, init_step))
-    return _LSResult(left=final_step, right=final_step, converged=jnp.asarray(True), failed=jnp.asarray(False), func_evals=jnp.asarray(1))
+    return _LSResult(left=final_step, right=final_step,
+                    converged=converged if converged is not None else jnp.asarray(True),
+                    failed=jnp.zeros_like(converged) if converged is not None else jnp.asarray(False),
+                    func_evals=jnp.asarray(1))
 
 
 class _LinesearchNS:
@@ -449,7 +452,7 @@ def minimize(
       x_kp1 = state.position + tf.expand_dims(a_k, -1) * d_k
       f_kp1 = tf.compat.v1.where(
           skip_line_search, init_step.f, ls_result.left.f)
-      g_kp1 = tf.compat.v1.where(skip_line_search, init_step.full_gradient,
+      g_kp1 = tf.compat.v1.where(tf.expand_dims(skip_line_search, -1), init_step.full_gradient,
                                  ls_result.left.full_gradient)
 
       # Evaluate next direction.
@@ -479,9 +482,9 @@ def minimize(
           num_iterations=state.num_iterations + 1,
           num_objective_evaluations=state.num_objective_evaluations +
           step_guess_result.func_evals + ls_result.func_evals,
-          position=tf.compat.v1.where(state.converged, x_k, x_kp1),
+          position=tf.compat.v1.where(tf.expand_dims(state.converged, -1), x_k, x_kp1),
           objective_value=tf.compat.v1.where(state.converged, f_k, f_kp1),
-          objective_gradient=tf.compat.v1.where(state.converged, g_k, g_kp1),
+          objective_gradient=tf.compat.v1.where(tf.expand_dims(state.converged, -1), g_k, g_kp1),
           direction=d_kp1,
           prev_step=a_k)
       return (new_state,)

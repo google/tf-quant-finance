@@ -245,7 +245,7 @@ def swaption_price(
     # batch_shape + [m] bond options with different strikes along the last
     # dimension.
     expiries = tf.repeat(
-        expiries, tf.shape(fixed_leg_payment_times)[-1], axis=-1)
+        expiries, fixed_leg_payment_times.shape[-1], axis=-1)
 
     if use_analytic_pricing:
       return _analytic_valuation(expiries, float_leg_start_times,
