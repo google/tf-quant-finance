@@ -452,7 +452,8 @@ def _build_discount_curve(bond_cashflows, bond_cashflow_times, present_values,
     calc_discounts = tf.math.exp(-calc_rates * calc_times)
     next_expiry_discounts = -tf.math.segment_sum(
         calc_bond_cashflows * calc_discounts,
-        calc_groups) / expiry_bond_cashflows
+        calc_groups,
+        num_segments=num_bonds) / expiry_bond_cashflows
     discount_diff = tf.math.abs(next_expiry_discounts - expiry_discounts)
     converged = (~tf.math.reduce_any(tf.math.is_nan(discount_diff)) &
                  (tf.math.reduce_max(discount_diff) < discount_tolerance))

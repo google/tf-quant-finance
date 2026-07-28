@@ -286,6 +286,30 @@ nn = _ptypes.SimpleNamespace(
     softplus=jax.nn.softplus, gelu=jax.nn.gelu, log_softmax=jax.nn.log_softmax,
 )
 sparse = _ptypes.SimpleNamespace()
+
+
+class _SparseTensor:
+    """Minimal TF SparseTensor shim: stores indices, values, dense_shape."""
+    def __init__(self, indices, values, dense_shape):
+        self.indices = jnp.asarray(indices)
+        self.values = jnp.asarray(values)
+        self.dense_shape = tuple(int(d) for d in dense_shape)
+
+
+def _sparse_to_dense(sp_input, *args, **kwargs):
+    """Convert a SparseTensor to a dense array via scatter."""
+    out = jnp.zeros(sp_input.dense_shape, dtype=sp_input.values.dtype)
+    # indices shape [nnz, ndim]; values shape [nnz]
+    idx = sp_input.indices
+    if idx.ndim == 1:
+        return out.at[idx].add(sp_input.values)
+    # Multi-dim: use scatter via tuple of per-dim index arrays
+    idx_tuples = tuple(idx[:, d] for d in range(idx.shape[-1]))
+    return out.at[idx_tuples].add(sp_input.values)
+
+
+sparse.SparseTensor = _SparseTensor
+sparse.to_dense = _sparse_to_dense
 xla = _ptypes.SimpleNamespace()
 nest = _ptypes.SimpleNamespace(
     map_structure=lambda f, s: jax.tree_util.tree_map(f, s),
@@ -354,7 +378,8 @@ class TensorArray:
     def write(self, index, value):
         import copy
         new = copy.copy(self)
-        new._data = self._data.at[index].set(jnp.asarray(value, dtype=self.dtype))
+        value = jnp.asarray(value, dtype=self.dtype)
+        new._data = new._data.at[index].set(value)
         return new
 
     def read(self, index):
@@ -451,9 +476,9 @@ def _divide_no_nan(x, y, name=None):
 
 math.divide_no_nan = _divide_no_nan
 divide_no_nan = _divide_no_nan
-math.segment_sum = lambda data, segments, **kw: _jops.segment_sum(data, segments)
-math.segment_prod = lambda data, segments, **kw: _jops.segment_prod(data, segments)
-math.nextafter = _np_nextafter = np.nextafter
+math.segment_sum = lambda data, segments, num_segments=None, **kw: _jops.segment_sum(data, segments, num_segments=num_segments)
+math.segment_prod = lambda data, segments, num_segments=None, **kw: _jops.segment_prod(data, segments, num_segments=num_segments)
+math.nextafter = _np_nextafter = jnp.nextafter
 # ponytail: tf.math.brentq has no jax builtin; delegate to the repo's own root
 # search or scipy. Wired when a caller actually needs it.
 def _brentq_missing(*args, **kwargs):
@@ -665,15 +690,37 @@ def while_loop(cond, body, loop_vars, parallel_iterations=None, maximum_iteratio
     # passes the carry as a single positional, so adapt by (un)packing.
     # TF unpacks the carry into cond(*loop_vars). A single ndarray is one arg;
     # tuples/lists are unpacked. Dataclass-like objects (registered pytrees via
-    # @utils.dataclass) are treated as single args (not unpacked).
+    # @utils.dataclass) carry __iter__/__len__ so TF unpacks their fields too.
     is_seq = isinstance(loop_vars, (list, tuple))
+    dc_type = None
+    if not is_seq and hasattr(loop_vars, '__iter__') and hasattr(loop_vars, '__len__'):
+        # attrs/dataclass with __iter__/__len__ (e.g. @utils.dataclass): unpack fields
+        dc_type = type(loop_vars)
+        loop_vars = tuple(loop_vars)
+        is_seq = True
     vars_tuple = tuple(loop_vars) if is_seq else (loop_vars,)
+
+    def _reconstruct(t):
+        # Rebuild the original dataclass from a tuple of fields if needed.
+        if dc_type is None:
+            return t
+        return dc_type(*t)
 
     def cond_jax(carry):
         return cond(*carry) if is_seq else cond(carry)
 
+    def _unpack(result):
+        # Normalize body output to a tuple matching carry structure.
+        if is_seq:
+            if isinstance(result, (list, tuple)):
+                return tuple(result)
+            if hasattr(result, '__iter__') and hasattr(result, '__len__'):
+                return tuple(result)  # dataclass -> fields
+            return (result,)
+        return result
+
     def body_jax(carry):
-        return body(*carry) if is_seq else body(carry)
+        return _unpack(body(*carry) if is_seq else body(carry))
 
     if maximum_iterations is not None:
         maxit = maximum_iterations
@@ -686,15 +733,15 @@ def while_loop(cond, body, loop_vars, parallel_iterations=None, maximum_iteratio
         def body2(carry):
             i, rest = carry[0], carry[1:]
             nxt = body(*rest) if is_seq else body(rest[0])
-            nxt_t = tuple(nxt) if isinstance(nxt, (list, tuple)) else (nxt,)
+            nxt_t = _unpack(nxt)
             return (i + 1,) + nxt_t
 
         out = _lax.while_loop(cond2, body2, (jnp.asarray(0),) + vars_tuple)
         rest = out[1:]
-        return rest if is_seq else rest[0]
+        return _reconstruct(rest) if is_seq else rest[0]
 
     out = _lax.while_loop(cond_jax, body_jax, vars_tuple)
-    return out if is_seq else out[0]
+    return _reconstruct(out) if is_seq else out[0]
 
 
 def cond(pred, true_fn, false_fn, *args, **kw):

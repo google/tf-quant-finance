@@ -530,7 +530,7 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
         calc_fixed_leg_daycount * calc_fixed_leg_cashflows *
         calc_discounts_fixed_leg)
     swap_pv = float_pv + fixed_pv
-    value = tf.math.reduce_sum(input_tensor=instrument_weights *
+    value = tf.math.reduce_sum(input_tensor=tf.stack(instrument_weights) *
                                (swap_pv - present_values)**2, axis=-1)
 
     return value

@@ -31,8 +31,14 @@ __all__ = [
 _MAX_DIMENSION = 1000
 
 # The maximum sequence index we support, depending on data type.
-_MAX_INDEX_BY_DTYPE = {tf.float32: 2**24 - 1, np.float32: 2**24 - 1,
-                       tf.float64: 2**53 - 1, np.float64: 2**53 - 1}
+# Keyed by both type-class and dtype-object for robustness under JAX where
+# jnp.float64 resolves to np.dtype('float64').
+_MAX_INDEX_BY_DTYPE = {np.dtype(np.float32): 2**24 - 1, np.float32: 2**24 - 1,
+                       np.dtype(np.float64): 2**53 - 1, np.float64: 2**53 - 1}
+
+def _dtype_key(dtype):
+  """Normalize a dtype (type, str, or dtype object) to a dict key."""
+  return np.dtype(dtype)
 
 # The number of coefficients we use to represent each Halton number when
 # expressed in the (prime) base for an event dimension. In theory this should be
@@ -47,7 +53,7 @@ class HaltonParams:
   """Halton randomization parameters."""
   # Uniform iid sample from the space of permutations as
   # returned by _get_permutations() below. A tensor of shape
-  # [_MAX_SIZES_BY_AXES[dtype], sum(_PRIMES)] and dtype
+  # [_MAX_SIZES_BY_AXES[_dtype_key(dtype)], sum(_PRIMES)] and dtype
   # tf.float32 or tf.float64.
   perms: types.IntTensor
   # A scaled uniform random tensor of shape [dim] and  dtype tf.float32 or
@@ -234,10 +240,10 @@ def sample(dim: int,
       runtime_assertions.append(
           tf.compat.v1.assert_less_equal(
               tf.reduce_max(indices),
-              tf.constant(_MAX_INDEX_BY_DTYPE[dtype], dtype=dtype),
+              tf.constant(_MAX_INDEX_BY_DTYPE[_dtype_key(dtype)], dtype=dtype),
               message=(
                   'Maximum sequence index exceeded. Maximum index for dtype %s '
-                  'is %d.' % (dtype, _MAX_INDEX_BY_DTYPE[dtype]))))
+                  'is %d.' % (dtype, _MAX_INDEX_BY_DTYPE[_dtype_key(dtype)]))))
       runtime_assertions.append(
           tf.compat.v1.assert_greater_equal(
               dim, 1, message='`dim` should be greater than 1'))
@@ -251,7 +257,7 @@ def sample(dim: int,
       radixes = tf.reshape(radixes[0:dim], shape=[dim, 1])
 
       max_sizes_by_axes = tf.convert_to_tensor(
-          _MAX_SIZES_BY_AXES[dtype],
+          _MAX_SIZES_BY_AXES[_dtype_key(dtype)],
           dtype=dtype,
           name='max_sizes_by_axes')[:dim]
       max_size = tf.reduce_max(max_sizes_by_axes)
@@ -528,7 +534,7 @@ _PRIMES = np.array([
 # For each supported data type, we store the maximum number of digits we might
 # need for each dimension. See _base_expansion_size() for more details.
 _MAX_SIZES_BY_AXES = {
-    dtype: _base_expansion_size(_MAX_INDEX_BY_DTYPE[dtype],
+    dtype: _base_expansion_size(_MAX_INDEX_BY_DTYPE[_dtype_key(dtype)],
                                 np.expand_dims(_PRIMES, 1))
     for dtype in _MAX_INDEX_BY_DTYPE
 }

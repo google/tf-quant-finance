@@ -169,7 +169,7 @@ class PiecewiseConstantFunc(object):
     name = name or self._name  + '_call'
     with tf.name_scope(name):
       x = tf.convert_to_tensor(x, dtype=self.dtype(), name='x')
-      batch_shape = tf.shape(self._jump_locations)[:-1]
+      batch_shape = self._jump_locations.shape[:-1]  # static for jit
       x = _try_broadcast_to(x, batch_shape)
       side = 'left' if left_continuous else 'right'
       return _piecewise_constant_function(
@@ -201,7 +201,7 @@ class PiecewiseConstantFunc(object):
                                 name='x1')
       x2 = tf.convert_to_tensor(x2, dtype=self.dtype(),
                                 name='x2')
-      batch_shape = tf.shape(self._jump_locations)[:-1]
+      batch_shape = self._jump_locations.shape[:-1]  # static for jit
       x1 = _try_broadcast_to(x1, batch_shape)
       x2 = _try_broadcast_to(x2, batch_shape)
       return _piecewise_constant_integrate(
@@ -414,7 +414,12 @@ def _get_indices_and_values(x, jump_locations, values, side,
 
 def _try_broadcast_to(x, batch_shape):
   """Broadcasts batch shape of `x` to a `batch_shape` if possible."""
-  broadcast_shape = tf.concat([batch_shape, tf.shape(x)[-1:]], axis=0)
+  # Prefer static batch_shape when available (avoids traced-shape errors in jit).
+  if isinstance(batch_shape, (list, tuple)):
+    x_tail = [x.shape[-1]] if x.ndim > 0 else []
+    broadcast_shape = list(batch_shape) + x_tail
+  else:
+    broadcast_shape = tf.concat([batch_shape, tf.shape(x)[-1:]], axis=0)
   return x + tf.zeros(broadcast_shape, dtype=x.dtype)
 
 

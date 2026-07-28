@@ -99,9 +99,9 @@ def make_polynomial_basis(
                                         name="sample_paths")
     if len(sample_paths.shape) == 3:
       sample_paths = tf.expand_dims(sample_paths, axis=0)
-    shape = tf.shape(sample_paths)
-    num_samples = shape[1]
-    batch_size = shape[0]
+    # Use static shape to avoid traced sizes inside while_loop (jit-safe).
+    num_samples = sample_paths.shape[1]
+    batch_size = sample_paths.shape[0]
     dim = sample_paths.shape[-1]  # Dimension should statically known
     # Shape [batch_size, num_samples, 1, dim]
     slice_samples = tf.slice(sample_paths, [0, 0, time_index, 0],

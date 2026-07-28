@@ -506,6 +506,7 @@ class _AsianPricesHandler:
     # If shape of omega_tilde is known, use TensorArray of known shape
     if isinstance(x0, int):
       ta = tf.TensorArray(omega_tilde.dtype, size=x0 + 1,
+                          element_shape=utils.get_shape(omega_tilde[..., 0, :]),
                           clear_after_read=False)
     else:
       # Otherwise, use dynamically shaped TensorArray

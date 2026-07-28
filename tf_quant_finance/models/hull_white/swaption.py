@@ -799,7 +799,7 @@ def _jamshidian_decomposition(hw_model,
       p_t0_t = hw_model.discount_bond_price(x, expiries, maturities)
       # return_value.shape = batch_shape + [1, 1]
       return_value = tf.reduce_sum(
-          coefficients * p_t0_t, axis=-2, keepdims=True) + [1.0]
+          coefficients * p_t0_t, axis=-2, keepdims=True) + 1.0
       return return_value
 
     # batch_shape + [1, 1]

@@ -216,6 +216,12 @@ def broadcast_common_batch_shape(
     dummies = [tf.zeros(get_shape(arg)[:-d])
                for arg, d in zip(args, event_ranks)]
     common_batch_shape = common_shape(*dummies)
-    return tuple(tf.broadcast_to(x, tf.concat(
-        [common_batch_shape, get_shape(x)[-d:]], axis=0))
+    # Build target shape as a static list (not traced concat) so broadcast_to
+    # works inside jit/while_loop where shapes must be concrete.
+    def _target_shape(common, x, d):
+        if isinstance(common, (list, tuple)):
+            xs = list(get_shape(x)[-d:])
+            return list(common) + [int(v) for v in xs]
+        return tf.concat([common, get_shape(x)[-d:]], axis=0)
+    return tuple(tf.broadcast_to(x, _target_shape(common_batch_shape, x, d))
                  for x, d in zip(args, event_ranks))
