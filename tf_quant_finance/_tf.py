@@ -74,11 +74,18 @@ bool = jnp.bool_  # tf uses tf.bool, not tf.bool_
 complex64 = jnp.complex64
 complex128 = jnp.complex128
 
-# Add TF-compat dtype attribute as_numpy_dtype to JAX dtype type aliases.
+# Add TF-compat dtype attributes to JAX dtype type aliases.
+# TF DType has: as_numpy_dtype, name, size (bytes), is_unsigned, min, max.
+_unsigned = {uint8, uint16, uint32, uint64}
 for _dt in [float16, float32, float64, bfloat16, int8, int16, int32, int64,
             uint8, uint16, uint32, uint64, bool, complex64, complex128]:
     _dt.as_numpy_dtype = _dt
     _dt.name = _dt.__name__
+    _dt.is_unsigned = _dt in _unsigned
+    _dt.size = jnp.dtype(_dt).itemsize
+    import numpy as _np
+    _dt.min = _np.iinfo(_dt).min if _dt not in (bool,) and _np.issubdtype(_np.dtype(_dt), _np.integer) else 0
+    _dt.max = _np.iinfo(_dt).max if _dt not in (bool,) and _np.issubdtype(_np.dtype(_dt), _np.integer) else 0
 
 
 def as_dtype(x):
@@ -651,6 +658,10 @@ def _to_key(seed):
 
 
 def _stateless_uniform(shape, seed, minval=0.0, maxval=1.0, dtype=jnp.float32, name=None, **kw):
+    # jax.random.uniform requires float dtype; generate as float then cast.
+    if not jnp.issubdtype(dtype, jnp.floating):
+        r = jax.random.uniform(_to_key(seed), shape, minval=float(minval), maxval=float(maxval))
+        return jnp.asarray(r * ((int(maxval) - int(minval))), dtype=dtype) + int(minval)
     return jax.random.uniform(_to_key(seed), shape, minval=minval, maxval=maxval, dtype=dtype)
 
 
@@ -740,19 +751,21 @@ def while_loop(cond, body, loop_vars, parallel_iterations=None, maximum_iteratio
 
     if maximum_iterations is not None:
         maxit = maximum_iterations
-        # Use fori_loop (supports VJP) when maximum_iterations is bounded.
-        # fori_loop runs maxit iterations; early stop via cond check.
-        def fori_body(i, carry):
-            nxt = _unpack(body(*carry) if is_seq else body(carry[0]))
-            c = cond(*carry) if is_seq else cond(carry[0])
-            # When cond is False (stop), keep previous carry.
-            # Use pytree-aware where to handle state objects.
-            return tuple(
-                jax.tree.map(lambda a, b: jnp.where(c, a, b), a_elem, b_elem)
-                for a_elem, b_elem in zip(nxt, carry))
 
-        out = _lax.fori_loop(0, maxit, fori_body, vars_tuple)
-        return _reconstruct(out) if is_seq else out[0]
+        def cond2(carry):
+            i, rest = carry[0], carry[1:]
+            c = cond(*rest) if is_seq else cond(rest[0])
+            return jnp.logical_and(i < maxit, c)
+
+        def body2(carry):
+            i, rest = carry[0], carry[1:]
+            nxt = body(*rest) if is_seq else body(rest[0])
+            nxt_t = _unpack(nxt)
+            return (i + 1,) + nxt_t
+
+        out = _lax.while_loop(cond2, body2, (jnp.asarray(0),) + vars_tuple)
+        rest = out[1:]
+        return _reconstruct(rest) if is_seq else rest[0]
 
     out = _lax.while_loop(cond_jax, body_jax, vars_tuple)
     return _reconstruct(out) if is_seq else out[0]
@@ -763,8 +776,32 @@ def cond(pred, true_fn, false_fn, *args, **kw):
     return _lax.cond(pred, true_fn, false_fn)
 
 
-def scan(f, init, xs=None, reverse=False, **kw):
-    return _lax.scan(f, init, xs, reverse=reverse)
+def scan(f, xs=None, initializer=None, reverse=False, **kw):
+    # TF tf.scan(fn, elems, initializer=init): elems = xs, initializer = init.
+    # Handle empty xs: return init (TF tf.scan behavior).
+    init = initializer
+    if xs is None:
+        return init
+    if init is None:
+        # If no initializer, the first element of xs IS the initial carry.
+        # Take xs[0] as init, scan over xs[1:].
+        first, rest = jax.tree.map(lambda a: (a[0], a[1:]), xs)
+        init = first
+        xs = rest
+    # Check if xs has zero-sized scan dimension.
+    xs_flat = jax.tree.leaves(xs)
+    if xs_flat:
+        n = xs_flat[0].shape[0]
+        if n == 0:
+            return init
+    # TF tf.scan: fn(accumulators, args) -> accumulators (new carry).
+    # JAX lax.scan: fn(carry, x) -> (carry, y) (carry + output).
+    # Wrap TF body to return (carry, carry) for lax.scan, then take outputs.
+    def wrapped(carry, args):
+        nxt = f(carry, args)
+        return nxt, nxt
+    out, out_ys = _lax.scan(wrapped, init, xs, reverse=reverse)
+    return out_ys
 
 
 def map_fn(f, elems, dtype=None, **kw):
@@ -804,6 +841,16 @@ from absl.testing import absltest as _absltest
 
 class TestCase(_absltest.TestCase):
     """tf.test.TestCase stand-in: absltest.TestCase + tf-style evaluate()."""
+
+    def assertEqual(self, first, second, msg=None):
+        # Normalize dtype comparisons: np.dtype('int32') vs jnp.int32.
+        try:
+            f_dt = np.dtype(first); s_dt = np.dtype(second)
+            if f_dt == s_dt:
+                return
+        except (TypeError, ValueError):
+            pass
+        return super().assertEqual(first, second, msg=msg)
 
     def evaluate(self, tensors):
         # Preserve namedtuples and dataclass-like objects; only convert
@@ -1408,6 +1455,7 @@ math.reduce_std = reduce_std
 math.reduce_variance = reduce_variance
 math.reduce_logsumexp = reduce_logsumexp
 math.squared_difference = lambda x, y, name=None: (x - y) ** 2
+math.floormod = lambda x, y, name=None: jnp.mod(x, y)
 
 
 # tf.where: 1-arg form returns indices of True; 3-arg form selects. Tolerate kwargs.

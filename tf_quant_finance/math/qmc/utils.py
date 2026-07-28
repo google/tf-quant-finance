@@ -15,6 +15,7 @@
 
 from typing import Union
 
+import numpy as np
 from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
@@ -43,14 +44,18 @@ def exp2(value: types.IntTensor) -> types.IntTensor:
   """
   shape = get_shape(value)
   dtype = value.dtype
+  np_dtype = np.dtype(dtype)
+  byte_size = np_dtype.itemsize
+  is_unsigned = np.issubdtype(np_dtype, np.unsignedinteger)
 
-  max_allowed_value = tf.constant(8 * dtype.size, shape=shape, dtype=dtype)
-  if not dtype.is_unsigned:
+  max_allowed_value = tf.constant(8 * byte_size, shape=shape, dtype=dtype)
+  if not is_unsigned:
     max_allowed_value -= 1
 
+  dtype_max = np.iinfo(np_dtype).max if np.issubdtype(np_dtype, np.integer) else 0
   return tf.where(
       tf.greater_equal(value, max_allowed_value),
-      tf.constant(dtype.max, shape=shape, dtype=dtype),
+      tf.constant(dtype_max, shape=shape, dtype=dtype),
       tf.bitwise.left_shift(tf.constant(1, shape=shape, dtype=dtype), value))
 
 

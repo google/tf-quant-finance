@@ -4,21 +4,21 @@ version = "0.0.0"
 description = "TF Quant Finance -> JAX migration (gfx1151 ROCm target)"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "jax==0.9.2",          # frontend (PyPI); matches gfx1151 plugin/pjrt 0.9.2
-    "jaxlib==0.9.2",       # base jaxlib (PyPI, CPU); GPU backend comes via the plugin below
-    "jax-rocm7-plugin",    # ROCm GPU JAX plugin (gfx1151 index) — registers 'gpu' backend
-    "jax-rocm7-pjrt",      # ROCm PJRT runtime (gfx1151 index)
-    "rocm[libraries,devel]==7.14.0a20260608",  # MUST match jax-rocm7-plugin build date (ABI); mirrors rl-0dte's date-pinned torch+rocm
-    "rocm-sdk-core==7.14.0a20260608",
-    "numpy>=2.0",
-    "scipy",
-    "attrs>=26.1.0",
-    "pandas>=3.0.3",
-    "six>=1.17.0",
-    "autograd>=1.9.1",
-    "protobuf>=7.36.0rc1",
-    "tensorflow-probability>=0.25.0",
-    "jaxopt>=0.8.5",
+  "jax==0.9.2", # frontend (PyPI); matches gfx1151 plugin/pjrt 0.9.2
+  "jaxlib==0.9.2", # base jaxlib (PyPI, CPU); GPU backend comes via the plugin below
+  "jax-rocm7-plugin", # ROCm GPU JAX plugin (gfx1151 index) — registers 'gpu' backend
+  "jax-rocm7-pjrt", # ROCm PJRT runtime (gfx1151 index)
+  "rocm[libraries,devel]==7.14.0a20260608", # MUST match jax-rocm7-plugin build date (ABI); mirrors rl-0dte's date-pinned torch+rocm
+  "rocm-sdk-core==7.14.0a20260608",
+  "numpy>=2.0",
+  "scipy",
+  "attrs>=26.1.0",
+  "pandas>=3.0.3",
+  "six>=1.17.0",
+  "autograd>=1.9.1",
+  "protobuf>=7.36.0rc1",
+  "tensorflow-probability>=0.25.0",
+  "jaxopt>=0.8.5"
 ]
 
 # Mirror of ~/devv/2026/rl-0dte/pyproject.toml: AMD ships ROCm as pip wheels on
@@ -38,7 +38,7 @@ rocm = { index = "rocm-nightly" }
 rocm-sdk-core = { index = "rocm-nightly" }
 
 [tool.uv]
-package = false  # repo root goes on sys.path via pytest pythonpath; not a built pkg yet
+package = false # repo root goes on sys.path via pytest pythonpath; not a built pkg yet
 # ponytail: ROCm nightlies ship only linux x86_64 (gfx1151 = RDNA 3.5 APU).
 environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
 # ponytail: jaxlib transitive deps (rocm-sdk-libraries-gfx1151 etc.) exist on BOTH
@@ -54,9 +54,4 @@ python_files = ["*_test.py", "test_*.py"]
 testpaths = ["tf_quant_finance"]
 
 [dependency-groups]
-dev = [
-    "absl-py>=2.5.0",
-    "parameterized>=0.9.0",
-    "pytest>=9.1.1",
-    "pytest-xdist>=3.8.0",
-]
+dev = ["absl-py>=2.5.0", "parameterized>=0.9.0", "pytest>=9.1.1", "pytest-xdist>=3.8.0"]
