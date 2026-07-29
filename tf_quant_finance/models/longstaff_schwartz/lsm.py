@@ -254,8 +254,10 @@ def least_square_mc(sample_paths: types.RealTensor,
         constant_values=1)
     # Shape [num_exercise_times + 1, num_samples, batch_size]
     discount_factors = tf.transpose(discount_factors, [2, 0, 1])
+    # Convert exercise_times to tensor for traced indexing in while_loop.
+    exercise_times_t = tf.convert_to_tensor(exercise_times)
     # Initialise cashflow as the payoff at final sample.
-    time_index = exercise_times[num_times - 1]
+    time_index = exercise_times_t[num_times - 1]
     # Calculate the payoff of each path if exercised now. Shape
     # [num_samples, batch_size]
     exercise_value = payoff_fn(sample_paths, time_index)
@@ -274,7 +276,7 @@ def least_square_mc(sample_paths: types.RealTensor,
     def loop_body(exercise_index, cashflow, option_values):
       return _lsm_loop_body(
           sample_paths=sample_paths,
-          exercise_times=exercise_times,
+          exercise_times=exercise_times_t,
           discount_factors=discount_factors,
           payoff_fn=payoff_fn,
           basis_fn=basis_fn,

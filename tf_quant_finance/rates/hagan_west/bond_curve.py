@@ -454,6 +454,8 @@ def _build_discount_curve(bond_cashflows, bond_cashflow_times, present_values,
         calc_bond_cashflows * calc_discounts,
         calc_groups,
         num_segments=num_bonds) / expiry_bond_cashflows
+    # Cast to match carry dtype (avoid float32/float64 drift in while_loop).
+    next_expiry_discounts = tf.cast(next_expiry_discounts, expiry_discounts.dtype)
     discount_diff = tf.math.abs(next_expiry_discounts - expiry_discounts)
     converged = (~tf.math.reduce_any(tf.math.is_nan(discount_diff)) &
                  (tf.math.reduce_max(discount_diff) < discount_tolerance))
