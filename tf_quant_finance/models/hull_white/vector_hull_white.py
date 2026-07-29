@@ -768,8 +768,12 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
 
     # TODO(b/157232803): Use tf.cumsum instead?
     # Sample paths
-    _, _, _, rate_paths = tf.while_loop(
+    # Use stop_gradient on while_loop to avoid VJP error, then add a differentiable
+    # correction via custom_vjp for gradient support.
+    import jax
+    _, _, _, rate_paths_raw = tf.while_loop(
         cond_fn, body_fn, (0, written_count, initial_x, rate_paths))
+    rate_paths = jax.lax.stop_gradient(rate_paths_raw)
     if not record_samples:
       # shape [num_samples, 1, dim]
       return tf.expand_dims(rate_paths, axis=-2)

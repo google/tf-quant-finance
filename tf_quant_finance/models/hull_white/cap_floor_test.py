@@ -119,7 +119,8 @@ class HullWhiteCapFloorTest(parameterized.TestCase, tf.test.TestCase):
           dtype=dtype)
     price = _price(mean_reversion_1d, volatility_1d)
     grad_mr, grad_vol = jax.grad(
-        lambda mr, vol: tf.reduce_sum(_price(mr, vol)))(
+        lambda mr, vol: tf.reduce_sum(_price(mr, vol)),
+        argnums=(0, 1))(
             mean_reversion_1d, volatility_1d)
     self.assertEqual(price.dtype, dtype)
     self.assertAllEqual(price.shape, [1])
