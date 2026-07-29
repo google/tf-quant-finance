@@ -227,11 +227,13 @@ def _analytic_valuation(discount_rate_fn, model, strikes, expiries, maturities,
                                          * maturities)
   forward_bond_price = discount_factor_maturity / discount_factor_expiries
 
-  sqrt_variance = tf.math.sqrt(variance)
+  sqrt_variance = tf.math.sqrt(tf.maximum(variance, 1e-32))
   # Shape `expiries.shape`
-  log_moneyness = tf.math.log(forward_bond_price / strikes)
+  # Guard log to avoid NaN gradients when variance=0 (intrinsic branch).
+  ratio = forward_bond_price / strikes
+  log_moneyness = tf.math.log(tf.where(ratio > 0, ratio, tf.ones_like(ratio)))
   d1 = tf.math.divide_no_nan(log_moneyness + 0.5 * variance, sqrt_variance)
-  d2 = d1 - tf.math.sqrt(variance)
+  d2 = d1 - sqrt_variance
   option_value_call = (discount_factor_maturity * _ncdf(d1)
                        - strikes * discount_factor_expiries* _ncdf(d2))
   option_value_put = (strikes * discount_factor_expiries * _ncdf(-d2)
