@@ -39,8 +39,11 @@ def _run_quasi_newton(solver_cls, value_and_gradients_function,
         def make_single_fn(i):
             def single_fn(x):
                 val, grad = value_and_gradients_function(x)
-                # val has shape (N,), grad has shape (N, D). Take i-th element.
-                return val[i], grad[i]
+                # val may be scalar or batched. grad may be (D,) or (N, D).
+                if hasattr(val, 'ndim') and val.ndim > 0:
+                    return val[i], grad[i]
+                else:
+                    return val, grad
             return single_fn
         all_params = []
         all_states = []

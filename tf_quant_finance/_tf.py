@@ -354,7 +354,11 @@ def _sparse_to_dense(sp_input, *args, **kwargs):
 
 sparse.SparseTensor = _SparseTensor
 sparse.to_dense = _sparse_to_dense
-xla = _ptypes.SimpleNamespace()
+xla = _ptypes.SimpleNamespace(
+    experimental=_ptypes.SimpleNamespace(
+        compile=lambda fn, **kw: (lambda: jax.jit(fn)(),)  # XLA compile -> jit
+    )
+)
 nest = _ptypes.SimpleNamespace(
     map_structure=lambda f, s: jax.tree_util.tree_map(f, s),
     flatten=lambda s: jax.tree_util.tree_leaves(s),
@@ -1273,7 +1277,11 @@ def concat(values, axis=0, name=None, *more, **kwargs):
     return jnp.concatenate(arrs, axis=axis)
 
 
-stack = _drop_name(jnp.stack)
+def _stack(values, axis=0, name=None, **kw):
+    # tf.stack(values, axis) — accept 'values' kwarg and list inputs.
+    return jnp.stack([jnp.asarray(v) for v in values], axis=axis)
+
+stack = _stack
 
 
 def _pad(tensor, paddings, mode='CONSTANT', name=None, constant_values=0, **kw):

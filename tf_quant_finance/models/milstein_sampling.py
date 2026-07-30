@@ -508,7 +508,7 @@ def _stratonovich_integral(dim, dt, sqrt_dt, dw, stratonovich_draws, order):
   eta = tf.transpose(stratonovich_draws[2], [2, 0, 1])
   xi = dw / sqrt_dt
   r_i = tf.stack([
-      tf.ones(zeta[0, ...].shape + [dim], dtype=zeta.dtype) / r
+      tf.ones(list(zeta[0, ...].shape) + [dim], dtype=zeta.dtype) / r
       for r in range(1, order + 1)
   ], 0)
 

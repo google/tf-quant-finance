@@ -487,6 +487,7 @@ def calibration_from_swaptions(
       target_values = _price_to_normal_vol(prices, swap_rate, annuity)
     else:
       target_values = prices
+    target_values = tf.convert_to_tensor(target_values, dtype=dtype)
 
     with tf.control_dependencies([target_values]):
       tf.debugging.assert_all_finite(
