@@ -137,6 +137,13 @@ dtypes = _ptypes.SimpleNamespace(
 # ---------------------------------------------------------------------------
 def convert_to_tensor(value, dtype=None, dtype_hint=None, name=None):
     d = dtype if dtype is not None else dtype_hint
+    # Handle string inputs (pricing_platform names) — JAX can't do string tensors.
+    try:
+        if isinstance(value, str) or (hasattr(value, '__len__') and len(value) > 0
+                and isinstance(np.asarray(value).flat[0], (str, np.str_))):
+            return np.asarray(value, dtype=str if d is None else d)
+    except (TypeError, ValueError, IndexError):
+        pass
     return jnp.asarray(value, dtype=d)
 
 
@@ -166,6 +173,10 @@ ones = _drop_name(jnp.ones)
 zeros_like = _drop_name(jnp.zeros_like)
 ones_like = _drop_name(jnp.ones_like)
 eye = _drop_name(jnp.eye)
+
+# broadcast_to: accept lists/arrays (jnp.broadcast_to rejects lists).
+def broadcast_to(array, shape, **kw):
+    return jnp.broadcast_to(jnp.asarray(array), shape)
 
 
 def _eye(num_rows, num_columns=None, batch_shape=None, dtype=jnp.float32, name=None):
@@ -1403,6 +1414,9 @@ def _make_reduce(fn):
                **kwargs):
         if input_tensor is None:
             input_tensor = kwargs.pop("x", kwargs.pop("tensor", None))
+        # Convert lists to arrays (JAX reduce fns reject raw lists).
+        if isinstance(input_tensor, (list, tuple)):
+            input_tensor = jnp.asarray(input_tensor)
         return fn(input_tensor, axis=axis, keepdims=keepdims)
     wrapper.__name__ = getattr(fn, "__name__", "reduce")
     return wrapper
@@ -1462,7 +1476,11 @@ math.floormod = lambda x, y, name=None: jnp.mod(x, y)
 def where(condition, x=None, y=None, name=None):
     if x is None and y is None:
         return jnp.argwhere(condition)
-    return jnp.where(condition, x, y)
+    # Convert lists to arrays (jnp.where rejects raw lists).
+    c = jnp.asarray(condition) if isinstance(condition, (list, tuple)) else condition
+    x = jnp.asarray(x) if isinstance(x, (list, tuple)) else x
+    y = jnp.asarray(y) if isinstance(y, (list, tuple)) else y
+    return jnp.where(c, x, y)
 
 
 # tf.control_dependencies: graph-mode control flow; no-op under JAX/eager.
