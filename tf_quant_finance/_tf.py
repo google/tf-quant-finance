@@ -519,8 +519,20 @@ def _top_k(a, k=1, sorted=True):
     # jax.lax.top_k has 'if' for k in older JAX versions, causing issues
     # with traced k. Use argsort as workaround.
     idx = jnp.argsort(a, axis=-1)
-    idx = jax.lax.dynamic_slice_in_dim(idx, a.shape[-1] - k, k, axis=-1)
-    vals = jax.lax.dynamic_slice_in_dim(a, a.shape[-1] - k, k, axis=-1)
+    # dynamic_slice_in_dim requires concrete k; try to convert
+    import numpy as np
+    try:
+        k_concrete = int(k)
+    except Exception:
+        # k is traced; use full slice and mask (less efficient but works)
+        # For now, raise an informative error
+        raise TypeError(
+            "tf.math.top_k with traced k is not supported by JAX. "
+            "k must be a concrete integer."
+        )
+    start = a.shape[-1] - k_concrete
+    idx = jax.lax.dynamic_slice_in_dim(idx, start, k_concrete, axis=-1)
+    vals = jax.lax.dynamic_slice_in_dim(a, start, k_concrete, axis=-1)
     return _ptypes.SimpleNamespace(values=vals, indices=idx)
 math.top_k = _top_k
 def _divide_no_nan(x, y, name=None):
