@@ -1,29 +1,27 @@
 # TF Quant Finance → JAX Migration: Status
 
-**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: ~1170+ passed** (+426% from 222)  
-**135+ commits** | **Shim-based incremental migration**
+**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1177 passed** (+429% from 222)  
+**140+ commits** | **Shim-based incremental migration**
 
 ## Per-module
 | module | passed | status |
 |---|---|---|
 | datetime | 94 | ✅ fully green |
 | black_scholes | 143/144 | ✅ 99% |
-| math/integration | 10/15 | 67% |
-| math/optimizer | 19/33 | 58% |
-| math/qmc | 30/42 | 71% |
+| math/pde | 64/86 | 74% (ConcretizationTypeError fixed) |
 | math/random_ops | 60/61 | ✅ 98% |
+| math/qmc | 30/42 | 71% |
+| math/optimizer | 19/33 | 58% |
+| math/integration | 10/15 | 67% |
 | math/root_search | 13/15 | 87% |
 | models/cir | 20 | ✅ fully green |
 | models/sabr_model | 34 | ✅ fully green |
 | models/GBM | 62 | ✅ fully green |
 | models/heston | 20/29 | 69% |
 | models/legacy | 20/23 | 87% |
-| models/longstaff_schwartz | 5/16 | 31% |
 | rates | 86/89 | ✅ 97% |
 | experimental/local_volatility | 14 | ✅ fully green |
 | experimental/pricing_platform | 34 | ✅ fully green |
-| experimental/instruments | 17/25 | 68% |
-| experimental/lsm_algorithm | 8/22 | 36% |
 
 ## Key fixes this session
 - **concat atleast_1d** — fix "Zero-dimensional arrays cannot be concatenated" (+7)
@@ -39,13 +37,14 @@
 - **hjm/calibration** — convert target_values and init_corr to tensor
 - **local_volatility** — convert dividend_yield to tensor
 - **sigmoid_cross_entropy_with_logits** — implement manually for JAX
+- **PDE ConcretizationTypeError** — use lax.pad for traced pad widths (+7)
 
-## Remaining ~280 failures
+## Remaining ~265 failures
 - AssertionError/convergence (~98) — jaxopt vs TF optimizer tolerance
-- ConcretizationTypeError/Shapes must be ND (~44) — traced shapes
+- TracerArrayConversionError (~40) — numpy array conversion on traced arrays
 - VJP through while_loop (~26) — needs scan conversion
 - TracerIntegerConversionError (~12) — traced __index__
-- Other (~100) — various issues
+- Other (~89) — various issues
 
 ## Known issues
 - SimulatedDataCalibrationTest hangs (test infrastructure issue, not code)

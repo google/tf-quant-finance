@@ -73,7 +73,7 @@ def uniform_grid(minimums,
       raise tf.errors.InvalidArgumentError('The shapes of minimums, maximums and sizes must be '
                        'identical.')
 
-    if len(list(minimums.shape)) != 1:
+    if minimums.ndim != 1:
       raise tf.errors.InvalidArgumentError('The minimums, maximums and sizes must all be rank 1.')
 
     control_deps = []
@@ -166,7 +166,7 @@ def log_uniform_grid(minimums,
       raise tf.errors.InvalidArgumentError('The shapes of minimums, maximums and sizes must be '
                        'identical.')
 
-    if len(list(minimums.shape)) != 1:
+    if minimums.ndim != 1:
       raise tf.errors.InvalidArgumentError('The minimums, maximums and sizes must all be rank 1.')
 
     control_deps = []

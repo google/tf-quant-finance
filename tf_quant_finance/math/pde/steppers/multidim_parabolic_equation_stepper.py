@@ -256,7 +256,7 @@ def multidim_parabolic_equation_step(
     inner_first_order_coeff_fn = (
         inner_first_order_coeff_fn or (lambda *args: [None] * n_dims))
 
-    batch_rank = len(list(value_grid.shape)) - len(coord_grid)
+    batch_rank = value_grid.ndim - len(coord_grid)
 
     # Get information on default boundary conditions
     # For each dimension we verify if either of the upper of lower boundaries
@@ -1132,7 +1132,7 @@ def _reshape_boundary_conds(raw_coeff, trim_from, expand_dim_at,
   """Reshapes boundary condition coefficients."""
   # If the coefficient is None, a number or a rank-0 tensor, return as-is.
   if (not tf.is_tensor(raw_coeff)
-      or len(list(raw_coeff.shape)) == 0):  # pylint: disable=g-explicit-length-test
+      or raw_coeff.ndim == 0):  # pylint: disable=g-explicit-length-test
     return raw_coeff
   # See explanation why we trim boundaries and expand dims in places where this
   # function is used.
