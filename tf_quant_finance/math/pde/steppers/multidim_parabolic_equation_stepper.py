@@ -13,6 +13,8 @@
 # limitations under the License.
 """Stepper for multidimensional parabolic PDE solving."""
 
+import jax
+import jax.numpy as jnp
 from tf_quant_finance import _tf as tf
 from tf_quant_finance import utils
 
@@ -603,7 +605,12 @@ def _construct_contribution_of_mixed_term(outer_coeff,
 
   # Function to add zeros to the default boundary as mixed term on the default
   # boundary is assumed to be zero
-  append_zeros_fn = lambda x: tf.pad(x, paddings)
+  import numpy as np
+  paddings_np = np.asarray(paddings)  # Convert to concrete array for jax.lax.pad
+  # Convert to tuple of tuples for lax.pad (must be static)
+  paddings_tuple = tuple((int(paddings_np[i, 0]), int(paddings_np[i, 1]), 0) 
+                        for i in range(paddings_np.shape[0]))
+  append_zeros_fn = lambda x: jax.lax.pad(x, jnp.asarray(0.0, dtype=x.dtype), paddings_tuple)
 
   if outer_coeff is not None:
     outer_coeff = _trim_boundaries(outer_coeff, batch_rank,

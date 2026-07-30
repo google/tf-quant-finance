@@ -1290,16 +1290,23 @@ def _pad(tensor, paddings, mode='CONSTANT', name=None, constant_values=0, **kw):
     # But lax.pad only supports 'constant' mode. For other modes, fall back.
     mode_str = str(mode).upper()
     if mode_str == 'CONSTANT':
-        # Convert paddings to numpy array (concrete) for lax.pad
+        # Convert paddings to tuple of tuples for lax.pad (must be static)
         import numpy as np
-        paddings_np = np.asarray(paddings)
-        # lax.pad expects ((lo, hi, interior), ...) format
-        pad_config = tuple((int(paddings_np[i, 0]), int(paddings_np[i, 1]), 0) 
-                          for i in range(paddings_np.shape[0]))
-        return jax.lax.pad(tensor, jnp.asarray(constant_values, dtype=tensor.dtype), pad_config)
-    else:
-        mode_map = {'REFLECT': 'reflect', 'SYMMETRIC': 'symmetric'}
-        return jnp.pad(tensor, jnp.asarray(paddings), mode=mode_map.get(mode_str, str(mode).lower()))
+        try:
+            paddings_np = np.asarray(paddings)
+            # lax.pad expects ((lo, hi, interior), ...) format
+            pad_config = tuple((int(paddings_np[i, 0]), int(paddings_np[i, 1]), 0) 
+                              for i in range(paddings_np.shape[0]))
+            return jax.lax.pad(tensor, jnp.asarray(constant_values, dtype=tensor.dtype), pad_config)
+        except Exception:
+            # Paddings are traced; this will fail but give a better error message
+            raise TypeError(
+                "tf.pad with CONSTANT mode requires concrete pad widths. "
+                "Traced pad widths are not supported by JAX. "
+                "Consider restructuring the code to use static pad widths."
+            )
+    mode_map = {'REFLECT': 'reflect', 'SYMMETRIC': 'symmetric'}
+    return jnp.pad(tensor, jnp.asarray(paddings), mode=mode_map.get(mode_str, str(mode).lower()))
 
 
 pad = _pad

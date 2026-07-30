@@ -13,6 +13,8 @@
 # limitations under the License.
 """Douglas ADI method for solving multidimensional parabolic PDEs."""
 
+import jax
+import jax.numpy as jnp
 import numpy as np
 from tf_quant_finance import _tf as tf
 from tf_quant_finance.math.pde.steppers.multidim_parabolic_equation_stepper import multidim_parabolic_equation_step
@@ -230,7 +232,14 @@ def _apply_mixed_term_explicitly(
     paddings += [[lower, upper]]
 
   # Pad default boundaries with zeros
-  values_with_boundaries = tf.pad(values_with_boundaries, paddings=paddings)
+  import numpy as np
+  paddings_np = np.asarray(paddings)  # Convert to concrete array for jax.lax.pad
+  # Convert to tuple of tuples for lax.pad (must be static)
+  paddings_tuple = tuple((int(paddings_np[i, 0]), int(paddings_np[i, 1]), 0) 
+                        for i in range(paddings_np.shape[0]))
+  values_with_boundaries = jax.lax.pad(values_with_boundaries, 
+                                       jnp.asarray(0.0, dtype=values_with_boundaries.dtype), 
+                                       paddings_tuple)
 
   def create_trimming_shifts(dim1_shift, dim2_shift):
     # See _trim_boundaries. We need to apply shifts to dimensions dim1 and dim2.
