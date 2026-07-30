@@ -24,7 +24,7 @@ from collections import namedtuple as _namedtuple
 _OptResults = _namedtuple(
     "OptimizerResults",
     ["converged", "failed", "num_objective_evaluations", "position",
-     "objective_value", "objective_gradient", "n_iterations", "status"])
+     "objective_value", "objective_gradient", "num_iterations", "status"])
 
 
 def _run_quasi_newton(solver_cls, value_and_gradients_function,
@@ -72,8 +72,8 @@ def _run_quasi_newton(solver_cls, value_and_gradients_function,
         position=params,
         objective_value=val,
         objective_gradient=grad,
-        n_iterations=jnp.asarray(it),
-        status=jnp.asarray(0))
+        num_iterations=jnp.asarray(it),
+       status=jnp.asarray(0))
 
 
 def bfgs_minimize(value_and_gradients_function, initial_position,
@@ -100,7 +100,7 @@ def nelder_mead_minimize(function, initial_vertex=None, initial_position=None,
         converged=jnp.asarray(getattr(state, "success", err < tolerance)),
         failed=jnp.asarray(False), num_objective_evaluations=jnp.asarray(it),
         position=params, objective_value=getattr(state, "fun", jnp.asarray(0.0)),
-        objective_gradient=jnp.zeros_like(params), n_iterations=jnp.asarray(it),
+        objective_gradient=jnp.zeros_like(params), num_iterations=jnp.asarray(it),
         status=jnp.asarray(0))
 
 

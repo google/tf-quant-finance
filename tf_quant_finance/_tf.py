@@ -1296,6 +1296,19 @@ def _stack(values, axis=0, name=None, **kw):
 
 stack = _stack
 
+def _meshgrid(*args, indexing='xy', **kw):
+    # TF.meshgrid can handle multi-dim inputs by flattening; JAX requires 1D.
+    args = [jnp.asarray(a).ravel() for a in args]
+    return jnp.meshgrid(*args, indexing=indexing)
+
+meshgrid = _meshgrid
+
+def _fill(dims, value, name=None):
+    # tf.fill(dims, value) -> jnp.full(shape, fill_value)
+    return jnp.full(dims, value)
+
+fill = _fill
+
 
 def _pad(tensor, paddings, mode='CONSTANT', name=None, constant_values=0, **kw):
     # jnp.pad requires concrete pad widths; use lax.pad for traced widths.
@@ -1471,13 +1484,31 @@ def add_n(tensors):
     return out
 
 
+class _TensorProto:
+    """Minimal proto wrapper for tf.make_tensor_proto compatibility.
+    Serializes array as bytes; deserializes back via make_ndarray."""
+    def __init__(self, values):
+        self._arr = np.asarray(values)
+    def SerializeToString(self):
+        import pickle
+        return pickle.dumps(self._arr)
+    @classmethod
+    def FromString(cls, s):
+        import pickle
+        arr = pickle.loads(s)
+        return cls(arr)
+    def __repr__(self):
+        return f"_TensorProto(shape={self._arr.shape}, dtype={self._arr.dtype})"
+
+
 def make_tensor_proto(values, dtype=None, shape=None, verify_shape=False, name=None):
-    # ponytail: real TensorProto serialization unimplemented (experimental.io only);
-    # returns the array so the module imports. Reimplement if IO is needed.
-    return np.asarray(values)
+    return _TensorProto(values)
 
 
 def make_ndarray(tensor_proto):
+    import pickle
+    if isinstance(tensor_proto, _TensorProto):
+        return tensor_proto._arr
     return np.asarray(tensor_proto)
 
 

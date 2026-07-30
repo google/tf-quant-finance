@@ -1,7 +1,7 @@
 # TF Quant Finance → JAX Migration: Status
 
-**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1191 passed** (+435% from 222)  
-**150+ commits** | **Shim-based incremental migration**
+**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1208 passed** (+441% from 222)  
+**155+ commits** | **Shim-based incremental migration**
 
 ## Per-module
 | module | passed | status |
@@ -22,6 +22,7 @@
 | rates | 86/89 | ✅ 97% |
 | experimental/local_volatility | 14 | ✅ fully green |
 | experimental/pricing_platform | 34 | ✅ fully green |
+| experimental/io | 6/7 | ✅ 86% |
 
 ## Key fixes this session
 - **concat atleast_1d** — fix "Zero-dimensional arrays cannot be concatenated" (+7)
@@ -40,13 +41,18 @@
 - **PDE ConcretizationTypeError** — use lax.pad for traced pad widths (+7)
 - **PDE pad widths** — use jax.lax.pad with static pad config (+13)
 - **top_k traced k** — catch ConcretizationTypeError (+1)
+- **num_iterations** — add to OptimizerResults namedtuple (+15)
+- **TensorProto** — SerializeToString/FromString for io tests (+6)
+- **meshgrid** — flatten multi-dim inputs for JAX compat (+1)
+- **tf.fill** — accept dims/value kwargs for TF compat (+2)
 
-## Remaining ~254 failures
-- AssertionError/convergence (~98) — jaxopt vs TF optimizer tolerance
-- TracerArrayConversionError (~30) — numpy array conversion on traced arrays
+## Remaining ~245 failures
+- AssertionError/convergence (~96) — jaxopt vs TF optimizer tolerance
+- ConcretizationTypeError (~26) — traced shapes
 - VJP through while_loop (~26) — needs scan conversion
+- broadcast shapes (~28) — incompatible broadcasting
 - TracerIntegerConversionError (~12) — traced __index__
-- Other (~88) — various issues
+- Other (~57) — various issues
 
 ## Known issues
 - SimulatedDataCalibrationTest hangs (test infrastructure issue, not code)
