@@ -38,10 +38,14 @@ def _run_quasi_newton(solver_cls, value_and_gradients_function,
         # Wrap function to return scalar for single input (i-th batch element).
         def make_single_fn(i):
             def single_fn(x):
-                val, grad = value_and_gradients_function(x)
-                # val may be scalar or batched. grad may be (D,) or (N, D).
-                if hasattr(val, 'ndim') and val.ndim > 0:
-                    return val[i], grad[i]
+                # x has shape (D,). Expand to (1, D) for batched function.
+                x_batch = jnp.expand_dims(x, 0)
+                val, grad = value_and_gradients_function(x_batch)
+                # val has shape (1,) or scalar, grad has shape (1, D) or (D,).
+                val = jnp.asarray(val)
+                grad = jnp.asarray(grad)
+                if val.ndim > 0:
+                    return val[0], grad[0] if grad.ndim > 1 else grad
                 else:
                     return val, grad
             return single_fn
