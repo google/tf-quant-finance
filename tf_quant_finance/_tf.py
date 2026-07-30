@@ -293,6 +293,26 @@ def name_scope(*args, **kwargs):
 # compat / types / nn / sparse / xla stub namespaces
 # ---------------------------------------------------------------------------
 compat = _this  # tf.compat.v1 / v2 -> resolves back to the same surface
+
+
+class _Session:
+    """Minimal tf.Session stand-in: evaluate eagerly."""
+    def __enter__(self):
+        return self
+    def __exit__(self, *a):
+        pass
+    def run(self, tensors, **kw):
+        return np.asarray(tensors)
+
+
+v1 = _ptypes.SimpleNamespace()
+v1.Session = _Session
+v1.global_variables_initializer = lambda *a, **kw: None
+v1.local_variables_initializer = lambda *a, **kw: None
+compat.v1 = v1
+
+# Also add Session at module level for tf.Session() calls.
+Session = _Session
 compat.v1 = _this  # type: ignore[attr-defined]
 compat.v2 = _this  # type: ignore[attr-defined]
 
@@ -1091,10 +1111,13 @@ tfp = _ptypes.SimpleNamespace(optimizer=_TfpOptimizer)
 
 # Minimal tfp.distributions.Normal and tfp.stats shim for tests that use them.
 class _NormalDist:
-    """Minimal Normal(loc, scale) with prob() and mean()."""
+    """Minimal Normal(loc, scale) with prob(), mean(), quantile(), batch_shape."""
     def __init__(self, loc, scale):
         self.loc = jnp.asarray(loc, dtype=jnp.float64)
         self.scale = jnp.asarray(scale, dtype=jnp.float64)
+    @property
+    def batch_shape(self):
+        return self.loc.shape
     def prob(self, x):
         x = jnp.asarray(x, dtype=self.loc.dtype)
         z = (x - self.loc) / self.scale
@@ -1103,6 +1126,9 @@ class _NormalDist:
         return self.loc
     def stddev(self):
         return self.scale
+    def quantile(self, q):
+        # Inverse CDF: jax.scipy.stats.norm.ppf
+        return self.loc + self.scale * jax.scipy.special.erfinv(2 * jnp.asarray(q) - 1) * jnp.sqrt(2.0).astype(self.loc.dtype)
     def sample(self, shape, seed=None):
         from tf_quant_finance._tf import _to_key
         return self.loc + self.scale * jax.random.normal(_to_key(seed), shape, dtype=self.loc.dtype)

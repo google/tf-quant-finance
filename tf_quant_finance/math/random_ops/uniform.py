@@ -24,7 +24,11 @@ from tf_quant_finance.math.random_ops.multivariate_normal import RandomType
 
 
 def _key(seed):
-  return jax.random.PRNGKey(int(seed))
+    if seed is None:
+        return jax.random.PRNGKey(0)
+    if isinstance(seed, (list, tuple)):
+        return jax.random.PRNGKey(int(seed[0]))
+    return jax.random.PRNGKey(int(seed))
 
 
 def uniform(

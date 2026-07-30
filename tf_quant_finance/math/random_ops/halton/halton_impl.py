@@ -33,18 +33,16 @@ _MAX_DIMENSION = 1000
 # The maximum sequence index we support, depending on data type.
 # Keyed by both type-class and dtype-object for robustness under JAX where
 # jnp.float64 resolves to np.dtype('float64').
-_MAX_INDEX_BY_DTYPE = {np.dtype(np.float32): 2**24 - 1, np.float32: 2**24 - 1,
-                       np.dtype(np.float64): 2**53 - 1, np.float64: 2**53 - 1}
-
 def _dtype_key(dtype):
-  """Normalize a dtype (type, str, or dtype object) to a dict key."""
-  return np.dtype(dtype)
+  """Normalize a dtype (type, str, or dtype object) to a hashable string."""
+  return str(np.dtype(dtype))
+
+_MAX_INDEX_BY_DTYPE = {_dtype_key(np.float32): 2**24 - 1, _dtype_key(np.float64): 2**53 - 1}
 
 # The number of coefficients we use to represent each Halton number when
 # expressed in the (prime) base for an event dimension. In theory this should be
 # infinite, but in practice it is useful to cap this based on data type.
-_NUM_COEFFS_BY_DTYPE = {tf.float32: 24, np.float32: 24, np.dtype("float32"): 24,
-                        tf.float64: 54, np.float64: 54}
+_NUM_COEFFS_BY_DTYPE = {_dtype_key(np.float32): 24, _dtype_key(np.float64): 54}
 
 
 # Parameters that can be reused with subsequent calls to halton.sample().
@@ -330,7 +328,7 @@ def _randomize(coeffs, radixes, seed, perms=None):
   """Applies the Owen (2017) randomization to the coefficients."""
   given_dtype = coeffs.dtype
   coeffs = tf.cast(coeffs, dtype=tf.int32)
-  num_coeffs = _NUM_COEFFS_BY_DTYPE[given_dtype]
+  num_coeffs = _NUM_COEFFS_BY_DTYPE[_dtype_key(given_dtype)]
   radixes = tf.reshape(tf.cast(radixes, dtype=tf.int32), shape=[-1])
   if perms is None:
     perms = _get_permutations(num_coeffs, radixes, seed)
