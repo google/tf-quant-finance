@@ -88,7 +88,8 @@ def _non_adaptive_gauss_kronrod(
     grid = ((upper - lower) * roots + upper + lower) / 2
     func_results = func(grid)
     # Shape [num_points]
-    weights = gauss_constants.kronrod_weights.get(num_points, None)
+    w = gauss_constants.kronrod_weights.get(num_points, None)
+    weights = tf.constant(w, dtype=lower.dtype) if isinstance(w, (list, tuple)) else w
     # Shape batch_shape
     result = tf.reduce_sum(
         func_results * (upper - lower) * weights / 2, axis=-1)
@@ -207,8 +208,8 @@ def gauss_kronrod(func: Callable[[types.FloatTensor], types.FloatTensor],
     _, _, estimate_result = tf.while_loop(
         cond=cond, body=body, loop_vars=loop_vars,
         maximum_iterations=max_depth,
-        shape_invariants=(tf.TensorShape(batch_shape + [None]),
-                          tf.TensorShape(batch_shape + [None]),
+        shape_invariants=(tf.TensorShape(list(batch_shape) + [None]),
+                          tf.TensorShape(list(batch_shape) + [None]),
                           tf.TensorShape(batch_shape)))
     # Shape [batch_dim]
     return estimate_result

@@ -45,5 +45,8 @@ def divide_with_positive_denominator(a, b):
 
 def machine_eps(dtype):
   """Returns the machine epsilon for the supplied dtype."""
-  dtype = tf.as_dtype(dtype)
-  return np.finfo(dtype).eps
+  # Handle both concrete and traced dtypes (traced dtype during JIT/VJP).
+  dt = tf.as_dtype(dtype)
+  if hasattr(dt, 'dtype'):
+      dt = dt.dtype
+  return np.finfo(dt).eps

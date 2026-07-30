@@ -510,7 +510,14 @@ def _cumsum(x, axis=0, exclusive=False, reverse=False, name=None):
 
 math.cumsum = _cumsum
 cumsum = _cumsum
-math.top_k = lambda a, k=1, sorted=True: jnp.argsort(a)[-k:]  # best-effort
+def _top_k(a, k=1, sorted=True):
+    # jax.lax.top_k has 'if' for k in older JAX versions, causing issues
+    # with traced k. Use argsort as workaround.
+    idx = jnp.argsort(a, axis=-1)
+    idx = jax.lax.dynamic_slice_in_dim(idx, a.shape[-1] - k, k, axis=-1)
+    vals = jax.lax.dynamic_slice_in_dim(a, a.shape[-1] - k, k, axis=-1)
+    return _ptypes.SimpleNamespace(values=vals, indices=idx)
+math.top_k = _top_k
 def _divide_no_nan(x, y, name=None):
     # ponytail: safe denom avoids JAX '0*inf=nan' in the masked-division VJP.
     y = jnp.asarray(y)
@@ -999,11 +1006,12 @@ test_util = _ptypes.SimpleNamespace(
 # ---------------------------------------------------------------------------
 # debugging: assertions are no-ops under JAX (or raise eagerly on static vals)
 # ---------------------------------------------------------------------------
-def _chk(cond, msg=None):
+def _chk(cond_fn, msg=None):
     """Eager validation: raise InvalidArgumentError if cond is concretely False;
-    no-op if cond is a tracer (can't evaluate under jit)."""
+    no-op if cond is a tracer (can't evaluate under jit).
+    cond_fn is a callable that returns the condition (lazy eval for traced safety)."""
     try:
-        ok = bool(np.asarray(cond).all())
+        ok = bool(np.asarray(cond_fn()).all())
     except Exception:
         return None
     if not ok:
@@ -1012,15 +1020,15 @@ def _chk(cond, msg=None):
 
 
 debugging = _ptypes.SimpleNamespace(
-    assert_positive=lambda x, message=None, **k: _chk(np.asarray(x) > 0, message),
-    assert_non_negative=lambda x, message=None, **k: _chk(np.asarray(x) >= 0, message),
-    assert_negative=lambda x, message=None, **k: _chk(np.asarray(x) < 0, message),
-    assert_non_positive=lambda x, message=None, **k: _chk(np.asarray(x) <= 0, message),
-    assert_less=lambda a, b, message=None, **k: _chk(np.asarray(a) < np.asarray(b), message),
-    assert_less_equal=lambda a, b, message=None, **k: _chk(np.asarray(a) <= np.asarray(b), message),
-    assert_greater=lambda a, b, message=None, **k: _chk(np.asarray(a) > np.asarray(b), message),
-    assert_greater_equal=lambda a, b, message=None, **k: _chk(np.asarray(a) >= np.asarray(b), message),
-    assert_equal=lambda a, b, message=None, **k: _chk(np.asarray(a) == np.asarray(b), message),
+    assert_positive=lambda x, message=None, **k: _chk(lambda: np.asarray(x) > 0, message),
+    assert_non_negative=lambda x, message=None, **k: _chk(lambda: np.asarray(x) >= 0, message),
+    assert_negative=lambda x, message=None, **k: _chk(lambda: np.asarray(x) < 0, message),
+    assert_non_positive=lambda x, message=None, **k: _chk(lambda: np.asarray(x) <= 0, message),
+    assert_less=lambda a, b, message=None, **k: _chk(lambda: np.asarray(a) < np.asarray(b), message),
+    assert_less_equal=lambda a, b, message=None, **k: _chk(lambda: np.asarray(a) <= np.asarray(b), message),
+    assert_greater=lambda a, b, message=None, **k: _chk(lambda: np.asarray(a) > np.asarray(b), message),
+    assert_greater_equal=lambda a, b, message=None, **k: _chk(lambda: np.asarray(a) >= np.asarray(b), message),
+    assert_equal=lambda a, b, message=None, **k: _chk(lambda: np.asarray(a) == np.asarray(b), message),
     assert_none_equal=lambda a, b, message=None, **k: _chk(np.asarray(a) != np.asarray(b), message),
     assert_all_finite=lambda x, message=None, **k: _chk(np.isfinite(np.asarray(x, dtype=float)), message),
     assert_near=lambda a, b, rtol=None, atol=None, message=None, **k: _chk(
@@ -1250,6 +1258,8 @@ def concat(values, axis=0, name=None, *more, **kwargs):
         except TypeError:
             seq = [values]
     arrs = [jnp.asarray(v) for v in seq]
+    # Reshape 0-d arrays to 1-d for concatenation (jnp rejects 0-d concat).
+    arrs = [jnp.atleast_1d(a) if a.ndim == 0 else a for a in arrs]
     import builtins
     has_nonempty = False
     all_int_compatible = True
@@ -1496,6 +1506,7 @@ math.reduce_variance = reduce_variance
 math.reduce_logsumexp = reduce_logsumexp
 math.squared_difference = lambda x, y, name=None: (x - y) ** 2
 math.floormod = lambda x, y, name=None: jnp.mod(x, y)
+math.count_nonzero = lambda a, axis=None, dtype=None, name=None: jnp.count_nonzero(a, axis=axis).astype(dtype) if dtype is not None else jnp.count_nonzero(a, axis=axis)
 
 
 # tf.where: 1-arg form returns indices of True; 3-arg form selects. Tolerate kwargs.
