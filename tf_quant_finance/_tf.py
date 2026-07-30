@@ -328,6 +328,7 @@ types = _TypesNS()
 nn = _ptypes.SimpleNamespace(
     relu=jax.nn.relu, sigmoid=jax.nn.sigmoid, softmax=jax.nn.softmax,
     softplus=jax.nn.softplus, gelu=jax.nn.gelu, log_softmax=jax.nn.log_softmax,
+    sigmoid_cross_entropy_with_logits=lambda labels, logits: jnp.maximum(logits, 0) - logits * labels + jnp.log1p(jnp.exp(-jnp.abs(logits))),
 )
 sparse = _ptypes.SimpleNamespace()
 

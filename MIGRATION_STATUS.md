@@ -1,7 +1,7 @@
 # TF Quant Finance → JAX Migration: Status
 
 **Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: ~1160+ passed** (+423% from 222)  
-**120+ commits** | **Shim-based incremental migration**
+**125+ commits** | **Shim-based incremental migration**
 
 ## Per-module
 | module | passed | status |
@@ -26,15 +26,17 @@
 - **milstein tuple+list** — list() wrap for shape concat
 - **hjm/calibration** — convert target_values to tensor
 - **local_volatility** — convert dividend_yield to tensor
+- **sigmoid_cross_entropy_with_logits** — implement manually for JAX
 
 ## Remaining ~290 failures
 - AssertionError/convergence (~98) — jaxopt vs TF optimizer tolerance
-- dot_general shape mismatch (~30) — CG batch shape issues (mostly fixed)
 - ConcretizationTypeError/Shapes must be ND (~44) — traced shapes
-- broadcast shapes (~28) — incompatible broadcasting
+- broadcast shapes (~28) — incompatible broadcasting (mostly fixed)
 - VJP through while_loop (~26) — needs scan conversion
 - TracerIntegerConversionError (~12) — traced __index__
-- Other (~52) — various issues
+- dot_general shape mismatch (~10) — mostly fixed
+- Other (~72) — various issues
 
 ## Known issues
 - SimulatedDataCalibrationTest hangs (test infrastructure issue, not code)
+- differential_evolution_minimize not implemented
