@@ -551,7 +551,7 @@ def _matmul(a, b, transpose_a=False, transpose_b=False, adjoint_a=False, adjoint
 linalg = _ptypes.SimpleNamespace(
     matmul=_matmul,
     matvec=lambda m, v, **kw: jnp.matmul(m, v[..., None])[..., 0],
-    cholesky=jnp.linalg.cholesky,
+    cholesky=lambda a, name=None: jnp.linalg.cholesky(a),
     inv=jnp.linalg.inv,
     pinv=jnp.linalg.pinv,
     eigh=jnp.linalg.eigh,

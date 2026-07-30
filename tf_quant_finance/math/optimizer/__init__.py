@@ -30,17 +30,24 @@ _OptResults = _namedtuple(
 def _run_quasi_newton(solver_cls, value_and_gradients_function,
                       initial_position, tolerance, max_iterations, **kw):
     del kw
-    solver = solver_cls(fun=value_and_gradients_function,
-                        value_and_grad=True, tol=tolerance,
-                        maxiter=max_iterations, jit=False)
     init = jnp.asarray(initial_position)
     # tfp supports batched initial_position [N, D] (N independent solves).
     # jaxopt's vmap triggers TracerBoolConversionError in line search; use
     # a Python loop instead (slower but correct).
     if init.ndim > 1:
+        # Wrap function to return scalar for single input (i-th batch element).
+        def make_single_fn(i):
+            def single_fn(x):
+                val, grad = value_and_gradients_function(x)
+                # val has shape (N,), grad has shape (N, D). Take i-th element.
+                return val[i], grad[i]
+            return single_fn
         all_params = []
         all_states = []
         for i in range(init.shape[0]):
+            solver = solver_cls(fun=make_single_fn(i),
+                                value_and_grad=True, tol=tolerance,
+                                maxiter=max_iterations, jit=False)
             p, s = solver.run(init[i])
             all_params.append(p)
             all_states.append(s)
@@ -50,6 +57,9 @@ def _run_quasi_newton(solver_cls, value_and_gradients_function,
         val = jnp.stack([getattr(s, 'value', jnp.asarray(0.0)) for s in all_states])
         grad = jnp.stack([getattr(s, 'grad', jnp.zeros_like(init[0])) for s in all_states])
     else:
+        solver = solver_cls(fun=value_and_gradients_function,
+                            value_and_grad=True, tol=tolerance,
+                            maxiter=max_iterations, jit=False)
         params, state = solver.run(init)
         err = getattr(state, "error", jnp.asarray(0.0))
         it = getattr(state, "iter_num", jnp.asarray(max_iterations))
