@@ -32,37 +32,30 @@ def _run_quasi_newton(solver_cls, value_and_gradients_function,
     del kw
     init = jnp.asarray(initial_position)
     # tfp supports batched initial_position [N, D] (N independent solves).
-    # jaxopt's vmap triggers TracerBoolConversionError in line search; use
-    # a Python loop instead (slower but correct).
+    # Use vmap with jit=True for efficient batched optimization.
     if init.ndim > 1:
-        # Wrap function to return scalar for single input (i-th batch element).
-        def make_single_fn(i):
-            def single_fn(x):
-                # x has shape (D,). Expand to (1, D) for batched function.
-                x_batch = jnp.expand_dims(x, 0)
-                val, grad = value_and_gradients_function(x_batch)
-                # val has shape (1,) or scalar, grad has shape (1, D) or (D,).
-                val = jnp.asarray(val)
-                grad = jnp.asarray(grad)
-                if val.ndim > 0:
-                    return val[0], grad[0] if grad.ndim > 1 else grad
-                else:
-                    return val, grad
-            return single_fn
-        all_params = []
-        all_states = []
-        for i in range(init.shape[0]):
-            solver = solver_cls(fun=make_single_fn(i),
-                                value_and_grad=True, tol=tolerance,
-                                maxiter=max_iterations, jit=False)
-            p, s = solver.run(init[i])
-            all_params.append(p)
-            all_states.append(s)
-        params = jnp.stack(all_params)
-        err = jnp.stack([getattr(s, 'error', jnp.asarray(0.0)) for s in all_states])
-        it = jnp.stack([getattr(s, 'iter_num', jnp.asarray(max_iterations)) for s in all_states])
-        val = jnp.stack([getattr(s, 'value', jnp.asarray(0.0)) for s in all_states])
-        grad = jnp.stack([getattr(s, 'grad', jnp.zeros_like(init[0])) for s in all_states])
+        # Wrap function to accept single input and return scalar.
+        def single_fn(x, *args):
+            # x has shape (D,). Expand to (1, D) for batched function.
+            x_batch = jnp.expand_dims(x, 0)
+            val, grad = value_and_gradients_function(x_batch)
+            # val has shape (1,) or scalar, grad has shape (1, D) or (D,).
+            val = jnp.asarray(val)
+            grad = jnp.asarray(grad)
+            if val.ndim > 0:
+                return val[0], grad[0] if grad.ndim > 1 else grad
+            else:
+                return val, grad
+        
+        # Use vmap with jit=True for efficient batched optimization.
+        solver = solver_cls(fun=single_fn, value_and_grad=True, tol=tolerance,
+                            maxiter=max_iterations, jit=True)
+        vmapped_solver = jax.vmap(solver.run, in_axes=(0,))
+        params, states = vmapped_solver(init)
+        err = getattr(states, 'error', jnp.zeros(init.shape[0]))
+        it = getattr(states, 'iter_num', jnp.full(init.shape[0], max_iterations))
+        val = getattr(states, 'value', jnp.zeros(init.shape[0]))
+        grad = getattr(states, 'grad', jnp.zeros_like(init))
     else:
         solver = solver_cls(fun=value_and_gradients_function,
                             value_and_grad=True, tol=tolerance,
