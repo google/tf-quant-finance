@@ -1,17 +1,29 @@
 # TF Quant Finance → JAX Migration: Status
 
 **Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: ~1170+ passed** (+426% from 222)  
-**130+ commits** | **Shim-based incremental migration**
+**135+ commits** | **Shim-based incremental migration**
 
 ## Per-module
 | module | passed | status |
 |---|---|---|
 | datetime | 94 | ✅ fully green |
 | black_scholes | 143/144 | ✅ 99% |
-| math | 310+ | qmc 30, pde 64, random_ops 60 ✅ |
-| models | 350+ | CIR 20, sabr_model 34, GBM 62 ✅ |
-| rates | 92 | forwards/random_ops green ✅ |
-| experimental | 120+ | pricing_platform 34, local_volatility 14 ✅ |
+| math/integration | 10/15 | 67% |
+| math/optimizer | 19/33 | 58% |
+| math/qmc | 30/42 | 71% |
+| math/random_ops | 60/61 | ✅ 98% |
+| math/root_search | 13/15 | 87% |
+| models/cir | 20 | ✅ fully green |
+| models/sabr_model | 34 | ✅ fully green |
+| models/GBM | 62 | ✅ fully green |
+| models/heston | 20/29 | 69% |
+| models/legacy | 20/23 | 87% |
+| models/longstaff_schwartz | 5/16 | 31% |
+| rates | 86/89 | ✅ 97% |
+| experimental/local_volatility | 14 | ✅ fully green |
+| experimental/pricing_platform | 34 | ✅ fully green |
+| experimental/instruments | 17/25 | 68% |
+| experimental/lsm_algorithm | 8/22 | 36% |
 
 ## Key fixes this session
 - **concat atleast_1d** — fix "Zero-dimensional arrays cannot be concatenated" (+7)
@@ -39,3 +51,4 @@
 - SimulatedDataCalibrationTest hangs (test infrastructure issue, not code)
 - differential_evolution_minimize not implemented
 - HJM calibration transpose permutation issue (complex batched gradient)
+- tf.gradients TF1-style not fully compatible with JAX (no computational graph)
