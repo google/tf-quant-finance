@@ -1,7 +1,7 @@
 # TF Quant Finance → JAX Migration: Status
 
 **Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1208 passed** (+441% from 222)  
-**155+ commits** | **Shim-based incremental migration**
+**160+ commits** | **Shim-based incremental migration**
 
 ## Per-module
 | module | passed | status |
@@ -14,6 +14,7 @@
 | math/optimizer | 19/33 | 58% |
 | math/integration | 10/15 | 67% |
 | math/root_search | 13/15 | 87% |
+| math/diff_ops | 5/6 | ✅ 83% |
 | models/cir | 20 | ✅ fully green |
 | models/sabr_model | 34 | ✅ fully green |
 | models/GBM | 62 | ✅ fully green |
@@ -45,14 +46,16 @@
 - **TensorProto** — SerializeToString/FromString for io tests (+6)
 - **meshgrid** — flatten multi-dim inputs for JAX compat (+1)
 - **tf.fill** — accept dims/value kwargs for TF compat (+2)
+- **assertProtoEquals** — add to TestCase for proto_utils tests (+2)
+- **tf.gradients** — return list (TF API compat) (+3)
 
-## Remaining ~245 failures
+## Remaining ~242 failures
 - AssertionError/convergence (~96) — jaxopt vs TF optimizer tolerance
 - ConcretizationTypeError (~26) — traced shapes
 - VJP through while_loop (~26) — needs scan conversion
 - broadcast shapes (~28) — incompatible broadcasting
 - TracerIntegerConversionError (~12) — traced __index__
-- Other (~57) — various issues
+- Other (~54) — various issues
 
 ## Known issues
 - SimulatedDataCalibrationTest hangs (test infrastructure issue, not code)

@@ -918,6 +918,10 @@ class TestCase(_absltest.TestCase):
             return type(tensors)(self.evaluate(t) for t in tensors)
         return np.asarray(tensors)
 
+    def assertProtoEquals(self, expected, actual, msg=None):
+        """Asserts that two protos are equal (by string representation)."""
+        self.assertEqual(str(expected), str(actual), msg=msg)
+
     # TF-specific asserts that absltest.TestCase lacks.
     def assertAllClose(self, a, b, rtol=1e-6, atol=1e-6, msg=None):
         np.testing.assert_allclose(np.asarray(a), np.asarray(b),
@@ -1203,7 +1207,14 @@ class GradientTape:
 
 
 def gradients(ys, xs, **kw):
-    return jax.grad(lambda x: jnp.sum(ys))(xs) if not isinstance(xs, (list, tuple)) else jax.grad(lambda *a: jnp.sum(ys))(*xs)
+    # tf.gradients returns a list of gradients, one for each x in xs.
+    if isinstance(xs, (list, tuple)):
+        grad_fn = jax.grad(lambda *a: jnp.sum(ys))
+        grads = grad_fn(*xs)
+        return list(grads) if isinstance(grads, tuple) else [grads]
+    else:
+        grad = jax.grad(lambda x: jnp.sum(ys))(xs)
+        return [grad]
 
 
 def custom_gradient(f):
