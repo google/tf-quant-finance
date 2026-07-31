@@ -328,8 +328,29 @@ def _grid_from_num_times(*, times, time_step, num_time_steps):
 
 def block_diagonal_to_dense(*matrices):
   """Given a sequence of matrices, creates a block-diagonal dense matrix."""
-  operators = [tf.linalg.LinearOperatorFullMatrix(m) for m in matrices]
-  return tf.linalg.LinearOperatorBlockDiag(operators).to_dense()
+  import jax
+  import jax.scipy.linalg as jla
+  # matrices is a list of tensors with shape [batch, n_i, n_i]
+  # We need to create a block diagonal matrix with shape [batch, sum(n_i), sum(n_i)]
+  if len(matrices) == 1:
+    return matrices[0]
+  # Use jax.scipy.linalg.block_diag for each batch element
+  batch_shape = matrices[0].shape[:-2]
+  if batch_shape:
+    # Batched case: vmap over batch dimensions
+    # Flatten batch dimensions, apply block_diag via vmap, then reshape
+    flat_matrices = [m.reshape(-1, m.shape[-2], m.shape[-1]) for m in matrices]
+    # vmap block_diag over the batch dimension
+    def _block_diag_batched(*mats):
+      # mats is a tuple of arrays with shape (batch, n_i, n_i)
+      return jax.vmap(lambda *ms: jla.block_diag(*ms))(*mats)
+    result = _block_diag_batched(*flat_matrices)
+    # Reshape back to batch_shape + [total_dim, total_dim]
+    total_dim = result.shape[-1]
+    return result.reshape(batch_shape + (total_dim, total_dim))
+  else:
+    # Non-batched case
+    return jla.block_diag(*matrices)
 
 
 def cumsum_using_matvec(input_tensor):

@@ -59,7 +59,7 @@ class JoinedItoProcessTest(tf.test.TestCase):
         random_type=tff.math.random.RandomType.PSEUDO_ANTITHETIC,
         seed=42)
     self.assertEqual(samples.dtype, dtype)
-    self.assertEqual(samples.shape, [num_samples, 2, 5])
+    self.assertEqual(tuple(samples.shape), (num_samples, 2, 5))
     samples = self.evaluate(samples)
     self.assertAllClose(np.corrcoef(samples[:, -1, :], rowvar=False),
                         expected_corr_matrix, rtol=1e-2, atol=1e-2)
