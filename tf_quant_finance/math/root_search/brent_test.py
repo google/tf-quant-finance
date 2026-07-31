@@ -15,6 +15,8 @@
 
 import math
 
+import jax.numpy as jnp
+
 from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
@@ -161,7 +163,7 @@ class BrentqTest(tf.test.TestCase):
 
     self._testFindsAllRoots(
         # Flat in the [-0.5, 0.5] range.
-        objective_fn=lambda x: 0 if x == 0 else x * exp(-1 / x**2),
+        objective_fn=lambda x: jnp.where(x == 0, 0.0, x * exp(-1 / x**2)),
         left_bracket=[-10],
         right_bracket=[1],
         expected_roots=[-0.017029902449646958],
@@ -244,7 +246,7 @@ class BrentqTest(tf.test.TestCase):
   @test_util.run_in_graph_and_eager_modes
   def testFindsRootForFlatFunction(self):
     # Flat in the [-0.5, 0.5] range.
-    objective_fn = lambda x: 0 if x == 0 else x * exp(-1 / x**2)
+    objective_fn = lambda x: jnp.where(x == 0, 0.0, x * exp(-1 / x**2))
 
     left_bracket = [-10]
     right_bracket = [1]
