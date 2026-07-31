@@ -419,15 +419,17 @@ def _while_loop(*, steps_num, current_state,
 
   def _draw(i):
     if normal_draws is not None:
-      return normal_draws[i] * sqrt_dt[i]
+      draw = jax.lax.dynamic_index_in_dim(normal_draws, i, axis=0)
+      sqrt_dt_i = jax.lax.dynamic_index_in_dim(sqrt_dt, i, axis=0)
+      return jnp.squeeze(draw, axis=0) * jnp.squeeze(sqrt_dt_i, axis=0)
     return random.mv_normal_sample(
         (num_samples,), mean=wiener_mean, random_type=random_type,
-        seed=seed) * sqrt_dt[i]
+        seed=seed) * jnp.squeeze(jax.lax.dynamic_index_in_dim(sqrt_dt, i, axis=0), axis=0)
 
   def _next(i, current_state):
-    current_time = times[i + 1]
+    current_time = jnp.squeeze(jax.lax.dynamic_index_in_dim(times, i + 1, axis=0), axis=0)
     dw = _draw(i)
-    dt_inc = dt[i] * drift_fn(current_time, current_state)
+    dt_inc = jnp.squeeze(jax.lax.dynamic_index_in_dim(dt, i, axis=0), axis=0) * drift_fn(current_time, current_state)
     dw_inc = tf.linalg.matvec(volatility_fn(current_time, current_state), dw)
     return current_state + dt_inc + dw_inc
 
@@ -448,8 +450,19 @@ def _while_loop(*, steps_num, current_state,
   def body_rec(carry, i):
     state, result, wc = carry
     next_state = _next(i, state)
-    rec = jnp.asarray(keep_mask[i + 1], dtype=jnp.int32)
-    new_result = result.at[wc].set(next_state)
+    rec = jnp.asarray(jnp.squeeze(jax.lax.dynamic_index_in_dim(keep_mask, i + 1, axis=0), axis=0), dtype=jnp.int32)
+    # Use dynamic_update_slice for traced index wc
+    # result has shape [num_requested_times, num_samples, dim]
+    # next_state has shape [num_samples, dim] or [1, num_samples, dim]
+    # We need to update result[wc, :, :] with next_state
+    if next_state.ndim == result.ndim:
+        update = next_state
+    else:
+        update = jnp.expand_dims(next_state, 0)
+    # Ensure all indices have the same dtype
+    wc_int = wc.astype(jnp.int64)
+    slice_indices = (wc_int,) + (jnp.int64(0),) * (result.ndim - 1)
+    new_result = jax.lax.dynamic_update_slice(result, update, slice_indices)
     result = jnp.where(rec == 1, new_result, result)
     wc = wc + rec
     return (next_state, result, wc), None
@@ -515,7 +528,7 @@ def _euler_step(*, i, written_count, current_state,
                 random_type, seed, normal_draws, result,
                 record_samples):
   """Performs one step of Euler scheme."""
-  current_time = times[i + 1]
+  current_time = jnp.squeeze(jax.lax.dynamic_index_in_dim(times, i + 1, axis=0), axis=0)
   written_count = tf.cast(written_count, tf.int32)
   if normal_draws is not None:
     dw = normal_draws[i]
@@ -523,15 +536,15 @@ def _euler_step(*, i, written_count, current_state,
     dw = random.mv_normal_sample(
         (num_samples,), mean=wiener_mean, random_type=random_type,
         seed=seed)
-  dw = dw * sqrt_dt[i]
-  dt_inc = dt[i] * drift_fn(current_time, current_state)  # pylint: disable=not-callable
+  dw = dw * jax.lax.dynamic_index_in_dim(sqrt_dt, i, axis=0)
+  dt_inc = jnp.squeeze(jax.lax.dynamic_index_in_dim(dt, i, axis=0), axis=0) * drift_fn(current_time, current_state)  # pylint: disable=not-callable
   dw_inc = tf.linalg.matvec(volatility_fn(current_time, current_state), dw)  # pylint: disable=not-callable
   next_state = current_state + dt_inc + dw_inc
   if record_samples:
     result = result.write(written_count, next_state)
   else:
     result = next_state
-  written_count += tf.cast(keep_mask[i + 1], dtype=tf.int32)
+  written_count += tf.cast(jnp.squeeze(jax.lax.dynamic_index_in_dim(keep_mask, i + 1, axis=0), axis=0), dtype=tf.int32)
 
   return i + 1, written_count, next_state, result
 

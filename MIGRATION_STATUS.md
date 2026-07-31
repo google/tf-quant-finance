@@ -1,7 +1,7 @@
 # TF Quant Finance → JAX Migration: Status
 
 **Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1208 passed** (+441% from 222)  
-**160+ commits** | **Shim-based incremental migration**
+**165+ commits** | **Shim-based incremental migration**
 
 ## Per-module
 | module | passed | status |
@@ -18,6 +18,7 @@
 | models/cir | 20 | ✅ fully green |
 | models/sabr_model | 34 | ✅ fully green |
 | models/GBM | 62 | ✅ fully green |
+| models/euler_sampling | 22/24 | ✅ 92% |
 | models/heston | 20/29 | 69% |
 | models/legacy | 20/23 | 87% |
 | rates | 86/89 | ✅ 97% |
@@ -48,6 +49,7 @@
 - **tf.fill** — accept dims/value kwargs for TF compat (+2)
 - **assertProtoEquals** — add to TestCase for proto_utils tests (+2)
 - **tf.gradients** — return list (TF API compat) (+3)
+- **euler_sampling traced indexing** — use dynamic_index_in_dim + squeeze (+17)
 
 ## Remaining ~242 failures
 - AssertionError/convergence (~96) — jaxopt vs TF optimizer tolerance
