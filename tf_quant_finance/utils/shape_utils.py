@@ -27,6 +27,32 @@ __all__ = [
 ]
 
 
+class _ShapeWrapper:
+  """Wrapper around shape tuple to provide TF-compatible as_list() method."""
+  def __init__(self, shape):
+    self._shape = tuple(shape) if shape is not None else None
+  
+  def as_list(self):
+    return list(self._shape) if self._shape is not None else None
+  
+  def __iter__(self):
+    return iter(self._shape)
+  
+  def __len__(self):
+    return len(self._shape)
+  
+  def __getitem__(self, idx):
+    return self._shape[idx]
+  
+  def __eq__(self, other):
+    if isinstance(other, _ShapeWrapper):
+      return self._shape == other._shape
+    return self._shape == tuple(other)
+  
+  def __repr__(self):
+    return f"TensorShape({list(self._shape)})"
+
+
 def get_shape(
     x: tf.Tensor,
     name: Optional[str] = None) -> Union[tf.TensorShape, types.IntTensor]:
@@ -56,7 +82,7 @@ def get_shape(
     x = tf.convert_to_tensor(x)
     is_fully_defined = (True)
     if is_fully_defined:
-      return x.shape
+      return _ShapeWrapper(x.shape)
     return tf.shape(x)
 
 
