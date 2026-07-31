@@ -357,7 +357,7 @@ sparse.SparseTensor = _SparseTensor
 sparse.to_dense = _sparse_to_dense
 xla = _ptypes.SimpleNamespace(
     experimental=_ptypes.SimpleNamespace(
-        compile=lambda fn, **kw: (lambda: jax.jit(fn)(),)  # XLA compile -> jit
+        compile=lambda fn, **kw: [fn()]  # XLA compile -> just call the function
     )
 )
 nest = _ptypes.SimpleNamespace(
@@ -582,7 +582,7 @@ linalg = _ptypes.SimpleNamespace(
     qr=jnp.linalg.qr,
     tensor_diag=lambda v, **kw: _create_diag(v),
     diag=lambda v, k=0, **kw: _create_diag(v, k),
-    set_diag=lambda m, v, **kw: m.at[..., :].set(v) if hasattr(m, "at") else m,
+    set_diag=lambda m, v, **kw: m.at[..., jnp.arange(m.shape[-1]), jnp.arange(m.shape[-1])].set(v),
     tridiagonal_solve=_lax.linalg.tridiagonal_solve if hasattr(_lax.linalg, "tridiagonal_solve") else None,
     tridiagonal_matmul=None,
     expm=_jspl.expm,
