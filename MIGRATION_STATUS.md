@@ -1,7 +1,7 @@
 # TF Quant Finance → JAX Migration: Status
 
-**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1208 passed** (+441% from 222)  
-**165+ commits** | **Shim-based incremental migration**
+**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1208+ passed** (+441% from 222)  
+**170+ commits** | **Shim-based incremental migration**
 
 ## Per-module
 | module | passed | status |
@@ -13,13 +13,13 @@
 | math/qmc | 30/42 | 71% |
 | math/optimizer | 19/33 | 58% |
 | math/integration | 10/15 | 67% |
-| math/root_search | 13/15 | 87% |
+| math/root_search | 15/15 | ✅ fully green |
 | math/diff_ops | 5/6 | ✅ 83% |
 | models/cir | 20 | ✅ fully green |
 | models/sabr_model | 34 | ✅ fully green |
 | models/GBM | 62 | ✅ fully green |
-| models/euler_sampling | 22/24 | ✅ 92% |
-| models/heston | 20/29 | 69% |
+| models/euler_sampling | 23/24 | ✅ 96% |
+| models/heston | 23/29 | 79% |
 | models/legacy | 20/23 | 87% |
 | rates | 86/89 | ✅ 97% |
 | experimental/local_volatility | 14 | ✅ fully green |
@@ -27,6 +27,13 @@
 | experimental/io | 6/7 | ✅ 86% |
 
 ## Key fixes this session
+- **euler_sampling _for_loop** — rewrite to record initial state correctly (+1)
+- **brent_test jnp.where** — use jnp.where instead of Python if for JAX tracing (+2)
+- **heston_model dtype** — infer dtype from piecewise functions when dtype=None (+3)
+- **heston_model _SQRT_2** — convert to match normals dtype to avoid float32/float64 mismatch
+- **heston_model _get_parameters** — convert times to tensor to handle list input
+
+## Previous session fixes
 - **concat atleast_1d** — fix "Zero-dimensional arrays cannot be concatenated" (+7)
 - **_chk lazy eval** — prevent TracerArrayConversionError in assert_* (+~30)
 - **gauss_kronrod weights** — convert list to tensor before arithmetic (+3)
@@ -51,16 +58,19 @@
 - **tf.gradients** — return list (TF API compat) (+3)
 - **euler_sampling traced indexing** — use dynamic_index_in_dim + squeeze (+17)
 
-## Remaining ~242 failures
-- AssertionError/convergence (~96) — jaxopt vs TF optimizer tolerance
+## Remaining ~235 failures
+- AssertionError/convergence (~90) — jaxopt vs TF optimizer tolerance, MC variance
 - ConcretizationTypeError (~26) — traced shapes
 - VJP through while_loop (~26) — needs scan conversion
 - broadcast shapes (~28) — incompatible broadcasting
 - TracerIntegerConversionError (~12) — traced __index__
-- Other (~54) — various issues
+- HALTON/STATELESS variance (~15) — RNG differences between JAX and TF
+- Other (~38) — various issues
 
 ## Known issues
 - SimulatedDataCalibrationTest hangs (test infrastructure issue, not code)
 - differential_evolution_minimize not implemented
 - HJM calibration transpose permutation issue (complex batched gradient)
 - tf.gradients TF1-style not fully compatible with JAX (no computational graph)
+- HALTON sequence generation differs between JAX and TF (variance mismatches)
+- test_compare_monte_carlo_to_backward_pde: MC vs PDE difference (~39% relative error)
