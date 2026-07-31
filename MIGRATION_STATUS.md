@@ -1,7 +1,7 @@
 # TF Quant Finance → JAX Migration: Status
 
-**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1208+ passed** (+441% from 222)  
-**170+ commits** | **Shim-based incremental migration**
+**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1220+ passed** (+450% from 222)  
+**175+ commits** | **Shim-based incremental migration**
 
 ## Per-module
 | module | passed | status |
@@ -20,6 +20,9 @@
 | models/GBM | 62 | ✅ fully green |
 | models/euler_sampling | 23/24 | ✅ 96% |
 | models/heston | 23/29 | 79% |
+| models/milstein | 10/10 | ✅ fully green |
+| models/realized_volatility | 10/10 | ✅ fully green |
+| models/utils | 9/9 | ✅ fully green |
 | models/legacy | 20/23 | 87% |
 | rates | 86/89 | ✅ 97% |
 | experimental/local_volatility | 14 | ✅ fully green |
@@ -32,6 +35,11 @@
 - **heston_model dtype** — infer dtype from piecewise functions when dtype=None (+3)
 - **heston_model _SQRT_2** — convert to match normals dtype to avoid float32/float64 mismatch
 - **heston_model _get_parameters** — convert times to tensor to handle list input
+- **xla.experimental.compile** — just call the function (no jit to avoid tracing issues) (+1)
+- **linalg.set_diag** — use proper diagonal indexing with m.at[..., idx, idx].set(v) (+2)
+- **block_diagonal_to_dense** — implement using jax.scipy.linalg.block_diag with vmap (+1)
+- **one_hot** — accept depth as keyword argument (TF API compat) (+2)
+- **maybe_update_along_axis** — use static shapes when available to avoid traced pad widths (+2)
 
 ## Previous session fixes
 - **concat atleast_1d** — fix "Zero-dimensional arrays cannot be concatenated" (+7)
@@ -42,7 +50,6 @@
 - **cholesky** — wrap to accept name kwarg (+1)
 - **optimizer batch** — use vmap with jit=True for efficient batched optimization (+2)
 - **stack values=** — accept values= keyword (TF API compat)
-- **xla.experimental.compile** — jax.jit wrapper
 - **milstein tuple+list** — list() wrap for shape concat
 - **hjm/calibration** — convert target_values and init_corr to tensor
 - **local_volatility** — convert dividend_yield to tensor
@@ -58,14 +65,15 @@
 - **tf.gradients** — return list (TF API compat) (+3)
 - **euler_sampling traced indexing** — use dynamic_index_in_dim + squeeze (+17)
 
-## Remaining ~235 failures
-- AssertionError/convergence (~90) — jaxopt vs TF optimizer tolerance, MC variance
+## Remaining ~225 failures
+- AssertionError/convergence (~85) — jaxopt vs TF optimizer tolerance, MC variance
 - ConcretizationTypeError (~26) — traced shapes
 - VJP through while_loop (~26) — needs scan conversion
 - broadcast shapes (~28) — incompatible broadcasting
 - TracerIntegerConversionError (~12) — traced __index__
 - HALTON/STATELESS variance (~15) — RNG differences between JAX and TF
-- Other (~38) — various issues
+- Brownian motion shape (~3) — dim=1 shape squeezing difference
+- Other (~30) — various issues
 
 ## Known issues
 - SimulatedDataCalibrationTest hangs (test infrastructure issue, not code)
@@ -74,3 +82,4 @@
 - tf.gradients TF1-style not fully compatible with JAX (no computational graph)
 - HALTON sequence generation differs between JAX and TF (variance mismatches)
 - test_compare_monte_carlo_to_backward_pde: MC vs PDE difference (~39% relative error)
+- Brownian motion dim=1: TF squeezes last dim, JAX keeps it (shape mismatch)
