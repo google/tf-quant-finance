@@ -1408,7 +1408,13 @@ def _gather_nd(params, indices, name=None, batch_dims=0, **kw):
 gather_nd = _gather_nd
 
 
-one_hot = _drop_name(jax.nn.one_hot)
+def _one_hot(indices, depth=None, name=None, **kwargs):
+  """TF-compatible one_hot that accepts depth as keyword argument."""
+  del name
+  if depth is None:
+    depth = kwargs.pop('num_classes', None)
+  return jax.nn.one_hot(indices, depth, **kwargs)
+one_hot = _one_hot
 reverse = _drop_name(jnp.flip)
 
 

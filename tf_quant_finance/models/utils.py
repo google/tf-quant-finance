@@ -195,12 +195,22 @@ def maybe_update_along_axis(*,
     do_update = tf.convert_to_tensor(do_update, name='do_update')
     size_along_axis = list(tensor.shape)[axis]
     def _write_update_to_result():
-      size_along_axis_dynamic = tf.shape(tensor)[axis]
-      one_hot = tf.one_hot(ind, depth=size_along_axis_dynamic)
+      # Use static shape if available, otherwise use dynamic shape
+      if size_along_axis is not None:
+        depth = size_along_axis
+      else:
+        depth = tf.shape(tensor)[axis]
+      one_hot = tf.one_hot(ind, depth=depth)
       mask_size = len(tensor.shape)
-      mask_shape = tf.pad(
-          [size_along_axis_dynamic],
-          paddings=[[axis, mask_size - axis - 1]], constant_values=1)
+      # Build mask_shape using static shapes when available
+      if size_along_axis is not None:
+        mask_shape_list = [1] * mask_size
+        mask_shape_list[axis] = size_along_axis
+        mask_shape = mask_shape_list
+      else:
+        mask_shape = tf.pad(
+            [depth],
+            paddings=[[axis, mask_size - axis - 1]], constant_values=1)
       mask = tf.reshape(one_hot > 0, mask_shape)
       return tf.where(mask, new_tensor, tensor)
     # Update only if size_along_axis > 1 or if the shape is dynamic
@@ -330,6 +340,8 @@ def block_diagonal_to_dense(*matrices):
   """Given a sequence of matrices, creates a block-diagonal dense matrix."""
   import jax
   import jax.scipy.linalg as jla
+  # Convert lists to arrays
+  matrices = [jnp.asarray(m) for m in matrices]
   # matrices is a list of tensors with shape [batch, n_i, n_i]
   # We need to create a block diagonal matrix with shape [batch, sum(n_i), sum(n_i)]
   if len(matrices) == 1:
