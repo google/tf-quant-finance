@@ -124,6 +124,16 @@ class HestonModel(generic_ito_process.GenericItoProcess):
     """
     self._name = name or 'heston_model'
     with tf.name_scope(self._name):
+      # Infer dtype from piecewise functions if dtype is None
+      if dtype is None:
+        if isinstance(mean_reversion, piecewise.PiecewiseConstantFunc):
+          dtype = mean_reversion.dtype()
+        elif isinstance(theta, piecewise.PiecewiseConstantFunc):
+          dtype = theta.dtype()
+        elif isinstance(volvol, piecewise.PiecewiseConstantFunc):
+          dtype = volvol.dtype()
+        elif isinstance(rho, piecewise.PiecewiseConstantFunc):
+          dtype = rho.dtype()
       self._dtype = dtype or tf.float32
       if isinstance(mean_reversion, piecewise.PiecewiseConstantFunc):
         self._mean_reversion = mean_reversion
@@ -511,6 +521,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
 def _get_parameters(times, *params):
   """Gets parameter values at at specified `times`."""
   result = []
+  times = tf.convert_to_tensor(times)
   for param in params:
     if isinstance(param, piecewise.PiecewiseConstantFunc):
       result.append(param(times))
@@ -533,7 +544,8 @@ def _update_variance(
       * (1 - scaled_time) + theta * volvol_squared / 2 / mean_reversion
       * (1 - scaled_time)**2)
   psi = s_squared / m**2
-  uniforms = 0.5 * (1 + tf.math.erf(normals / _SQRT_2))
+  sqrt_2 = tf.convert_to_tensor(_SQRT_2, dtype=normals.dtype)
+  uniforms = 0.5 * (1 + tf.math.erf(normals / sqrt_2))
   cond = psi < psi_c
   # Result where `cond` is true
   psi_inv = 2 / psi
