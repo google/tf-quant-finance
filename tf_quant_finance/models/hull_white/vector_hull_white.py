@@ -675,7 +675,8 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                          random.RandomType.HALTON,
                          random.RandomType.HALTON_RANDOMIZED,
                          random.RandomType.STATELESS,
-                         random.RandomType.STATELESS_ANTITHETIC):
+                         random.RandomType.STATELESS_ANTITHETIC,
+                         random.RandomType.PSEUDO_ANTITHETIC):
         normal_draws = utils.generate_mc_normal_draws(
             num_normal_draws=self._dim, num_time_steps=steps_num,
             num_sample_paths=num_samples, random_type=random_type,
@@ -767,22 +768,72 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       return (i + 1, written_count, next_x, rate_paths)
 
     # TODO(b/157232803): Use tf.cumsum instead?
-    # Sample paths
-    # Use stop_gradient on while_loop to avoid VJP error, then add a differentiable
-    # correction via custom_vjp for gradient support.
+    # Sample paths using scan (differentiable)
     import jax
-    _, _, _, rate_paths_raw = tf.while_loop(
-        cond_fn, body_fn, (0, written_count, initial_x, rate_paths))
-    rate_paths = jax.lax.stop_gradient(rate_paths_raw)
+    import jax.numpy as jnp
+    
+    steps_num = len(dt)
+    
+    def _draw(i):
+      if normal_draws is not None:
+        return normal_draws[i]
+      return random.mv_normal_sample(
+          (num_samples,),
+          mean=tf.zeros((self._dim,), dtype=mean_reversion.dtype),
+          random_type=random_type, seed=seed)
+    
+    def _step(i, current_x):
+      normals = _draw(i)
+      if corr_matrix_root is not None:
+        normals = tf.linalg.matvec(corr_matrix_root[i], normals)
+      vol_x_t = tf.math.sqrt(tf.nn.relu(tf.transpose(var_x_t)[i]))
+      vol_x_t = tf.where(vol_x_t > 0.0, vol_x_t, 0.0)
+      next_x = (tf.math.exp(-tf.transpose(mean_reversion)[i + 1] * dt[i])
+                * current_x
+                + tf.transpose(exp_x_t)[i]
+                + vol_x_t * normals)
+      return next_x
+    
     if not record_samples:
+      # Just compute final state
+      def scan_body(carry, i):
+        return _step(i, carry), None
+      final_x, _ = jax.lax.scan(scan_body, initial_x, xs=jnp.arange(steps_num))
+      f_0_t = self._instant_forward_rate_fn(times[-1])
+      rate_paths = final_x + f_0_t
       # shape [num_samples, 1, dim]
       return tf.expand_dims(rate_paths, axis=-2)
-    # Shape [num_time_points] + [num_samples, dim]
-    rate_paths = rate_paths.stack()
-    # transpose to shape [num_samples, num_time_points, dim]
-    n = len(rate_paths.shape)
-    perm = list(range(1, n-1)) + [0, n - 1]
-    return tf.transpose(rate_paths, perm)
+    
+    # Record samples: scan steps_num, carrying (state, result[num_requested, ...], wc)
+    result = tf.zeros([num_requested_times] + list(initial_x.shape), dtype=self._dtype)
+    wc = jnp.asarray(0, dtype=jnp.int32)
+    # Record the initial state at slot 0 if requested (keep_mask[0]).
+    f_0_t_init = self._instant_forward_rate_fn(times[0])
+    rec0 = jnp.asarray(keep_mask[0], dtype=jnp.int32)
+    result = jnp.where(rec0 == 1, result.at[0].set(initial_x + f_0_t_init), result)
+    wc = wc + rec0
+    
+    def body_rec(carry, i):
+      state, result, wc = carry
+      next_state = _step(i, state)
+      f_0_t = self._instant_forward_rate_fn(times[i + 1])
+      next_path = next_state + f_0_t
+      rec = jnp.asarray(keep_mask[i + 1], dtype=jnp.int32)
+      # Use dynamic_update_slice for traced index wc
+      update = jnp.expand_dims(next_path, 0)
+      wc_int = wc.astype(jnp.int64)
+      slice_indices = (wc_int,) + (jnp.int64(0),) * (result.ndim - 1)
+      new_result = jax.lax.dynamic_update_slice(result, update, slice_indices)
+      result = jnp.where(rec == 1, new_result, result)
+      wc = wc + rec
+      return (next_state, result, wc), None
+    
+    (_, result, _), _ = jax.lax.scan(
+        body_rec, (initial_x, result, wc), xs=jnp.arange(steps_num))
+    # result.shape = [num_requested_times, num_samples, dim]
+    # transpose to [num_samples, num_requested_times, dim]
+    rate_paths = tf.transpose(result, [1, 0, 2])
+    return rate_paths
 
   def _bond_reconstitution(self,
                            times,
