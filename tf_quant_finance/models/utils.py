@@ -387,7 +387,8 @@ def cumprod_using_matvec(input_tensor):
   dtype = input_tensor.dtype
   axis_length = input_tensor.shape[-1] if input_tensor.shape[-1] is not None else tf.shape(input_tensor)[-1]
   if isinstance(axis_length, int):
-    ones = tf.ones([axis_length, axis_length], dtype=dtype)
+    # Lower triangular matrix of ones for cumsum (of log)
+    ones = jnp.tril(jnp.ones([axis_length, axis_length], dtype=dtype))
   else:
     n = axis_length
     idx = jnp.arange(n)
