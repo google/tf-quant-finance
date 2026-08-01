@@ -371,7 +371,8 @@ def cumsum_using_matvec(input_tensor):
   # Use static shape when available (jit/while_loop safe).
   axis_length = input_tensor.shape[-1] if input_tensor.shape[-1] is not None else tf.shape(input_tensor)[-1]
   if isinstance(axis_length, int):
-    ones = tf.ones([axis_length, axis_length], dtype=dtype)
+    # Lower triangular matrix of ones for cumsum
+    ones = jnp.tril(jnp.ones([axis_length, axis_length], dtype=dtype))
   else:
     # Dynamic fallback: lazily construct the matrix at runtime.
     n = axis_length
