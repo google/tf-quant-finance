@@ -544,7 +544,14 @@ def _divide_no_nan(x, y, name=None):
 
 math.divide_no_nan = _divide_no_nan
 divide_no_nan = _divide_no_nan
-math.segment_sum = lambda data, segments, num_segments=None, **kw: _jops.segment_sum(data, segments, num_segments=num_segments)
+def _segment_sum(data, segments, num_segments=None, **kw):
+    """TF-compatible segment_sum that handles num_segments=None."""
+    if num_segments is None:
+        # Infer num_segments from max(segments) + 1
+        # This works when segments is concrete (not traced)
+        num_segments = int(jnp.max(segments)) + 1
+    return _jops.segment_sum(data, segments, num_segments=num_segments)
+math.segment_sum = _segment_sum
 math.segment_prod = lambda data, segments, num_segments=None, **kw: _jops.segment_prod(data, segments, num_segments=num_segments)
 math.nextafter = _np_nextafter = jnp.nextafter
 # ponytail: tf.math.brentq has no jax builtin; delegate to the repo's own root

@@ -413,6 +413,9 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
                       initial_rates, curve_tolerance, maximum_iterations,
                       dtype):
   """Build the zero swap curve using the bootstrap method."""
+  # Stack present_values list into a single tensor for arithmetic operations
+  num_instruments = len(present_values)
+  present_values = tf.stack(present_values, axis=0)
 
   # The procedure is recursive and as follows:
   # 1. Start with an initial state of the swap curve. Set this as the current
@@ -516,10 +519,12 @@ def _build_swap_curve(float_leg_start_times, float_leg_end_times,
                                            fixed_leg_calc_times)
 
     float_pv = tf.math.segment_sum(float_cashflows * calc_discounts_float_leg,
-                                   calc_groups_float)
+                                   calc_groups_float,
+                                   num_segments=num_instruments)
     fixed_pv = tf.math.segment_sum(
         calc_fixed_leg_daycount * calc_fixed_leg_cashflows *
-        calc_discounts_fixed_leg, calc_groups_fixed)
+        calc_discounts_fixed_leg, calc_groups_fixed,
+        num_segments=num_instruments)
 
     if self_discounting_float_leg and self_discounting_fixed_leg:
       p_n_minus_1 = tf.math.exp(-rates_start_last * last_float_leg_start_time)
