@@ -431,7 +431,9 @@ def _while_loop(*, steps_num, current_state,
     dw = _draw(i)
     dt_inc = jnp.squeeze(jax.lax.dynamic_index_in_dim(dt, i, axis=0), axis=0) * drift_fn(current_time, current_state)
     dw_inc = tf.linalg.matvec(volatility_fn(current_time, current_state), dw)
-    return current_state + dt_inc + dw_inc
+    next_state = current_state + dt_inc + dw_inc
+    # Ensure dtype matches current_state
+    return next_state.astype(current_state.dtype)
 
   if single:
     def body(carry, i):
@@ -459,6 +461,8 @@ def _while_loop(*, steps_num, current_state,
         update = next_state
     else:
         update = jnp.expand_dims(next_state, 0)
+    # Ensure update has the same dtype as result
+    update = update.astype(result.dtype)
     # Ensure all indices have the same dtype
     wc_int = wc.astype(jnp.int64)
     slice_indices = (wc_int,) + (jnp.int64(0),) * (result.ndim - 1)
@@ -500,7 +504,9 @@ def _for_loop(*, batch_shape, steps_num, current_state,
     dw = _draw(i)
     dt_inc = jnp.squeeze(jax.lax.dynamic_index_in_dim(dt, i, axis=0), axis=0) * drift_fn(current_time, current_state)
     dw_inc = tf.linalg.matvec(volatility_fn(current_time, current_state), dw)
-    return current_state + dt_inc + dw_inc
+    next_state = current_state + dt_inc + dw_inc
+    # Ensure dtype matches current_state
+    return next_state.astype(current_state.dtype)
 
   # Record samples: scan steps_num, carrying (state, result[num_requested, ...], wc)
   result = tf.zeros([num_requested_times] + list(current_state.shape), dtype=current_state.dtype)
@@ -519,6 +525,8 @@ def _for_loop(*, batch_shape, steps_num, current_state,
         update = next_state
     else:
         update = jnp.expand_dims(next_state, 0)
+    # Ensure update has the same dtype as result
+    update = update.astype(result.dtype)
     wc_int = wc.astype(jnp.int64)
     slice_indices = (wc_int,) + (jnp.int64(0),) * (result.ndim - 1)
     new_result = jax.lax.dynamic_update_slice(result, update, slice_indices)
