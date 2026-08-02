@@ -821,12 +821,15 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       rec = jnp.asarray(keep_mask[i + 1], dtype=jnp.int32)
       # Use dynamic_update_slice for traced index wc
       update = jnp.expand_dims(next_path, 0)
+      # Ensure update has the same dtype as result
+      update = update.astype(result.dtype)
       wc_int = wc.astype(jnp.int64)
       slice_indices = (wc_int,) + (jnp.int64(0),) * (result.ndim - 1)
       new_result = jax.lax.dynamic_update_slice(result, update, slice_indices)
       result = jnp.where(rec == 1, new_result, result)
       wc = wc + rec
-      return (next_state, result, wc), None
+      # Ensure state dtype matches for scan carry consistency
+      return (next_state.astype(state.dtype), result, wc), None
     
     (_, result, _), _ = jax.lax.scan(
         body_rec, (initial_x, result, wc), xs=jnp.arange(steps_num))
