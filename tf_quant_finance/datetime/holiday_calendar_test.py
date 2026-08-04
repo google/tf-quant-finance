@@ -34,6 +34,7 @@ def test_both_impls(test_fn):
   # Decorator to run the test with both BoundedHolidayCalendar and
   # UnboundedHolidayCalendar.
   # Create the calendar as `self.impl(args)`.
+  test_both_impls.__test__ = False  # Not a test, prevent pytest collection
   def create_unbounded_calendar(**kwargs):
     kwargs.pop("start_year", None)
     kwargs.pop("end_year", None)
