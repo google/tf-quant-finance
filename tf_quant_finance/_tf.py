@@ -1296,15 +1296,12 @@ def concat(values, axis=0, name=None, *more, **kwargs):
     # Reshape 0-d arrays to 1-d for concatenation (jnp rejects 0-d concat).
     arrs = [jnp.atleast_1d(a) if a.ndim == 0 else a for a in arrs]
     import builtins
-    has_nonempty = False
-    all_int_compatible = True
-    for a in arrs:
-        if a.size:
-            has_nonempty = True
-        if not (a.size == 0 or np.issubdtype(a.dtype, np.integer)):
-            all_int_compatible = False
-    if has_nonempty and all_int_compatible:
-        arrs = [a.astype(jnp.int32) for a in arrs]
+    # Handle empty arrays that default to float64 (common TF->JAX shape bug).
+    # Convert empty arrays to match the dtype of non-empty arrays.
+    nonempty_dtypes = [a.dtype for a in arrs if a.size > 0]
+    if nonempty_dtypes:
+        target_dtype = nonempty_dtypes[0]
+        arrs = [a.astype(target_dtype) if a.size == 0 and a.dtype != target_dtype else a for a in arrs]
     return jnp.concatenate(arrs, axis=axis)
 
 

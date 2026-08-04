@@ -160,4 +160,4 @@ def filter_tensor(value: types.IntTensor, bit_mask: types.IntTensor,
       tf.bitwise.bitwise_and(
           tf.bitwise.right_shift(bit_mask, bit_index), tf.cast(1, value.dtype)))
 
-  return tf.where(is_bit_set, value, 0)
+  return tf.where(is_bit_set, value, tf.cast(0, value.dtype))
