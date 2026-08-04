@@ -1,12 +1,12 @@
 # TF Quant Finance → JAX Migration: Status
 
-**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1230+ passed** (+454% from 222)  
-**180+ commits** | **Shim-based incremental migration**
+**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1250+ passed** (+463% from 222)  
+**190+ commits** | **Shim-based incremental migration**
 
 ## Per-module
 | module | passed | status |
 |---|---|---|
-| datetime | 94 | ✅ fully green |
+| datetime | 95 | ✅ fully green |
 | black_scholes | 143/144 | ✅ 99% |
 | math/pde | 76/88 | ✅ 86% |
 | math/random_ops | 60/61 | ✅ 98% |
@@ -14,6 +14,7 @@
 | math/optimizer | 19/33 | 58% |
 | math/integration | 10/15 | 67% |
 | math/root_search | 15/15 | ✅ fully green |
+| math/qmc | 32/42 | 76% |
 | math/diff_ops | 5/6 | ✅ 83% |
 | models/cir | 20 | ✅ fully green |
 | models/sabr_model | 34 | ✅ fully green |
@@ -23,15 +24,30 @@
 | models/milstein | 10/10 | ✅ fully green |
 | models/realized_volatility | 10/10 | ✅ fully green |
 | models/utils | 9/9 | ✅ fully green |
-| models/hull_white | 35/45 | 78% |
+| models/hjm | 13/18 | 72% |
+| models/hull_white | 37/45 | 82% |
 | models/legacy | 20/23 | 87% |
-| rates | 86/89 | ✅ 97% |
+| rates | 100/106 | ✅ 94% |
+| rates/hagan_west/monotone_convex | 14/14 | ✅ fully green |
 | utils/shape_utils | 13/13 | ✅ fully green |
 | experimental/local_volatility | 14 | ✅ fully green |
 | experimental/pricing_platform | 34 | ✅ fully green |
 | experimental/io | 6/7 | ✅ 86% |
 
 ## Key fixes this session
+- **cumsum_using_matvec** — use lower triangular matrix instead of all-ones (+1, fixes HJM identical-paths)
+- **cumprod_using_matvec** — same lower triangular fix
+- **euler_sampling dtype** — cast _next() result and update to match carry dtypes (+2)
+- **vector_hull_white dtype** — cast update and next_state to match scan carry dtypes (+2)
+- **swap_curve_bootstrap** — stack present_values, pass num_segments to segment_sum (+4)
+- **segment_sum shim** — compute num_segments from max(segments)+1 when not provided
+- **concat dtype** — only convert empty arrays to match non-empty dtype (was forcing all int→int32) (+1)
+- **filter_tensor** — use tf.cast(0, value.dtype) for typed zero
+- **monotone_convex** — stop_gradient around nextafter for differentiability (+1)
+- **bond_curve_test** — extract scalar values with .item() for Python math (+2)
+- **test_both_impls** — prevent pytest collection error (+1 error fixed)
+
+## Previous session fixes
 - **vector_hull_white scan** — converted while_loop to scan for VJP support (+2)
 - **PSEUDO_ANTITHETIC precompute** — precompute normal draws for antithetic sampling
 - **euler_sampling _for_loop** — rewrite to record initial state correctly (+1)
