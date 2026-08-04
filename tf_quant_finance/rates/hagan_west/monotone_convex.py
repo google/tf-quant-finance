@@ -258,8 +258,13 @@ def interpolate(times: types.RealTensor,
       # g0 = g1 = 0 requires special handling. Checking if the values are
       # legitimatey zero requires we pay close attention to the numerical
       # precision issues.
-      g0_eps = tf.abs(tf.math.nextafter(fd, f_left) - fd) * 1.1
-      g1_eps = tf.abs(tf.math.nextafter(fd, f_right) - fd) * 1.1
+      # Use stop_gradient for nextafter (not differentiable in JAX)
+      import jax
+      fd_sg = jax.lax.stop_gradient(fd)
+      f_left_sg = jax.lax.stop_gradient(f_left)
+      f_right_sg = jax.lax.stop_gradient(f_right)
+      g0_eps = tf.abs(tf.math.nextafter(fd_sg, f_left_sg) - fd_sg) * 1.1
+      g1_eps = tf.abs(tf.math.nextafter(fd_sg, f_right_sg) - fd_sg) * 1.1
 
       is_origin = ((tf.abs(g0) <= g0_eps) & (tf.abs(g1) <= g1_eps))
 
