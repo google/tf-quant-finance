@@ -67,8 +67,8 @@ def _backtracking_ls(ls_func, value_at_zero=None, converged=None,
         lambda carry: ls_body(carry[0], carry[1]),
         (init_alpha, init_step))
     return _LSResult(left=final_step, right=final_step,
-                    converged=converged if converged is not None else jnp.asarray(True),
-                    failed=jnp.zeros_like(converged) if converged is not None else jnp.asarray(False),
+                    converged=jnp.asarray(True),
+                    failed=jnp.asarray(False),
                     func_evals=jnp.asarray(1))
 
 
