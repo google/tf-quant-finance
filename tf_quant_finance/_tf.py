@@ -941,9 +941,17 @@ class TestCase(_absltest.TestCase):
         np.testing.assert_array_equal(np.asarray(a), np.asarray(b), err_msg=msg)
 
     def assertArrayNear(self, a, b, tol, msg=None):
-        np.testing.assert_allclose(np.asarray(a, dtype=float),
-                                   np.asarray(b, dtype=float),
+        np.testing.assert_allclose(np.asarray(a, dtype=float).reshape(-1),
+                                   np.asarray(b, dtype=float).reshape(-1),
                                    rtol=tol, atol=tol, err_msg=msg)
+
+    def assertAlmostEqual(self, first, second, places=None, msg=None,
+                          delta=None):
+        # Handle numpy/JAX arrays that may be multi-dimensional
+        import numpy as _np
+        first = _np.asarray(first, dtype=float).flat[0]
+        return super().assertAlmostEqual(first, second, places=places,
+                                          msg=msg, delta=delta)
 
     def assertNDArrayNear(self, a, b, tol, msg=None):
         np.testing.assert_allclose(np.asarray(a, dtype=float),
