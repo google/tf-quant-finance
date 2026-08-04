@@ -94,7 +94,7 @@ BASIC_TEST_CASES = [
         lower=0.0,
         upper=1.0,
         tolerance=1e-5,
-        antiderivative=lambda x: 0.5 * np.sqrt(np.pi) * np.array([math.erf(x)]),
+        antiderivative=lambda x: 0.5 * np.sqrt(np.pi) * np.array([math.erf(np.asarray(x).flat[0])]),
         expected_gauss_n32_result=0.746824132812427,
     ),
 ]

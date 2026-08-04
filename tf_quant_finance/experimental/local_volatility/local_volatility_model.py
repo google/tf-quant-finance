@@ -110,6 +110,7 @@ def _dupire_local_volatility_iv(time, spot_price, initial_spot_price,
   """Similar to _dupire_local_volatility_prices, but uses implied vols."""
   dtype = time.dtype
   dividend_yield = tf.convert_to_tensor(dividend_yield, dtype=dtype)
+  initial_spot_price = tf.convert_to_tensor(initial_spot_price, dtype=dtype)
 
   risk_free_rate_fn = _get_risk_free_rate_from_discount_factor(
       discount_factor_fn)

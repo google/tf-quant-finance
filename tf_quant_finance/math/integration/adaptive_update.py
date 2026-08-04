@@ -75,8 +75,17 @@ def update(
         tf.math.count_nonzero(condition, axis=1, dtype=tf.int32), axis=0)
     # get indices where the error ration is in the top 'num_bad_sub_intervals'
     # Shape [batch_dim, num_bad_sub_intervals]
+    # Convert num_bad_sub_intervals to concrete int for top_k
+    import numpy as np
+    k = int(np.asarray(num_bad_sub_intervals).flat[0])
+    if k == 0:
+      # No bad intervals; return empty arrays
+      n = lower.shape[-1] if lower.ndim > 0 else 1
+      empty = tf.zeros(list(lower.shape[:-1]) + [0], dtype=dtype)
+      sum_all = tf.reduce_sum(estimate, axis=-1)
+      return empty, empty, sum_all
     indices = tf.math.top_k(
-        relative_error, k=num_bad_sub_intervals, sorted=False).indices
+        relative_error, k=k, sorted=False).indices
 
     # calculate sum of good estimates
     # Shape [batch_dim]
