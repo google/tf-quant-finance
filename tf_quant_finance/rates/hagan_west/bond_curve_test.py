@@ -399,21 +399,21 @@ class BondCurveTest(tf.test.TestCase, parameterized.TestCase):
     ]
     pvs = np.array([1000.0, 1000.0, 1000.0, 1000.0], dtype=dtype)
     # We can calculate discount rates going step-by-step.
-    r1 = -math.log(pvs[0] / cashflows[0][0]) / cashflow_times[0]
+    r1 = -math.log(pvs[0] / cashflows[0][0]) / cashflow_times[0].item()
     r2 = -(
         math.log(
-            (pvs[1] - cashflows[1][0] * math.exp(-r1 * cashflow_times[1][0]))
-            / cashflows[1][1]) / cashflow_times[1][1])
+            (pvs[1] - cashflows[1][0] * math.exp(-r1 * cashflow_times[1][0].item()))
+            / cashflows[1][1]) / cashflow_times[1][1].item())
     r3 = -(
         math.log(
-            (pvs[2] - cashflows[2][0] * math.exp(-r2 * cashflow_times[2][0]))
-            / cashflows[2][1]) / cashflow_times[2][1])
+            (pvs[2] - cashflows[2][0] * math.exp(-r2 * cashflow_times[2][0].item()))
+            / cashflows[2][1]) / cashflow_times[2][1].item())
     r4 = -(
         math.log(
-            (pvs[3] - cashflows[3][0] * math.exp(-r2 * cashflow_times[3][0]) -
-             cashflows[3][1] * math.exp(-r3 * cashflow_times[3][1])) /
-            cashflows[3][2]) / cashflow_times[3][2])
-    true_discount_rates = np.array([r1.item(), r2, r3, r4], dtype=dtype)
+            (pvs[3] - cashflows[3][0] * math.exp(-r2 * cashflow_times[3][0].item()) -
+             cashflows[3][1] * math.exp(-r3 * cashflow_times[3][1].item())) /
+            cashflows[3][2]) / cashflow_times[3][2].item())
+    true_discount_rates = np.array([r1, r2, r3, r4], dtype=dtype)
 
     results = self.evaluate(
         bond_curve_fn(
