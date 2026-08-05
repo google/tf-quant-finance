@@ -1077,7 +1077,7 @@ def _get_grid_delta(coord_grid, dim):
   else:  # Grid has a batch shape
     # Delta grid should broadcase with value grid
     # Shape batch_shape + n *[1]
-    return delta[[...] +  n * [tf.newaxis]]
+    return delta[tuple([...] + n * [tf.newaxis])]
 
 
 def _prepare_pde_coeff(raw_coeff, value_grid):

@@ -639,8 +639,8 @@ def _tridiagonal_matmul(diagonals, rhs, diagonals_format='sequence', **kw):
     # super[i] = M[i,i+1]: result[i] += super[i]*rhs[i+1]
     # All diagonals have M elements; super[M-1] is unused
     result = result.at[..., :-1, :].add(super_d[..., :-1, None] * rhs[..., 1:, :])
-    # sub[i] = M[i+1,i]: result[i+1] += sub[i]*rhs[i]
-    result = result.at[..., 1:, :].add(sub[..., :-1, None] * rhs[..., :-1, :])
+    # sub[i] = M[i,i-1]: result[i] += sub[i]*rhs[i-1]  (sub[0] is ignored, sub[-1] unused)
+    result = result.at[..., 1:, :].add(sub[..., 1:, None] * rhs[..., :-1, :])
     return result
 
 
