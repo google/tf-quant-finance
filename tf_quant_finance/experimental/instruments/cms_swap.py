@@ -14,6 +14,8 @@
 """Constant maturity swaps."""
 
 import itertools
+import jax
+import jax.numpy as jnp
 import jax.scipy.stats as _jss
 from tf_quant_finance import _tf as tf
 from tf_quant_finance import black_scholes
@@ -202,10 +204,8 @@ class CMSCashflowStream(cs.CashflowStream):
           start_date=valuation_date,
           end_date=self._coupon_start_dates,
           dtype=self._dtype)
-      with tf.GradientTape() as g:
-        g.watch(cms_rates)
-        fx = self._fs(cms_rates)
-      dfx = tf.squeeze(g.gradient(fx, cms_rates))
+      import jax
+      dfx = jax.grad(lambda x: jnp.sum(self._fs(x)))(cms_rates)
       swap_vol = tf.convert_to_tensor(pricing_context, dtype=self._dtype)
       if model == rc.InterestRateModelType.LOGNORMAL_RATE:
         cms_rates = cms_rates + dfx * level * (cms_rates**2) * (
@@ -367,21 +367,18 @@ class CMSCashflowStream(cs.CashflowStream):
 
   def _f_atm_first_derivative(self, s, cms_rates):
     """Computes first order derivative of _f_atm."""
-    with tf.GradientTape() as g:
-      g.watch(s)
-      fx = self._f_atm(s, cms_rates)
-    dfx = tf.squeeze(g.gradient(fx, s))
+    import jax
+    dfx = jax.grad(lambda x: jnp.sum(self._f_atm(x, cms_rates)))(s)
     return dfx
 
   def _f_atm_second_derivative(self, s, cms_rates):
-    """Computes second order derivative of _f_atm."""
-    with tf.GradientTape() as g:
-      g.watch(s)
-      with tf.GradientTape() as gg:
-        gg.watch(s)
-        fx = self._f_atm(s, cms_rates)
-      dfx = tf.squeeze(gg.gradient(fx, s))
-    d2fx = tf.squeeze(g.gradient(dfx, s))
+    """Computes second order derivative of _f_atm using finite differences."""
+    eps = 1e-5
+    f_plus = self._f_atm(s + eps, cms_rates)
+    f_zero = self._f_atm(s, cms_rates)
+    f_minus = self._f_atm(s - eps, cms_rates)
+    d2fx = (f_plus - 2 * f_zero + f_minus) / (eps**2)
+    return d2fx
     return d2fx
 
 
