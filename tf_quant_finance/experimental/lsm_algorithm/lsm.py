@@ -15,6 +15,8 @@
 """Implementation of the regression MC algorithm of Longstaff and Schwartz."""
 
 import collections
+import jax
+import jax.numpy as jnp
 from tf_quant_finance import _tf as tf
 
 
@@ -220,16 +222,19 @@ def least_square_mc(sample_paths,
     # Shape [num_samples, payoff_dim, num_exercise]
     cashflow = tf.concat([zeros, exercise_value], -1)
     # Starting state for loop iteration.
-    lsm_loop_vars = LsmLoopVars(exercise_index=num_times - 1, cashflow=cashflow)
-    def loop_body(exercise_index, cashflow):
-      return _lsm_loop_body(sample_paths, exercise_times, discount_factors,
-                            payoff_fn, basis_fn,
-                            num_times, exercise_index, cashflow)
-
-    loop_value = tf.while_loop(lsm_loop_cond, loop_body, lsm_loop_vars,
-                               maximum_iterations=num_times)
+    cashflow = cashflow
+    exercise_index = num_times - 1
+    # Use Python for loop instead of while_loop for concrete exercise_index
+    # (JAX requires static slice indices)
+    for _ in range(num_times):
+      if exercise_index <= 0:
+        break
+      exercise_index, cashflow = _lsm_loop_body(
+          sample_paths, exercise_times, discount_factors,
+          payoff_fn, basis_fn,
+          num_times, exercise_index, cashflow)
     present_values = continuation_value_fn(
-        loop_value.cashflow, discount_factors, 0)
+        cashflow, discount_factors, 0)
     return tf.math.reduce_mean(present_values, axis=0)
 
 
