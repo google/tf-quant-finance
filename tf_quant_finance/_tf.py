@@ -626,7 +626,9 @@ linalg.diag = _create_diag
 
 
 def _tridiagonal_matmul(diagonals, rhs, diagonals_format='sequence', **kw):
-    """tf.linalg.tridiagonal_matmul: multiply tridiagonal matrix by rhs."""
+    """tf.linalg.tridiagonal_matmul: multiply tridiagonal matrix by rhs.
+    In 'sequence' format, all diagonals have shape [..., M] (same length).
+    superdiag[M-1] and subdiag[M-1] are unused."""
     if isinstance(diagonals, (tuple, list)) and len(diagonals) == 3:
         super_d, diag, sub = (jnp.asarray(d) for d in diagonals)
     else:
@@ -634,9 +636,10 @@ def _tridiagonal_matmul(diagonals, rhs, diagonals_format='sequence', **kw):
         super_d, diag, sub = d[..., 0, :], d[..., 1, :], d[..., 2, :]
     rhs = jnp.asarray(rhs)
     result = diag[..., :, None] * rhs
-    # super[i] = M[i,i+1]: result[i] += super[i]*rhs[i+1]  (for i < m-1)
+    # super[i] = M[i,i+1]: result[i] += super[i]*rhs[i+1]
+    # All diagonals have M elements; super[M-1] is unused
     result = result.at[..., :-1, :].add(super_d[..., :-1, None] * rhs[..., 1:, :])
-    # sub[i] = M[i+1,i]: result[i+1] += sub[i]*rhs[i]  (for i < m-1)
+    # sub[i] = M[i+1,i]: result[i+1] += sub[i]*rhs[i]
     result = result.at[..., 1:, :].add(sub[..., :-1, None] * rhs[..., :-1, :])
     return result
 
