@@ -474,7 +474,7 @@ def minimize(
           tf.math.abs(f_kp1 - f_k) <= f_relative_tolerance * tf.math.abs(f_k))
       converged = ls_result.converged & (grad_converged
                                          | x_converged | f_converged)
-      failed = ls_result.failed
+      failed = jnp.broadcast_to(ls_result.failed, converged.shape)
       # Construct new state for next iteration.
       new_state = _OptimizerState(
           converged=converged,
