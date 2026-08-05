@@ -15,6 +15,7 @@
 
 from typing import Callable, Tuple
 
+import jax.numpy as jnp
 from tf_quant_finance import _tf as tf
 import numpy as np
 
@@ -561,14 +562,18 @@ def _scale(x, lb, ub):
 
 
 def _to_unconstrained(x, lb, ub):
-  """Scale and apply inverse-sigmoid."""
-  x = _scale(x, lb, ub)
-  return -tf.math.log((1.0 - x) / x)
+  """Scale and apply inverse-sigmoid (tanh-based, saturates slowly)."""
+  x = _scale(x, lb, ub)  # [0, 1]
+  # Map [0,1] -> [-1,1] then atanh; slower saturation than logit
+  y = 2.0 * x - 1.0
+  y = jnp.clip(y, -1.0 + 1e-8, 1.0 - 1e-8)
+  return jnp.arctanh(y)
 
 
 def _to_constrained(x, lb, ub):
-  """Sigmoid and unscale."""
-  x = 1.0 / (1.0 + tf.math.exp(-x))
+  """Sigmoid and unscale (tanh-based, saturates slowly)."""
+  y = jnp.tanh(x)  # [-1, 1]
+  x = (y + 1.0) / 2.0  # [0, 1]
   return x * (ub - lb) + lb
 
 

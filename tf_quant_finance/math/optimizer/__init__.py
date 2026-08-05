@@ -31,47 +31,63 @@ def _run_quasi_newton(solver_cls, value_and_gradients_function,
                       initial_position, tolerance, max_iterations, **kw):
     del kw
     init = jnp.asarray(initial_position)
+
+    def _run_scipy(fun, x0):
+        """Run scipy L-BFGS-B via jaxopt (robust line search).
+        fun returns (value, grad); wrap to value-only for scipy."""
+        def value_only(x):
+            val, _ = fun(x)
+            return val
+        solver = jaxopt.ScipyMinimize(
+            method='L-BFGS-B', jit=False, fun=value_only, tol=1e-10,
+            maxiter=max_iterations)
+        p, s = solver.run(x0)
+        success = getattr(s, 'success', False)
+        nit = getattr(s, 'nit', 0)
+        val, grad = fun(p)
+        return p, success, nit, val, grad
+
     # tfp supports batched initial_position [N, D] (N independent solves).
-    # Use vmap with jit=True for efficient batched optimization.
     if init.ndim > 1:
-        # Wrap function to accept single input and return scalar.
-        def single_fn(x, *args):
-            # x has shape (D,). Expand to (1, D) for batched function.
-            x_batch = jnp.expand_dims(x, 0)
-            val, grad = value_and_gradients_function(x_batch)
-            # val has shape (1,) or scalar, grad has shape (1, D) or (D,).
-            val = jnp.asarray(val)
-            grad = jnp.asarray(grad)
-            if val.ndim > 0:
-                return val[0], grad[0] if grad.ndim > 1 else grad
-            else:
-                return val, grad
-        
-        # Use vmap with jit=True for efficient batched optimization.
-        solver = solver_cls(fun=single_fn, value_and_grad=True, tol=tolerance,
-                            maxiter=max_iterations, jit=True)
-        vmapped_solver = jax.vmap(solver.run, in_axes=(0,))
-        params, states = vmapped_solver(init)
-        err = getattr(states, 'error', jnp.zeros(init.shape[0]))
-        it = getattr(states, 'iter_num', jnp.full(init.shape[0], max_iterations))
-        val = getattr(states, 'value', jnp.zeros(init.shape[0]))
-        grad = getattr(states, 'grad', jnp.zeros_like(init))
+        def make_single_fn(i):
+            def single_fn(x, *args):
+                # x has shape (D,). Build full batch with x at position i,
+                # others at their initial values (batch elements independent).
+                full_x = init.at[i].set(x)
+                val, grad = value_and_gradients_function(full_x)
+                val = jnp.asarray(val)
+                grad = jnp.asarray(grad)
+                if val.ndim > 0:
+                    return val[i], grad[i] if grad.ndim > 1 else grad
+                else:
+                    return val, grad
+            return single_fn
+
+        # Python loop over batch elements with scipy L-BFGS-B
+        results = []
+        for i in range(init.shape[0]):
+            params_i, success_i, nit_i, val_i, grad_i = _run_scipy(
+                make_single_fn(i), init[i])
+            results.append((params_i, success_i, nit_i, val_i, grad_i))
+        params = jnp.stack([r[0] for r in results])
+        err = jnp.stack([jnp.asarray(0.0 if r[1] else 1.0) for r in results])
+        it = jnp.stack([jnp.asarray(r[2]) for r in results])
+        val = jnp.stack([jnp.asarray(r[3]) for r in results])
+        grad = jnp.stack([r[4] for r in results])
+        converged = jnp.asarray([bool(r[1]) for r in results])
     else:
-        solver = solver_cls(fun=value_and_gradients_function,
-                            value_and_grad=True, tol=tolerance,
-                            maxiter=max_iterations, jit=False)
-        params, state = solver.run(init)
-        err = getattr(state, "error", jnp.asarray(0.0))
-        it = getattr(state, "iter_num", jnp.asarray(max_iterations))
-        val = getattr(state, "value", jnp.asarray(0.0))
-        grad = getattr(state, "grad", jnp.zeros_like(params))
+        params, success, nit, val, grad = _run_scipy(
+            value_and_gradients_function, init)
+        err = jnp.asarray(0.0 if success else 1.0)
+        it = jnp.asarray(nit)
+        converged = jnp.asarray(bool(success))
     return _OptResults(
-        converged=jnp.asarray(err < tolerance),
+        converged=converged,
         failed=jnp.asarray(False),
         num_objective_evaluations=jnp.asarray(it),
         position=params,
         objective_value=val,
-        objective_gradient=grad,
+        objective_gradient=jnp.asarray(grad),
         num_iterations=jnp.asarray(it),
        status=jnp.asarray(0))
 
