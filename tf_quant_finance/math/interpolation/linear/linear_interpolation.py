@@ -101,6 +101,9 @@ def interpolate(x: types.RealTensor,
     dtype = dtype or x.dtype
     x_data = tf.convert_to_tensor(x_data, dtype=dtype, name='x_data')
     y_data = tf.convert_to_tensor(y_data, dtype=dtype, name='y_data')
+    # Check for empty knots
+    if x_data.size == 0 or y_data.size == 0:
+      raise ValueError('x_data and y_data must not be empty.')
     # Try broadcast batch_shapes
     x, x_data, y_data = tff_utils.broadcast_common_batch_shape(
         x, x_data, y_data)
