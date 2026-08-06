@@ -13,6 +13,7 @@
 # limitations under the License.
 """Pricing of the Interest rate Swaption using the HJM model."""
 
+import numpy as np
 from typing import Callable, Union
 
 from tf_quant_finance import _tf as tf
@@ -419,13 +420,22 @@ def _european_swaption_fd(batch_shape, model, exercise_times,
     maturities, unique_maturities, maturities_shape = (
         _create_term_structure_maturities(fixed_leg_payment_times))
 
-    num_maturities = tf.shape(unique_maturities)[-1]
+    # num_maturities as static Python int when possible (avoids traced shape)
+    if unique_maturities.shape is not None and None not in unique_maturities.shape:
+      num_maturities = int(unique_maturities.shape[-1])
+    else:
+      num_maturities = tf.shape(unique_maturities)[-1]
     x_meshgrid = _coord_grid_to_mesh_grid(grid)
-    meshgrid_shape = tf.shape(x_meshgrid)
+    # Use static shape when available (avoids traced shapes in while_loop)
+    if x_meshgrid.shape is not None and None not in x_meshgrid.shape:
+      meshgrid_shape = list(x_meshgrid.shape)
+    else:
+      meshgrid_shape = tf.shape(x_meshgrid)
     broadcasted_maturities = tf.expand_dims(unique_maturities, axis=0)
 
-    num_grid_points = tf.math.reduce_prod(meshgrid_shape[1:])
-    shape_to_broadcast = tf.concat([meshgrid_shape, [num_maturities]], axis=0)
+    # num_grid_points as static Python int (meshgrid_shape is static list)
+    num_grid_points = int(np.prod(meshgrid_shape[1:]))
+    shape_to_broadcast = list(meshgrid_shape) + [num_maturities]
 
     # Reshape `state_x`, `maturities` to (num_grid_points, num_maturities)
     state_x = tf.expand_dims(x_meshgrid, axis=-1)
@@ -451,7 +461,7 @@ def _european_swaption_fd(batch_shape, model, exercise_times,
       zcb_curve = tf.gather(zcb_curve, maturities_index, axis=-1)
       # zcb_curve.shape = [num_grid_points] + [maturities_shape]
       zcb_curve = tf.reshape(
-          zcb_curve, tf.concat([[num_grid_points], maturities_shape], axis=0))
+          zcb_curve, [num_grid_points] + list(maturities_shape))
 
       # Shape after reduce_sum =
       # (num_grid_points, batch_shape)
@@ -462,7 +472,7 @@ def _european_swaption_fd(batch_shape, model, exercise_times,
       payoff_swap = tf.where(is_payer_swaption, payoff_swap, -payoff_swap)
       return tf.reshape(
           tf.transpose(payoff_swap),
-          tf.concat([batch_shape, meshgrid_shape[1:]], axis=0))
+          list(batch_shape) + list(meshgrid_shape[1:]))
 
     def _get_index(t, tensor_to_search):
       t = tf.expand_dims(t, axis=-1)
@@ -489,7 +499,7 @@ def _european_swaption_fd(batch_shape, model, exercise_times,
       payoff_swap = tf.nn.relu(_get_swap_payoff(t))
       is_ex_time = _is_exercise_time(t)
       return tf.where(
-          tf.reshape(is_ex_time, tf.concat([batch_shape, [1] * dim], axis=0)),
+          tf.reshape(is_ex_time, list(batch_shape) + [1] * dim),
           payoff_swap, 0.0)
 
     def _values_transform_fn(t, grid, value_grid):
@@ -499,7 +509,7 @@ def _european_swaption_fd(batch_shape, model, exercise_times,
       def _at_least_one_swaption_pays():
         payoff_swap = tf.nn.relu(_get_swap_payoff(t))
         return tf.where(
-            tf.reshape(is_ex_time, tf.concat([batch_shape, [1] * dim], axis=0)),
+            tf.reshape(is_ex_time, list(batch_shape) + [1] * dim),
             payoff_swap, zero)
 
       v_star = tf.cond(
@@ -578,7 +588,11 @@ def _create_term_structure_maturities(fixed_leg_payment_times):
 
   with tf.name_scope('create_termstructure_maturities'):
     maturities = fixed_leg_payment_times
-    maturities_shape = tf.shape(maturities)
+    # Use static shape when available (avoids traced shape in while_loop)
+    if maturities.shape is not None and None not in maturities.shape:
+      maturities_shape = list(maturities.shape)
+    else:
+      maturities_shape = tf.shape(maturities)
 
     # We should eventually remove tf.unique, but keeping it for now because
     # PDE solvers are not xla compatible in TFF currently.

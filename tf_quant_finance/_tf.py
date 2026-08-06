@@ -938,7 +938,7 @@ class TestCase(_absltest.TestCase):
                                    rtol=rtol, atol=atol, err_msg=msg)
 
     def assertNear(self, a, b, err, msg=None):
-        self.assertLess(abs(float(np.asarray(a)) - float(np.asarray(b))), err, msg=msg)
+        self.assertLess(abs(float(np.asarray(a).squeeze()) - float(np.asarray(b).squeeze())), err, msg=msg)
 
     def assertAllEqual(self, a, b, msg=None):
         np.testing.assert_array_equal(np.asarray(a), np.asarray(b), err_msg=msg)

@@ -323,8 +323,13 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
     name = name or 'state_y'
     with tf.name_scope(name):
       t = tf.convert_to_tensor(t, dtype=self._dtype)
-      t_shape = tf.shape(t)
-      t = tf.broadcast_to(t, tf.concat([[self._dim], t_shape], axis=0))
+      # Use static shape when available (avoids traced broadcast_to in while_loop)
+      if t.shape is not None and None not in t.shape:
+        target_shape = [self._dim] + list(t.shape)
+        t = tf.broadcast_to(t, target_shape)
+      else:
+        t_shape = tf.shape(t)
+        t = tf.broadcast_to(t, tf.concat([[self._dim], t_shape], axis=0))
       time_index = tf.searchsorted(self._jump_locations, t)
       # create a matrix k2(i,j) = k(i) + k(j)
       mr2 = tf.expand_dims(self._mean_reversion, axis=-1)
@@ -388,17 +393,23 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
       maturities = tf.convert_to_tensor(maturities, self._dtype)
       # Flatten it because `PiecewiseConstantFunction` expects the first
       # dimension to be broadcastable to [dim]
-      input_shape_times = tf.shape(times)
+      # Use static shape when available (avoids traced reshape in while_loop)
+      if times.shape is not None and None not in times.shape:
+        input_shape_times = list(times.shape)
+      else:
+        input_shape_times = tf.shape(times)
       # The shape of `mean_reversion` will is `[dim]`
       mean_reversion = self._mean_reversion
       y_t = self.state_y(times)
 
-      y_t = tf.reshape(tf.transpose(y_t), tf.concat(
-          [input_shape_times, [self._dim, self._dim]], axis=0))
+      y_t = tf.reshape(tf.transpose(y_t),
+                       list(input_shape_times) + [self._dim, self._dim])
       # Shape=(1, 1, num_times)
+      num_times_static = (times.shape[0] if times.shape is not None
+                          and None not in times.shape else tf.shape(times)[0])
       values = self._bond_reconstitution(
           times, maturities, mean_reversion, x_t, y_t, 1,
-          tf.shape(times)[0])
+          num_times_static)
       return values[0][0]
 
   def _sample_paths(self, times, time_step, num_time_steps, num_samples,
