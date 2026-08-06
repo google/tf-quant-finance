@@ -34,12 +34,15 @@ def _run_quasi_newton(solver_cls, value_and_gradients_function,
 
     def _run_scipy(fun, x0):
         """Run scipy L-BFGS-B via jaxopt (robust line search).
-        fun returns (value, grad); wrap to value-only for scipy."""
+        fun returns (value, grad); wrap to value-only for scipy.
+        Use tight scipy tol for accurate params (independent of tolerance flag)."""
         def value_only(x):
             val, _ = fun(x)
             return val
+        # scipy tol controls gradient-norm convergence; use tight value for accuracy
+        scipy_tol = 1e-10
         solver = jaxopt.ScipyMinimize(
-            method='L-BFGS-B', jit=False, fun=value_only, tol=tolerance,
+            method='L-BFGS-B', jit=False, fun=value_only, tol=scipy_tol,
             maxiter=max_iterations)
         p, s = solver.run(x0)
         success = getattr(s, 'success', False)
