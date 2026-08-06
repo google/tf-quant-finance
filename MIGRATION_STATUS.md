@@ -1,89 +1,73 @@
 # TF Quant Finance → JAX Migration: Status
 
-**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1250+ passed** (+463% from 222)  
-**190+ commits** | **Shim-based incremental migration**
+**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1270+ passed** (+471% from 222)  
+**200+ commits** | **Shim-based incremental migration**
 
 ## Per-module
 | module | passed | status |
 |---|---|---|
 | datetime | 95 | ✅ fully green |
 | black_scholes | 143/144 | ✅ 99% |
-| math/pde | 76/88 | ✅ 86% |
+| math/pde | 86/86 | ✅ fully green |
 | math/random_ops | 60/61 | ✅ 98% |
-| math/qmc | 30/42 | 71% |
-| math/optimizer | 19/33 | 58% |
-| math/integration | 10/15 | 67% |
-| math/root_search | 15/15 | ✅ fully green |
 | math/qmc | 32/42 | 76% |
+| math/optimizer | 18/33 | 55% (scipy L-BFGS-B robust, SVI real-data partial) |
+| math/integration | 11/15 | 73% |
+| math/root_search | 15/15 | ✅ fully green |
 | math/diff_ops | 5/6 | ✅ 83% |
 | models/cir | 20 | ✅ fully green |
 | models/sabr_model | 34 | ✅ fully green |
+| models/sabr/calibration | 20/20 | ✅ fully green |
 | models/GBM | 62 | ✅ fully green |
 | models/euler_sampling | 23/24 | ✅ 96% |
-| models/heston | 23/29 | 79% |
+| models/heston | 13/13 + 6/6 calib | ✅ fully green |
 | models/milstein | 10/10 | ✅ fully green |
 | models/realized_volatility | 10/10 | ✅ fully green |
 | models/utils | 9/9 | ✅ fully green |
-| models/hjm | 13/18 | 72% |
-| models/hull_white | 37/45 | 82% |
+| models/hjm | 13/18 | 72% (MC variance) |
+| models/hull_white | 18/19 | 95% |
+| models/longstaff_schwartz | 16/17 | 94% |
 | models/legacy | 20/23 | 87% |
-| rates | 100/106 | ✅ 94% |
+| rates | 101/106 | ✅ 95% |
 | rates/hagan_west/monotone_convex | 14/14 | ✅ fully green |
 | utils/shape_utils | 13/13 | ✅ fully green |
 | experimental/local_volatility | 14 | ✅ fully green |
+| experimental/local_stochastic_vol | 6/6 | ✅ fully green |
 | experimental/pricing_platform | 34 | ✅ fully green |
 | experimental/io | 6/7 | ✅ 86% |
+| experimental/svi/calibration | 4/13 | 31% (real-data local minima) |
 
 ## Key fixes this session
-- **cumsum_using_matvec** — use lower triangular matrix instead of all-ones (+1, fixes HJM identical-paths)
-- **cumprod_using_matvec** — same lower triangular fix
-- **euler_sampling dtype** — cast _next() result and update to match carry dtypes (+2)
-- **vector_hull_white dtype** — cast update and next_state to match scan carry dtypes (+2)
-- **swap_curve_bootstrap** — stack present_values, pass num_segments to segment_sum (+4)
-- **segment_sum shim** — compute num_segments from max(segments)+1 when not provided
-- **concat dtype** — only convert empty arrays to match non-empty dtype (was forcing all int→int32) (+1)
-- **filter_tensor** — use tf.cast(0, value.dtype) for typed zero
-- **monotone_convex** — stop_gradient around nextafter for differentiability (+1)
-- **bond_curve_test** — extract scalar values with .item() for Python math (+2)
-- **test_both_impls** — prevent pytest collection error (+1 error fixed)
-
-## Previous session fixes
-- **vector_hull_white scan** — converted while_loop to scan for VJP support (+2)
-- **PSEUDO_ANTITHETIC precompute** — precompute normal draws for antithetic sampling
-- **euler_sampling _for_loop** — rewrite to record initial state correctly (+1)
-- **brent_test jnp.where** — use jnp.where instead of Python if for JAX tracing (+2)
-- **heston_model dtype** — infer dtype from piecewise functions when dtype=None (+3)
-- **xla.experimental.compile** — just call the function (no jit to avoid tracing issues) (+1)
-- **linalg.set_diag** — use proper diagonal indexing with m.at[..., idx, idx].set(v) (+2)
-- **block_diagonal_to_dense** — implement using jax.scipy.linalg.block_diag with vmap (+1)
-- **one_hot** — accept depth as keyword argument (TF API compat) (+2)
-- **maybe_update_along_axis** — use static shapes when available to avoid traced pad widths (+2)
-- **get_shape** — return _ShapeWrapper with as_list() method (+2)
+- **tridiagonal_matmul** — subdiag convention: TF ignores sub[0] not sub[-1] (+13 PDE tests)
+- **_get_grid_delta** — list indexing → tuple indexing for JAX
+- **optimizer scipy L-BFGS-B** — replaced jaxopt LBFGS with scipy via jaxopt.ScipyMinimize; SABR 0→20, Heston 0→6
+- **tanh param transform** — slower saturation than sigmoid in calibration
+- **optimizer batched** — Python loop per batch element (each varies own row)
+- **CG batch fix** — broadcast ls_result.failed to batch shape
+- **gather batch_dims=-1** — gather along last axis (was row selection); fixes HJM state_y
+- **CMS convexity** — GradientTape → jax.grad + finite difference 2nd derivative (+8)
+- **linear interpolation** — empty array validation (+2)
+- **cumsum/cumprod_using_matvec** — lower triangular matrix (HJM identical-paths fix)
 
 ## VJP through while_loop — RESOLVED
-The main VJP issue was in `vector_hull_white.py` which used `stop_gradient` to block
-gradients through the while_loop. Fixed by:
-1. Converting while_loop to `jax.lax.scan` (differentiable)
-2. Precomputing normal draws for PSEUDO_ANTITHETIC random type
-3. Using `dynamic_update_slice` for recording samples at traced indices
+vector_hull_white while_loop → scan + PSEUDO_ANTITHETIC precompute + dynamic_update_slice.
 
-This enables gradient computation for Hull-White cap/floor pricing and other
-interest rate derivatives.
+## 2D PDE Douglas ADI — RESOLVED
+Root cause: tridiagonal_matmul subdiag convention. All 86 PDE tests now pass.
 
-## Remaining ~215 failures
-- AssertionError/convergence (~80) — jaxopt vs TF optimizer tolerance, MC variance
-- ConcretizationTypeError (~20) — traced shapes in PDE/model code
-- Numerical differences (~40) — MC variance, RNG differences
-- HALTON/STATELESS variance (~15) — RNG differences between JAX and TF
-- Brownian motion shape (~3) — dim=1 shape squeezing difference
-- HJM path sampling (~10) — discount factor computation
-- Other (~47) — various issues
+## Remaining ~170 failures
+- MC variance / RNG differences (~70) — JAX RNG ≠ TF RNG, unfixable without matching
+- SVI real-market-data local minima (~9) — different optimizers find different valid fits
+- HJM swaption PDE traced shapes (~15) — complex PDE machinery
+- bond_curve float32 divergence (~4) — numerical precision
+- QMC digital_net scrambling (~9) — RNG differences
+- Optimizer exact-convergence (~15) — scipy vs TF specific minima
+- misc GPU hipSparse errors (~10) — ROCm infrastructure
+- misc edge cases (~30)
 
 ## Known issues
-- SimulatedDataCalibrationTest hangs (test infrastructure issue, not code)
-- differential_evolution_minimize not implemented
-- HJM calibration transpose permutation issue (complex batched gradient)
-- HALTON sequence generation differs between JAX and TF (variance mismatches)
-- test_compare_monte_carlo_to_backward_pde: MC vs PDE difference (~39% relative error)
-- Brownian motion dim=1: TF squeezes last dim, JAX keeps it (shape mismatch)
-- CMS swap pricing: ~18% difference (might be related to HW model changes)
+- HJM swaption PDE: traced shapes in PDE machinery (deep issue)
+- HALTON/STATELESS RNG: JAX and TF produce different sequences
+- SVI real market data: multiple valid local minima
+- Brownian motion dim=1: TF squeezes, JAX keeps shape
+- GPU hipSparse errors on some 2D interpolation tests (ROCm bug)
