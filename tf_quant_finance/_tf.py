@@ -1283,6 +1283,7 @@ def gather(params, indices, axis=0, batch_dims=0, name=None,
     # Handle batch_dims=-1 (all but last dim of indices)
     if batch_dims == -1:
         batch_dims = indices.ndim - 1
+        axis = -1  # gather along last axis of params
     if batch_dims:
         # Pair the leading `batch_dims` axes of params and indices, gather along `axis`.
         def _g(p, idx):
