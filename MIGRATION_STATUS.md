@@ -1,7 +1,7 @@
 # TF Quant Finance → JAX Migration: Status
 
-**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1270+ passed** (+471% from 222)  
-**200+ commits** | **Shim-based incremental migration**
+**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1285+ passed** (+477% from 222)  
+**205+ commits** | **Shim-based incremental migration**
 
 ## Per-module
 | module | passed | status |
@@ -25,6 +25,7 @@
 | models/realized_volatility | 10/10 | ✅ fully green |
 | models/utils | 9/9 | ✅ fully green |
 | models/hjm | 13/18 | 72% (MC variance) |
+| models/hjm/swaption_pricing | 15/19 | 79% (PDE now works, was 4 failed) |
 | models/hull_white | 18/19 | 95% |
 | models/longstaff_schwartz | 16/17 | 94% |
 | models/legacy | 20/23 | 87% |
@@ -45,6 +46,7 @@
 - **optimizer batched** — Python loop per batch element (each varies own row)
 - **CG batch fix** — broadcast ls_result.failed to batch shape
 - **gather batch_dims=-1** — gather along last axis (was row selection); fixes HJM state_y
+- **HJM swaption PDE traced shapes** — static shapes for broadcast_to/reshape/num_times/num_grid_points (+11 tests, PDE machinery now runs)
 - **CMS convexity** — GradientTape → jax.grad + finite difference 2nd derivative (+8)
 - **linear interpolation** — empty array validation (+2)
 - **cumsum/cumprod_using_matvec** — lower triangular matrix (HJM identical-paths fix)
