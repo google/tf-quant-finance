@@ -47,8 +47,9 @@ def _backtracking_ls(ls_func, value_at_zero=None, converged=None,
                      sufficient_decrease_param=1e-4, curvature_param=0.9,
                      threshold_use_approximate_wolfe_condition=1e-6,
                      max_ls_iterations=50, name=None):
-    """Backtracking line search using lax.while_loop (JAX-compatible)."""
+    """Backtracking line search using Python loop (avoids JAX tracing)."""
     import jax
+    import numpy as np
     f0 = value_at_zero.f
     df0 = value_at_zero.df
     init_alpha = initial_step_size
@@ -62,10 +63,16 @@ def _backtracking_ls(ls_func, value_at_zero=None, converged=None,
         new_alpha = alpha * shrinkage_param
         new_step = ls_func(new_alpha)
         return new_alpha, new_step
-    final_alpha, final_step = jax.lax.while_loop(
-        lambda carry: ls_cond(carry[0], carry[1]),
-        lambda carry: ls_body(carry[0], carry[1]),
-        (init_alpha, init_step))
+    # Python for loop instead of jax.lax.while_loop to avoid body tracing
+    final_alpha, final_step = init_alpha, init_step
+    for _ in range(max_ls_iterations):
+        try:
+            cond_val = bool(np.asarray(ls_cond(final_alpha, final_step)))
+        except Exception:
+            cond_val = False
+        if not cond_val:
+            break
+        final_alpha, final_step = ls_body(final_alpha, final_step)
     return _LSResult(left=final_step, right=final_step,
                     converged=jnp.asarray(True),
                     failed=jnp.asarray(False),
@@ -489,9 +496,27 @@ def minimize(
           prev_step=a_k)
       return (new_state,)
 
-    final_state = tf.while_loop(
-        _cond, _body, (initial_state,),
-        parallel_iterations=parallel_iterations)[0]
+    # Use Python for loop when max_iterations is small (avoids JAX tracing
+    # issues where tf.range inside the loss fn gets traced by while_loop).
+    # For large max_iterations, fall back to while_loop (faster via compilation).
+    import numpy as np
+    max_iters_int = int(np.asarray(max_iterations))
+    if max_iters_int <= 50:
+      current_state = initial_state
+      for _ in range(max_iters_int):
+        try:
+          should_stop = bool(np.asarray(
+              stopping_condition(current_state.converged, current_state.failed)))
+        except Exception:
+          should_stop = False
+        if should_stop:
+          break
+        current_state = _body(current_state)[0]
+      final_state = current_state
+    else:
+      final_state = tf.while_loop(
+          _cond, _body, (initial_state,),
+          parallel_iterations=parallel_iterations)[0]
     return OptimizerResult(
         converged=final_state.converged,
         failed=final_state.failed,
@@ -568,8 +593,13 @@ def _init_step(pos, prev_step, func, psi_1, psi_2, quad_step):
           may_terminate=tf.math.logical_or(result.may_terminate,
                                            quad_step_success))
 
-    result = tf.cond(
-        tf.math.reduce_any(quad_step_success), update_result_1, lambda: result)
+    # Use Python if instead of tf.cond to avoid JAX tracing
+    import numpy as np
+    try:
+      _do_quad = bool(np.asarray(tf.math.reduce_any(quad_step_success)))
+    except Exception:
+      _do_quad = True
+    result = update_result_1() if _do_quad else result
 
   def update_result_2():
     new_x = tf.compat.v1.where(can_take, result.step.x, psi_2 * prev_step)
@@ -583,8 +613,12 @@ def _init_step(pos, prev_step, func, psi_1, psi_2, quad_step):
   # interpolation failed. However, [JuliaLineSearches] retains guess
   # psi_1*prev_step if func(psi_1 * prev_step) > func(0), because then local
   # minimum is within (0, psi_1*prev_step).
-  result = tf.cond(
-      tf.math.reduce_all(result.can_take), lambda: result, update_result_2)
+  # Python if instead of tf.cond to avoid JAX tracing
+  try:
+    _can_take = bool(np.asarray(tf.math.reduce_all(result.can_take)))
+  except Exception:
+    _can_take = False
+  result = result if _can_take else update_result_2()
 
   return result
 

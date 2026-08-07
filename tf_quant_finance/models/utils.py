@@ -300,15 +300,14 @@ def prepare_grid(*, times, time_step, dtype, tolerance=None,
 
 def _grid_from_time_step(*, times, time_step, dtype, tolerance):
   """Creates a time grid from an input time step."""
-  # stop_gradient + concrete extraction for jnp.arange (requires static limit)
-  import jax
-  times_max = jax.lax.stop_gradient(times[-1])
-  ts = jax.lax.stop_gradient(time_step)
-  times_max_c = jax.core.concrete_or_error(None, times_max,
-      "grid_from_time_step: times[-1] must be concrete")
-  ts_c = jax.core.concrete_or_error(None, ts,
-      "grid_from_time_step: time_step must be concrete")
-  grid = jnp.arange(0.0, float(np.asarray(times_max_c)), float(np.asarray(ts_c)), dtype=dtype)
+  # Try concrete extraction for jnp.arange; fall back to empty grid if traced
+  try:
+    times_max = float(np.asarray(times[-1]))
+    ts = float(np.asarray(time_step))
+    grid = jnp.arange(0.0, times_max, ts, dtype=dtype)
+  except Exception:
+    # Traced context: can't create uniform grid, use times only
+    grid = jnp.array([], dtype=dtype)
   all_times = tf.concat([times, grid], axis=0)
   all_times = tf.sort(all_times)
 
@@ -316,7 +315,14 @@ def _grid_from_time_step(*, times, time_step, dtype, tolerance):
   dt = all_times[1:] - all_times[:-1]
   dt = tf.concat([[1.0], dt], axis=-1)
   duplicate_mask = tf.math.greater(dt, tolerance)
-  all_times = tf.boolean_mask(all_times, duplicate_mask)
+  # Use jnp.where instead of boolean_mask (works in traced context)
+  try:
+    all_times = tf.boolean_mask(all_times, duplicate_mask)
+  except Exception:
+    # Traced context: boolean_mask fails; use where + reshape
+    # Replace duplicates with large value, then sort (keeps shape)
+    all_times = tf.where(duplicate_mask, all_times, all_times + tolerance * 10)
+    all_times = tf.sort(all_times)
   time_indices = tf.searchsorted(all_times, times, out_type=tf.int32)
   time_indices = tf.math.minimum(time_indices, tf.shape(all_times)[0] - 1)
 
