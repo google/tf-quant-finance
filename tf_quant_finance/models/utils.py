@@ -300,7 +300,15 @@ def prepare_grid(*, times, time_step, dtype, tolerance=None,
 
 def _grid_from_time_step(*, times, time_step, dtype, tolerance):
   """Creates a time grid from an input time step."""
-  grid = tf.range(0.0, times[-1], time_step, dtype=dtype)
+  # stop_gradient + concrete extraction for jnp.arange (requires static limit)
+  import jax
+  times_max = jax.lax.stop_gradient(times[-1])
+  ts = jax.lax.stop_gradient(time_step)
+  times_max_c = jax.core.concrete_or_error(None, times_max,
+      "grid_from_time_step: times[-1] must be concrete")
+  ts_c = jax.core.concrete_or_error(None, ts,
+      "grid_from_time_step: time_step must be concrete")
+  grid = jnp.arange(0.0, float(np.asarray(times_max_c)), float(np.asarray(ts_c)), dtype=dtype)
   all_times = tf.concat([times, grid], axis=0)
   all_times = tf.sort(all_times)
 

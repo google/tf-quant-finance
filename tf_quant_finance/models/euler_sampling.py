@@ -16,6 +16,7 @@
 from typing import Callable, List, Optional
 
 import jax
+import numpy as np
 import jax.numpy as jnp
 from tf_quant_finance import _tf as tf
 
@@ -357,7 +358,9 @@ def _sample(*,
   sqrt_dt = tf.sqrt(dt)
   # current_state.shape = batch_shape + [num_samples, dim]
   current_state = initial_state + tf.zeros([num_samples, dim], dtype=dtype)
-  steps_num = tff_utils.get_shape(dt)[-1]
+  # Ensure steps_num is a concrete Python int
+  _sn = tff_utils.get_shape(dt)[-1]
+  steps_num = int(_sn) if _sn is not None else int(dt.shape[-1]) if dt.shape[-1] is not None else len(np.asarray(dt))
   wiener_mean = None
   if normal_draws is None:
     # In order to use low-discrepancy random_type we need to generate the
@@ -438,7 +441,7 @@ def _while_loop(*, steps_num, current_state,
   if single:
     def body(carry, i):
       return _next(i, carry), None
-    final, _ = jax.lax.scan(body, current_state, xs=jnp.arange(steps_num))
+    final, _ = jax.lax.scan(body, current_state, xs=jnp.arange(int(steps_num)))
     return tf.expand_dims(final, axis=-2)
 
   # record_samples: scan steps_num, carrying (state, result[num_requested, ...], wc)
@@ -472,7 +475,7 @@ def _while_loop(*, steps_num, current_state,
     return (next_state, result, wc), None
 
   (_, result, _), _ = jax.lax.scan(
-      body_rec, (current_state, result, wc), xs=jnp.arange(steps_num))
+      body_rec, (current_state, result, wc), xs=jnp.arange(int(steps_num)))
   # result.shape = [num_requested_times] + batch + [num_samples, dim]
   # transpose to batch + [num_requested_times, num_samples, dim]
   n = len(result.shape)
@@ -535,7 +538,7 @@ def _for_loop(*, batch_shape, steps_num, current_state,
     return (next_state, result, wc), None
 
   (_, result, _), _ = jax.lax.scan(
-      body_rec, (current_state, result, wc), xs=jnp.arange(steps_num))
+      body_rec, (current_state, result, wc), xs=jnp.arange(int(steps_num)))
   # result.shape = [num_requested_times] + batch + [num_samples, dim]
   # transpose to batch + [num_requested_times, num_samples, dim]
   n = len(result.shape)

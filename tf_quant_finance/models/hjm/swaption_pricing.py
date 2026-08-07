@@ -288,8 +288,13 @@ def price(
     # We need to explicitly use tf.repeat because we need to price
     # batch_shape + [m] bond options with different strikes along the last
     # dimension.
+    # Use static repeat count when available (JAX requires static repeats)
+    num_payments = (fixed_leg_payment_times.shape[-1]
+                    if fixed_leg_payment_times.shape is not None
+                    and None not in fixed_leg_payment_times.shape
+                    else int(np.asarray(tf.shape(fixed_leg_payment_times)[-1])))
     expiries = tf.repeat(
-        expiries, tf.shape(fixed_leg_payment_times)[-1], axis=-1)
+        expiries, num_payments, axis=-1)
 
     if valuation_method == vm.ValuationMethod.FINITE_DIFFERENCE:
       model = gaussian_hjm.GaussianHJM(
