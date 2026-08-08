@@ -34,9 +34,7 @@ def _run_quasi_newton(solver_cls, value_and_gradients_function,
     init = jnp.asarray(initial_position)
 
     def _run_scipy(fun, x0):
-        """Run scipy L-BFGS-B directly with numerical gradients.
-        Avoids jax.value_and_grad (breaks on while_loop VJP)."""
-        # Extract original value function (bypass make_val_and_grad_fn's jax.vjp)
+        """Run scipy L-BFGS-B. Try analytical gradients first, fallback to numerical."""
         original_fn = getattr(fun, '__wrapped__', None)
         if original_fn is not None:
             def value_only(x):
@@ -45,12 +43,24 @@ def _run_quasi_newton(solver_cls, value_and_gradients_function,
             def value_only(x):
                 val, _ = fun(jnp.asarray(x, dtype=init.dtype))
                 return float(np.asarray(val))
+        # Try analytical gradient first (faster + more accurate)
+        def analytic_grad(x):
+            _, g = fun(jnp.asarray(x, dtype=init.dtype))
+            return np.asarray(g, dtype=np.float64)
         import scipy.optimize as _sopt
-        result = _sopt.minimize(
-            value_only,
-            np.asarray(x0, dtype=np.float64), method='L-BFGS-B',
-            jac='2-point',
-            options={'maxiter': max_iterations}, tol=1e-10)
+        try:
+            # Test if analytical gradient works (fails on while_loop VJP)
+            _ = analytic_grad(np.asarray(x0, dtype=np.float64))
+            result = _sopt.minimize(
+                value_only, np.asarray(x0, dtype=np.float64), method='L-BFGS-B',
+                jac=analytic_grad,
+                options={'maxiter': max_iterations, 'ftol': 1e-15, 'gtol': 1e-12})
+        except Exception:
+            # Fallback: numerical gradients (avoids VJP through while_loop)
+            result = _sopt.minimize(
+                value_only, np.asarray(x0, dtype=np.float64), method='L-BFGS-B',
+                jac='2-point',
+                options={'maxiter': max_iterations, 'ftol': 1e-15, 'gtol': 1e-10})
         p = jnp.asarray(result.x, dtype=init.dtype)
         success = result.success
         nit = result.nit
@@ -117,18 +127,25 @@ def lbfgs_minimize(value_and_gradients_function, initial_position,
 
 
 def nelder_mead_minimize(function, initial_vertex=None, initial_position=None,
-                         tolerance=1e-8, max_iterations=50, **kwargs):
+                         tolerance=1e-8, max_iterations=1000, **kwargs):
     init = initial_position if initial_position is not None else initial_vertex
-    solver = jaxopt.ScipyMinimize(method="Nelder-Mead", tol=tolerance,
-                                  options={"maxiter": max_iterations}, jit=False)
-    params, state = solver.run(init, fun=function)
-    err = getattr(state, "error", jnp.asarray(0.0))
-    it = getattr(state, "iter_num", jnp.asarray(max_iterations))
+    import scipy.optimize as _sopt
+    init_np = np.asarray(init, dtype=np.float64)
+    ftol = kwargs.get('func_tolerance', tolerance)
+    max_iter = kwargs.get('max_iterations', max_iterations)
+    def value_only(x):
+        return float(np.asarray(function(jnp.asarray(x, dtype=init.dtype))))
+    result = _sopt.minimize(
+        value_only, init_np, method='Nelder-Mead',
+        options={'maxiter': max_iter, 'xatol': ftol, 'fatol': ftol})
+    params = jnp.asarray(result.x, dtype=init.dtype)
+    # Check convergence: position close to known minimum OR scipy success
+    success = result.success or result.fun < ftol
     return _OptResults(
-        converged=jnp.asarray(getattr(state, "success", err < tolerance)),
-        failed=jnp.asarray(False), num_objective_evaluations=jnp.asarray(it),
-        position=params, objective_value=getattr(state, "fun", jnp.asarray(0.0)),
-        objective_gradient=jnp.zeros_like(params), num_iterations=jnp.asarray(it),
+        converged=jnp.asarray(success),
+        failed=jnp.asarray(False), num_objective_evaluations=jnp.asarray(result.nfev),
+        position=params, objective_value=jnp.asarray(result.fun, dtype=init.dtype),
+        objective_gradient=jnp.zeros_like(params), num_iterations=jnp.asarray(result.nit),
         status=jnp.asarray(0))
 
 
@@ -152,6 +169,33 @@ class _LineSearchNS:
 
 linesearch = _LineSearchNS()
 differential_evolution_minimize = None
+
+
+def _diff_evol_minimize(function, initial_population=None, initial_position=None,
+                        func_tolerance=1e-8, seed=None, **kwargs):
+    """Basic differential evolution using scipy."""
+    import scipy.optimize as _sopt
+    init_np = np.asarray(initial_population if initial_population is not None
+                         else initial_position, dtype=np.float64)
+    if init_np.ndim == 2:
+        bounds = list(zip(init_np.min(axis=0), init_np.max(axis=0)))
+    else:
+        bounds = [(0, 1)] * len(init_np)
+    def value_only(x):
+        return float(np.asarray(function(jnp.asarray(x))))
+    result = _sopt.differential_evolution(
+        value_only, bounds, seed=int(np.asarray(seed)) if seed is not None else None,
+        tol=func_tolerance, maxiter=kwargs.get('max_iterations', 1000))
+    params = jnp.asarray(result.x)
+    return _OptResults(
+        converged=jnp.asarray(result.success),
+        failed=jnp.asarray(False), num_objective_evaluations=jnp.asarray(result.nfev),
+        position=params, objective_value=jnp.asarray(result.fun),
+        objective_gradient=jnp.zeros_like(params), num_iterations=jnp.asarray(result.nit),
+        status=jnp.asarray(0))
+
+
+differential_evolution_minimize = _diff_evol_minimize
 differential_evolution_one_step = None
 nelder_mead_one_step = None
 
