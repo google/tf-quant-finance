@@ -448,7 +448,7 @@ def calibration_from_swaptions(
         swaption_valuation_method or vm.ValuationMethod.MONTE_CARLO)
 
     if optimizer_fn is None:
-      optimizer_fn = optimizer.conjugate_gradient_minimize
+      optimizer_fn = optimizer.lbfgs_minimize  # CG blocked by while_loop VJP
 
     def _price_to_normal_vol(x, swap_rate, annuity):
       vols = implied_vol(
