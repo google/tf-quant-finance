@@ -17,6 +17,7 @@
 # ponytail: tfp optimizers rewired to jaxopt (tfp.substrates.jax is incompatible
 # with jax 0.9.2). Provide tfp-compatible signatures + result namedtuples.
 import jax
+import numpy as np
 import jax.numpy as jnp
 import jaxopt
 from collections import namedtuple as _namedtuple
@@ -33,21 +34,29 @@ def _run_quasi_newton(solver_cls, value_and_gradients_function,
     init = jnp.asarray(initial_position)
 
     def _run_scipy(fun, x0):
-        """Run scipy L-BFGS-B via jaxopt (robust line search).
-        fun returns (value, grad); wrap to value-only for scipy.
-        Use tight scipy tol for accurate params (independent of tolerance flag)."""
-        def value_only(x):
-            val, _ = fun(x)
-            return val
-        # scipy tol controls gradient-norm convergence; use tight value for accuracy
-        scipy_tol = 1e-10
-        solver = jaxopt.ScipyMinimize(
-            method='L-BFGS-B', jit=False, fun=value_only, tol=scipy_tol,
-            maxiter=max_iterations)
-        p, s = solver.run(x0)
-        success = getattr(s, 'success', False)
-        nit = getattr(s, 'nit', 0)
-        val, grad = fun(p)
+        """Run scipy L-BFGS-B directly with numerical gradients.
+        Avoids jax.value_and_grad (breaks on while_loop VJP)."""
+        # Extract original value function (bypass make_val_and_grad_fn's jax.vjp)
+        original_fn = getattr(fun, '__wrapped__', None)
+        if original_fn is not None:
+            def value_only(x):
+                return float(np.asarray(original_fn(jnp.asarray(x, dtype=init.dtype))))
+        else:
+            def value_only(x):
+                val, _ = fun(jnp.asarray(x, dtype=init.dtype))
+                return float(np.asarray(val))
+        import scipy.optimize as _sopt
+        result = _sopt.minimize(
+            value_only,
+            np.asarray(x0, dtype=np.float64), method='L-BFGS-B',
+            jac='2-point',
+            options={'maxiter': max_iterations}, tol=1e-10)
+        p = jnp.asarray(result.x, dtype=init.dtype)
+        success = result.success
+        nit = result.nit
+        val = jnp.asarray(result.fun, dtype=init.dtype)
+        grad = jnp.asarray(result.jac if hasattr(result, 'jac') else
+                           jnp.zeros_like(p), dtype=init.dtype)
         return p, success, nit, val, grad
 
     # tfp supports batched initial_position [N, D] (N independent solves).

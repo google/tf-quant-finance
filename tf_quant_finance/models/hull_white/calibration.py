@@ -350,7 +350,7 @@ def calibration_from_swaptions(
           jump_locations=[], values=volatility, dtype=dtype)
 
     if optimizer_fn is None:
-      optimizer_fn = optimizer.conjugate_gradient_minimize
+      optimizer_fn = optimizer.lbfgs_minimize  # CG blocked by while_loop VJP
 
     if volatility_based_calibration:
       def reference_rate_squeeze_fn(t):
@@ -728,7 +728,7 @@ def calibration_from_cap_floors(
           jump_locations=[], values=volatility, dtype=dtype)
 
     if optimizer_fn is None:
-      optimizer_fn = optimizer.conjugate_gradient_minimize
+      optimizer_fn = optimizer.lbfgs_minimize  # CG blocked by while_loop VJP
 
     target_values = prices
     target_lb = tf.constant(0.0, dtype=dtype)
