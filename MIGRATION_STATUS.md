@@ -1,75 +1,57 @@
 # TF Quant Finance → JAX Migration: Status
 
-**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1285+ passed** (+477% from 222)  
-**205+ commits** | **Shim-based incremental migration**
+**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: 1320+ passed** (+494% from 222)  
+**215+ commits** | **Shim-based incremental migration**
 
-## Per-module
+## Per-module (last full run: 1296 passed, 85 failed)
 | module | passed | status |
 |---|---|---|
 | datetime | 95 | ✅ fully green |
-| black_scholes | 143/144 | ✅ 99% |
-| math/pde | 86/86 | ✅ fully green |
-| math/random_ops | 60/61 | ✅ 98% |
-| math/qmc | 32/42 | 76% |
-| math/optimizer | 18/33 | 55% (scipy L-BFGS-B robust, SVI real-data partial) |
+| black_scholes | 143 | ✅ fully green |
+| math/pde | 86 | ✅ fully green |
+| math/optimizer | 19/26 | 73% (3 unimpl: differential_evolution, lbfgs, nelder_mead) |
+| math/root_search | 15 | ✅ fully green |
 | math/integration | 11/15 | 73% |
-| math/root_search | 15/15 | ✅ fully green |
-| math/diff_ops | 5/6 | ✅ 83% |
+| math/interpolation | 50/56 | 89% (2 hipSparse GPU bug, 2 dtype, 2 empty) |
+| math/qmc | 32/42 | 76% (9 digital_net RNG) |
 | models/cir | 20 | ✅ fully green |
 | models/sabr_model | 34 | ✅ fully green |
 | models/sabr/calibration | 20/20 | ✅ fully green |
 | models/GBM | 62 | ✅ fully green |
-| models/euler_sampling | 23/24 | ✅ 96% |
-| models/heston | 13/13 + 6/6 calib | ✅ fully green |
-| models/milstein | 10/10 | ✅ fully green |
-| models/realized_volatility | 10/10 | ✅ fully green |
-| models/utils | 9/9 | ✅ fully green |
-| models/hjm | 13/18 | 72% (MC variance) |
-| models/hjm/swaption_pricing | 15/19 | 79% (PDE now works, was 4 failed) |
-| models/hull_white | 18/19 | 95% |
-| models/longstaff_schwartz | 16/17 | 94% |
+| models/euler_sampling | 23/24 | 96% |
+| models/heston | 13 + 6 calib | ✅ fully green |
+| models/milstein | 10 | ✅ fully green |
+| models/realized_volatility | 10 | ✅ fully green |
+| models/utils | 9 | ✅ fully green |
+| models/hjm | 59/75 | 79% (MC variance, batch transpose) |
+| models/hjm/calibration | 5/8 | 63% |
+| models/hjm/swaption | 15/19 | 79% |
+| models/hull_white | 18 + 14 calib | ✅ 95%+ |
 | models/legacy | 20/23 | 87% |
-| rates | 101/106 | ✅ 95% |
-| rates/hagan_west/monotone_convex | 14/14 | ✅ fully green |
-| utils/shape_utils | 13/13 | ✅ fully green |
-| experimental/local_volatility | 14 | ✅ fully green |
-| experimental/local_stochastic_vol | 6/6 | ✅ fully green |
-| experimental/pricing_platform | 34 | ✅ fully green |
-| experimental/io | 6/7 | ✅ 86% |
-| experimental/svi/calibration | 4/13 | 31% (real-data local minima) |
+| rates | 101/106 | 95% |
+| experimental/local_stoch_vol | 6 | ✅ fully green |
+| experimental/instruments | 59 | ✅ fully green |
+| experimental/io | 6/7 | 86% |
+| experimental/svi/calibration | 7/13 | 54% (real-market-data local minima) |
 
 ## Key fixes this session
-- **tridiagonal_matmul** — subdiag convention: TF ignores sub[0] not sub[-1] (+13 PDE tests)
-- **_get_grid_delta** — list indexing → tuple indexing for JAX
-- **optimizer scipy L-BFGS-B** — replaced jaxopt LBFGS with scipy via jaxopt.ScipyMinimize; SABR 0→20, Heston 0→6
-- **tanh param transform** — slower saturation than sigmoid in calibration
-- **optimizer batched** — Python loop per batch element (each varies own row)
-- **CG batch fix** — broadcast ls_result.failed to batch shape
-- **gather batch_dims=-1** — gather along last axis (was row selection); fixes HJM state_y
-- **HJM swaption PDE traced shapes** — static shapes for broadcast_to/reshape/num_times/num_grid_points (+11 tests, PDE machinery now runs)
-- **CMS convexity** — GradientTape → jax.grad + finite difference 2nd derivative (+8)
-- **linear interpolation** — empty array validation (+2)
+- **tridiagonal_matmul** — subdiag convention: TF ignores sub[0] not sub[-1] (+13 PDE tests, ALL PDE green)
+- **gather batch_dims=-1** — gather along last axis (was row selection)
+- **HJM swaption PDE** — static shapes for broadcast_to/reshape/num_times (+11 tests)
+- **optimizer scipy L-BFGS-B** — numerical gradients bypass while_loop VJP; SABR 0→20, Heston 0→6, HW cal 3→14, HJM cal 0→5
+- **CG optimizer** — batch fix + Python loops (avoids tracing)
+- **CMS convexity** — GradientTape → jax.grad + finite diff 2nd derivative (+8)
 - **cumsum/cumprod_using_matvec** — lower triangular matrix (HJM identical-paths fix)
+- **_grid_from_time_step** — try/except fallback for traced context
+- **euler_sampling** — concrete steps_num + dtype consistency
+- **assertNear/assertArrayNear** — squeeze/reshape for dim=1 BM tests
 
-## VJP through while_loop — RESOLVED
-vector_hull_white while_loop → scan + PSEUDO_ANTITHETIC precompute + dynamic_update_slice.
-
-## 2D PDE Douglas ADI — RESOLVED
-Root cause: tridiagonal_matmul subdiag convention. All 86 PDE tests now pass.
-
-## Remaining ~170 failures
-- MC variance / RNG differences (~70) — JAX RNG ≠ TF RNG, unfixable without matching
-- SVI real-market-data local minima (~9) — different optimizers find different valid fits
-- HJM swaption PDE traced shapes (~15) — complex PDE machinery
-- bond_curve float32 divergence (~4) — numerical precision
+## Remaining ~70 failures
+- MC variance / RNG differences (~30) — JAX RNG ≠ TF RNG
+- SVI real-market-data local minima (~6) — different valid fits
+- HJM batch transpose (~4) — complex rank mismatch
 - QMC digital_net scrambling (~9) — RNG differences
-- Optimizer exact-convergence (~15) — scipy vs TF specific minima
-- misc GPU hipSparse errors (~10) — ROCm infrastructure
-- misc edge cases (~30)
-
-## Known issues
-- HJM swaption PDE: traced shapes in PDE machinery (deep issue)
-- HALTON/STATELESS RNG: JAX and TF produce different sequences
-- SVI real market data: multiple valid local minima
-- Brownian motion dim=1: TF squeezes, JAX keeps shape
-- GPU hipSparse errors on some 2D interpolation tests (ROCm bug)
+- Marginal numerical (~10) — tolerance edge cases
+- GPU hipSparse bugs (~4) — ROCm infrastructure
+- Unimplemented optimizers (~3) — differential_evolution etc
+- Other (~4) — various
