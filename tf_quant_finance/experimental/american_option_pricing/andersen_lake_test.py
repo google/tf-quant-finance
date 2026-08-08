@@ -123,10 +123,13 @@ class ExerciseBoundaryTest(parameterized.TestCase, tf.test.TestCase):
                                 test_tolerance=1e-3,
                                 dtype=tf.float64):
     tau_binomial = tf.constant(tau, dtype=dtype)
-    r_binomial = r
-    if f is not None:
+    if r is not None:
+      r_binomial = tf.convert_to_tensor(r, dtype=dtype)
+    elif f is not None:
       f = tf.constant(f, dtype=dtype)
       r_binomial = tf.math.divide_no_nan(-tf.math.log(f), tau_binomial)
+    else:
+      r_binomial = tf.constant([0.0], dtype=dtype)
     if q is not None:
       q_binomial = tf.constant(q, dtype=tf.float64)
     else:

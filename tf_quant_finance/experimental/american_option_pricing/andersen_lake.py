@@ -187,6 +187,7 @@ def andersen_lake(
       dividend_rates = tf.constant([0.0], dtype=dtype, name='dividend_rates')
     # Set forwards and spots
     if forwards is not None:
+      forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
       spots = tf.convert_to_tensor(
           forwards * tf.exp(-(discount_rates - dividend_rates) * expiries),
           dtype=dtype,

@@ -14,6 +14,8 @@
 """Tests for diff.py."""
 
 from absl.testing import parameterized
+import jax
+import jax.numpy as jnp
 import numpy as np
 from tf_quant_finance import _tf as tf
 
@@ -45,7 +47,7 @@ class DiffOpsTest(parameterized.TestCase, tf.test.TestCase):
     dxv = self.evaluate(math.diff(xv))
     np.testing.assert_array_equal(dxv, [2., 2., 4.])
 
-    grad = self.evaluate(tf.gradients(math.diff(xv), x)[0])
+    grad = self.evaluate(jax.grad(lambda x_: jnp.sum(math.diff(jnp.stack([x_, x_ * x_, x_ * x_ * x_]))))(x))
     # Note that TF gradients adds up the components of the jacobian.
     # The sum of [1, 2x-1, 3x^2-2x] at x = 2 is 12.
     self.assertEqual(grad, 12.0)
