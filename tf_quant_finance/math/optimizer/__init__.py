@@ -48,19 +48,21 @@ def _run_quasi_newton(solver_cls, value_and_gradients_function,
             _, g = fun(jnp.asarray(x, dtype=init.dtype))
             return np.asarray(g, dtype=np.float64)
         import scipy.optimize as _sopt
+        # Use caller's tolerance for convergence criteria (default 1e-8)
+        tol_val = float(np.asarray(tolerance)) if tolerance is not None else 1e-8
         try:
             # Test if analytical gradient works (fails on while_loop VJP)
             _ = analytic_grad(np.asarray(x0, dtype=np.float64))
             result = _sopt.minimize(
                 value_only, np.asarray(x0, dtype=np.float64), method='L-BFGS-B',
                 jac=analytic_grad,
-                options={'maxiter': max_iterations, 'ftol': 1e-15, 'gtol': 1e-12})
+                options={'maxiter': max_iterations, 'ftol': tol_val**2, 'gtol': tol_val})
         except Exception:
             # Fallback: numerical gradients (avoids VJP through while_loop)
             result = _sopt.minimize(
                 value_only, np.asarray(x0, dtype=np.float64), method='L-BFGS-B',
                 jac='2-point',
-                options={'maxiter': max_iterations, 'ftol': 1e-15, 'gtol': 1e-10})
+                options={'maxiter': max_iterations, 'ftol': tol_val**2, 'gtol': tol_val})
         p = jnp.asarray(result.x, dtype=init.dtype)
         # Mark converged if scipy succeeded OR used < maxiter
         success = result.success or (result.nit < int(max_iterations))
