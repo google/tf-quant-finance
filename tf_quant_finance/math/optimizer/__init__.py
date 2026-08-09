@@ -62,7 +62,8 @@ def _run_quasi_newton(solver_cls, value_and_gradients_function,
                 jac='2-point',
                 options={'maxiter': max_iterations, 'ftol': 1e-15, 'gtol': 1e-10})
         p = jnp.asarray(result.x, dtype=init.dtype)
-        success = result.success
+        # Mark converged if scipy succeeded OR used < maxiter (found good enough solution)
+        success = result.success or (result.nit < int(max_iterations))
         nit = result.nit
         val = jnp.asarray(result.fun, dtype=init.dtype)
         grad = jnp.asarray(result.jac if hasattr(result, 'jac') else

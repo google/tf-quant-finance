@@ -36,7 +36,7 @@ def calibration(
     tolerance: types.RealTensor = 1e-6,
     x_tolerance: types.RealTensor = 0,
     f_relative_tolerance: types.RealTensor = 0,
-    maximum_iterations: types.IntTensor = 100,
+    maximum_iterations: types.IntTensor = 500,
     dtype: tf.DType = None,
     name: str = None
 ) -> Tuple[types.RealTensor, types.BoolTensor, types.IntTensor]:
