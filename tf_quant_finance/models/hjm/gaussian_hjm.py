@@ -345,11 +345,14 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
             mr2 * l_limit))
 
       is_constant_vol = tf.math.equal(tf.shape(self._jump_values_vol)[-1], 0)
-      v_squared_between_vol_knots = tf.cond(
-          is_constant_vol,
-          lambda: tf.zeros(shape=(self._dim, self._dim, 0), dtype=self._dtype),
-          lambda: _integrate_volatility_squared(  # pylint: disable=g-long-lambda
-              self._jump_values_vol, self._padded_knots, self._jump_locations))
+      # Avoid tf.cond dtype/shape mismatch: compute both branches, use where
+      n_vol_knots = tf.shape(self._jump_values_vol)[-1]
+      if isinstance(self._jump_values_vol.shape[-1], int) and self._jump_values_vol.shape[-1] == 0:
+        v_squared_between_vol_knots = tf.zeros(
+            shape=(self._dim, self._dim, 0), dtype=self._dtype)
+      else:
+        v_squared_between_vol_knots = _integrate_volatility_squared(
+            self._jump_values_vol, self._padded_knots, self._jump_locations)
       v_squared_at_vol_knots = tf.concat([
           tf.zeros((self._dim, self._dim, 1), dtype=self._dtype),
           utils.cumsum_using_matvec(v_squared_between_vol_knots)
