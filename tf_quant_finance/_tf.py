@@ -725,8 +725,9 @@ def _to_key(seed):
 def _stateless_uniform(shape, seed, minval=0.0, maxval=1.0, dtype=jnp.float32, name=None, **kw):
     # jax.random.uniform requires float dtype; generate as float then cast.
     if not jnp.issubdtype(dtype, jnp.floating):
+        # For integer dtype: generate uniform float in [minval, maxval) then truncate
         r = jax.random.uniform(_to_key(seed), shape, minval=float(minval), maxval=float(maxval))
-        return jnp.asarray(r * ((int(maxval) - int(minval))), dtype=dtype) + int(minval)
+        return jnp.asarray(jnp.floor(r), dtype=dtype)
     return jax.random.uniform(_to_key(seed), shape, minval=minval, maxval=maxval, dtype=dtype)
 
 

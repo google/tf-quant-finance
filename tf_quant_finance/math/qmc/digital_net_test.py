@@ -36,7 +36,7 @@ class DigitalNetTest(tf.test.TestCase):
     maxval = qmc.utils.exp2(power)
 
     with self.subTest('Shape'):
-      self.assertEqual(actual.shape, (dim))
+      self.assertEqual(tuple(actual.shape), (dim,))
     with self.subTest('DType'):
       self.assertEqual(actual.dtype, tf.int32)
     with self.subTest('Max Value'):
@@ -58,7 +58,7 @@ class DigitalNetTest(tf.test.TestCase):
       maxval = qmc.utils.exp2(power)
 
       with self.subTest('Shape'):
-        self.assertEqual(actual.shape, (dim))
+        self.assertEqual(tuple(actual.shape), (dim,))
       with self.subTest('DType'):
         self.assertEqual(actual.dtype, dtype)
       with self.subTest('Max Value'):
