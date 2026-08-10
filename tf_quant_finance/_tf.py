@@ -678,7 +678,25 @@ def _tridiagonal_solve(diagonals, rhs, partial_pivots=True,
     squeeze_rhs = (rhs.ndim <= diag.ndim)
     if squeeze_rhs:
         rhs = rhs[..., None]
-    out = _ll.linalg.tridiagonal_solve(sub, diag, super_d, rhs)
+    m = int(diag.shape[-1])
+    def _solve(sub, diag, super_d, rhs):
+        # m==1: 1x1 system, just diag*rhs; avoids hipSparse batch with m=1
+        if m == 1:
+            return rhs / jnp.expand_dims(diag, -1)
+        try:
+            return _ll.linalg.tridiagonal_solve(sub, diag, super_d, rhs)
+        except Exception as e:
+            if 'hipSparse' not in str(e):
+                raise
+            cpu = jax.devices("cpu")[0]
+            sub_cpu, diag_cpu, super_d_cpu, rhs_cpu = (
+                jax.device_put(v, cpu) for v in (sub, diag, super_d, rhs))
+            out = jax.jit(
+                lambda dl, d, du, b: _ll.linalg.tridiagonal_solve(dl, d, du, b),
+                device=cpu
+            )(sub_cpu, diag_cpu, super_d_cpu, rhs_cpu)
+            return jax.device_put(out, jax.devices()[0] or jax.devices("gpu")[0])
+    out = _solve(sub, diag, super_d, rhs)
     if squeeze_rhs:
         out = out[..., 0]
     return out
