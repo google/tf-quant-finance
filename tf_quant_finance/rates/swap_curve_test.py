@@ -168,7 +168,7 @@ class SwapCurveTest(tf.test.TestCase, parameterized.TestCase):
 
   def test_OIS_discounting_batch(self):
     """Test OIS discounting with batched inputs."""
-    curve_tolerance = 5e-4
+    curve_tolerance = 1e-6
     dtype = np.float64
     mats = [1., 2., 3., 5., 7., 10., 30.]
     # Batch of 2 curves
