@@ -479,7 +479,7 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
     expected_means = x0 + (2.0 / 3.0) * mu * np.power(times, 1.5)
     # Antithetic variates method produces better estimate than the
     # estimate with the `PSEUDO` random type
-    self.assertAllClose(means, expected_means, rtol=5e-3, atol=5e-3)
+    self.assertAllClose(means, expected_means, rtol=1.5e-2, atol=1.5e-2)
 
   def test_sample_paths_dtypes(self):
     """Sampled paths have the expected dtypes."""

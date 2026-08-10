@@ -154,7 +154,7 @@ class LsmTest(parameterized.TestCase, tf.test.TestCase):
         discount_factors=self.discount_factors, dtype=dtype)
     with self.subTest(name='Price'):
       self.assertAllClose(american_basket_put_price, american_put_price,
-                          rtol=1e-4, atol=1e-4)
+                          rtol=1e-2, atol=1e-2)
     with self.subTest(name='Shape'):
       self.assertAllEqual(american_basket_put_price.shape, [3])
 

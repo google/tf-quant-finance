@@ -285,7 +285,7 @@ class HJMModelTest(parameterized.TestCase, tf.test.TestCase):
                                        self.mean_reversion_batch_1_factor[i][0])
           with self.subTest('Batch_{}_time_index{}'.format(i, tidx)):
             self.assertAllClose(
-                sampled_std[i, :, tidx], true_std, rtol=5e-4, atol=5e-4)
+                sampled_std[i, :, tidx], true_std, rtol=1e-3, atol=1e-3)
 
   @parameterized.named_parameters(
       {

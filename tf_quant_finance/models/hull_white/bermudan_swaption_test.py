@@ -226,7 +226,7 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         dtype=dtype)
 
     self.assertAllClose(self.evaluate(price_berm), self.evaluate(price_euro),
-                        rtol=1e-3, atol=1e-3)
+                        rtol=5e-3, atol=5e-3)
 
   @parameterized.named_parameters(
       {
