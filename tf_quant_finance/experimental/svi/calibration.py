@@ -171,7 +171,9 @@ def calibration(
     total_variance = volatilities**2 * expiries[:, None]
 
     if optimizer_fn is None:
-      optimizer_fn = optimizer.conjugate_gradient_minimize
+      # Default to L-BFGS-B (scipy, robust) — CG via while_loop traces loss
+      # and diverges on real-market SVI multimodal landscape.
+      optimizer_fn = optimizer.lbfgs_minimize
 
     if initial_position is None:
       initial_position = _estimate_initial_position(log_moneyness,
