@@ -444,7 +444,7 @@ def _build_discount_curve(bond_cashflows, bond_cashflow_times, present_values,
 
   def one_step(converged, failed, iteration, expiry_discounts):
     """One step of the iteration."""
-    expiry_rates = -tf.math.log(expiry_discounts) / expiry_times
+    expiry_rates = -tf.math.log(tf.maximum(expiry_discounts, 1e-20)) / expiry_times
     failed = tf.math.reduce_any(
         tf.math.is_nan(expiry_rates) | tf.math.is_nan(expiry_discounts))
     calc_rates = monotone_convex.interpolate_yields(
@@ -454,6 +454,9 @@ def _build_discount_curve(bond_cashflows, bond_cashflow_times, present_values,
         calc_bond_cashflows * calc_discounts,
         calc_groups,
         num_segments=num_bonds) / expiry_bond_cashflows
+    next_expiry_discounts = tf.where(
+        tf.math.is_nan(next_expiry_discounts) | (next_expiry_discounts <= 0),
+        expiry_discounts, next_expiry_discounts)
     # Cast to match carry dtype (avoid float32/float64 drift in while_loop).
     next_expiry_discounts = tf.cast(next_expiry_discounts, expiry_discounts.dtype)
     discount_diff = tf.math.abs(next_expiry_discounts - expiry_discounts)
