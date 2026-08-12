@@ -32,6 +32,7 @@ from tf_quant_finance.models.realized_volatility import realized_volatility
 from tf_quant_finance.models.realized_volatility import ReturnsType
 from tf_quant_finance.models.sabr import SabrModel
 from tf_quant_finance.models.valuation_method import ValuationMethod
+from tf_quant_finance.models.realized_volatility import EstimatorType
 from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
@@ -46,6 +47,7 @@ _allowed_symbols = [
     'MultivariateGeometricBrownianMotion',
     'GeometricBrownianMotion',
     'ItoProcess',
+    'EstimatorType',
     'JoinedItoProcess',
     'sabr',
     'SabrModel',

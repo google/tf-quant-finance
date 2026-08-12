@@ -19,7 +19,6 @@ import numpy as np
 import tensorflow.compat.v2 as tf
 
 import tf_quant_finance as tff
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
 
 
 class RealizedVolatilityTest(parameterized.TestCase, tf.test.TestCase):
@@ -31,10 +30,10 @@ class RealizedVolatilityTest(parameterized.TestCase, tf.test.TestCase):
     num_times = 100
     seed = (1, 2)
     draws = tf.random.stateless_normal((num_series, num_times),
-                                       seed=seed,
-                                       dtype=dtype)
+                                        seed=seed,
+                                        dtype=dtype)
     sample_paths = tf.math.exp(tf.math.cumsum(draws, axis=-1))
-    volatilities = tff.models.realized_volatility(sample_paths)
+    volatilities = tff.models.realized_volatility(sample_paths, dtype=dtype)
     expected_volatilities = tf.math.sqrt(
         tf.math.reduce_sum(draws[:, 1:]**2, axis=1))
     self.assertAllClose(volatilities, expected_volatilities, 1e-6)
@@ -46,8 +45,8 @@ class RealizedVolatilityTest(parameterized.TestCase, tf.test.TestCase):
     num_times = 100
     seed = (1, 2)
     draws = tf.random.stateless_normal((num_series, num_times),
-                                       seed=seed,
-                                       dtype=dtype)
+                                        seed=seed,
+                                        dtype=dtype)
     sample_paths = tf.math.exp(tf.math.cumsum(draws, axis=-1))
     volatilities = tff.models.realized_volatility(
         sample_paths, scaling_factors=np.sqrt(num_times), dtype=dtype)
@@ -62,11 +61,11 @@ class RealizedVolatilityTest(parameterized.TestCase, tf.test.TestCase):
     num_times = 100
     seed = (1, 2)
     draws = tf.random.stateless_normal((num_series, num_times),
-                                       seed=seed,
-                                       dtype=dtype)
+                                        seed=seed,
+                                        dtype=dtype)
     sample_paths = tf.math.cumsum(draws, axis=-1)
     volatilities = tff.models.realized_volatility(
-        sample_paths, path_scale=tff.models.PathScale.LOG)
+        sample_paths, path_scale=tff.models.PathScale.LOG, dtype=dtype)
     expected_volatilities = tf.math.sqrt(
         tf.math.reduce_sum(draws[:, 1:]**2, axis=1))
     self.assertAllClose(volatilities, expected_volatilities, 1e-6)
@@ -78,15 +77,15 @@ class RealizedVolatilityTest(parameterized.TestCase, tf.test.TestCase):
     num_times = 100
     seed = (1, 2)
     time_deltas = tf.random.stateless_uniform((num_series, num_times),
-                                              seed=seed,
-                                              dtype=dtype)
+                                               seed=seed,
+                                               dtype=dtype)
     draws = tf.random.stateless_normal((num_series, num_times),
-                                       seed=seed,
-                                       dtype=dtype)
+                                        seed=seed,
+                                        dtype=dtype)
     sample_paths = tf.math.exp(
         tf.math.cumsum(tf.math.sqrt(time_deltas) * draws, axis=-1))
     volatilities = tff.models.realized_volatility(
-        sample_paths, times=tf.math.cumsum(time_deltas, axis=1))
+        sample_paths, times=tf.math.cumsum(time_deltas, axis=1), dtype=dtype)
     expected_volatilities = tf.math.sqrt(
         tf.math.reduce_sum(draws[:, 1:]**2, axis=1))
     self.assertAllClose(volatilities, expected_volatilities, 1e-6)
@@ -98,11 +97,11 @@ class RealizedVolatilityTest(parameterized.TestCase, tf.test.TestCase):
     num_times = 100
     seed = (1, 2)
     draws = tf.random.stateless_normal((num_series, num_times),
-                                       seed=seed,
-                                       dtype=dtype)
+                                        seed=seed,
+                                        dtype=dtype)
     sample_paths = tf.math.exp(tf.math.cumsum(draws, axis=-1))
     volatilities = tff.models.realized_volatility(
-        sample_paths, returns_type=tff.models.ReturnsType.ABS)
+        sample_paths, returns_type=tff.models.ReturnsType.ABS, dtype=dtype)
     diffs = tf.math.abs(tff.math.diff(sample_paths, exclusive=True))
     expected_volatilities = tf.reduce_sum(diffs / sample_paths[:, :-1], axis=1)
     self.assertAllClose(volatilities, expected_volatilities, 1e-6)
@@ -114,14 +113,15 @@ class RealizedVolatilityTest(parameterized.TestCase, tf.test.TestCase):
     num_times = 100
     seed = (1, 2)
     draws = tf.random.stateless_normal((num_series, num_times),
-                                       seed=seed,
-                                       dtype=dtype)
+                                        seed=seed,
+                                        dtype=dtype)
     sample_paths = tf.math.exp(tf.math.cumsum(draws, axis=-1))
     scaling = 100 * np.sqrt(np.pi / (2 * num_times))
     volatilities = tff.models.realized_volatility(
         sample_paths,
         scaling_factors=scaling,
-        returns_type=tff.models.ReturnsType.ABS)
+        returns_type=tff.models.ReturnsType.ABS,
+        dtype=dtype)
     diffs = tf.math.abs(tff.math.diff(sample_paths, exclusive=True))
     expected_volatilities = tf.reduce_sum(diffs / sample_paths[:, :-1], axis=1)
     self.assertAllClose(volatilities, scaling * expected_volatilities, 1e-6)
@@ -133,14 +133,15 @@ class RealizedVolatilityTest(parameterized.TestCase, tf.test.TestCase):
     num_times = 100
     seed = (1, 2)
     draws = tf.random.stateless_normal((num_series, num_times),
-                                       seed=seed,
-                                       dtype=dtype)
+                                        seed=seed,
+                                        dtype=dtype)
     logspace_paths = tf.math.cumsum(draws, axis=-1)
     sample_paths = tf.math.exp(logspace_paths)
     volatilities = tff.models.realized_volatility(
         logspace_paths,
         path_scale=tff.models.PathScale.LOG,
-        returns_type=tff.models.ReturnsType.ABS)
+        returns_type=tff.models.ReturnsType.ABS,
+        dtype=dtype)
     diffs = tf.math.abs(tff.math.diff(sample_paths, exclusive=True))
     expected_volatilities = tf.reduce_sum(diffs / sample_paths[:, :-1], axis=1)
     self.assertAllClose(volatilities, expected_volatilities, 1e-6)
@@ -152,16 +153,17 @@ class RealizedVolatilityTest(parameterized.TestCase, tf.test.TestCase):
     num_times = 100
     seed = (1, 2)
     draws = tf.random.stateless_normal((num_series, num_times),
-                                       seed=seed,
-                                       dtype=dtype)
+                                        seed=seed,
+                                        dtype=dtype)
     time_deltas = tf.random.stateless_uniform((num_series, num_times),
-                                              seed=seed,
-                                              dtype=dtype)
+                                               seed=seed,
+                                               dtype=dtype)
     sample_paths = tf.math.exp(tf.math.cumsum(draws, axis=-1))
     volatilities = tff.models.realized_volatility(
         sample_paths,
         times=tf.math.cumsum(time_deltas, axis=1),
-        returns_type=tff.models.ReturnsType.ABS)
+        returns_type=tff.models.ReturnsType.ABS,
+        dtype=dtype)
     numer = tf.math.abs(tff.math.diff(sample_paths, exclusive=True))
     denom = sample_paths[:, :-1] * time_deltas[:, 1:]
     expected_volatilities = tf.math.reduce_sum(numer / denom, axis=1)
@@ -178,14 +180,15 @@ class RealizedVolatilityTest(parameterized.TestCase, tf.test.TestCase):
     num_times = 100
     seed = (1, 2)
     draws = tf.random.stateless_normal((num_series, num_times),
-                                       seed=seed,
-                                       dtype=dtype)
+                                        seed=seed,
+                                        dtype=dtype)
     sample_paths = tf.math.exp(tf.math.cumsum(draws, axis=-1))
 
     volatilities = tff.models.realized_volatility(
         tf.transpose(sample_paths),
         returns_type=returns_type,
-        axis=0)
+        axis=0,
+        dtype=dtype)
 
     if returns_type == tff.models.ReturnsType.ABS:
       diffs = tf.math.abs(tff.math.diff(sample_paths, exclusive=True))
@@ -196,6 +199,38 @@ class RealizedVolatilityTest(parameterized.TestCase, tf.test.TestCase):
           tf.math.reduce_sum(draws[:, 1:]**2, axis=1))
 
     self.assertAllClose(volatilities, expected_volatilities, 1e-6)
+
+  def test_bipower_volatility_jump_robustness(self):
+    """Verifies Bipower variation limits sensitivity to a single isolated jump."""
+    dtype = tf.float64
+
+    # Price path with mild baseline variance and a single permanent jump.
+    # The jump appears in exactly one return (100.5 -> 300.0); the return
+    # before it (100 -> 100.5) and after it (300 -> 301) are both normal,
+    # so only one of the two bipower product terms touching the jump is large.
+    prices_with_jump = tf.constant(
+        [[100.0, 100.5, 300.0, 301.0, 300.5, 301.2, 300.8, 301.5, 300.9]],
+        dtype=dtype)
+
+    standard_vol = tff.models.realized_volatility(
+        prices_with_jump,
+        returns_type=tff.models.ReturnsType.LOG,
+        path_scale=tff.models.PathScale.ORIGINAL,
+        estimator_type=tff.models.EstimatorType.STANDARD,
+        dtype=dtype)
+
+    bipower_vol = tff.models.realized_volatility(
+        prices_with_jump,
+        returns_type=tff.models.ReturnsType.LOG,
+        path_scale=tff.models.PathScale.ORIGINAL,
+        estimator_type=tff.models.EstimatorType.BIPOWER,
+        dtype=dtype)
+
+    standard_vol_val, bipower_vol_val = self.evaluate(
+        [standard_vol, bipower_vol])
+
+    self.assertGreater(standard_vol_val[0], bipower_vol_val[0] * 3.0)
+    self.assertLess(bipower_vol_val[0], 0.15)
 
 
 if __name__ == '__main__':
