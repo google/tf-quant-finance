@@ -719,17 +719,143 @@ def _to_key(seed):
     return jax.random.PRNGKey(0)
 
 
+# ---------------------------------------------------------------------------
+# TF Philox (alg='philox') bit-exact stateless RNG.
+#
+# tf.random.stateless_normal/uniform(seed=[s0, s1], alg='philox') in TF 2.x
+# uses Philox4x32-10 with the seed SCRAMBLED through one Philox block
+# (stateless_random_ops.cc GenerateKey: key={0x3ec8f720,0x02461e29},
+# counter=seed words, then key=mix[0:2], counter={0,0,mix[2],mix[3]}).
+# Outputs: uniform f32 = 23-bit mantissa in [1,2) minus 1; uniform f64 =
+# 52-bit mantissa pair; normal f32/f64 = Box-Muller (u1 clamped to >=1e-7).
+# Verified bit-exact against TF 2.21 reference streams.
+# ---------------------------------------------------------------------------
+_PHILOX_W0 = jnp.uint32(0x9E3779B9)
+_PHILOX_W1 = jnp.uint32(0xBB67AE85)
+_PHILOX_M0 = jnp.uint32(0xD2511F53)
+_PHILOX_M1 = jnp.uint32(0xCD9E8D57)
+
+
+def _philox_round(ctr, key):
+    """One Philox4x32-10 round. ctr: [..., 4] uint32; key: [..., 2] uint32."""
+    c0, c1, c2, c3 = ctr[..., 0], ctr[..., 1], ctr[..., 2], ctr[..., 3]
+    k0, k1 = key[..., 0], key[..., 1]
+    hi0 = ((c0.astype(jnp.uint64) * jnp.uint64(0xD2511F53)) >> 32).astype(jnp.uint32)
+    lo0 = c0 * _PHILOX_M0
+    hi1 = ((c2.astype(jnp.uint64) * jnp.uint64(0xCD9E8D57)) >> 32).astype(jnp.uint32)
+    lo1 = c2 * _PHILOX_M1
+    new_ctr = jnp.stack([hi1 ^ c1 ^ k0, lo1, hi0 ^ c3 ^ k1, lo0], axis=-1)
+    new_key = jnp.stack([k0 + _PHILOX_W0, k1 + _PHILOX_W1], axis=-1)
+    return new_ctr, new_key
+
+
+def _philox_block(ctr, key):
+    """Ten-round Philox4x32-10 block (TF ComputeSingleRound x10)."""
+    for _ in range(10):
+        ctr, key = _philox_round(ctr, key)
+    return ctr
+
+
+def _philox_key_counter(seed):
+    """TF GenerateKey scramble: returns (key[2], counter[4]) uint32 arrays."""
+    seed = jnp.asarray(seed)
+    s0 = seed[0].astype(jnp.uint64)
+    s1 = seed[1].astype(jnp.uint64)
+    c0 = (s0 & jnp.uint64(0xFFFFFFFF)).astype(jnp.uint32)
+    c1 = ((s0 >> 32) & jnp.uint64(0xFFFFFFFF)).astype(jnp.uint32)
+    c2 = (s1 & jnp.uint64(0xFFFFFFFF)).astype(jnp.uint32)
+    c3 = ((s1 >> 32) & jnp.uint64(0xFFFFFFFF)).astype(jnp.uint32)
+    mix = _philox_block(
+        jnp.stack([c0, c1, c2, c3]),
+        jnp.stack([jnp.uint32(0x3EC8F720), jnp.uint32(0x02461E29)]))
+    key = mix[:2]
+    counter = jnp.concatenate([jnp.zeros(2, jnp.uint32), mix[2:]])
+    return key, counter
+
+
+def _philox_words(num_words, seed):
+    """First num_words uint32 words of TF's stateless philox stream."""
+    key, cnt0 = _philox_key_counter(seed)
+    nblocks = _builtins.max((num_words + 3) // 4, 1)
+    idx = jnp.arange(nblocks, dtype=jnp.uint32)
+    c0 = cnt0[0] + idx
+    carry = (c0 < idx).astype(jnp.uint32)
+    c1 = cnt0[1] + carry
+    # ponytail: carry beyond counter[1] is dropped; valid while nblocks < 2^32
+    # (>= 2^34 words). MC tests need at most ~10M words.
+    counters = jnp.stack([
+        c0, c1,
+        jnp.broadcast_to(cnt0[2], c0.shape),
+        jnp.broadcast_to(cnt0[3], c0.shape)], axis=-1)
+    key_b = jnp.broadcast_to(key, (nblocks, 2))
+    blocks = _philox_block(counters, key_b)
+    return jnp.reshape(blocks, (-1,))[:num_words]
+
+
+def _u32_to_float32(x):
+    """TF Uint32ToFloat: 23-bit mantissa in [1,2) minus 1 -> [0,1)."""
+    f = (jnp.uint32(0x3F800000) | (x & jnp.uint32(0x7FFFFF))).view(jnp.float32)
+    return f - jnp.float32(1.0)
+
+
+def _u64_to_float64(x0, x1):
+    """TF Uint64ToDouble: 52-bit mantissa pair in [1,2) minus 1 -> [0,1)."""
+    man = ((x0 & jnp.uint32(0xFFFFF)).astype(jnp.uint64) << 32) | x1.astype(jnp.uint64)
+    val = (jnp.uint64(1023) << 52) | man
+    return val.view(jnp.float64) - 1.0
+
+
+def _box_muller_float(x0, x1):
+    """TF BoxMullerFloat: 2 words -> 2 standard normals (float32 math)."""
+    u1 = _u32_to_float32(x0)
+    u1 = jnp.maximum(u1, jnp.float32(1e-7))
+    v1 = jnp.float32(2.0 * np.pi) * _u32_to_float32(x1)
+    u2 = jnp.sqrt(jnp.float32(-2.0) * jnp.log(u1))
+    return jnp.sin(v1) * u2, jnp.cos(v1) * u2
+
+
+def _box_muller_double(x0, x1, x2, x3):
+    """TF BoxMullerDouble: 4 words -> 2 standard normals (float64 math)."""
+    u1 = _u64_to_float64(x0, x1)
+    u1 = jnp.maximum(u1, 1e-7)
+    v1 = 2.0 * np.pi * _u64_to_float64(x2, x3)
+    u2 = jnp.sqrt(-2.0 * jnp.log(u1))
+    return jnp.sin(v1) * u2, jnp.cos(v1) * u2
+
+
 def _stateless_uniform(shape, seed, minval=0.0, maxval=1.0, dtype=jnp.float32, name=None, **kw):
-    # jax.random.uniform requires float dtype; generate as float then cast.
     if not jnp.issubdtype(dtype, jnp.floating):
-        # For integer dtype: generate uniform float in [minval, maxval) then truncate
+        # Integer dtype: TF maps via 64-bit words; keep the jax floor+cast
+        # path (matches the QMC digital_net tests) rather than bite-match.
         r = jax.random.uniform(_to_key(seed), shape, minval=float(minval), maxval=float(maxval))
         return jnp.asarray(jnp.floor(r), dtype=dtype)
-    return jax.random.uniform(_to_key(seed), shape, minval=minval, maxval=maxval, dtype=dtype)
+    n = int(np.prod(np.asarray(shape))) if np.size(shape) else 1
+    if np.dtype(dtype) == np.dtype(jnp.float64):
+        w = _philox_words(2 * n, seed)
+        u = _u64_to_float64(w[0::2], w[1::2])
+    else:
+        w = _philox_words(n, seed)
+        u = _u32_to_float32(w)
+    u = jnp.reshape(u, shape)
+    return u * (maxval - minval) + minval
 
 
 def _stateless_normal(shape, seed, mean=0.0, stddev=1.0, dtype=jnp.float32, name=None, **kw):
-    return jax.random.normal(_to_key(seed), shape, dtype=dtype) * stddev + mean
+    n = int(np.prod(np.asarray(shape))) if np.size(shape) else 1
+    nblocks = (n + 1) // 2
+    w = _philox_words(4 * nblocks, seed)
+    b = jnp.reshape(w, (nblocks, 4))
+    if np.dtype(dtype) == np.dtype(jnp.float64):
+        d0, d1 = _box_muller_double(b[:, 0], b[:, 1], b[:, 2], b[:, 3])
+        z = jnp.reshape(jnp.stack([d0, d1], axis=-1), (-1,))[:n]
+    else:
+        f0, f1 = _box_muller_float(b[:, 0], b[:, 1])
+        f2, f3 = _box_muller_float(b[:, 2], b[:, 3])
+        z = jnp.reshape(jnp.stack([f0, f1, f2, f3], axis=-1), (-1,))[:n]
+    # mean/stddev may be non-scalar (batch dims); reshape to `shape` before
+    # broadcasting so a [5]-shaped mean adds along the trailing batch axis.
+    z = jnp.reshape(z, shape)
+    return z * stddev + mean
 
 
 def _stateless_gamma(shape, seed, alpha, beta=None, dtype=jnp.float32, name=None, **kw):
