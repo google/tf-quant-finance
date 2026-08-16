@@ -8,13 +8,14 @@
 | run | failed | passed |
 |---|---|---|
 | baseline (pre-session) | 34 | 1328 |
-| **final (verified, `/tmp/verify_run7.log`)** | **24** | **1336** |
+| mid-session (`verify_run7`) | 24 | 1336 |
+| **final (`verify_run8`)** | **13** | **1343** |
 
-**−10 failures, +8 passes.** All changes suite-verified; two experiments
+**−21 failures, +15 passes** across the session. All changes suite-verified; two experiments
 (top_k TF tie-break, convert_to_tensor Python-scalar dtype inference) were
 reverted after causing andersen_lake regressions (documented below).
 
-## Remaining 24 failures (triaged)
+## Remaining 13 failures (triaged, verified)
 
 - **PSEUDO RNG noise (~7)** — lsm basket/american/v2, joined hull_white,
   multivariate_normal mean. TF's `tf.random.normal(seed=int)` is
