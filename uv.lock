@@ -42,54 +42,12 @@ wheels = [
 ]
 
 [[package]]
-name = "cloudpickle"
-version = "3.1.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/27/fb/576f067976d320f5f0114a8d9fa1215425441bb35627b1993e5afd8111e5/cloudpickle-3.1.2.tar.gz", hash = "sha256:7fda9eb655c9c230dab534f1983763de5835249750e85fbcef43aaa30a9a2414", size = 22330, upload-time = "2025-11-03T09:25:26.604Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/88/39/799be3f2f0f38cc727ee3b4f1445fe6d5e4133064ec2e4115069418a5bb6/cloudpickle-3.1.2-py3-none-any.whl", hash = "sha256:9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a", size = 22228, upload-time = "2025-11-03T09:25:25.534Z" },
-]
-
-[[package]]
-name = "decorator"
-version = "5.3.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/60/8b/32f9823da46cde7df2087faa08cd98d01b908f8dcab982cdba9c84e85355/decorator-5.3.1.tar.gz", hash = "sha256:4cbcdd55a6efadb9dbea26b858f4fb3264567b52d69ca0d25b721b553f60ea82", size = 58084, upload-time = "2026-05-18T06:03:28.057Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/05/7f/798705f5296a58ca505d600456748d1be48078eac8a7050d8a98bc9edb89/decorator-5.3.1-py3-none-any.whl", hash = "sha256:f47fe6fdbd2edd623ecfe36875d37aba411624e2670dd395dddae1358689bb3c", size = 10365, upload-time = "2026-05-18T06:03:26.517Z" },
-]
-
-[[package]]
-name = "dm-tree"
-version = "0.1.10"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "absl-py" },
-    { name = "attrs" },
-    { name = "numpy" },
-    { name = "wrapt" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/66/a3ec619d22b6baffa5ab853e8dc6ec9d0c837127948af59bb15b988d7312/dm_tree-0.1.10.tar.gz", hash = "sha256:22f37b599e01cc3402a17f79c257a802aebd8d326de05b54657650845956208a", size = 35748, upload-time = "2026-03-31T17:35:39.03Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/83/eb/1d55c679cee9a54e552480d308535753c72e2250cf720d7aa777bff2a4fe/dm_tree-0.1.10-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:012c2b376e88d3685c73a4b5c23be41fe933e14e380dcd90172971690b0e02d2", size = 186506, upload-time = "2026-03-31T17:35:17.593Z" },
-]
-
-[[package]]
 name = "execnet"
 version = "2.1.2"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/bf/89/780e11f9588d9e7128a3f87788354c7946a9cbb1401ad38a48c4db9a4f07/execnet-2.1.2.tar.gz", hash = "sha256:63d83bfdd9a23e35b9c6a3261412324f964c2ec8dcd8d3c6916ee9373e0befcd", size = 166622, upload-time = "2025-11-12T09:56:37.75Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ab/84/02fc1827e8cdded4aa65baef11296a9bbe595c474f0d6d758af082d849fd/execnet-2.1.2-py3-none-any.whl", hash = "sha256:67fba928dd5a544b783f6056f449e5e3931a5c378b128bc18501f7ea79e296ec", size = 40708, upload-time = "2025-11-12T09:56:36.333Z" },
-]
-
-[[package]]
-name = "gast"
-version = "0.7.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/91/f6/e73969782a2ecec280f8a176f2476149dd9dba69d5f8779ec6108a7721e6/gast-0.7.0.tar.gz", hash = "sha256:0bb14cd1b806722e91ddbab6fb86bba148c22b40e7ff11e248974e04c8adfdae", size = 33630, upload-time = "2025-11-29T15:30:05.266Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/1d/33/f1c6a276de27b7d7339a34749cc33fa87f077f921969c47185d34a887ae2/gast-0.7.0-py3-none-any.whl", hash = "sha256:99cbf1365633a74099f69c59bd650476b96baa5ef196fec88032b00b31ba36f7", size = 22966, upload-time = "2025-11-29T15:30:03.983Z" },
 ]
 
 [[package]]
@@ -147,21 +105,6 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/33/a0/ddb3a71359c1df61f3edc408936b5bda7ed402e78ae7e9ef6afd438577c6/jaxlib-0.9.2-cp312-cp312-manylinux_2_27_x86_64.whl", hash = "sha256:88b276a71f4f2071b1fd2e922abfd67c87c6977a551a1036febcea78d5ef7e22", size = 83318134, upload-time = "2026-03-18T23:27:16.237Z" },
-]
-
-[[package]]
-name = "jaxopt"
-version = "0.8.5"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "jax" },
-    { name = "jaxlib" },
-    { name = "numpy" },
-    { name = "scipy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/3a/da/ff7d7fbd13b8ed5e8458e80308d075fc649062b9f8676d3fc56f2dc99a82/jaxopt-0.8.5.tar.gz", hash = "sha256:2790bd68ef132b216c083a8bc7a2704eceb35a92c0fc0a1e652e79dfb1e9e9ab", size = 121709, upload-time = "2025-04-14T17:59:01.618Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/45/d8/55e0901103c93d57bab3b932294c216f0cbd49054187ce29f8f13808d530/jaxopt-0.8.5-py3-none-any.whl", hash = "sha256:ff221d1a86908ec759eb1e219ee1d12bf208a70707e961bf7401076fe7cf4d5e", size = 172434, upload-time = "2025-04-14T17:59:00.342Z" },
 ]
 
 [[package]]
@@ -371,23 +314,6 @@ wheels = [
 ]
 
 [[package]]
-name = "tensorflow-probability"
-version = "0.25.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "absl-py" },
-    { name = "cloudpickle" },
-    { name = "decorator" },
-    { name = "dm-tree" },
-    { name = "gast" },
-    { name = "numpy" },
-    { name = "six" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fe/b6/e116761ceeb880b7ad4c6a7e1203538754dd7dda42538f08d6daaf8dfa4d/tensorflow_probability-0.25.0-py2.py3-none-any.whl", hash = "sha256:f3f4d6431656c0122906888afe1b67b4400e82bd7f254b45b92e6c5b84ea8e3e", size = 6979403, upload-time = "2024-11-08T16:25:57.238Z" },
-]
-
-[[package]]
 name = "tf-quant-finance"
 version = "0.0.0"
 source = { virtual = "." }
@@ -398,15 +324,12 @@ dependencies = [
     { name = "jax-rocm7-pjrt" },
     { name = "jax-rocm7-plugin" },
     { name = "jaxlib" },
-    { name = "jaxopt" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "protobuf" },
     { name = "rocm", extra = ["devel", "libraries"] },
     { name = "rocm-sdk-core" },
     { name = "scipy" },
-    { name = "six" },
-    { name = "tensorflow-probability" },
 ]
 
 [package.dev-dependencies]
@@ -426,15 +349,12 @@ requires-dist = [
     { name = "jax-rocm7-pjrt", index = "https://rocm.nightlies.amd.com/v2/gfx1151/" },
     { name = "jax-rocm7-plugin", index = "https://rocm.nightlies.amd.com/v2/gfx1151/" },
     { name = "jaxlib", specifier = "==0.9.2" },
-    { name = "jaxopt", specifier = ">=0.8.5" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "pandas", specifier = ">=3.0.3" },
     { name = "protobuf", specifier = ">=7.36.0rc1" },
     { name = "rocm", extras = ["libraries", "devel"], specifier = "==7.14.0a20260608", index = "https://rocm.nightlies.amd.com/v2/gfx1151/" },
     { name = "rocm-sdk-core", specifier = "==7.14.0a20260608", index = "https://rocm.nightlies.amd.com/v2/gfx1151/" },
     { name = "scipy" },
-    { name = "six", specifier = ">=1.17.0" },
-    { name = "tensorflow-probability", specifier = ">=0.25.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -444,15 +364,4 @@ dev = [
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-timeout", specifier = ">=2.4.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
-]
-
-[[package]]
-name = "wrapt"
-version = "2.3.0rc2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/7b/d1/370cd471ee21bfd077a3c32e25c60366e0dc5c2df475eab98dbfa5118b3b/wrapt-2.3.0rc2.tar.gz", hash = "sha256:1fdc5475357ab9bb7131f2d70f72f55a1a7fb4ecf450b2868a61440e9ca2e9d1", size = 131510, upload-time = "2026-07-13T05:50:20.04Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9e/fe/9743f3f9d74e0a9c5c5719563895e9df58c8646c95c956cf4fab667b9290/wrapt-2.3.0rc2-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:1f50df40e79f7fc09454dc6d562fad76c7ac6d2f93359f61e2155530f899cb0b", size = 172434, upload-time = "2026-07-13T05:48:50.195Z" },
-    { url = "https://files.pythonhosted.org/packages/d8/1f/97c7a3e0cd0df429ab75d6cabdfb2a76fa992e0614f15517ebb4a6fbaa73/wrapt-2.3.0rc2-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:7e6595f3a161b056750f558ba02749fa0c3c3cfb410c9cc0cce756232a38f388", size = 170582, upload-time = "2026-07-13T05:48:57.059Z" },
-    { url = "https://files.pythonhosted.org/packages/db/0b/31d10370b50f53c884bd089e3566c40968c883feeb32b2fcee871d52be69/wrapt-2.3.0rc2-py3-none-any.whl", hash = "sha256:9b477192c1d0aaaf0956cbe6a377e9d62af87401a70f71d392863be70b1ff834", size = 61907, upload-time = "2026-07-13T05:50:18.734Z" },
 ]

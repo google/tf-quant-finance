@@ -33,14 +33,12 @@ including the regularity conditions that must be imposed on the coefficients
 """
 
 import abc
-import six
 from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.math import random_ops
 
 
-@six.add_metaclass(abc.ABCMeta)
-class ItoProcess(object):
+class ItoProcess(object, metaclass=abc.ABCMeta):
   """Base class for Ito processes.
 
     Represents a general Ito process:

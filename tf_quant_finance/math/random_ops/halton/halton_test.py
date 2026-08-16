@@ -15,7 +15,6 @@
 """Tests for random.halton."""
 
 import numpy as np
-from six.moves import range
 from tf_quant_finance import _tf as tf
 from tf_quant_finance._tf import tfp
 from tf_quant_finance._tf import test_util

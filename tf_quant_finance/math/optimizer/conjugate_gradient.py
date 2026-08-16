@@ -31,9 +31,8 @@ from  typing import Callable, Tuple
 
 from tf_quant_finance import _tf as tf
 
-# ponytail: tfp optimizer helpers (converged_all, linesearch.hager_zhang) — Phase 2
-# rewires to tfp.substrates.jax / jaxopt. Guarded so the module imports without tfp.
-# Provide a basic backtracking line search so CG works without tfp.
+# ponytail: tfp linesearch.hager_zhang replaced with a backtracking line search
+# (CG runs without tfp; the tfp namespace in _tf.py aliases converged_* helpers).
 from collections import namedtuple as _nt
 import jax
 import jax.numpy as jnp

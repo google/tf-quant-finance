@@ -14,7 +14,6 @@
 """Functions to create grids suitable for PDE pricing."""
 
 import numpy as np
-from six.moves import range
 from tf_quant_finance import _tf as tf
 
 

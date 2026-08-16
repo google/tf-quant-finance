@@ -28,11 +28,10 @@ def generate_mc_normal_draws(num_normal_draws,
                              seed=None,
                              dtype=None,
                              name=None):
-  # JAX shapes must be int; these are documented graph-compilation constants.
-  num_normal_draws = int(np.asarray(num_normal_draws).item()) if hasattr(num_normal_draws, "item") else int(num_normal_draws)
-  num_time_steps = int(np.asarray(num_time_steps).item()) if hasattr(num_time_steps, "item") else int(num_time_steps)
-  num_sample_paths = int(np.asarray(num_sample_paths).item()) if hasattr(num_sample_paths, "item") else int(num_sample_paths)
   """Generates normal random samples to be consumed by a Monte Carlo algorithm.
+
+  JAX shapes must be concrete ints; these three are graph-compilation
+  constants (cast from traced scalars).
 
   Many of Monte Carlo (MC) algorithms can be re-written so that all necessary
   random (or quasi-random) variables are drawn in advance as a `Tensor` of

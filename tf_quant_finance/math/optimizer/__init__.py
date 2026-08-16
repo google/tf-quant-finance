@@ -14,9 +14,9 @@
 """Optimization methods."""
 
 
-# ponytail: tfp optimizers reimplemented on scipy (tfp.substrates.jax is
-# incompatible with jax 0.9.2; jaxopt is deprecated). TF-compatible signatures
-# + result namedtuple.
+# tfp-compatible optimizer entry points, reimplemented on scipy.optimize
+# (L-BFGS-B with analytical gradients, 2-point fallback). Callers route here
+# through the _tf shim's tfp namespace; result shape matches tfp's namedtuple.
 import numpy as np
 import jax.numpy as jnp
 from collections import namedtuple as _namedtuple

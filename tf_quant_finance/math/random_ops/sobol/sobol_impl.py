@@ -22,7 +22,6 @@ import os
 from typing import Optional, Tuple
 
 import numpy as np
-from six.moves import range
 from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
