@@ -145,15 +145,33 @@ def convert_to_tensor(value, dtype=None, dtype_hint=None, name=None):
     except (TypeError, ValueError, IndexError):
         pass
     if d is None:
-        # TF infers float32 for Python float scalars/lists (numpy arrays keep
-        # their own dtype). Match that instead of JAX's float64 default.
-        if isinstance(value, (float, int)) and not isinstance(value, bool):
+        # TF infers int32 for Python int scalars/lists and float32 when floats
+        # are present (numpy arrays keep their own dtype). Match that instead
+        # of JAX's float64 default.
+        if isinstance(value, bool):
+            pass
+        elif isinstance(value, (int, np.integer)):
+            d = np.int32
+        elif isinstance(value, float):
             d = np.float32
-        elif isinstance(value, (list, tuple)) and value and _builtins.all(
-                isinstance(v, (float, int)) and not isinstance(v, bool)
-                for v in value):
-            d = np.float32
+        elif isinstance(value, (list, tuple)) and value:
+            flat = [v for v in _iter_numeric(value)]
+            if flat and _builtins.all(isinstance(v, (int, np.integer)) and not isinstance(v, bool)
+                                      for v in flat):
+                d = np.int32
+            elif flat and _builtins.all(isinstance(v, (int, float, np.integer, np.floating))
+                                        and not isinstance(v, bool) for v in flat):
+                d = np.float32
     return jnp.asarray(value, dtype=d)
+
+
+def _iter_numeric(value):
+    """Yield scalar leaves of nested lists/tuples."""
+    for v in value:
+        if isinstance(v, (list, tuple)):
+            yield from _iter_numeric(v)
+        else:
+            yield v
 
 
 def constant(value, dtype=None, shape=None, name=None):
