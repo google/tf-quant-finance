@@ -8,6 +8,48 @@ etc. resolve to JAX equivalents. Deleted in Phase 6 once modules are natively JA
 `ponytail:` this is deliberate scaffolding with a known ceiling (semantic gaps in
 random key threading and GradientTape); upgrade path = convert modules natively
 and drop the import. Not part of the public API.
+
+=============================================================
+SHIM CONTRACT (read this before editing _tf.py)
+=============================================================
+
+Three kinds of names live here:
+
+(A) TF-API compat — hand-written below, TF signature/semantics:
+    - tensor ops with TF kwargs jnp rejects: convert_to_tensor, concat,
+      stack, where, pad (static lax.pad config), gather/gather_nd
+      (batch_dims), transpose(perm=), scan (TF fn(accum, args) order),
+      while_loop (cond/body(*loop_vars) unpack + namedtuple/dataclass
+      reconstruction + maximum_iterations counter), cond, map_fn,
+      top_k, one_hot(depth=), unique, range, fill(dims=), meshgrid.
+    - control/state: name_scope (no-op), TensorArray (JAX pytree,
+      functional writes), Session (eager eval), compat.v1 aliases.
+    - RNG: stateless_uniform/stateless_normal are BIT-EXACT TF Philox
+      (alg='philox'; GenerateKey scramble + BoxMuller — verified vs
+      TF 2.21). PSEUDO/gamma/poisson stay jax.random. Integer-dtype
+      stateless_uniform is jax floor+cast (NOT TF-exact; QMC tests
+      depend on it).
+    - test: TestCase (absltest + TF asserts + evaluate()), test_util
+      no-op graph/eager decorators.
+    - tfp namespace (optimizer/distributions/stats) used by 8 test
+      files; lazy-imports math/optimizer (circularity).
+    - experimental_get_compiler_ir: real HLO via jax.jit(f).lower().
+
+(B) Auto-mirrored jnp.* — the loop below copies every public jnp name
+    onto this module (wrapped to drop TF's ubiquitous name= kwarg).
+    NOTE: this shadows builtins INSIDE _tf.py: all/max/min/sum/abs/
+    round are jnp functions here — use _builtins.* in shim code.
+
+(C) Known semantic gaps (do not "fix" without reading
+    MIGRATION_STATUS.md):
+    - top_k tie-break: TF picks smaller index; the faithful version
+      diverges andersen_lake's adaptive integration (OOM) — see the
+      ponytail note at _top_k.
+    - gradients()/GradientTape: cannot rebuild a trace from a
+      concrete tensor; single-scalar jax.grad only.
+    - while_loop: no reverse-mode VJP (optimizers must fall back to
+      numerical gradients).
+    - string tensors: numpy str arrays (pricing_platform only).
 """
 import sys
 import types as _ptypes
@@ -1175,11 +1217,9 @@ class TestCase(_absltest.TestCase):
         return tempfile.gettempdir()
 
     def cached_session(self, *a, **k):
-        import contextlib
         return contextlib.nullcontext()
 
     def session(self, *a, **k):
-        import contextlib
         return contextlib.nullcontext()
 
 

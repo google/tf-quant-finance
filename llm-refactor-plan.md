@@ -1,5 +1,11 @@
 # LLM-AI Refactor Plan — tf-quant-finance JAX Migration
 
+> STATUS: items 1, 2, 6, 8 executed (commits b42c042e et al.); item 3
+> (shim contract header) and 9 (import hoist) executed in the follow-up
+> session. Items 4, 5, 7 deliberately skipped — 4 and 5 after execution
+> analysis showed churn without behavior change (see notes inline).
+
+
 Audit against the LLM AI Coding Agent principles: flat explicit architecture,
 regenerable files, no dead flexibility, docs-before-code, minimal deps.
 The migration (shim-based `tf` → JAX) is functionally complete (1328+ passed);
@@ -35,14 +41,14 @@ this plan is about making the code predictable for the next LLM maintainer.
 
 ## Medium
 
-4. **`_TfpOptimizer` static methods → module functions** — `_tf.py` defines
+4. **[SKIPPED — lazy-import boundary, not a namespace vanity]** `_TfpOptimizer` static methods → module functions — `_tf.py` defines
    `bfgs_minimize`/`lbfgs_minimize`/`converged_all` as staticmethods of a
    namespace class that has no state. Per the OOP guidance (no class for
    stateless logic), these belong as module-level functions in
    `math/optimizer/__init__.py` (already exist there). The `tfp` namespace in
    `_tf.py` should alias them, not re-wrap.
 
-5. **`test_util` import churn** — 120 test files do
+5. **[SKIPPED — 120-file churn, zero behavior change]** `test_util` import churn — 120 test files do
    `from tf_quant_finance._tf import test_util`. A re-export from
    `tf_quant_finance/__init__.py` or a single `tf_quant_finance.testing`
    module would centralize this. Low risk, high consistency win.
