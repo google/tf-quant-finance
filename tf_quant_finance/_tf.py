@@ -144,6 +144,15 @@ def convert_to_tensor(value, dtype=None, dtype_hint=None, name=None):
             return np.asarray(value, dtype=str if d is None else d)
     except (TypeError, ValueError, IndexError):
         pass
+    if d is None:
+        # TF infers float32 for Python float scalars/lists (numpy arrays keep
+        # their own dtype). Match that instead of JAX's float64 default.
+        if isinstance(value, (float, int)) and not isinstance(value, bool):
+            d = np.float32
+        elif isinstance(value, (list, tuple)) and value and _builtins.all(
+                isinstance(v, (float, int)) and not isinstance(v, bool)
+                for v in value):
+            d = np.float32
     return jnp.asarray(value, dtype=d)
 
 
@@ -351,16 +360,17 @@ nest = _ptypes.SimpleNamespace(
 )
 data = _ptypes.SimpleNamespace()
 
-
 class _ProtoMsg:
     """Stub for TF protobuf message classes (tf.train.Example etc.).
-    ponytail: real serialization is unimplemented; only here so experimental.io
-    imports under JAX. Reimplement with numpy/plain files if needed (Phase 3)."""
+    ponytail: serialization is pickle-based (matches _TFRecordWriter); only
+    needed so experimental.io round-trips. Not the protobuf wire format."""
     def __init__(self, *args, **kwargs):
         self.__dict__.update(kwargs)
     def SerializeToString(self):
-        return b""
+        return _pickle.dumps(self)
     def ParseFromString(self, data):
+        obj = _pickle.loads(bytes(data)) if isinstance(data, (bytes, np.bytes_)) else data
+        self.__dict__.update(getattr(obj, '__dict__', {}))
         return None
 
 
@@ -374,19 +384,56 @@ train = _ptypes.SimpleNamespace(
 
 
 class _TFRecordWriter:
-    def __init__(self, *args, **kwargs):
-        pass
-    def write(self, *args, **kwargs):
-        pass
+    """Minimal TFRecordWriter: pickle each record to the file.
+    ponytail: not the TFRecord wire format — a pickle stream, enough for the
+    experimental.io round-trip tests. Reimplement with the real format if
+    cross-tool tfrecord files are ever needed."""
+    def __init__(self, path, *args, **kwargs):
+        self._fh = open(path, 'wb')
+    def write(self, record, *args, **kwargs):
+        _pickle.dump(record, self._fh)
+    def flush(self):
+        self._fh.flush()
     def close(self):
-        pass
+        self._fh.close()
+
+
+class _TfRecordIterator:
+    """Iterator exposing both next() and __next__ (TF iterators support both)."""
+    def __init__(self, records):
+        self._it = iter(records)
+    def __next__(self):
+        return next(self._it)
+    def next(self):
+        return next(self._it)
+
+
+class _TFRecordDataset:
+    """Minimal TFRecordDataset: yields records written by _TFRecordWriter."""
+    def __init__(self, filenames, *args, **kwargs):
+        self._records = []
+        if isinstance(filenames, (str, bytes)):
+            filenames = [filenames]
+        for fn in filenames:
+            try:
+                with open(fn, 'rb') as fh:
+                    while True:
+                        try:
+                            self._records.append(_pickle.load(fh))
+                        except EOFError:
+                            break
+            except FileNotFoundError:
+                pass
+    def as_numpy_iterator(self):
+        return _TfRecordIterator(self._records)
 
 
 io = _ptypes.SimpleNamespace(
     TFRecordWriter=_TFRecordWriter,
-    TFRecordDataset=lambda *a, **k: iter(()),
+    TFRecordDataset=_TFRecordDataset,
     gfile=lambda *a, **k: None,
 )
+data.TFRecordDataset = _TFRecordDataset
 summary = _ptypes.SimpleNamespace()
 
 
@@ -495,23 +542,20 @@ def _cumsum(x, axis=0, exclusive=False, reverse=False, name=None):
 math.cumsum = _cumsum
 cumsum = _cumsum
 def _top_k(a, k=1, sorted=True):
-    # jax.lax.top_k has 'if' for k in older JAX versions, causing issues
-    # with traced k. Use argsort as workaround.
-    idx = jnp.argsort(a, axis=-1)
-    # dynamic_slice_in_dim requires concrete k; try to convert
+    # TF top_k: descending order; ties broken toward the SMALLER index.
+    # A stable descending argsort gives exactly that (JAX's quicksort is
+    # unstable and breaks the tie the other way).
+    idx = jnp.argsort(-jnp.asarray(a), axis=-1, stable=True)
     import numpy as np
     try:
         k_concrete = int(k)
     except Exception:
-        # k is traced; use full slice and mask (less efficient but works)
-        # For now, raise an informative error
         raise TypeError(
             "tf.math.top_k with traced k is not supported by JAX. "
             "k must be a concrete integer."
         )
-    start = a.shape[-1] - k_concrete
-    idx = jax.lax.dynamic_slice_in_dim(idx, start, k_concrete, axis=-1)
-    vals = jax.lax.dynamic_slice_in_dim(a, start, k_concrete, axis=-1)
+    idx = jax.lax.dynamic_slice_in_dim(idx, 0, k_concrete, axis=-1)
+    vals = jnp.take_along_axis(jnp.asarray(a), idx, axis=-1)
     return _ptypes.SimpleNamespace(values=vals, indices=idx)
 math.top_k = _top_k
 def _divide_no_nan(x, y, name=None):
