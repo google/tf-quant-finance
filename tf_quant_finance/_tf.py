@@ -1539,9 +1539,17 @@ unique = _unique
 
 def _gather_nd(params, indices, name=None, batch_dims=0, **kw):
     """tf.gather_nd: gather elements at N-dimensional indices.
-    indices shape [..., num_dims] -> output shape indices.shape[:-1] + params.shape[num_dims:]."""
+    indices shape [..., num_dims] -> output shape indices.shape[:-1] + params.shape[num_dims:].
+    batch_dims: the leading dims of params/indices are paired (vmapped),
+    gather applies to the remaining trailing dims."""
     params = jnp.asarray(params)
     indices = jnp.asarray(indices)
+    if batch_dims:
+        def _g(p, idx):
+            return _gather_nd(p, idx)
+        for _ in range(batch_dims):
+            _g = jax.vmap(_g)
+        return _g(params, indices)
     if indices.ndim == 1:
         return params[tuple(indices)]
     # Split indices into per-dimension arrays and use tuple indexing

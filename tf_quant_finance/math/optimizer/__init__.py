@@ -32,20 +32,27 @@ def _run_quasi_newton(value_and_gradients_function,
     del kw
     init = jnp.asarray(initial_position)
 
-    def _run_scipy(fun, x0):
+    def _run_scipy(fun, x0, grad_fn=None, value_fn=None):
         """Run scipy L-BFGS-B. Try analytical gradients first, fallback to numerical."""
-        original_fn = getattr(fun, '__wrapped__', None)
-        if original_fn is not None:
+        if value_fn is not None:
             def value_only(x):
-                return float(np.asarray(original_fn(jnp.asarray(x, dtype=init.dtype))))
+                return float(np.asarray(value_fn(jnp.asarray(x, dtype=init.dtype))))
         else:
-            def value_only(x):
-                val, _ = fun(jnp.asarray(x, dtype=init.dtype))
-                return float(np.asarray(val))
-        # Try analytical gradient first (faster + more accurate)
-        def analytic_grad(x):
-            _, g = fun(jnp.asarray(x, dtype=init.dtype))
-            return np.asarray(g, dtype=np.float64)
+            original_fn = getattr(fun, '__wrapped__', None)
+            if original_fn is not None:
+                def value_only(x):
+                    return float(np.asarray(original_fn(jnp.asarray(x, dtype=init.dtype))))
+            else:
+                def value_only(x):
+                    val, _ = fun(jnp.asarray(x, dtype=init.dtype))
+                    return float(np.asarray(val))
+        if grad_fn is None:
+            def analytic_grad(x):
+                _, g = fun(jnp.asarray(x, dtype=init.dtype))
+                return np.asarray(g, dtype=np.float64)
+        else:
+            def analytic_grad(x):
+                return np.asarray(grad_fn(jnp.asarray(x, dtype=init.dtype)), dtype=np.float64)
         import scipy.optimize as _sopt
         # Use caller's tolerance for convergence criteria (default 1e-8)
         tol_val = float(np.asarray(tolerance)) if tolerance is not None else 1e-8
@@ -73,25 +80,34 @@ def _run_quasi_newton(value_and_gradients_function,
 
     # tfp supports batched initial_position [N, D] (N independent solves).
     if init.ndim > 1:
-        def make_single_fn(i):
-            def single_fn(x, *args):
-                # x has shape (D,). Build full batch with x at position i,
-                # others at their initial values (batch elements independent).
+        original = getattr(value_and_gradients_function, '__wrapped__', None)
+
+        def make_single_fns(i):
+            # x has shape (D,). Build full batch with x at position i,
+            # others at their initial values (batch elements independent).
+            def value_fn(x):
+                full_x = init.at[i].set(x)
+                if original is not None:
+                    v = jnp.asarray(original(full_x))
+                else:
+                    v, _ = value_and_gradients_function(full_x)
+                    v = jnp.asarray(v)
+                return v[i] if v.ndim > 0 else v
+
+            def grad_fn(x):
                 full_x = init.at[i].set(x)
                 val, grad = value_and_gradients_function(full_x)
                 val = jnp.asarray(val)
                 grad = jnp.asarray(grad)
-                if val.ndim > 0:
-                    return val[i], grad[i] if grad.ndim > 1 else grad
-                else:
-                    return val, grad
-            return single_fn
+                return grad[i] if grad.ndim > 1 else grad
+            return value_fn, grad_fn
 
         # Python loop over batch elements with scipy L-BFGS-B
         results = []
         for i in range(init.shape[0]):
+            value_fn_i, grad_fn_i = make_single_fns(i)
             params_i, success_i, nit_i, val_i, grad_i = _run_scipy(
-                make_single_fn(i), init[i])
+                value_fn_i, init[i], grad_fn_i, value_fn=value_fn_i)
             results.append((params_i, success_i, nit_i, val_i, grad_i))
         params = jnp.stack([r[0] for r in results])
         it = jnp.stack([jnp.asarray(r[2]) for r in results])
