@@ -190,7 +190,7 @@ def convert_to_tensor(value, dtype=None, dtype_hint=None, name=None):
         # TF infers int32 for Python int scalars/lists and float32 when floats
         # are present (numpy arrays keep their own dtype). Match that instead
         # of JAX's float64 default.
-        if isinstance(value, bool):
+        if isinstance(value, _builtins.bool):
             pass
         elif isinstance(value, (int, np.integer)):
             d = np.int32
@@ -198,11 +198,11 @@ def convert_to_tensor(value, dtype=None, dtype_hint=None, name=None):
             d = np.float32
         elif isinstance(value, (list, tuple)) and value:
             flat = [v for v in _iter_numeric(value)]
-            if flat and _builtins.all(isinstance(v, (int, np.integer)) and not isinstance(v, bool)
+            if flat and _builtins.all(isinstance(v, (int, np.integer)) and not isinstance(v, _builtins.bool)
                                       for v in flat):
                 d = np.int32
             elif flat and _builtins.all(isinstance(v, (int, float, np.integer, np.floating))
-                                        and not isinstance(v, bool) for v in flat):
+                                        and not isinstance(v, _builtins.bool) for v in flat):
                 d = np.float32
     return jnp.asarray(value, dtype=d)
 
