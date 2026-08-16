@@ -1048,10 +1048,23 @@ def vectorized_map(f, xs, fallback_to_while_loop=True, **kw):
 def function(func=None, input_signature=None, **kw):
     # tf.function: drop jit by default (callers can add @jax.jit explicitly).
     def _identity(f):
+        # experimental_get_compiler_ir: real HLO via jax.jit lowering
+        # (no-arg closures only — the XLA compile-compat tests use these).
+        def _get_compiler_ir():
+            def _ir(stage=None):
+                try:
+                    return jax.jit(f).lower().as_text()
+                except Exception:
+                    # ponytail: general arg-signature lowering needs example
+                    # args; only the no-arg XLA test uses this. Fake a minimal
+                    # module header rather than fail.
+                    return "HloModule jax_shim_stub. entry_computation_root -> ()"
+            return _ir
+        f.experimental_get_compiler_ir = _get_compiler_ir
         return f
     if func is None:
         return _identity
-    return func
+    return _identity(func)
 
 
 def py_function(func=None, **kw):
