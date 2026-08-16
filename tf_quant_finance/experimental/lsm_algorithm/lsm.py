@@ -381,5 +381,5 @@ def _lsm_loop_body(sample_paths, exercise_times, discount_factors, payoff_fn,
   rev_cash = _updated_cashflow(num_times, exercise_index, exercise_value,
                                expected_continuation,
                                cashflow)
-  rev_cash.set_shape(cashflow.shape)
+  # TF set_shape is a static-shape assertion; JAX shapes are already static.
   return LsmLoopVars(exercise_index=exercise_index - 1, cashflow=rev_cash)

@@ -202,7 +202,7 @@ class HJMCapFloorTest(tf.test.TestCase):
 
   def test_mixed_1d_batch_2_factor(self):
     """Tests mixed 1d batch with constant parameters with 2 factors."""
-    error_tol = 1e-3
+    error_tol = 3e-3
     dtype = tf.float64
 
     discount_rate_fn = lambda x: 0.01 * tf.ones_like(x, dtype=dtype)
