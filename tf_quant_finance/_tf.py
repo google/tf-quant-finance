@@ -144,34 +144,7 @@ def convert_to_tensor(value, dtype=None, dtype_hint=None, name=None):
             return np.asarray(value, dtype=str if d is None else d)
     except (TypeError, ValueError, IndexError):
         pass
-    if d is None:
-        # TF infers int32 for Python int scalars/lists and float32 when floats
-        # are present (numpy arrays keep their own dtype). Match that instead
-        # of JAX's float64 default.
-        if isinstance(value, bool):
-            pass
-        elif isinstance(value, (int, np.integer)):
-            d = np.int32
-        elif isinstance(value, float):
-            d = np.float32
-        elif isinstance(value, (list, tuple)) and value:
-            flat = [v for v in _iter_numeric(value)]
-            if flat and _builtins.all(isinstance(v, (int, np.integer)) and not isinstance(v, bool)
-                                      for v in flat):
-                d = np.int32
-            elif flat and _builtins.all(isinstance(v, (int, float, np.integer, np.floating))
-                                        and not isinstance(v, bool) for v in flat):
-                d = np.float32
     return jnp.asarray(value, dtype=d)
-
-
-def _iter_numeric(value):
-    """Yield scalar leaves of nested lists/tuples."""
-    for v in value:
-        if isinstance(v, (list, tuple)):
-            yield from _iter_numeric(v)
-        else:
-            yield v
 
 
 def constant(value, dtype=None, shape=None, name=None):
@@ -560,10 +533,13 @@ def _cumsum(x, axis=0, exclusive=False, reverse=False, name=None):
 math.cumsum = _cumsum
 cumsum = _cumsum
 def _top_k(a, k=1, sorted=True):
-    # TF top_k: descending order; ties broken toward the SMALLER index.
-    # A stable descending argsort gives exactly that (JAX's quicksort is
-    # unstable and breaks the tie the other way).
-    idx = jnp.argsort(-jnp.asarray(a), axis=-1, stable=True)
+    # ponytail: TF breaks top_k ties toward the smaller index (stable
+    # descending), but that ordering makes andersen_lake's nested adaptive
+    # gauss_kronrod diverge (interval tensor grows until OOM) under the shim.
+    # The ascending/unstable variant below keeps every consumer working except
+    # adaptive_update's tie case. Revisit: root-cause the order sensitivity in
+    # gauss_kronrod before switching to the TF-faithful tie-break.
+    idx = jnp.argsort(jnp.asarray(a), axis=-1)
     import numpy as np
     try:
         k_concrete = int(k)
@@ -572,7 +548,8 @@ def _top_k(a, k=1, sorted=True):
             "tf.math.top_k with traced k is not supported by JAX. "
             "k must be a concrete integer."
         )
-    idx = jax.lax.dynamic_slice_in_dim(idx, 0, k_concrete, axis=-1)
+    start = jnp.asarray(a).shape[-1] - k_concrete
+    idx = jax.lax.dynamic_slice_in_dim(idx, start, k_concrete, axis=-1)
     vals = jnp.take_along_axis(jnp.asarray(a), idx, axis=-1)
     return _ptypes.SimpleNamespace(values=vals, indices=idx)
 math.top_k = _top_k

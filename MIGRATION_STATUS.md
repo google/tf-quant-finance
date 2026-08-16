@@ -1,17 +1,17 @@
 # TF Quant Finance → JAX Migration: Status
 
-**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: ~1340 passed, ~20 failed**  
+**Branch:** `feat/jax-migration` | **JAX 0.9.2** | **Full suite: ~1340 passed, ~20 failed**
 **250+ commits** | **Shim-based incremental migration**
 
 ## Current state
 
 Latest full-suite runs (Sept 2026 refactor + failure-fix session):
 
-| run | failed | passed | notes |
-|---|---|---|---|
-| baseline (pre-refactor) | 34 | 1328 | reference point |
-| after Philox + OIS + HJM batch | 26 | 1335 | +7 passes |
-| after io/top_k/float32/xla fixes | ~20 | ~1340 | pending final verify |
+| run                              | failed | passed | notes                |
+| -------------------------------- | ------ | ------ | -------------------- |
+| baseline (pre-refactor)          | 34     | 1328   | reference point      |
+| after Philox + OIS + HJM batch   | 26     | 1335   | +7 passes            |
+| after io/top_k/float32/xla fixes | ~20    | ~1340  | pending final verify |
 
 ## Failure taxonomy (remaining ~20)
 
@@ -74,7 +74,7 @@ Latest full-suite runs (Sept 2026 refactor + failure-fix session):
 ## Running tests
 
 ```bash
-XLA_PYTHON_CLIENT_PREALLOCATE=false XLA_PYTHON_CLIENT_MEM_FRACTION=0.8 \
+XLA_PYTHON_CLIENT_PREALLOCATE=false XLA_PYTHON_CLIENT_MEM_FRACTION=0.7 \
   nice -n 19 uv run pytest tf_quant_finance -q --tb=no -p no:warnings \
   --ignore=tf_quant_finance/experimental/pricing_platform \
   --deselect tf_quant_finance/experimental/svi/calibration_test.py::RealMarketDataCalibrationTest::test_real_market_data_calibration_conjugate_gradient_optimizer \

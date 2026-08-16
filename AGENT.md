@@ -11,26 +11,27 @@ Always set these environment variables before running pytest:
 # High memory (~54GB):      MEM_FRACTION=0.75
 # Max memory (~70GB):       MEM_FRACTION=0.8
 export XLA_PYTHON_CLIENT_PREALLOCATE=false
-export XLA_PYTHON_CLIENT_MEM_FRACTION=0.8
+export XLA_PYTHON_CLIENT_MEM_FRACTION=0.7
 ```
 
 ### Recommended test commands
 
 ```bash
 # Full suite (serial, ~8-10 min, ~54GB GPU mem at 0.75)
-XLA_PYTHON_CLIENT_PREALLOCATE=false XLA_PYTHON_CLIENT_MEM_FRACTION=0.8 \
+XLA_PYTHON_CLIENT_PREALLOCATE=false XLA_PYTHON_CLIENT_MEM_FRACTION=0.7 \
   nice -n 19 uv run pytest tf_quant_finance/ -n 1 --tb=no -q -p no:warnings
 
 # Single module (fast)
-XLA_PYTHON_CLIENT_PREALLOCATE=false XLA_PYTHON_CLIENT_MEM_FRACTION=0.8 \
+XLA_PYTHON_CLIENT_PREALLOCATE=false XLA_PYTHON_CLIENT_MEM_FRACTION=0.7 \
   nice -n 19 uv run pytest tf_quant_finance/models/hjm/ -n 1 --tb=no -q -p no:warnings
 
 # Single test
-XLA_PYTHON_CLIENT_PREALLOCATE=false XLA_PYTHON_CLIENT_MEM_FRACTION=0.8 \
+XLA_PYTHON_CLIENT_PREALLOCATE=false XLA_PYTHON_CLIENT_MEM_FRACTION=0.7 \
   nice -n 19 uv run pytest "tf_quant_finance/models/hjm/quasi_gaussian_hjm_test.py::HJMModelTest::test_correctness_1d" -x -q
 ```
 
 ### Rules
+
 - **Always use `-n 1`** (serial). Parallel workers (`-n 4+`) cause segfaults on gfx1151.
 - **Always use `nice -n 19`** to avoid starving the system.
 - **Always set `XLA_PYTHON_CLIENT_PREALLOCATE=false`** to avoid pre-allocating all GPU memory.
@@ -46,6 +47,7 @@ XLA_PYTHON_CLIENT_PREALLOCATE=false XLA_PYTHON_CLIENT_MEM_FRACTION=0.8 \
 - **Status:** See `MIGRATION_STATUS.md` for per-module pass rates and known issues
 
 ## Key Files
+
 - `tf_quant_finance/_tf.py` — the TF→JAX shim (~1600+ lines)
 - `conftest.py` — enables x64 + initializes ROCm
 - `MIGRATION_STATUS.md` — progress tracker
