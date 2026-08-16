@@ -14,12 +14,11 @@
 """Optimization methods."""
 
 
-# ponytail: tfp optimizers rewired to jaxopt (tfp.substrates.jax is incompatible
-# with jax 0.9.2). Provide tfp-compatible signatures + result namedtuples.
-import jax
+# ponytail: tfp optimizers reimplemented on scipy (tfp.substrates.jax is
+# incompatible with jax 0.9.2; jaxopt is deprecated). TF-compatible signatures
+# + result namedtuple.
 import numpy as np
 import jax.numpy as jnp
-import jaxopt
 from collections import namedtuple as _namedtuple
 
 _OptResults = _namedtuple(
@@ -28,7 +27,7 @@ _OptResults = _namedtuple(
      "objective_value", "objective_gradient", "num_iterations", "status"])
 
 
-def _run_quasi_newton(solver_cls, value_and_gradients_function,
+def _run_quasi_newton(value_and_gradients_function,
                       initial_position, tolerance, max_iterations, **kw):
     del kw
     init = jnp.asarray(initial_position)
@@ -95,7 +94,6 @@ def _run_quasi_newton(solver_cls, value_and_gradients_function,
                 make_single_fn(i), init[i])
             results.append((params_i, success_i, nit_i, val_i, grad_i))
         params = jnp.stack([r[0] for r in results])
-        err = jnp.stack([jnp.asarray(0.0 if r[1] else 1.0) for r in results])
         it = jnp.stack([jnp.asarray(r[2]) for r in results])
         val = jnp.stack([jnp.asarray(r[3]) for r in results])
         grad = jnp.stack([r[4] for r in results])
@@ -103,7 +101,6 @@ def _run_quasi_newton(solver_cls, value_and_gradients_function,
     else:
         params, success, nit, val, grad = _run_scipy(
             value_and_gradients_function, init)
-        err = jnp.asarray(0.0 if success else 1.0)
         it = jnp.asarray(nit)
         converged = jnp.asarray(bool(success))
     return _OptResults(
@@ -119,13 +116,13 @@ def _run_quasi_newton(solver_cls, value_and_gradients_function,
 
 def bfgs_minimize(value_and_gradients_function, initial_position,
                   tolerance=1e-8, max_iterations=50, **kwargs):
-    return _run_quasi_newton(jaxopt.BFGS, value_and_gradients_function,
+    return _run_quasi_newton(value_and_gradients_function,
                              initial_position, tolerance, max_iterations, **kwargs)
 
 
 def lbfgs_minimize(value_and_gradients_function, initial_position,
                    tolerance=1e-8, max_iterations=50, **kwargs):
-    return _run_quasi_newton(jaxopt.LBFGS, value_and_gradients_function,
+    return _run_quasi_newton(value_and_gradients_function,
                              initial_position, tolerance, max_iterations, **kwargs)
 
 
@@ -199,8 +196,6 @@ def _diff_evol_minimize(function, initial_population=None, initial_position=None
 
 
 differential_evolution_minimize = _diff_evol_minimize
-differential_evolution_one_step = None
-nelder_mead_one_step = None
 
 from tf_quant_finance.math.optimizer.conjugate_gradient import ConjugateGradientParams
 from tf_quant_finance.math.optimizer.conjugate_gradient import minimize as conjugate_gradient_minimize
@@ -208,14 +203,12 @@ from tf_quant_finance.math.optimizer.conjugate_gradient import minimize as conju
 _allowed_symbols = [
     'bfgs_minimize',
     'differential_evolution_minimize',
-    'differential_evolution_one_step',
     'conjugate_gradient_minimize',
     'converged_all',
     'converged_any',
     'lbfgs_minimize',
     'linesearch',
     'nelder_mead_minimize',
-    'nelder_mead_one_step',
     'ConjugateGradientParams',
 ]
 

@@ -11,7 +11,11 @@ and drop the import. Not part of the public API.
 """
 import sys
 import types as _ptypes
+import builtins as _builtins
 import contextlib
+import copy as _copy
+import functools as _functools
+import pickle as _pickle
 
 import numpy as np
 import jax
@@ -33,12 +37,7 @@ def _drop_name(fn):
     def wrapper(*args, name=None, **kwargs):
         return fn(*args, **kwargs)
     wrapper.__name__ = getattr(fn, "__name__", "op")
-    try:
-        import functools
-        wrapper = functools.wraps(fn)(wrapper)
-    except Exception:
-        pass
-    return wrapper
+    return _functools.wraps(fn)(wrapper)
 
 
 # ---------------------------------------------------------------------------
@@ -83,9 +82,12 @@ for _dt in [float16, float32, float64, bfloat16, int8, int16, int32, int64,
     _dt.name = _dt.__name__
     _dt.is_unsigned = _dt in _unsigned
     _dt.size = jnp.dtype(_dt).itemsize
-    import numpy as _np
-    _dt.min = _np.iinfo(_dt).min if _dt not in (bool,) and _np.issubdtype(_np.dtype(_dt), _np.integer) else 0
-    _dt.max = _np.iinfo(_dt).max if _dt not in (bool,) and _np.issubdtype(_np.dtype(_dt), _np.integer) else 0
+    if _dt is not bool and np.issubdtype(np.dtype(_dt), np.integer):
+        _dt.min = np.iinfo(_dt).min
+        _dt.max = np.iinfo(_dt).max
+    else:
+        _dt.min = 0
+        _dt.max = 0
 
 
 def as_dtype(x):
@@ -107,16 +109,14 @@ class TensorSpec:
 def Variable(initial_value=None, dtype=None, trainable=True, name=None, **kw):
     """tf.Variable shim: returns a mutable numpy array (for test counters etc.)."""
     import numpy as _np
-    d = dtype if dtype is not None else _np.float32
-    return _np.asarray(initial_value, dtype=d)
+    d = dtype if dtype is not None else np.float32
+    return np.asarray(initial_value, dtype=d)
 
 
 def assign_add(ref, value, **kw):
     """tf.compat.v1.assign_add shim: in-place add on numpy array."""
-    import numpy as _np
-    ref += _np.asarray(value, dtype=ref.dtype)
+    ref += np.asarray(value, dtype=ref.dtype)
     return ref
-Module = object
 
 
 
@@ -158,14 +158,6 @@ def cast(x, dtype, name=None):
     return jnp.asarray(x).astype(dtype)
 
 dtypes.cast = cast
-
-
-def _drop_name(fn):
-    """Wrap a jnp op so it accepts (and ignores) TF's name= kwarg."""
-    def wrapper(*args, name=None, **kwargs):
-        return fn(*args, **kwargs)
-    wrapper.__name__ = getattr(fn, "__name__", "op")
-    return wrapper
 
 
 zeros = _drop_name(jnp.zeros)
@@ -254,8 +246,7 @@ class TensorShape:
         return len(self._dims)
 
     def is_fully_defined(self):
-        import builtins
-        return builtins.all(d is not None for d in self._dims)
+        return _builtins.all(d is not None for d in self._dims)
 
     def num_elements(self):
         n = 1
@@ -292,7 +283,8 @@ def name_scope(*args, **kwargs):
 # ---------------------------------------------------------------------------
 # compat / types / nn / sparse / xla stub namespaces
 # ---------------------------------------------------------------------------
-compat = _this  # tf.compat.v1 / v2 -> resolves back to the same surface
+# tf.compat.v1/v2 resolve back to this same surface (Session etc. are module attrs).
+compat = _this
 
 
 class _Session:
@@ -305,14 +297,7 @@ class _Session:
         return np.asarray(tensors)
 
 
-v1 = _ptypes.SimpleNamespace()
-v1.Session = _Session
-v1.global_variables_initializer = lambda *a, **kw: None
-v1.local_variables_initializer = lambda *a, **kw: None
-compat.v1 = v1
-
-# Also add Session at module level for tf.Session() calls.
-Session = _Session
+Session = _Session  # tf.Session() used by grids.py / conjugate_gradient.py
 compat.v1 = _this  # type: ignore[attr-defined]
 compat.v2 = _this  # type: ignore[attr-defined]
 
@@ -425,8 +410,7 @@ class TensorArray:
         self._data = jnp.zeros((self.size,) + self.element_shape, dtype=self.dtype)
 
     def write(self, index, value):
-        import copy
-        new = copy.copy(self)
+        new = _copy.copy(self)
         value = jnp.asarray(value, dtype=self.dtype)
         new._data = new._data.at[index].set(value)
         return new
@@ -438,8 +422,7 @@ class TensorArray:
         return self._data
 
     def unstack(self, value):
-        import copy
-        new = copy.copy(self)
+        new = _copy.copy(self)
         new._data = jnp.asarray(value)
         return new
 
@@ -499,15 +482,11 @@ def _cumsum(x, axis=0, exclusive=False, reverse=False, name=None):
         x = jnp.flip(x, axis)
     out = jnp.cumsum(x, axis=axis)
     if exclusive:
-        # drop the first element along axis, prepend a zero
-        import builtins
+        # exclusive cumsum: prepend a zero along axis, drop the last element
         zeros_shape = list(out.shape)
         zeros_shape[axis] = 1
         z = jnp.zeros(zeros_shape, dtype=out.dtype)
-        out = jnp.concatenate([z, out], axis=axis)
-        sl = [builtins.slice(None)] * out.ndim
-        sl[axis] = builtins.slice(None, -1)
-        out = out[tuple(sl)]
+        out = jnp.concatenate([z, out[..., :-1]], axis=axis)
     if reverse:
         out = jnp.flip(out, axis)
     return out
@@ -553,7 +532,7 @@ def _segment_sum(data, segments, num_segments=None, **kw):
     return _jops.segment_sum(data, segments, num_segments=num_segments)
 math.segment_sum = _segment_sum
 math.segment_prod = lambda data, segments, num_segments=None, **kw: _jops.segment_prod(data, segments, num_segments=num_segments)
-math.nextafter = _np_nextafter = jnp.nextafter
+math.nextafter = jnp.nextafter
 # ponytail: tf.math.brentq has no jax builtin; delegate to the repo's own root
 # search or scipy. Wired when a caller actually needs it.
 def _brentq_missing(*args, **kwargs):
@@ -970,8 +949,7 @@ class TestCase(_absltest.TestCase):
     def assertAlmostEqual(self, first, second, places=None, msg=None,
                           delta=None):
         # Handle numpy/JAX arrays that may be multi-dimensional
-        import numpy as _np
-        first = _np.asarray(first, dtype=float).flat[0]
+        first = np.asarray(first, dtype=float).flat[0]
         return super().assertAlmostEqual(first, second, places=places,
                                           msg=msg, delta=delta)
 
@@ -1152,8 +1130,15 @@ errors = _ptypes.SimpleNamespace(
 )
 
 
-# tfp (tensorflow_probability) compat shim: provides optimizer.bfgs_minimize etc.
-# so test files can `import tensorflow_probability as tfp` -> use our optimizer.
+# tfp (tensorflow_probability) compat shim: test files do
+# `import tensorflow_probability as tfp` -> redirected here (sys.modules alias
+# in _tf shim); optimizer.bfgs_minimize etc. route to our scipy reimplementations.
+# Import is lazy: tf_quant_finance.math.optimizer imports _tf (circular otherwise).
+def _optimizer_converged_all(losses, tolerance=1e-8):
+    from tf_quant_finance.math.optimizer import converged_all
+    return converged_all(losses, tolerance)
+
+
 class _TfpOptimizer:
     @staticmethod
     def bfgs_minimize(value_and_gradients_function, initial_position,
@@ -1169,8 +1154,7 @@ class _TfpOptimizer:
         return _lbfgs(value_and_gradients_function, initial_position,
                       tolerance=tolerance, max_iterations=max_iterations, **kwargs)
 
-    converged_all = staticmethod(lambda losses, tolerance=1e-8, *a, **k:
-        __import__('tf_quant_finance.math.optimizer', fromlist=['converged_all']).converged_all(losses, tolerance))
+    converged_all = staticmethod(_optimizer_converged_all)
 
 tfp = _ptypes.SimpleNamespace(optimizer=_TfpOptimizer)
 
@@ -1245,29 +1229,10 @@ class GradientTape:
 
 def gradients(ys, xs, **kw):
     # tf.gradients returns a list of gradients, one for each x in xs.
-    # Use jax.vjp to compute gradients of ys w.r.t. xs.
-    # Build a function that reproduces ys from xs.
-    if isinstance(xs, (list, tuple)):
-        xs_list = list(xs)
-    else:
-        xs_list = [xs]
-    # Flatten ys for vjp
-    ys_flat = jnp.atleast_1d(ys)
-    cotangent = jnp.ones_like(ys_flat)
-    # Use vjp: need to know the function that produced ys from xs
-    # Since we can't reconstruct it, use jnp.sum(ys) and trace backward
-    # Actually, jax.grad with a closure over ys doesn't work.
-    # We need jax.linear_transpose or manual vjp.
-    # The correct approach: use jax.vjp on a lambda that takes xs and returns ys.
-    # But ys is already computed. So we need to use jax.grad with the actual function.
-    # As a workaround, use jnp.sum(ys) which creates a scalar, then compute
-    # gradient of that scalar w.r.t. xs using the autodiff trace.
-    # The issue: ys is a concrete array, not a function of xs in the trace.
-    # Fix: use jax.grad(lambda *a: jnp.sum(jnp.array(ys)), *xs_list)
-    # But this doesn't work either. Let's try a different approach:
-    # Use jax.vjp by reconstructing the computation.
-    # Since we can't do that, return zeros (current behavior).
-    # TODO: This is a fundamental limitation of the shim approach.
+    # ponytail: shim can't rebuild the trace from a concrete ys; grad of the
+    # constant-sum is the closest stand-in. Callers needing true grads are
+    # rewritten natively (math/gradient.py, math/jacobian.py).
+    xs_list = list(xs) if isinstance(xs, (list, tuple)) else [xs]
     grad_fn = jax.grad(lambda *a: jnp.sum(ys))
     grads = grad_fn(*xs_list)
     return list(grads) if isinstance(grads, tuple) else [grads]
@@ -1446,9 +1411,6 @@ def _unique(values, out_idx=None, name=None):
 unique = _unique
 
 
-gather_nd = jnp.take  # best-effort; callers needing advanced gather_nd convert natively
-
-
 def _gather_nd(params, indices, name=None, batch_dims=0, **kw):
     """tf.gather_nd: gather elements at N-dimensional indices.
     indices shape [..., num_dims] -> output shape indices.shape[:-1] + params.shape[num_dims:]."""
@@ -1543,19 +1505,8 @@ def einsum(*args, **kw):
     return jnp.einsum(*args, **kw)
 
 
-def sort_(a, axis=-1, direction="ASCENDING"):
-    return jnp.sort(a, axis=axis)
-
-
 def identity(input, name=None):
     return jnp.asarray(input)
-
-
-def add_n(tensors):
-    out = tensors[0]
-    for t in tensors[1:]:
-        out = out + t
-    return out
 
 
 class _TensorProto:
@@ -1564,12 +1515,10 @@ class _TensorProto:
     def __init__(self, values):
         self._arr = np.asarray(values)
     def SerializeToString(self):
-        import pickle
-        return pickle.dumps(self._arr)
+        return _pickle.dumps(self._arr)
     @classmethod
     def FromString(cls, s):
-        import pickle
-        arr = pickle.loads(s)
+        arr = _pickle.loads(s)
         return cls(arr)
     def __repr__(self):
         return f"_TensorProto(shape={self._arr.shape}, dtype={self._arr.dtype})"

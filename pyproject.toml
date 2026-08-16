@@ -54,4 +54,10 @@ python_files = ["*_test.py", "test_*.py"]
 testpaths = ["tf_quant_finance"]
 
 [dependency-groups]
-dev = ["absl-py>=2.5.0", "parameterized>=0.9.0", "pytest>=9.1.1", "pytest-xdist>=3.8.0"]
+dev = [
+    "absl-py>=2.5.0",
+    "parameterized>=0.9.0",
+    "pytest>=9.1.1",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.8.0",
+]

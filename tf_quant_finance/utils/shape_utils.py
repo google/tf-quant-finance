@@ -27,30 +27,13 @@ __all__ = [
 ]
 
 
-class _ShapeWrapper:
-  """Wrapper around shape tuple to provide TF-compatible as_list() method."""
-  def __init__(self, shape):
-    self._shape = tuple(shape) if shape is not None else None
-  
-  def as_list(self):
-    return list(self._shape) if self._shape is not None else None
-  
-  def __iter__(self):
-    return iter(self._shape)
-  
-  def __len__(self):
-    return len(self._shape)
-  
-  def __getitem__(self, idx):
-    return self._shape[idx]
-  
+class _ShapeWrapper(tf.TensorShape):
+  """TF-compatible shape: static dims + as_list() (from the shim's TensorShape),
+  plus TF-style __eq__ against raw tuples/lists."""
   def __eq__(self, other):
-    if isinstance(other, _ShapeWrapper):
-      return self._shape == other._shape
-    return self._shape == tuple(other)
-  
-  def __repr__(self):
-    return f"TensorShape({list(self._shape)})"
+    if isinstance(other, tf.TensorShape):
+      return self._dims == other._dims
+    return self._dims == tuple(other)
 
 
 def get_shape(
@@ -80,10 +63,7 @@ def get_shape(
   name = 'get_shape' if name is None else name
   with tf.name_scope(name):
     x = tf.convert_to_tensor(x)
-    is_fully_defined = (True)
-    if is_fully_defined:
-      return _ShapeWrapper(x.shape)
-    return tf.shape(x)
+    return _ShapeWrapper(x.shape)
 
 
 def common_shape(

@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 .pytest_cache/
 *.egg-info/
+baseline_tf.txt
+snowflake.log
