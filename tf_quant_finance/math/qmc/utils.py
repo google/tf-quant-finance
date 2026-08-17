@@ -15,7 +15,8 @@
 
 from typing import Union
 
-import tensorflow.compat.v2 as tf
+import numpy as np
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 
@@ -29,7 +30,7 @@ def exp2(value: types.IntTensor) -> types.IntTensor:
   #### Examples
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   # Example: Computing the base-2 exponentiation of a range.
@@ -43,14 +44,18 @@ def exp2(value: types.IntTensor) -> types.IntTensor:
   """
   shape = get_shape(value)
   dtype = value.dtype
+  np_dtype = np.dtype(dtype)
+  byte_size = np_dtype.itemsize
+  is_unsigned = np.issubdtype(np_dtype, np.unsignedinteger)
 
-  max_allowed_value = tf.constant(8 * dtype.size, shape=shape, dtype=dtype)
-  if not dtype.is_unsigned:
+  max_allowed_value = tf.constant(8 * byte_size, shape=shape, dtype=dtype)
+  if not is_unsigned:
     max_allowed_value -= 1
 
+  dtype_max = np.iinfo(np_dtype).max if np.issubdtype(np_dtype, np.integer) else 0
   return tf.where(
       tf.greater_equal(value, max_allowed_value),
-      tf.constant(dtype.max, shape=shape, dtype=dtype),
+      tf.constant(dtype_max, shape=shape, dtype=dtype),
       tf.bitwise.left_shift(tf.constant(1, shape=shape, dtype=dtype), value))
 
 
@@ -58,7 +63,7 @@ def log2(value: types.FloatTensor) -> types.FloatTensor:
   r"""Returns the point-wise base-2 logarithm a given `Tensor`.
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   # Example: Computing the base-2 logarithm of a given vector.
@@ -88,7 +93,7 @@ def get_shape(
     `Tensor` of integers with rank 1.
   """
   result = value.shape
-  return tf.shape(value) if None in result.as_list() else result
+  return tf.shape(value) if None in result else result
 
 
 def tent_transform(value: types.FloatTensor) -> types.FloatTensor:
@@ -97,7 +102,7 @@ def tent_transform(value: types.FloatTensor) -> types.FloatTensor:
   #### Examples
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   # Example: Commputing the tent transform of a given vector.
@@ -124,7 +129,7 @@ def filter_tensor(value: types.IntTensor, bit_mask: types.IntTensor,
   #### Examples
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   # Example: Filtering a given vector based on a mask.
@@ -155,4 +160,4 @@ def filter_tensor(value: types.IntTensor, bit_mask: types.IntTensor,
       tf.bitwise.bitwise_and(
           tf.bitwise.right_shift(bit_mask, bit_index), tf.cast(1, value.dtype)))
 
-  return tf.where(is_bit_set, value, 0)
+  return tf.where(is_bit_set, value, tf.cast(0, value.dtype))

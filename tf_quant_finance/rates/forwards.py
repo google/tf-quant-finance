@@ -14,16 +14,9 @@
 """Collection of functions to compute properties of forwards."""
 
 from tf_quant_finance.rates.analytics import forwards
-from tensorflow.python.util import deprecation  # pylint: disable=g-direct-tensorflow-import
-
-forward_rates_from_yields = deprecation.deprecated_alias(
-    'tff.rates.forwards.forward_rates_from_yields',
-    'tff.rates.analytics.forwards.forward_rates_from_yields',
-    forwards.forward_rates_from_yields)
-
-yields_from_forward_rates = deprecation.deprecated_alias(
-    'tff.rates.forwards.yields_from_forward_rates',
-    'tff.rates.analytics.forwards.yields_from_forward_rates',
-    forwards.yields_from_forward_rates)
+# ponytail: was tf.deprecation.deprecated_alias(...) wrappers; dropped the
+# deprecation indirection, kept the function aliases.
+forward_rates_from_yields = forwards.forward_rates_from_yields
+yields_from_forward_rates = forwards.yields_from_forward_rates
 
 __all__ = ['forward_rates_from_yields', 'yields_from_forward_rates']

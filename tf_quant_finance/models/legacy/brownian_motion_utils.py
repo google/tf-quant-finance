@@ -13,7 +13,7 @@
 # limitations under the License.
 """Utility functions needed for brownian motion and related processes."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 from tf_quant_finance.math import gradient
 
 

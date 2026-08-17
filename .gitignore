@@ -1,0 +1,8 @@
+.venv/
+.venv-tf/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+baseline_tf.txt
+snowflake.log

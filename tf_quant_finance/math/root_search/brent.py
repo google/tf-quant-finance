@@ -16,7 +16,8 @@
 
 from typing import Callable
 
-import tensorflow.compat.v2 as tf
+import jax
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
@@ -365,7 +366,7 @@ def _prepare_brent_args(objective_fn,
       specified, this argument must be positive, broadcast with the shape of
       `left_bracket` and have the same dtype.
       Default value: `None` which translates to `4 *
-        numpy.finfo(left_bracket.dtype.as_numpy_dtype).eps`.
+        numpy.finfo(left_bracket.dtype).eps`.
     function_tolerance: Optional `Tensor` representing the tolerance used to
       check for roots. If the absolute value of `objective_fn` is smaller than
       or equal to `function_tolerance` at a given estimate, then that estimate
@@ -397,7 +398,7 @@ def _prepare_brent_args(objective_fn,
   """
   stopping_policy_fn = stopping_policy_fn or tf.reduce_all
   if not callable(stopping_policy_fn):
-    raise ValueError('stopping_policy_fn must be callable')
+    raise tf.errors.InvalidArgumentError('stopping_policy_fn must be callable')
 
   left_bracket = tf.convert_to_tensor(left_bracket, name='left_bracket')
   right_bracket = tf.convert_to_tensor(
@@ -411,15 +412,15 @@ def _prepare_brent_args(objective_fn,
   value_at_left_bracket = tf.convert_to_tensor(
       value_at_left_bracket,
       name='value_at_left_bracket',
-      dtype=left_bracket.dtype.base_dtype)
+      dtype=left_bracket.dtype)
   value_at_right_bracket = tf.convert_to_tensor(
       value_at_right_bracket,
       name='value_at_right_bracket',
-      dtype=left_bracket.dtype.base_dtype)
+      dtype=left_bracket.dtype)
 
   if relative_root_tolerance is None:
     relative_root_tolerance = utils.default_relative_root_tolerance(
-        left_bracket.dtype.base_dtype)
+        left_bracket.dtype)
 
   absolute_root_tolerance = tf.convert_to_tensor(
       absolute_root_tolerance,
@@ -547,7 +548,7 @@ def _brent(objective_fn,
       specified, this argument must be positive, broadcast with the shape of
       `left_bracket` and have the same dtype.
       Default value: `None` which translates to `4 *
-        numpy.finfo(left_bracket.dtype.as_numpy_dtype).eps`.
+        numpy.finfo(left_bracket.dtype).eps`.
     function_tolerance: Optional `Tensor` representing the tolerance used to
       check for roots. If the absolute value of `objective_fn` is smaller than
       or equal to `function_tolerance` at a given estimate, then that estimate
@@ -629,8 +630,6 @@ def _brent(objective_fn,
     with tf.compat.v1.control_dependencies(assertions):
       result = tf.while_loop(
           # Negate `_should_stop` to determine if the search should continue.
-          # This means, in particular, that tf.reduce_*all* will return only
-          # when the search is finished for *all* starting points.
           lambda loop_vars: ~_should_stop(loop_vars, params.stopping_policy_fn),
           lambda state: _brent_loop_body(state, params, constants),
           loop_vars=[state],
@@ -673,7 +672,7 @@ def brentq(
   #### Examples
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   # Example 1: Roots of a single function for two pairs of starting points.
@@ -779,7 +778,7 @@ def brentq(
       specified, this argument must be positive, broadcast with the shape of
       `left_bracket` and have the same dtype.
       Default value: `None` which translates to `4 *
-        numpy.finfo(left_bracket.dtype.as_numpy_dtype).eps`.
+        numpy.finfo(left_bracket.dtype).eps`.
     function_tolerance: Optional `Tensor` representing the tolerance used to
       check for roots. If the absolute value of `objective_fn` is smaller than
       or equal to `function_tolerance` at a given estimate, then that estimate

@@ -14,7 +14,7 @@
 """Heston prices of a batch of Asian options."""
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 from tf_quant_finance import types
 from tf_quant_finance import utils
 from tf_quant_finance.black_scholes import AveragingFrequency
@@ -178,16 +178,16 @@ def asian_option_price(
       PiecewiseConstantFunc.
   """
   if (spots is None) == (forwards is None):
-    raise ValueError('Either spots or forwards must be supplied but not both.')
+    raise tf.errors.InvalidArgumentError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
-    raise ValueError('At most one of discount_rates and discount_factors may '
+    raise tf.errors.InvalidArgumentError('At most one of discount_rates and discount_factors may '
                      'be supplied')
   if averaging_type == AveragingType.ARITHMETIC:
-    raise ValueError('Cannot price arithmetic averaging asians analytically '
+    raise tf.errors.InvalidArgumentError('Cannot price arithmetic averaging asians analytically '
                      'under Heston model')
   if averaging_frequency == AveragingFrequency.DISCRETE:
     if sampling_times is None:
-      raise ValueError('Sampling times required for discrete sampling asians')
+      raise tf.errors.InvalidArgumentError('Sampling times required for discrete sampling asians')
   if averaging_frequency == AveragingFrequency.CONTINUOUS:
     raise NotImplementedError('Pricing continuous averaging asians not yet '
                               'supported')
@@ -219,7 +219,7 @@ def asian_option_price(
 
     # Add control dependencies for TF1 compatibility
     with tf.control_dependencies(assertions):
-      if sampling_times.shape.rank:
+      if len(sampling_times.shape):
         # In this case sampling_times has some `batch_shape`
         batch_shape = utils.common_shape(
             variances, expiries, theta, volvol, strikes, rho, sampling_times[0])
@@ -256,6 +256,9 @@ def asian_option_price(
     if dividend_rates is None:
       dividend_rates = tf.convert_to_tensor(
           0.0, dtype=dtype, name='dividend_rates')
+    else:
+      dividend_rates = tf.convert_to_tensor(
+          dividend_rates, dtype=dtype, name='dividend_rates')
 
     if forwards is not None:
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
@@ -266,7 +269,7 @@ def asian_option_price(
 
     forwards = tf.broadcast_to(forwards, batch_shape)
     spots = tf.broadcast_to(spots, batch_shape)
-    batch_rank = spots.shape.rank
+    batch_rank = len(spots.shape)
 
     #  To account for seasoning, we keep pricing time fixed at t=0 and adjust
     #  the pricing parameters as follows:
@@ -503,6 +506,7 @@ class _AsianPricesHandler:
     # If shape of omega_tilde is known, use TensorArray of known shape
     if isinstance(x0, int):
       ta = tf.TensorArray(omega_tilde.dtype, size=x0 + 1,
+                          element_shape=utils.get_shape(omega_tilde[..., 0, :]),
                           clear_after_read=False)
     else:
       # Otherwise, use dynamically shaped TensorArray

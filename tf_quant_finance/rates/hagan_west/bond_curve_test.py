@@ -17,9 +17,9 @@ import math
 from absl.testing import parameterized
 
 import numpy as np
-import tensorflow.compat.v2 as tf
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
-from tf_quant_finance.rates.hagan_west import bond_curve
+from tf_quant_finance import _tf as tf
+from tf_quant_finance._tf import test_util
+from tf_quant_finance.rates.hagan_west.bond_curve import bond_curve as bond_curve_fn
 from tf_quant_finance.rates.hagan_west import monotone_convex
 
 
@@ -33,7 +33,7 @@ class BondCurveTest(tf.test.TestCase, parameterized.TestCase):
   def test_cashflow_times_cashflow_before_settelment_error(self, dtype):
     with self.assertRaises(tf.errors.InvalidArgumentError):
       self.evaluate(
-          bond_curve.bond_curve(
+          bond_curve_fn(
               bond_cashflows=[
                   np.array([12.5, 12.5, 12.5, 1012.5], dtype=dtype),
                   np.array([30.0, 30.0, 30.0, 1030.0], dtype=dtype)
@@ -55,7 +55,7 @@ class BondCurveTest(tf.test.TestCase, parameterized.TestCase):
   def test_cashflow_times_are_strongly_ordered_error(self, dtype):
     with self.assertRaises(tf.errors.InvalidArgumentError):
       self.evaluate(
-          bond_curve.bond_curve(
+          bond_curve_fn(
               bond_cashflows=[
                   np.array([12.5, 12.5, 12.5, 1012.5], dtype=dtype),
                   np.array([30.0, 30.0, 30.0, 1030.0], dtype=dtype)
@@ -75,7 +75,7 @@ class BondCurveTest(tf.test.TestCase, parameterized.TestCase):
   def test_final_cashflow_is_the_largest_error(self, dtype):
     with self.assertRaises(tf.errors.InvalidArgumentError):
       self.evaluate(
-          bond_curve.bond_curve(
+          bond_curve_fn(
               bond_cashflows=[
                   np.array([12.5, 12.5, 12.5, 1012.5], dtype=dtype),
                   np.array([30.0, 30.0, 30.0, 3.0], dtype=dtype)
@@ -115,7 +115,7 @@ class BondCurveTest(tf.test.TestCase, parameterized.TestCase):
     ],
                    dtype=dtype)
     results = self.evaluate(
-        bond_curve.bond_curve(
+        bond_curve_fn(
             cashflows, cashflow_times, pvs, validate_args=True, dtype=dtype))
     with self.subTest('Times'):
       np.testing.assert_allclose(results.times, [1.0, 2.0, 3.0, 4.0])
@@ -167,7 +167,7 @@ class BondCurveTest(tf.test.TestCase, parameterized.TestCase):
                                    dtype=dtype)
     # Check failure with default initial rates.
     results_default = self.evaluate(
-        bond_curve.bond_curve(
+        bond_curve_fn(
             cashflows,
             cashflow_times,
             pvs,
@@ -183,7 +183,7 @@ class BondCurveTest(tf.test.TestCase, parameterized.TestCase):
     # However the behaviour is different if we start above the true values.
     # See next test.
     results_close = self.evaluate(
-        bond_curve.bond_curve(
+        bond_curve_fn(
             cashflows,
             cashflow_times,
             pvs,
@@ -234,7 +234,7 @@ class BondCurveTest(tf.test.TestCase, parameterized.TestCase):
     initial_rates = true_discount_rates * 1.01
     # Check failure with default initial rates.
     results = self.evaluate(
-        bond_curve.bond_curve(
+        bond_curve_fn(
             cashflows,
             cashflow_times,
             pvs,
@@ -285,7 +285,7 @@ class BondCurveTest(tf.test.TestCase, parameterized.TestCase):
                    dtype=dtype)
     true_discount_rates = np.array([0.15] * 4, dtype=dtype)
     results = self.evaluate(
-        bond_curve.bond_curve(
+        bond_curve_fn(
             cashflows, cashflow_times, pvs,
             discount_tolerance=1e-6, validate_args=True, dtype=dtype))
     with self.subTest('Converged'):
@@ -323,7 +323,7 @@ class BondCurveTest(tf.test.TestCase, parameterized.TestCase):
         dtype=dtype)
     true_discount_rates = np.array([0.02, 0.01, -0.01, -0.03], dtype=dtype)
     results = self.evaluate(
-        bond_curve.bond_curve(
+        bond_curve_fn(
             cashflows, cashflow_times, pvs, validate_args=True, dtype=dtype))
     with self.subTest('Converged'):
       self.assertTrue(results.converged)
@@ -361,7 +361,7 @@ class BondCurveTest(tf.test.TestCase, parameterized.TestCase):
         [10.88135262, 19.39268844, 98.48426722, 137.91938533, 122.63546542],
         dtype=dtype)
     results = self.evaluate(
-        bond_curve.bond_curve(
+        bond_curve_fn(
             cashflows, cashflow_times, pvs, validate_args=True, dtype=dtype))
     with self.subTest('Converged'):
       self.assertTrue(results.converged)
@@ -399,24 +399,24 @@ class BondCurveTest(tf.test.TestCase, parameterized.TestCase):
     ]
     pvs = np.array([1000.0, 1000.0, 1000.0, 1000.0], dtype=dtype)
     # We can calculate discount rates going step-by-step.
-    r1 = -math.log(pvs[0] / cashflows[0][0]) / cashflow_times[0]
+    r1 = -math.log(pvs[0] / cashflows[0][0]) / cashflow_times[0].item()
     r2 = -(
         math.log(
-            (pvs[1] - cashflows[1][0] * math.exp(-r1 * cashflow_times[1][0]))
-            / cashflows[1][1]) / cashflow_times[1][1])
+            (pvs[1] - cashflows[1][0] * math.exp(-r1 * cashflow_times[1][0].item()))
+            / cashflows[1][1]) / cashflow_times[1][1].item())
     r3 = -(
         math.log(
-            (pvs[2] - cashflows[2][0] * math.exp(-r2 * cashflow_times[2][0]))
-            / cashflows[2][1]) / cashflow_times[2][1])
+            (pvs[2] - cashflows[2][0] * math.exp(-r2 * cashflow_times[2][0].item()))
+            / cashflows[2][1]) / cashflow_times[2][1].item())
     r4 = -(
         math.log(
-            (pvs[3] - cashflows[3][0] * math.exp(-r2 * cashflow_times[3][0]) -
-             cashflows[3][1] * math.exp(-r3 * cashflow_times[3][1])) /
-            cashflows[3][2]) / cashflow_times[3][2])
-    true_discount_rates = np.array([r1.item(), r2, r3, r4], dtype=dtype)
+            (pvs[3] - cashflows[3][0] * math.exp(-r2 * cashflow_times[3][0].item()) -
+             cashflows[3][1] * math.exp(-r3 * cashflow_times[3][1].item())) /
+            cashflows[3][2]) / cashflow_times[3][2].item())
+    true_discount_rates = np.array([r1, r2, r3, r4], dtype=dtype)
 
     results = self.evaluate(
-        bond_curve.bond_curve(
+        bond_curve_fn(
             cashflows, cashflow_times, pvs, validate_args=True, dtype=dtype))
     with self.subTest('Converged'):
       self.assertTrue(results.converged)
@@ -456,7 +456,7 @@ class BondCurveTest(tf.test.TestCase, parameterized.TestCase):
                     for i, rate in enumerate(true_discount_rates)],
                    dtype=dtype)
     results = self.evaluate(
-        bond_curve.bond_curve(
+        bond_curve_fn(
             cashflows, cashflow_times, pvs, discount_tolerance=1e-6,
             validate_args=True, dtype=dtype))
     with self.subTest('Converged'):

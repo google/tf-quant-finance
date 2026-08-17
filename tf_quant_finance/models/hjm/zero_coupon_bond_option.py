@@ -15,7 +15,7 @@
 
 from typing import Callable, Union
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance.math import random
@@ -63,7 +63,7 @@ def bond_option_price(
 
   ````python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64
@@ -147,7 +147,7 @@ def bond_option_price(
     computed option prices.
   """
   if time_step is None:
-    raise ValueError('`time_step` must be provided for simulation based '
+    raise tf.errors.InvalidArgumentError('`time_step` must be provided for simulation based '
                      'bond option valuation.')
 
   name = name or 'hjm_bond_option_price'

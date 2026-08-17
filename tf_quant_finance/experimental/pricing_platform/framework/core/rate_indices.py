@@ -16,7 +16,7 @@
 import enum
 from typing import Optional, Union
 import dataclasses
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import rate_indices_pb2
 
 
@@ -48,7 +48,7 @@ class RateIndex:
       try:
         self.type = getattr(RateIndexType, self.type)
       except KeyError:
-        raise ValueError(f"{self.type} is not a valid rate index type.")
+        raise tf.errors.InvalidArgumentError(f"{self.type} is not a valid rate index type.")
 
   @classmethod
   def from_proto(cls, proto: rate_indices_pb2.RateIndex) -> "RateIndex":

@@ -13,7 +13,7 @@
 # limitations under the License.
 """Piecewise utility functions."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 
 class PiecewiseConstantFunc(object):
@@ -108,19 +108,19 @@ class PiecewiseConstantFunc(object):
       self._dtype = dtype or self._jump_locations.dtype
       self._values = tf.convert_to_tensor(values, dtype=self._dtype,
                                           name='values')
-      shape_values = self._values.shape.as_list()
+      shape_values = list(self._values.shape)
 
-      shape_jump_locations = self._jump_locations.shape.as_list()
-      batch_rank = self._jump_locations.shape.rank - 1
+      shape_jump_locations = list(self._jump_locations.shape)
+      batch_rank = len(self._jump_locations.shape) - 1
       self._batch_rank = batch_rank
       if None not in shape_values and None not in shape_jump_locations:
         if shape_values[:batch_rank] != shape_jump_locations[:-1]:
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               'Batch shapes of `values` and `jump_locations` should '
               'be the same but are {0} and {1}'.format(
                   shape_values[:-1], shape_jump_locations[:-1]))
         if shape_values[batch_rank] - 1 != shape_jump_locations[-1]:
-          raise ValueError('Event shape of `values` should have one more '
+          raise tf.errors.InvalidArgumentError('Event shape of `values` should have one more '
                            'element than the event shape of `jump_locations` '
                            'but are {0} and {1}'.format(
                                shape_values[-1], shape_jump_locations[-1]))
@@ -169,7 +169,7 @@ class PiecewiseConstantFunc(object):
     name = name or self._name  + '_call'
     with tf.name_scope(name):
       x = tf.convert_to_tensor(x, dtype=self.dtype(), name='x')
-      batch_shape = tf.shape(self._jump_locations)[:-1]
+      batch_shape = self._jump_locations.shape[:-1]  # static for jit
       x = _try_broadcast_to(x, batch_shape)
       side = 'left' if left_continuous else 'right'
       return _piecewise_constant_function(
@@ -201,7 +201,7 @@ class PiecewiseConstantFunc(object):
                                 name='x1')
       x2 = tf.convert_to_tensor(x2, dtype=self.dtype(),
                                 name='x2')
-      batch_shape = tf.shape(self._jump_locations)[:-1]
+      batch_shape = self._jump_locations.shape[:-1]  # static for jit
       x1 = _try_broadcast_to(x1, batch_shape)
       x2 = _try_broadcast_to(x2, batch_shape)
       return _piecewise_constant_integrate(
@@ -286,14 +286,14 @@ def _piecewise_constant_function(x, jump_locations, values,
   """Computes value of the piecewise constant function."""
   # Initializer already verified that `jump_locations` and `values` have the
   # same shape
-  batch_shape = jump_locations.shape.as_list()[:-1]
+  batch_shape = list(jump_locations.shape)[:-1]
   # Check that the batch shape of `x` is the same as of `jump_locations` and
   # `values`
-  batch_shape_x = x.shape.as_list()[:batch_rank]
+  batch_shape_x = list(x.shape)[:batch_rank]
   if batch_shape_x != batch_shape:
-    raise ValueError('Batch shape of `x` is {1} but should be {0}'.format(
+    raise tf.errors.InvalidArgumentError('Batch shape of `x` is {1} but should be {0}'.format(
         batch_shape, batch_shape_x))
-  if x.shape.as_list()[:batch_rank]:
+  if list(x.shape)[:batch_rank]:
     no_batch_shape = False
   else:
     no_batch_shape = True
@@ -316,19 +316,19 @@ def _piecewise_constant_integrate(x1, x2, jump_locations, values, batch_rank):
   # Initializer already verified that `jump_locations` and `values` have the
   # same shape.
   # Expand batch size to one if there is no batch shape.
-  if x1.shape.as_list()[:batch_rank]:
+  if list(x1.shape)[:batch_rank]:
     no_batch_shape = False
   else:
     no_batch_shape = True
     x1 = tf.expand_dims(x1, 0)
     x2 = tf.expand_dims(x2, 0)
-  if not jump_locations.shape.as_list()[:-1]:
+  if not list(jump_locations.shape)[:-1]:
     jump_locations = tf.expand_dims(jump_locations, 0)
     values = tf.expand_dims(values, 0)
     batch_rank += 1
   # Compute integral values between the jump locations
   event_shape = tf.shape(values)[(batch_rank+1):]
-  event_rank = values.shape.rank - batch_rank - 1
+  event_rank = len(values.shape) - batch_rank - 1
   num_data_points = tf.shape(values)[batch_rank]
   diff = jump_locations[..., 1:] - jump_locations[..., :-1]
   # Broadcast `diff` to the shape of
@@ -337,7 +337,7 @@ def _piecewise_constant_integrate(x1, x2, jump_locations, values, batch_rank):
     diff = tf.expand_dims(diff, -1)
   slice_indices = batch_rank * [slice(None)]
   slice_indices += [slice(1, num_data_points - 1)]
-  integrals = tf.cumsum(values[slice_indices] * diff, batch_rank)
+  integrals = tf.cumsum(values[tuple(slice_indices)] * diff, batch_rank)
   # Pad integrals with zero values on left and right.
   batch_shape = tf.shape(integrals)[:batch_rank]
   pad_shape = tf.concat([batch_shape, [1], event_shape], axis=0)
@@ -414,7 +414,12 @@ def _get_indices_and_values(x, jump_locations, values, side,
 
 def _try_broadcast_to(x, batch_shape):
   """Broadcasts batch shape of `x` to a `batch_shape` if possible."""
-  broadcast_shape = tf.concat([batch_shape, tf.shape(x)[-1:]], axis=0)
+  # Prefer static batch_shape when available (avoids traced-shape errors in jit).
+  if isinstance(batch_shape, (list, tuple)):
+    x_tail = [x.shape[-1]] if x.ndim > 0 else []
+    broadcast_shape = list(batch_shape) + x_tail
+  else:
+    broadcast_shape = tf.concat([batch_shape, tf.shape(x)[-1:]], axis=0)
   return x + tf.zeros(broadcast_shape, dtype=x.dtype)
 
 

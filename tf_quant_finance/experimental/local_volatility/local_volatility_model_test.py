@@ -17,11 +17,11 @@ import functools
 
 from absl.testing import parameterized
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
 from tf_quant_finance.experimental.local_volatility import local_volatility_model
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 dupire_local_volatility_iv = local_volatility_model._dupire_local_volatility_iv
 dupire_local_volatility_prices = local_volatility_model._dupire_local_volatility_prices

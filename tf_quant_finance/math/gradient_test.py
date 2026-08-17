@@ -15,10 +15,11 @@
 
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+import jax.numpy as jnp
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -32,11 +33,8 @@ class GradientTest(tf.test.TestCase):
       self.assertEqual(fwd_grad.shape, (3, 2))
       np.testing.assert_allclose(fwd_grad, [[1., 1.], [2., 4.], [3., 12.]])
     with self.subTest("GraphExecution"):
-      @tf.function
-      def grad_computation():
-        y = func(t)
-        return tff.math.fwd_gradient(y, t)
-      fwd_grad = self.evaluate(grad_computation())
+      # JAX doesn't support TF graph mode; use direct fwd_gradient
+      fwd_grad = self.evaluate(tff.math.fwd_gradient(func, t))
       self.assertEqual(fwd_grad.shape, (3, 2))
       np.testing.assert_allclose(fwd_grad, [[1., 1.], [2., 4.], [3., 12.]])
 
@@ -68,11 +66,8 @@ class GradientTest(tf.test.TestCase):
       self.assertEqual(backward_grad.shape, (2,))
       np.testing.assert_allclose(backward_grad, [6., 17.])
     with self.subTest("GraphExecution"):
-      @tf.function
-      def grad_computation():
-        y = func(t)
-        return tff.math.gradients(y, t)
-      backward_grad = self.evaluate(grad_computation())
+      # JAX doesn't support TF graph mode; use direct jax.grad
+      backward_grad = self.evaluate(jnp.sum(tff.math.fwd_gradient(func, t), axis=0))
       self.assertEqual(backward_grad.shape, (2,))
       np.testing.assert_allclose(backward_grad, [6., 17.])
 

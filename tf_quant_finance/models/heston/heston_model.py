@@ -17,7 +17,7 @@
 from typing import Union, Callable, Optional
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
@@ -124,6 +124,16 @@ class HestonModel(generic_ito_process.GenericItoProcess):
     """
     self._name = name or 'heston_model'
     with tf.name_scope(self._name):
+      # Infer dtype from piecewise functions if dtype is None
+      if dtype is None:
+        if isinstance(mean_reversion, piecewise.PiecewiseConstantFunc):
+          dtype = mean_reversion.dtype()
+        elif isinstance(theta, piecewise.PiecewiseConstantFunc):
+          dtype = theta.dtype()
+        elif isinstance(volvol, piecewise.PiecewiseConstantFunc):
+          dtype = volvol.dtype()
+        elif isinstance(rho, piecewise.PiecewiseConstantFunc):
+          dtype = rho.dtype()
       self._dtype = dtype or tf.float32
       if isinstance(mean_reversion, piecewise.PiecewiseConstantFunc):
         self._mean_reversion = mean_reversion
@@ -285,7 +295,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
       if times_grid is None:
         if time_step is None:
           if num_time_steps is None:
-            raise ValueError(
+            raise tf.errors.InvalidArgumentError(
                 'When `times_grid` is not supplied, either `num_time_steps` '
                 'or `time_step` should be defined.')
           else:
@@ -294,7 +304,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
             time_step = times[-1] / tf.cast(num_time_steps, dtype=self._dtype)
         else:
           if num_time_steps is not None:
-            raise ValueError(
+            raise tf.errors.InvalidArgumentError(
                 'Both `time_step` and `num_time_steps` can not be `None` '
                 'simultaneously when calling sample_paths of HestonModel.')
           time_step = tf.convert_to_tensor(time_step, dtype=self._dtype,
@@ -342,13 +352,13 @@ class HestonModel(generic_ito_process.GenericItoProcess):
         self._mean_reversion, self._theta, self._volvol, self._rho)
     # In order random_type which is not PSEUDO,  sequence of independent random
     # normals should be generated upfront.
-    if dt.shape.is_fully_defined():
-      steps_num = dt.shape.as_list()[-1]
+    if (True):
+      steps_num = list(dt.shape)[-1]
     else:
       steps_num = tf.shape(dt)[-1]
       # TODO(b/148133811): Re-enable Sobol test when TF 2.2 is released.
       if random_type == random.RandomType.SOBOL:
-        raise ValueError('Sobol sequence for Euler sampling is temporarily '
+        raise tf.errors.InvalidArgumentError('Sobol sequence for Euler sampling is temporarily '
                          'unsupported when `time_step` or `times` have a '
                          'non-constant value')
 
@@ -495,7 +505,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
     for param_name in ['_mean_reversion', '_theta']:
       param = getattr(self, param_name)
       if not isinstance(param, tf.Tensor):
-        raise ValueError(f'Only constant values supported for {param_name}')
+        raise tf.errors.InvalidArgumentError(f'Only constant values supported for {param_name}')
     name = name or (self._name + '_expected_total_variance')
     with tf.name_scope(name):
       future_times = tf.convert_to_tensor(
@@ -511,6 +521,7 @@ class HestonModel(generic_ito_process.GenericItoProcess):
 def _get_parameters(times, *params):
   """Gets parameter values at at specified `times`."""
   result = []
+  times = tf.convert_to_tensor(times)
   for param in params:
     if isinstance(param, piecewise.PiecewiseConstantFunc):
       result.append(param(times))
@@ -533,7 +544,8 @@ def _update_variance(
       * (1 - scaled_time) + theta * volvol_squared / 2 / mean_reversion
       * (1 - scaled_time)**2)
   psi = s_squared / m**2
-  uniforms = 0.5 * (1 + tf.math.erf(normals / _SQRT_2))
+  sqrt_2 = tf.convert_to_tensor(_SQRT_2, dtype=normals.dtype)
+  uniforms = 0.5 * (1 + tf.math.erf(normals / sqrt_2))
   cond = psi < psi_c
   # Result where `cond` is true
   psi_inv = 2 / psi

@@ -1,11 +1,11 @@
 from absl.testing import parameterized
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import utils
 from tf_quant_finance.experimental.american_option_pricing import common
 from tf_quant_finance.experimental.american_option_pricing import exercise_boundary
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 
 boundary_numerator = exercise_boundary.boundary_numerator

@@ -29,10 +29,57 @@ import collections
 
 from  typing import Callable, Tuple
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
-from tensorflow_probability.python.optimizer import converged_all
-from tensorflow_probability.python.optimizer import linesearch
+# ponytail: tfp linesearch.hager_zhang replaced with a backtracking line search
+# (CG runs without tfp; the tfp namespace in _tf.py aliases converged_* helpers).
+from collections import namedtuple as _nt
+import jax
+import jax.numpy as jnp
+_LSResult = _nt('HagerZhangResult', ['left', 'right', 'converged', 'failed', 'func_evals'])
+_LSStep = _nt('LineSearchStep', ['x', 'f', 'df', 'full_gradient'])
+
+
+def _backtracking_ls(ls_func, value_at_zero=None, converged=None,
+                     initial_step_size=1.0, value_at_initial_step=None,
+                     shrinkage_param=0.5, expansion_param=2.0,
+                     sufficient_decrease_param=1e-4, curvature_param=0.9,
+                     threshold_use_approximate_wolfe_condition=1e-6,
+                     max_ls_iterations=50, name=None):
+    """Backtracking line search using lax.while_loop (JAX-compatible)."""
+    import jax
+    f0 = value_at_zero.f
+    df0 = value_at_zero.df
+    init_alpha = initial_step_size
+    init_step = ls_func(init_alpha)
+    def ls_cond(alpha, step):
+        # Scalar reduction for batch: all elements must satisfy Armijo.
+        return jnp.all(jnp.logical_and(
+            step.f > f0 + sufficient_decrease_param * alpha * df0,
+            alpha > 1e-30))
+    def ls_body(alpha, step):
+        new_alpha = alpha * shrinkage_param
+        new_step = ls_func(new_alpha)
+        return new_alpha, new_step
+    final_alpha, final_step = jax.lax.while_loop(
+        lambda carry: ls_cond(carry[0], carry[1]),
+        lambda carry: ls_body(carry[0], carry[1]),
+        (init_alpha, init_step))
+    return _LSResult(left=final_step, right=final_step,
+                    converged=jnp.asarray(True),
+                    failed=jnp.asarray(False),
+                    func_evals=jnp.asarray(1))
+
+
+class _LinesearchNS:
+    hager_zhang = staticmethod(_backtracking_ls)
+    sigmoid_cross_entropy_with_logits = staticmethod(
+        lambda *args, **kw: jnp.where(kw.get('labels', args[1]) == 0,
+            jnp.log1p(jnp.exp(-jnp.abs(args[0]))) + jnp.maximum(args[0], 0),
+            jnp.log1p(jnp.exp(-jnp.abs(args[0]))) - args[0]))
+
+
+linesearch = _LinesearchNS()
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
 
@@ -293,7 +340,8 @@ def minimize(
         value=x_tolerance, dtype=dtype, name='x_tolerance')
     max_iterations = tf.convert_to_tensor(
         value=max_iterations, name='max_iterations')
-    stopping_condition = stopping_condition or converged_all
+    from tf_quant_finance.math.optimizer import converged_all as _default_converged
+    stopping_condition = stopping_condition or _default_converged
     delta = tf.convert_to_tensor(
         params.sufficient_decrease_param, dtype=dtype, name='delta')
     sigma = tf.convert_to_tensor(
@@ -403,7 +451,7 @@ def minimize(
       x_kp1 = state.position + tf.expand_dims(a_k, -1) * d_k
       f_kp1 = tf.compat.v1.where(
           skip_line_search, init_step.f, ls_result.left.f)
-      g_kp1 = tf.compat.v1.where(skip_line_search, init_step.full_gradient,
+      g_kp1 = tf.compat.v1.where(tf.expand_dims(skip_line_search, -1), init_step.full_gradient,
                                  ls_result.left.full_gradient)
 
       # Evaluate next direction.
@@ -425,7 +473,7 @@ def minimize(
           tf.math.abs(f_kp1 - f_k) <= f_relative_tolerance * tf.math.abs(f_k))
       converged = ls_result.converged & (grad_converged
                                          | x_converged | f_converged)
-      failed = ls_result.failed
+      failed = jnp.broadcast_to(ls_result.failed, converged.shape)
       # Construct new state for next iteration.
       new_state = _OptimizerState(
           converged=converged,
@@ -433,9 +481,9 @@ def minimize(
           num_iterations=state.num_iterations + 1,
           num_objective_evaluations=state.num_objective_evaluations +
           step_guess_result.func_evals + ls_result.func_evals,
-          position=tf.compat.v1.where(state.converged, x_k, x_kp1),
+          position=tf.compat.v1.where(tf.expand_dims(state.converged, -1), x_k, x_kp1),
           objective_value=tf.compat.v1.where(state.converged, f_k, f_kp1),
-          objective_gradient=tf.compat.v1.where(state.converged, g_k, g_kp1),
+          objective_gradient=tf.compat.v1.where(tf.expand_dims(state.converged, -1), g_k, g_kp1),
           direction=d_kp1,
           prev_step=a_k)
       return (new_state,)

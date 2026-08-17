@@ -18,7 +18,7 @@ import math
 from typing import Callable, List, Optional
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
@@ -183,7 +183,7 @@ def sample(
   name = name or 'milstein_sample'
   with tf.name_scope(name):
     if stratonovich_order <= 0:
-      raise ValueError('`stratonovich_order` must be a positive integer.')
+      raise tf.errors.InvalidArgumentError('`stratonovich_order` must be a positive integer.')
     times = tf.convert_to_tensor(times, dtype=dtype)
     if dtype is None:
       dtype = times.dtype
@@ -194,11 +194,11 @@ def sample(
     num_requested_times = tff_utils.get_shape(times)[0]
     # Create a time grid for the Milstein scheme.
     if num_time_steps is not None and time_step is not None:
-      raise ValueError('Only one of either `num_time_steps` or `time_step` '
+      raise tf.errors.InvalidArgumentError('Only one of either `num_time_steps` or `time_step` '
                        'should be defined but not both')
     if time_step is None:
       if num_time_steps is None:
-        raise ValueError('Either `num_time_steps` or `time_step` should be '
+        raise tf.errors.InvalidArgumentError('Either `num_time_steps` or `time_step` should be '
                          'defined.')
       num_time_steps = tf.convert_to_tensor(
           num_time_steps, dtype=tf.int32, name='num_time_steps')
@@ -265,8 +265,8 @@ def _sample(*, dim, drift_fn, volatility_fn, grad_volatility_fn, times,
   sqrt_dt = tf.sqrt(dt)
   current_state = initial_state + tf.zeros([num_samples, dim],
                                            dtype=initial_state.dtype)
-  if dt.shape.is_fully_defined():
-    steps_num = dt.shape.as_list()[-1]
+  if (True):
+    steps_num = list(dt.shape)[-1]
   else:
     steps_num = tf.shape(dt)[-1]
   # In order to use low-discrepancy random_type we need to generate the sequence
@@ -419,7 +419,7 @@ def _while_loop(*, dim, steps_num, current_state, drift_fn, volatility_fn,
   # Shape [num_time_points] + [num_samples, dim]
   result = result.stack()
   # transpose to shape [num_samples, num_time_points, dim]
-  n = result.shape.rank
+  n = len(result.shape)
   perm = list(range(1, n-1)) + [0, n - 1]
   return tf.transpose(result, perm)
 
@@ -430,7 +430,7 @@ def _for_loop(*, dim, steps_num, current_state, drift_fn, volatility_fn,
               normal_draws, input_gradients, stratonovich_order,
               aux_normal_draws):
   """Sample paths using custom for_loop."""
-  num_time_points = time_indices.shape.as_list()[-1]
+  num_time_points = list(time_indices.shape)[-1]
   if num_time_points == 1:
     iter_nums = steps_num
   else:
@@ -508,7 +508,7 @@ def _stratonovich_integral(dim, dt, sqrt_dt, dw, stratonovich_draws, order):
   eta = tf.transpose(stratonovich_draws[2], [2, 0, 1])
   xi = dw / sqrt_dt
   r_i = tf.stack([
-      tf.ones(zeta[0, ...].shape + [dim], dtype=zeta.dtype) / r
+      tf.ones(list(zeta[0, ...].shape) + [dim], dtype=zeta.dtype) / r
       for r in range(1, order + 1)
   ], 0)
 

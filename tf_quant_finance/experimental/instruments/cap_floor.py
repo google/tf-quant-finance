@@ -14,7 +14,7 @@
 
 """Cap and Floor."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 from tf_quant_finance import black_scholes
 from tf_quant_finance import datetime as dates
 from tf_quant_finance.experimental.instruments import rates_common as rc
@@ -44,7 +44,7 @@ class CapAndFloor:
 
   ```python
   import numpy as np
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
   dates = tff.datetime
   instruments = tff.experimental.instruments
@@ -147,7 +147,7 @@ class CapAndFloor:
       self._reset_frequency = reset_frequency
       notional = notional or 1.0
       self._notional = tf.convert_to_tensor(notional, dtype=self._dtype)
-      self._batch_size = self._start_date.shape.as_list()[0]
+      self._batch_size = list(self._start_date.shape)[0]
       if is_cap is None:
         is_cap = True
       self._is_cap = tf.broadcast_to(
@@ -187,7 +187,7 @@ class CapAndFloor:
         caplet_prices = self._price_lognormal_rate(valuation_date, market,
                                                    pricing_context)
       else:
-        raise ValueError(f'Unsupported model {model}.')
+        raise tf.errors.InvalidArgumentError(f'Unsupported model {model}.')
 
       return tf.math.segment_sum(caplet_prices, self._contract_index)
 
@@ -265,9 +265,9 @@ class CapAndFloor:
         dtype=self._dtype)
     contract_index = tf.repeat(
         tf.range(0, self._batch_size),
-        payment_dates.shape.as_list()[-1])
+        list(payment_dates.shape)[-1])
 
-    self._num_caplets = daycount_fractions.shape.as_list()[-1]
+    self._num_caplets = list(daycount_fractions.shape)[-1]
     # TODO(b/152164086): Use the functionality from dates library
     self._rate_term = tf.repeat(tf.cast(reset_dates[:, 0].days_until(
         payment_dates[:, 0]), dtype=self._dtype) / 365.0, self._num_caplets)

@@ -14,7 +14,7 @@
 """Method for semi-analytical Heston option price."""
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance.math import integration
@@ -159,9 +159,9 @@ def european_option_price(
     European options under the Heston model.
   """
   if (spots is None) == (forwards is None):
-    raise ValueError('Either spots or forwards must be supplied but not both.')
+    raise tf.errors.InvalidArgumentError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
-    raise ValueError('At most one of discount_rates and discount_factors may '
+    raise tf.errors.InvalidArgumentError('At most one of discount_rates and discount_factors may '
                      'be supplied')
 
   with tf.compat.v1.name_scope(name, default_name='eu_option_price'):

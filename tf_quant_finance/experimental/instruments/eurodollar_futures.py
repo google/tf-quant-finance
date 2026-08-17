@@ -14,7 +14,7 @@
 
 """Eurodollar futures contract."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 from tf_quant_finance import datetime as dates
 from tf_quant_finance.experimental.instruments import rates_common as rc
 
@@ -42,7 +42,7 @@ class EurodollarFutures:
   ```python
 
   import numpy as np
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dates = tff.datetime
@@ -123,12 +123,12 @@ class EurodollarFutures:
     if (rate_term is None) == (maturity_date is None):
       msg = ('Error creating the EurodollarFutures contract. '
              'Either rate_term or maturity_date is required.')
-      raise ValueError(msg)
+      raise tf.errors.InvalidArgumentError(msg)
 
     if rate_term is not None and maturity_date is not None:
       msg = ('Error creating the EurodollarFutures contract.'
              ' Both rate_term or maturity_date are specified.')
-      raise ValueError(msg)
+      raise tf.errors.InvalidArgumentError(msg)
 
     with tf.name_scope(self._name):
       self._dtype = dtype

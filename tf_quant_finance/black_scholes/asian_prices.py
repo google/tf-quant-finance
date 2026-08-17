@@ -16,7 +16,7 @@
 import enum
 from typing import Optional
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 from tf_quant_finance import types
 from tf_quant_finance.black_scholes import vanilla_prices
 
@@ -180,21 +180,21 @@ def asian_option_price(
     NotImplementedError: if option is arithmetic.
   """
   if (spots is None) == (forwards is None):
-    raise ValueError('Either spots or forwards must be supplied but not both.')
+    raise tf.errors.InvalidArgumentError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
-    raise ValueError('At most one of discount_rates and discount_factors may '
+    raise tf.errors.InvalidArgumentError('At most one of discount_rates and discount_factors may '
                      'be supplied')
   if is_normal_volatility and averaging_type == AveragingType.GEOMETRIC:
-    raise ValueError('Cannot price geometric averaging asians analytically '
+    raise tf.errors.InvalidArgumentError('Cannot price geometric averaging asians analytically '
                      'under normal volatility')
   if not is_normal_volatility and averaging_type == AveragingType.ARITHMETIC:
-    raise ValueError('Cannot price arithmetic averaging asians analytically '
+    raise tf.errors.InvalidArgumentError('Cannot price arithmetic averaging asians analytically '
                      'under lognormal volatility')
   if averaging_frequency == AveragingFrequency.DISCRETE:
     if sampling_times is None:
-      raise ValueError('Sampling times required for discrete sampling asians')
+      raise tf.errors.InvalidArgumentError('Sampling times required for discrete sampling asians')
     if not np.all(np.maximum(sampling_times[-1], expiries) == expiries):
-      raise ValueError('Sampling times cannot occur after expiry times')
+      raise tf.errors.InvalidArgumentError('Sampling times cannot occur after expiry times')
   if averaging_frequency == AveragingFrequency.CONTINUOUS:
     raise NotImplementedError('Pricing continuous averaging asians not yet '
                               'supported')

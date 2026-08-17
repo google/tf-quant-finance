@@ -16,10 +16,10 @@
 import collections
 import math
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 from tf_quant_finance.math.integration import adaptive_update
 
 tff_int = tff.math.integration
@@ -94,7 +94,7 @@ BASIC_TEST_CASES = [
         lower=0.0,
         upper=1.0,
         tolerance=1e-5,
-        antiderivative=lambda x: 0.5 * np.sqrt(np.pi) * np.array([math.erf(x)]),
+        antiderivative=lambda x: 0.5 * np.sqrt(np.pi) * np.array([math.erf(np.asarray(x).flat[0])]),
         expected_gauss_n32_result=0.746824132812427,
     ),
 ]

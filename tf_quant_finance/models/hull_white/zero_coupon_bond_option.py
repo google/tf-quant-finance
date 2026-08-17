@@ -16,7 +16,7 @@
 from typing import Callable, Union
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
@@ -73,7 +73,7 @@ def bond_option_price(
 
   ````python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64
@@ -188,7 +188,7 @@ def bond_option_price(
           is_call_options)
 
     if time_step is None:
-      raise ValueError('`time_step` must be provided for simulation '
+      raise tf.errors.InvalidArgumentError('`time_step` must be provided for simulation '
                        'based bond option valuation.')
 
     def sample_discount_curve_paths_fn(times, curve_times, num_samples):
@@ -227,11 +227,13 @@ def _analytic_valuation(discount_rate_fn, model, strikes, expiries, maturities,
                                          * maturities)
   forward_bond_price = discount_factor_maturity / discount_factor_expiries
 
-  sqrt_variance = tf.math.sqrt(variance)
+  sqrt_variance = tf.math.sqrt(tf.maximum(variance, 1e-32))
   # Shape `expiries.shape`
-  log_moneyness = tf.math.log(forward_bond_price / strikes)
+  # Guard log to avoid NaN gradients when variance=0 (intrinsic branch).
+  ratio = forward_bond_price / strikes
+  log_moneyness = tf.math.log(tf.where(ratio > 0, ratio, tf.ones_like(ratio)))
   d1 = tf.math.divide_no_nan(log_moneyness + 0.5 * variance, sqrt_variance)
-  d2 = d1 - tf.math.sqrt(variance)
+  d2 = d1 - sqrt_variance
   option_value_call = (discount_factor_maturity * _ncdf(d1)
                        - strikes * discount_factor_expiries* _ncdf(d2))
   option_value_put = (strikes * discount_factor_expiries * _ncdf(-d2)
@@ -269,7 +271,7 @@ def _bond_option_variance(model, option_expiry, bond_maturity):
   """
   # pylint: disable=protected-access
   if model._sample_with_generic:
-    raise ValueError('The paramerization of `mean_reversion` and/or '
+    raise tf.errors.InvalidArgumentError('The paramerization of `mean_reversion` and/or '
                      '`volatility` does not support analytic computation '
                      'of bond option variance.')
   mean_reversion = model.mean_reversion(option_expiry)

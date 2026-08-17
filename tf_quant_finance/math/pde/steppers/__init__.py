@@ -24,7 +24,6 @@ from tf_quant_finance.math.pde.steppers import oscillation_damped_crank_nicolson
 from tf_quant_finance.math.pde.steppers import parabolic_equation_stepper
 from tf_quant_finance.math.pde.steppers import weighted_implicit_explicit
 
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     'composite_stepper',
@@ -39,4 +38,3 @@ _allowed_symbols = [
     'weighted_implicit_explicit',
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

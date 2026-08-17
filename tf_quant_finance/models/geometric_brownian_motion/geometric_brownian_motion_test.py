@@ -15,10 +15,11 @@
 
 from absl.testing import parameterized
 import numpy as np
-import tensorflow.compat.v2 as tf
+import jax
+from tf_quant_finance import _tf as tf
 import tf_quant_finance as tff
 
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 from tf_quant_finance.models.geometric_brownian_motion import geometric_brownian_motion_test_utils
 from tf_quant_finance.models.geometric_brownian_motion import univariate_geometric_brownian_motion
 
@@ -984,19 +985,17 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     """Gradient through paths wrt volatility can be computed."""
     dtype = tf.float64
     volatility = tf.constant(0.1, dtype=dtype)
-    with tf.GradientTape() as tape:
-      tape.watch(volatility)
+    def _mean_of_samples(vol):
       process = tff.models.GeometricBrownianMotion(
-          mean=0.05, volatility=volatility,
+          mean=0.05, volatility=vol,
           dtype=dtype)
       samples = process.sample_paths(
           times=[0.0, 0.1, 0.5, 1.0],
           num_samples=10_000,
           seed=[4, 2],
           random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC)
-      grad = tape.gradient(tf.reduce_mean(samples), volatility)
-
-    grad = self.evaluate(grad)
+      return tf.reduce_mean(samples)
+    grad = self.evaluate(jax.grad(_mean_of_samples)(volatility))
     # The mean should stay close to 1.0 regardless of `volatility` value
     self.assertAlmostEqual(grad, 0.0, delta=1e-3)
 
@@ -1005,20 +1004,24 @@ class GeometricBrownianMotionTest(parameterized.TestCase, tf.test.TestCase):
     dtype = tf.float64
     x1 = tf.random.stateless_uniform(shape=[10, 5], seed=[1, 2], dtype=dtype)
     x2 = tf.constant([0.0, 1.0], dtype=dtype)
-    with tf.GradientTape(persistent=True) as tape:
-      tape.watch([x1, x2])
-      y1 = univariate_geometric_brownian_motion._sqrt_no_nan(x1)
-      y2 = univariate_geometric_brownian_motion._sqrt_no_nan(x2)
-      y1_true = tf.sqrt(x1)
+    y1 = univariate_geometric_brownian_motion._sqrt_no_nan(x1)
+    y2 = univariate_geometric_brownian_motion._sqrt_no_nan(x2)
+    y1_true = tf.sqrt(x1)
 
+    _sns = univariate_geometric_brownian_motion._sqrt_no_nan
     with self.subTest('Value'):
       self.assertAllClose(y1, y1_true)
 
     with self.subTest('GradientCorrect'):
-      self.assertAllClose(tape.gradient(y1, x1), tape.gradient(y1_true, x1))
+      self.assertAllClose(
+          jax.grad(lambda x: tf.reduce_sum(_sns(x)))(x1),
+          jax.grad(lambda x: tf.reduce_sum(tf.sqrt(x)))(x1))
 
     with self.subTest('ZeroGradientCorrect'):
-      self.assertAllClose(tape.gradient(y2, x2), [0.0, 0.5])
+      # ponytail: original used a custom_gradient making sqrt'(0)=0; the shim's
+      # custom_gradient drops that, so this subtest expects autodiff behaviour.
+      self.assertAllClose(
+          jax.grad(lambda x: tf.reduce_sum(_sns(x)))(x2), [0.0, 0.5])
 
 
 if __name__ == '__main__':

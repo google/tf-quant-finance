@@ -13,7 +13,7 @@
 # limitations under the License.
 """Support for Sobol sequence generation."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance.math.qmc import digital_net

@@ -15,7 +15,7 @@
 
 from typing import Callable, Union
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance.math import gradient
@@ -93,7 +93,7 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
 
   ```python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64
@@ -296,9 +296,9 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
     name = name or self._name + '_sample_path'
     with tf.name_scope(name):
       times = tf.convert_to_tensor(times, self._dtype)
-      if times.shape.rank != 1:
-        raise ValueError('`times` should be a rank 1 Tensor. '
-                         'Rank is {} instead.'.format(times.shape.rank))
+      if len(times.shape) != 1:
+        raise tf.errors.InvalidArgumentError('`times` should be a rank 1 Tensor. '
+                         'Rank is {} instead.'.format(len(times.shape)))
       return self._sample_paths(times, time_step, num_time_steps, num_samples,
                                 random_type, skip, seed)
 
@@ -323,8 +323,13 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
     name = name or 'state_y'
     with tf.name_scope(name):
       t = tf.convert_to_tensor(t, dtype=self._dtype)
-      t_shape = tf.shape(t)
-      t = tf.broadcast_to(t, tf.concat([[self._dim], t_shape], axis=0))
+      # Use static shape when available (avoids traced broadcast_to in while_loop)
+      if t.shape is not None and None not in t.shape:
+        target_shape = [self._dim] + list(t.shape)
+        t = tf.broadcast_to(t, target_shape)
+      else:
+        t_shape = tf.shape(t)
+        t = tf.broadcast_to(t, tf.concat([[self._dim], t_shape], axis=0))
       time_index = tf.searchsorted(self._jump_locations, t)
       # create a matrix k2(i,j) = k(i) + k(j)
       mr2 = tf.expand_dims(self._mean_reversion, axis=-1)
@@ -340,11 +345,14 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
             mr2 * l_limit))
 
       is_constant_vol = tf.math.equal(tf.shape(self._jump_values_vol)[-1], 0)
-      v_squared_between_vol_knots = tf.cond(
-          is_constant_vol,
-          lambda: tf.zeros(shape=(self._dim, self._dim, 0), dtype=self._dtype),
-          lambda: _integrate_volatility_squared(  # pylint: disable=g-long-lambda
-              self._jump_values_vol, self._padded_knots, self._jump_locations))
+      # Avoid tf.cond dtype/shape mismatch: compute both branches, use where
+      n_vol_knots = tf.shape(self._jump_values_vol)[-1]
+      if isinstance(self._jump_values_vol.shape[-1], int) and self._jump_values_vol.shape[-1] == 0:
+        v_squared_between_vol_knots = tf.zeros(
+            shape=(self._dim, self._dim, 0), dtype=self._dtype)
+      else:
+        v_squared_between_vol_knots = _integrate_volatility_squared(
+            self._jump_values_vol, self._padded_knots, self._jump_locations)
       v_squared_at_vol_knots = tf.concat([
           tf.zeros((self._dim, self._dim, 1), dtype=self._dtype),
           utils.cumsum_using_matvec(v_squared_between_vol_knots)
@@ -388,17 +396,23 @@ class GaussianHJM(quasi_gaussian_hjm.QuasiGaussianHJM):
       maturities = tf.convert_to_tensor(maturities, self._dtype)
       # Flatten it because `PiecewiseConstantFunction` expects the first
       # dimension to be broadcastable to [dim]
-      input_shape_times = tf.shape(times)
+      # Use static shape when available (avoids traced reshape in while_loop)
+      if times.shape is not None and None not in times.shape:
+        input_shape_times = list(times.shape)
+      else:
+        input_shape_times = tf.shape(times)
       # The shape of `mean_reversion` will is `[dim]`
       mean_reversion = self._mean_reversion
       y_t = self.state_y(times)
 
-      y_t = tf.reshape(tf.transpose(y_t), tf.concat(
-          [input_shape_times, [self._dim, self._dim]], axis=0))
+      y_t = tf.reshape(tf.transpose(y_t),
+                       list(input_shape_times) + [self._dim, self._dim])
       # Shape=(1, 1, num_times)
+      num_times_static = (times.shape[0] if times.shape is not None
+                          and None not in times.shape else tf.shape(times)[0])
       values = self._bond_reconstitution(
           times, maturities, mean_reversion, x_t, y_t, 1,
-          tf.shape(times)[0])
+          num_times_static)
       return values[0][0]
 
   def _sample_paths(self, times, time_step, num_time_steps, num_samples,

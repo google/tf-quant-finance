@@ -15,7 +15,7 @@
 
 from typing import Optional, Callable
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import datetime as dateslib
 from tf_quant_finance import math
@@ -128,7 +128,7 @@ class VolatilitySurface(pmd.VolatilitySurface):
     """
     del term
     if expiry_dates is not None and expiry_times is not None:
-      raise ValueError("Unexpected inputs: Both expiry_dates and expiry times "
+      raise tf.errors.InvalidArgumentError("Unexpected inputs: Both expiry_dates and expiry times "
                        "are specified")
 
     if expiry_times is None:

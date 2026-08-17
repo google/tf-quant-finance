@@ -15,7 +15,10 @@
 
 from typing import Callable, List, Optional
 
-import tensorflow.compat.v2 as tf
+import jax
+import numpy as np
+import jax.numpy as jnp
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
@@ -72,7 +75,7 @@ def sample(
   ```
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   import numpy as np
@@ -252,13 +255,13 @@ def sample(
     num_requested_times = tff_utils.get_shape(times)[0]
     # Create a time grid for the Euler scheme.
     if num_time_steps is not None and time_step is not None:
-      raise ValueError(
+      raise tf.errors.InvalidArgumentError(
           'When `times_grid` is not supplied only one of either '
           '`num_time_steps` or `time_step` should be defined but not both.')
     if times_grid is None:
       if time_step is None:
         if num_time_steps is None:
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               'When `times_grid` is not supplied, either `num_time_steps` '
               'or `time_step` should be defined.')
         num_time_steps = tf.convert_to_tensor(
@@ -288,7 +291,7 @@ def sample(
       normal_draws = tf.convert_to_tensor(normal_draws, dtype=dtype,
                                           name='normal_draws')
       # Shape [num_time_points] + batch_shape + [num_samples, dim]
-      normal_draws_rank = normal_draws.shape.rank
+      normal_draws_rank = len(normal_draws.shape)
       perm = tf.concat(
           [[normal_draws_rank-2], tf.range(normal_draws_rank-2),
            [normal_draws_rank-1]], axis=0)
@@ -296,7 +299,7 @@ def sample(
       num_samples = tf.shape(normal_draws)[-2]
       draws_dim = normal_draws.shape[-1]
       if dim != draws_dim:
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             '`dim` should be equal to `normal_draws.shape[2]` but are '
             '{0} and {1} respectively'.format(dim, draws_dim))
       if validate_args:
@@ -355,7 +358,9 @@ def _sample(*,
   sqrt_dt = tf.sqrt(dt)
   # current_state.shape = batch_shape + [num_samples, dim]
   current_state = initial_state + tf.zeros([num_samples, dim], dtype=dtype)
-  steps_num = tff_utils.get_shape(dt)[-1]
+  # Ensure steps_num is a concrete Python int
+  _sn = tff_utils.get_shape(dt)[-1]
+  steps_num = int(_sn) if _sn is not None else int(dt.shape[-1]) if dt.shape[-1] is not None else len(np.asarray(dt))
   wiener_mean = None
   if normal_draws is None:
     # In order to use low-discrepancy random_type we need to generate the
@@ -406,61 +411,75 @@ def _while_loop(*, steps_num, current_state,
                 drift_fn, volatility_fn, wiener_mean,
                 num_samples, times, dt, sqrt_dt, num_requested_times,
                 keep_mask, swap_memory, random_type, seed, normal_draws, dtype):
-  """Sample paths using tf.while_loop."""
-  written_count = 0
-  if isinstance(num_requested_times, int) and num_requested_times == 1:
-    record_samples = False
-    result = current_state
-  else:
-    # If more than one sample has to be recorded, create a TensorArray
-    record_samples = True
-    element_shape = current_state.shape
-    result = tf.TensorArray(dtype=dtype,
-                            size=num_requested_times,
-                            element_shape=element_shape,
-                            clear_after_read=False)
-    # Include initial state, if necessary
-    result = result.write(written_count, current_state)
-  written_count += tf.cast(keep_mask[0], dtype=tf.int32)
-  # Define sampling while_loop body function
-  def cond_fn(i, written_count, *args):
-    # It can happen that `times_grid[-1] > times[-1]` in which case we have
-    # to terminate when `written_count` reaches `num_requested_times`
-    del args
-    return tf.math.logical_and(i < steps_num,
-                               written_count < num_requested_times)
+  """Sample paths (JAX native): counted loop -> lax.scan with a result carry.
 
-  def step_fn(i, written_count, current_state, result):
-    return _euler_step(
-        i=i,
-        written_count=written_count,
-        current_state=current_state,
-        result=result,
-        drift_fn=drift_fn,
-        volatility_fn=volatility_fn,
-        wiener_mean=wiener_mean,
-        num_samples=num_samples,
-        times=times,
-        dt=dt,
-        sqrt_dt=sqrt_dt,
-        keep_mask=keep_mask,
-        random_type=random_type,
-        seed=seed,
-        normal_draws=normal_draws,
-        record_samples=record_samples)
-  # Sample paths
-  _, _, _, result = tf.while_loop(
-      cond_fn, step_fn, (0, written_count, current_state, result),
-      maximum_iterations=steps_num,
-      swap_memory=swap_memory)
-  if not record_samples:
-    # shape batch_shape + [num_samples, 1, dim]
-    return tf.expand_dims(result, axis=-2)
-  # Shape [num_time_points] + batch_shape + [num_samples, dim]
-  result = result.stack()
-  # transpose to shape batch_shape + [num_samples, num_time_points, dim]
-  n = result.shape.rank
-  perm = list(range(1, n-1)) + [0, n - 1]
+  Replaces tf.while_loop + tf.TensorArray. `keep_mask[i]` selects which of the
+  `steps_num+1` times are 'requested' output times; states at those times are
+  recorded into a result array indexed by a running `written_count`.
+  """
+  del swap_memory
+  single = isinstance(num_requested_times, int) and num_requested_times == 1
+
+  def _draw(i):
+    if normal_draws is not None:
+      draw = jax.lax.dynamic_index_in_dim(normal_draws, i, axis=0)
+      sqrt_dt_i = jax.lax.dynamic_index_in_dim(sqrt_dt, i, axis=0)
+      return jnp.squeeze(draw, axis=0) * jnp.squeeze(sqrt_dt_i, axis=0)
+    return random.mv_normal_sample(
+        (num_samples,), mean=wiener_mean, random_type=random_type,
+        seed=seed) * jnp.squeeze(jax.lax.dynamic_index_in_dim(sqrt_dt, i, axis=0), axis=0)
+
+  def _next(i, current_state):
+    current_time = jnp.squeeze(jax.lax.dynamic_index_in_dim(times, i + 1, axis=0), axis=0)
+    dw = _draw(i)
+    dt_inc = jnp.squeeze(jax.lax.dynamic_index_in_dim(dt, i, axis=0), axis=0) * drift_fn(current_time, current_state)
+    dw_inc = tf.linalg.matvec(volatility_fn(current_time, current_state), dw)
+    next_state = current_state + dt_inc + dw_inc
+    # Ensure dtype matches current_state
+    return next_state.astype(current_state.dtype)
+
+  if single:
+    def body(carry, i):
+      return _next(i, carry), None
+    final, _ = jax.lax.scan(body, current_state, xs=jnp.arange(int(steps_num)))
+    return tf.expand_dims(final, axis=-2)
+
+  # record_samples: scan steps_num, carrying (state, result[num_requested, ...], wc)
+  result = tf.zeros([num_requested_times] + list(current_state.shape), dtype=dtype)
+  wc = jnp.asarray(0, dtype=jnp.int32)
+  # Record the initial state at slot 0 if requested (keep_mask[0]).
+  rec0 = jnp.asarray(keep_mask[0], dtype=jnp.int32)
+  result = jnp.where(rec0 == 1, result.at[0].set(current_state), result)
+  wc = wc + rec0
+
+  def body_rec(carry, i):
+    state, result, wc = carry
+    next_state = _next(i, state)
+    rec = jnp.asarray(jnp.squeeze(jax.lax.dynamic_index_in_dim(keep_mask, i + 1, axis=0), axis=0), dtype=jnp.int32)
+    # Use dynamic_update_slice for traced index wc
+    # result has shape [num_requested_times, num_samples, dim]
+    # next_state has shape [num_samples, dim] or [1, num_samples, dim]
+    # We need to update result[wc, :, :] with next_state
+    if next_state.ndim == result.ndim:
+        update = next_state
+    else:
+        update = jnp.expand_dims(next_state, 0)
+    # Ensure update has the same dtype as result
+    update = update.astype(result.dtype)
+    # Ensure all indices have the same dtype
+    wc_int = wc.astype(jnp.int64)
+    slice_indices = (wc_int,) + (jnp.int64(0),) * (result.ndim - 1)
+    new_result = jax.lax.dynamic_update_slice(result, update, slice_indices)
+    result = jnp.where(rec == 1, new_result, result)
+    wc = wc + rec
+    return (next_state, result, wc), None
+
+  (_, result, _), _ = jax.lax.scan(
+      body_rec, (current_state, result, wc), xs=jnp.arange(int(steps_num)))
+  # result.shape = [num_requested_times] + batch + [num_samples, dim]
+  # transpose to batch + [num_requested_times, num_samples, dim]
+  n = len(result.shape)
+  perm = list(range(1, n - 1)) + [0, n - 1]
   return tf.transpose(result, perm)
 
 
@@ -469,44 +488,61 @@ def _for_loop(*, batch_shape, steps_num, current_state,
               num_samples, times, dt, sqrt_dt, time_indices,
               keep_mask, random_type, seed, normal_draws):
   """Sample paths using custom for_loop."""
-  del batch_shape
-  num_time_points = time_indices.shape.as_list()[:-1]
-  if isinstance(num_time_points, int) and num_time_points == 1:
-    iter_nums = steps_num
-  else:
-    iter_nums = time_indices
-  def step_fn(i, current_state):
-    # Unpack current_state
-    current_state = current_state[0]
-    _, _, next_state, _ = _euler_step(
-        i=i,
-        written_count=0,
-        current_state=current_state,
-        result=current_state,
-        drift_fn=drift_fn,
-        volatility_fn=volatility_fn,
-        wiener_mean=wiener_mean,
-        num_samples=num_samples,
-        times=times,
-        dt=dt,
-        sqrt_dt=sqrt_dt,
-        keep_mask=keep_mask,
-        random_type=random_type,
-        seed=seed,
-        normal_draws=normal_draws,
-        record_samples=False)
-    return [next_state]
-  result = custom_loops.for_loop(
-      body_fn=step_fn,
-      initial_state=[current_state],
-      params=watch_params,
-      num_iterations=iter_nums)[0]
-  if num_time_points == 1:
-    return tf.expand_dims(result, axis=-2)
-  # result.shape=[num_time_points] + batch_shape + [num_samples, dim]
-  # transpose to shape=batch_shape + [num_time_points, num_samples, dim]
-  n = result.shape.rank
-  perm = list(range(1, n-1)) + [0, n - 1]
+  del batch_shape, watch_params
+  # Use the same approach as _while_loop: scan through steps and record states
+  # at requested times using keep_mask.
+  num_requested_times = int(jnp.sum(jnp.asarray(keep_mask, dtype=jnp.int32)))
+  
+  def _draw(i):
+    if normal_draws is not None:
+      draw = jax.lax.dynamic_index_in_dim(normal_draws, i, axis=0)
+      sqrt_dt_i = jax.lax.dynamic_index_in_dim(sqrt_dt, i, axis=0)
+      return jnp.squeeze(draw, axis=0) * jnp.squeeze(sqrt_dt_i, axis=0)
+    return random.mv_normal_sample(
+        (num_samples,), mean=wiener_mean, random_type=random_type,
+        seed=seed) * jnp.squeeze(jax.lax.dynamic_index_in_dim(sqrt_dt, i, axis=0), axis=0)
+
+  def _next(i, current_state):
+    current_time = jnp.squeeze(jax.lax.dynamic_index_in_dim(times, i + 1, axis=0), axis=0)
+    dw = _draw(i)
+    dt_inc = jnp.squeeze(jax.lax.dynamic_index_in_dim(dt, i, axis=0), axis=0) * drift_fn(current_time, current_state)
+    dw_inc = tf.linalg.matvec(volatility_fn(current_time, current_state), dw)
+    next_state = current_state + dt_inc + dw_inc
+    # Ensure dtype matches current_state
+    return next_state.astype(current_state.dtype)
+
+  # Record samples: scan steps_num, carrying (state, result[num_requested, ...], wc)
+  result = tf.zeros([num_requested_times] + list(current_state.shape), dtype=current_state.dtype)
+  wc = jnp.asarray(0, dtype=jnp.int32)
+  # Record the initial state at slot 0 if requested (keep_mask[0]).
+  rec0 = jnp.asarray(keep_mask[0], dtype=jnp.int32)
+  result = jnp.where(rec0 == 1, result.at[0].set(current_state), result)
+  wc = wc + rec0
+
+  def body_rec(carry, i):
+    state, result, wc = carry
+    next_state = _next(i, state)
+    rec = jnp.asarray(jnp.squeeze(jax.lax.dynamic_index_in_dim(keep_mask, i + 1, axis=0), axis=0), dtype=jnp.int32)
+    # Use dynamic_update_slice for traced index wc
+    if next_state.ndim == result.ndim:
+        update = next_state
+    else:
+        update = jnp.expand_dims(next_state, 0)
+    # Ensure update has the same dtype as result
+    update = update.astype(result.dtype)
+    wc_int = wc.astype(jnp.int64)
+    slice_indices = (wc_int,) + (jnp.int64(0),) * (result.ndim - 1)
+    new_result = jax.lax.dynamic_update_slice(result, update, slice_indices)
+    result = jnp.where(rec == 1, new_result, result)
+    wc = wc + rec
+    return (next_state, result, wc), None
+
+  (_, result, _), _ = jax.lax.scan(
+      body_rec, (current_state, result, wc), xs=jnp.arange(int(steps_num)))
+  # result.shape = [num_requested_times] + batch + [num_samples, dim]
+  # transpose to batch + [num_requested_times, num_samples, dim]
+  n = len(result.shape)
+  perm = list(range(1, n - 1)) + [0, n - 1]
   return tf.transpose(result, perm)
 
 
@@ -516,7 +552,7 @@ def _euler_step(*, i, written_count, current_state,
                 random_type, seed, normal_draws, result,
                 record_samples):
   """Performs one step of Euler scheme."""
-  current_time = times[i + 1]
+  current_time = jnp.squeeze(jax.lax.dynamic_index_in_dim(times, i + 1, axis=0), axis=0)
   written_count = tf.cast(written_count, tf.int32)
   if normal_draws is not None:
     dw = normal_draws[i]
@@ -524,15 +560,15 @@ def _euler_step(*, i, written_count, current_state,
     dw = random.mv_normal_sample(
         (num_samples,), mean=wiener_mean, random_type=random_type,
         seed=seed)
-  dw = dw * sqrt_dt[i]
-  dt_inc = dt[i] * drift_fn(current_time, current_state)  # pylint: disable=not-callable
+  dw = dw * jax.lax.dynamic_index_in_dim(sqrt_dt, i, axis=0)
+  dt_inc = jnp.squeeze(jax.lax.dynamic_index_in_dim(dt, i, axis=0), axis=0) * drift_fn(current_time, current_state)  # pylint: disable=not-callable
   dw_inc = tf.linalg.matvec(volatility_fn(current_time, current_state), dw)  # pylint: disable=not-callable
   next_state = current_state + dt_inc + dw_inc
   if record_samples:
     result = result.write(written_count, next_state)
   else:
     result = next_state
-  written_count += tf.cast(keep_mask[i + 1], dtype=tf.int32)
+  written_count += tf.cast(jnp.squeeze(jax.lax.dynamic_index_in_dim(keep_mask, i + 1, axis=0), axis=0), dtype=tf.int32)
 
   return i + 1, written_count, next_state, result
 

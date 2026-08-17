@@ -18,14 +18,14 @@ import functools
 
 from absl.testing import parameterized
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
 
 from tf_quant_finance.datetime import bounded_holiday_calendar
 from tf_quant_finance.datetime import test_data
 from tf_quant_finance.datetime import unbounded_holiday_calendar
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 dates = tff.datetime
 
@@ -34,6 +34,7 @@ def test_both_impls(test_fn):
   # Decorator to run the test with both BoundedHolidayCalendar and
   # UnboundedHolidayCalendar.
   # Create the calendar as `self.impl(args)`.
+  test_both_impls.__test__ = False  # Not a test, prevent pytest collection
   def create_unbounded_calendar(**kwargs):
     kwargs.pop("start_year", None)
     kwargs.pop("end_year", None)

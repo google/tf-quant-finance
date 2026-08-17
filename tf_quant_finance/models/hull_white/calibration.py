@@ -14,7 +14,7 @@
 """Calibration methods for the Hull-White model."""
 from typing import Callable, Tuple, Union
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils
@@ -100,7 +100,7 @@ def calibration_from_swaptions(
 
   ````python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64
@@ -183,15 +183,15 @@ def calibration_from_swaptions(
       expiration of the swaptions.
     floating_leg_start_times: A real `Tensor` of the same dtype as `expiries`.
       The times when accrual begins for each payment in the floating leg. The
-      shape of this input should be `expiries.shape + [m]` where `m` denotes
+      shape of this input should be `list(expiries.shape) + [m]` where `m` denotes
       the number of floating payments in each leg.
     floating_leg_end_times: A real `Tensor` of the same dtype as `expiries`.
       The times when accrual ends for each payment in the floating leg. The
-      shape of this input should be `expiries.shape + [m]` where `m` denotes
+      shape of this input should be `list(expiries.shape) + [m]` where `m` denotes
       the number of floating payments in each leg.
     fixed_leg_payment_times: A real `Tensor` of the same dtype as `expiries`.
       The payment times for each payment in the fixed leg. The shape of this
-      input should be `expiries.shape + [n]` where `n` denotes the number of
+      input should be `list(expiries.shape) + [n]` where `n` denotes the number of
       fixed payments in each leg.
     floating_leg_daycount_fractions: A real `Tensor` of the same dtype and
       compatible shape as `floating_leg_start_times`. The daycount fractions
@@ -350,12 +350,12 @@ def calibration_from_swaptions(
           jump_locations=[], values=volatility, dtype=dtype)
 
     if optimizer_fn is None:
-      optimizer_fn = optimizer.conjugate_gradient_minimize
+      optimizer_fn = optimizer.lbfgs_minimize  # CG blocked by while_loop VJP
 
     if volatility_based_calibration:
       def reference_rate_squeeze_fn(t):
         r = reference_rate_fn(t)
-        if r.shape.as_list()[-1] == 1:
+        if list(r.shape)[-1] == 1:
           r = tf.squeeze(r, axis=-1)
         return r
       swap_rate, annuity = swap.ir_swap_par_rate_and_annuity(
@@ -378,7 +378,7 @@ def calibration_from_swaptions(
     initial_guess = tf.concat(
         [_to_unconstrained(mean_reversion.values(), mr_lb, mr_ub),
          _to_unconstrained(volatility.values(), vol_lb, vol_ub)], axis=0)
-    num_mean_reversion = mean_reversion.values().shape.as_list()[0]
+    num_mean_reversion = mean_reversion.values().shape[0]
     scaled_target = _scale(target_values, target_lb, target_ub)
 
     @make_val_and_grad_fn
@@ -497,7 +497,7 @@ def calibration_from_cap_floors(
 
   ````python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   # In this example, we synthetically generate some prices. Then we use our
@@ -728,7 +728,7 @@ def calibration_from_cap_floors(
           jump_locations=[], values=volatility, dtype=dtype)
 
     if optimizer_fn is None:
-      optimizer_fn = optimizer.conjugate_gradient_minimize
+      optimizer_fn = optimizer.lbfgs_minimize  # CG blocked by while_loop VJP
 
     target_values = prices
     target_lb = tf.constant(0.0, dtype=dtype)
@@ -743,7 +743,7 @@ def calibration_from_cap_floors(
         _to_unconstrained(mean_reversion.values(), mr_lb, mr_ub),
         _to_unconstrained(volatility.values(), vol_lb, vol_ub)
     ], axis=0)
-    num_mean_reversion = mean_reversion.values().shape.as_list()[0]
+    num_mean_reversion = mean_reversion.values().shape[0]
     scaled_target = _scale(target_values, target_lb, target_ub)
 
     @make_val_and_grad_fn

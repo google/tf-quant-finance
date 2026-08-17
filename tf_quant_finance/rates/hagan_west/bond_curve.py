@@ -37,7 +37,7 @@ method described by Hagan and West in Ref [1, 2].
   Wilmott Magazine, pp. 70-81. May 2008.
 """
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils
@@ -444,7 +444,7 @@ def _build_discount_curve(bond_cashflows, bond_cashflow_times, present_values,
 
   def one_step(converged, failed, iteration, expiry_discounts):
     """One step of the iteration."""
-    expiry_rates = -tf.math.log(expiry_discounts) / expiry_times
+    expiry_rates = -tf.math.log(tf.maximum(expiry_discounts, 1e-20)) / expiry_times
     failed = tf.math.reduce_any(
         tf.math.is_nan(expiry_rates) | tf.math.is_nan(expiry_discounts))
     calc_rates = monotone_convex.interpolate_yields(
@@ -452,7 +452,13 @@ def _build_discount_curve(bond_cashflows, bond_cashflow_times, present_values,
     calc_discounts = tf.math.exp(-calc_rates * calc_times)
     next_expiry_discounts = -tf.math.segment_sum(
         calc_bond_cashflows * calc_discounts,
-        calc_groups) / expiry_bond_cashflows
+        calc_groups,
+        num_segments=num_bonds) / expiry_bond_cashflows
+    next_expiry_discounts = tf.where(
+        tf.math.is_nan(next_expiry_discounts) | (next_expiry_discounts <= 0),
+        expiry_discounts, next_expiry_discounts)
+    # Cast to match carry dtype (avoid float32/float64 drift in while_loop).
+    next_expiry_discounts = tf.cast(next_expiry_discounts, expiry_discounts.dtype)
     discount_diff = tf.math.abs(next_expiry_discounts - expiry_discounts)
     converged = (~tf.math.reduce_any(tf.math.is_nan(discount_diff)) &
                  (tf.math.reduce_max(discount_diff) < discount_tolerance))
@@ -506,28 +512,28 @@ def _perform_static_validation(bond_cashflows, bond_cashflow_times,
                                present_values, pv_settle_times):
   """Performs static validation on the arguments."""
   if len(bond_cashflows) != len(bond_cashflow_times):
-    raise ValueError(
+    raise tf.errors.InvalidArgumentError(
         'Cashflow times and bond_cashflows must be of the same length.'
         'bond_cashflows are of size'
         ' {} and times of size {}'.format(
             len(bond_cashflows), len(bond_cashflow_times)))
 
   if len(bond_cashflows) != len(present_values):
-    raise ValueError(
+    raise tf.errors.InvalidArgumentError(
         'Present values and bond_cashflows must be of the same length.'
         'bond_cashflows are of size'
         ' {} and PVs of size {}'.format(
             len(bond_cashflows), len(present_values)))
 
   if len(present_values) != len(pv_settle_times):
-    raise ValueError(
+    raise tf.errors.InvalidArgumentError(
         'Present value settlement times and present values must be of'
         'the same length. Settlement times are of size'
         ' {} and PVs of size {}'.format(
             len(pv_settle_times), len(present_values)))
 
   if len(bond_cashflows) < 2:
-    raise ValueError(
+    raise tf.errors.InvalidArgumentError(
         'At least two bonds must be supplied to calibrate the curve.'
         'Found {}.'.format(len(bond_cashflows)))
 

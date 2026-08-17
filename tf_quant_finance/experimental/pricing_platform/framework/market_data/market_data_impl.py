@@ -114,7 +114,7 @@ https://github.com/google/tf-quant-finance/tree/master/tf_quant_finance/experime
 import datetime
 from typing import Dict, Any, List, Optional, Tuple
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import datetime as dateslib
 from tf_quant_finance import math
@@ -163,7 +163,7 @@ class MarketDataDict(pmd.ProcessedMarketData):
     # Extract the currency of the curve
     currency = curve_type.currency.value
     if currency not in self.supported_currencies:
-      raise ValueError(f"Currency '{curve_type.currency}' is not supported")
+      raise tf.errors.InvalidArgumentError(f"Currency '{curve_type.currency}' is not supported")
     try:
       if isinstance(curve_type, curve_types.RiskFreeCurve):
         curve_id = "risk_free_curve"
@@ -239,7 +239,7 @@ class MarketDataDict(pmd.ProcessedMarketData):
     else:
       fixing_dates = dateslib.convert_to_date_tensor(fixing_dates)
     if "fixing_daycount" not in curve_data:
-      raise ValueError(
+      raise tf.errors.InvalidArgumentError(
           f"`fixing_daycount` should be specified for {index_type}.")
     fixing_daycount = curve_data["fixing_daycount"]
     fixing_daycount = daycount_conventions.DayCountConventions(fixing_daycount)
@@ -263,7 +263,7 @@ class MarketDataDict(pmd.ProcessedMarketData):
     spots = []
     for cur, s in zip(currency, asset):
       if s not in self.supported_assets(cur):
-        raise ValueError(f"No data for asset {s}")
+        raise tf.errors.InvalidArgumentError(f"No data for asset {s}")
       data_spot = self._market_data_dict["equities"][cur][s]
       spots.append(tf.convert_to_tensor(data_spot["spot_price"], self._dtype))
     return spots
@@ -285,10 +285,10 @@ class MarketDataDict(pmd.ProcessedMarketData):
     implied_vols = []
     for cur, s in zip(currency, asset):
       if s not in self.supported_assets(cur):
-        raise ValueError(f"No data for asset {s}")
+        raise tf.errors.InvalidArgumentError(f"No data for asset {s}")
       data_spot = self._market_data_dict["equities"][cur][s]
       if "volatility_surface" not in data_spot:
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             f"No volatility surface 'volatility_surface' for asset {s}")
       vol_surface = data_spot["volatility_surface"]
       vol_dates = dateslib.convert_to_date_tensor(vol_surface["dates"])

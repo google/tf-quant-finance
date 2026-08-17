@@ -17,7 +17,7 @@
 import functools
 from typing import Any, Callable, List, Optional, Union
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import black_scholes
 from tf_quant_finance import datetime
@@ -67,6 +67,7 @@ def _dupire_local_volatility_prices(time, spot_price, initial_spot_price,
     construction of local volatility.
   """
   dtype = time.dtype
+  dividend_yield = tf.convert_to_tensor(dividend_yield, dtype=dtype)
 
   risk_free_rate_fn = _get_risk_free_rate_from_discount_factor(
       discount_factor_fn)
@@ -108,6 +109,8 @@ def _dupire_local_volatility_iv(time, spot_price, initial_spot_price,
                                 dividend_yield):
   """Similar to _dupire_local_volatility_prices, but uses implied vols."""
   dtype = time.dtype
+  dividend_yield = tf.convert_to_tensor(dividend_yield, dtype=dtype)
+  initial_spot_price = tf.convert_to_tensor(initial_spot_price, dtype=dtype)
 
   risk_free_rate_fn = _get_risk_free_rate_from_discount_factor(
       discount_factor_fn)
@@ -329,7 +332,7 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
 
   ```python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64
@@ -437,7 +440,7 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
     self._precompute_iv = precompute_iv
     if precompute_iv:
       if (times_grid is None or spot_grid is None):
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             'When `precompute_iv` is True, both `times_grid` and `spot_grid` '
             'must be supplied')
       self._times_grid = times_grid
@@ -517,7 +520,7 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
       if self.precompute_iv():
         if (time_step is not None or num_time_steps is not None or
             times_grid is not None):
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               '`time_step`, `num_time_steps`, or `times_grid` cannot be used'
               'with the interpolated LVM')
         times_grid = self._times_grid
@@ -609,7 +612,7 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
     """
     name = name or 'from_market_data'
     if precompute_iv and (times_grid is None or spot_grid is None):
-      raise ValueError(
+      raise tf.errors.InvalidArgumentError(
           'When `precompute_iv` is True, both `times_grid` and `spot_grid` must'
           ' be supplied')
     with tf.name_scope(name):
@@ -761,7 +764,7 @@ class LocalVolatilityModel(generic_ito_process.GenericItoProcess):
     """
     name = name or 'from_volatility_surface'
     if precompute_iv and (times_grid is None or spot_grid is None):
-      raise ValueError(
+      raise tf.errors.InvalidArgumentError(
           'When `precompute_iv` is True, both `times_grid` and `spot_grid` must'
           ' be supplied')
     with tf.name_scope(name):

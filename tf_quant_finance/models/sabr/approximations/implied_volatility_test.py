@@ -16,11 +16,12 @@
 from absl.testing import parameterized
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+import jax
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
 
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 # Helper aliases.
 NORMAL = tff.models.sabr.approximations.SabrImpliedVolatilityType.NORMAL
@@ -408,9 +409,8 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
     rho = tf.convert_to_tensor(rho, dtype=dtype)
     volvol = tf.convert_to_tensor(volvol, dtype=dtype)
 
-    with tf.GradientTape(persistent=True) as tape:
-      tape.watch([forwards, strikes, expiries, alpha, beta, rho, volvol])
-      equiv_vol = tff.models.sabr.approximations.implied_volatility(
+    def _vol(forwards, strikes, expiries, alpha, beta, rho, volvol):
+      return tff.models.sabr.approximations.implied_volatility(
           forwards=forwards,
           strikes=strikes,
           expiries=expiries,
@@ -420,11 +420,11 @@ class SabrApproximationImpliedVolatilityTest(parameterized.TestCase,
           volvol=volvol,
           volatility_type=vol_type,
           dtype=dtype)
-      grad = tape.gradient(
-          target=equiv_vol,
-          sources=[forwards, strikes, expiries, alpha, beta, rho, volvol])
+    grad = self.evaluate(jax.grad(
+        lambda *a: tf.reduce_sum(_vol(*a)),
+        (0, 1, 2, 3, 4, 5, 6))(
+            forwards, strikes, expiries, alpha, beta, rho, volvol))
 
-    grad = self.evaluate(grad)
     self.assertTrue(all(np.all(np.isfinite(x)) for x in grad))
 
   @parameterized.parameters([NORMAL, LOGNORMAL])

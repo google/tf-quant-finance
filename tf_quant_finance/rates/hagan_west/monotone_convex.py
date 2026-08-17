@@ -51,7 +51,7 @@ curves at the same time).
   Wilmott Magazine, pp. 70-81. May 2008.
 """
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance.math import piecewise
@@ -258,8 +258,13 @@ def interpolate(times: types.RealTensor,
       # g0 = g1 = 0 requires special handling. Checking if the values are
       # legitimatey zero requires we pay close attention to the numerical
       # precision issues.
-      g0_eps = tf.abs(tf.math.nextafter(fd, f_left) - fd) * 1.1
-      g1_eps = tf.abs(tf.math.nextafter(fd, f_right) - fd) * 1.1
+      # Use stop_gradient for nextafter (not differentiable in JAX)
+      import jax
+      fd_sg = jax.lax.stop_gradient(fd)
+      f_left_sg = jax.lax.stop_gradient(f_left)
+      f_right_sg = jax.lax.stop_gradient(f_right)
+      g0_eps = tf.abs(tf.math.nextafter(fd_sg, f_left_sg) - fd_sg) * 1.1
+      g1_eps = tf.abs(tf.math.nextafter(fd_sg, f_right_sg) - fd_sg) * 1.1
 
       is_origin = ((tf.abs(g0) <= g0_eps) & (tf.abs(g1) <= g1_eps))
 
@@ -362,7 +367,7 @@ def interpolate_forward_rate(interpolation_times,
   """
 
   if (yields is None) == (discrete_forwards is None):
-    raise ValueError('Exactly one of yields or discrete forwards must'
+    raise tf.errors.InvalidArgumentError('Exactly one of yields or discrete forwards must'
                      ' be supplied.')
 
   with tf.compat.v1.name_scope(
@@ -487,7 +492,7 @@ def interpolate_yields(interpolation_times,
   """
 
   if (yields is None) == (discrete_forwards is None):
-    raise ValueError('Exactly one of yields or discrete forwards must'
+    raise tf.errors.InvalidArgumentError('Exactly one of yields or discrete forwards must'
                      ' be supplied.')
 
   with tf.compat.v1.name_scope(

@@ -16,7 +16,7 @@
 
 from typing import Callable, Union, Tuple
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance.math import gradient
@@ -85,7 +85,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
 
   ```python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64
@@ -191,7 +191,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
           mean_reversion, dtype=dtype, name='mean_reversion')
       def _infer_batch_shape():
         zero = tf.constant([0], dtype=self._dtype)
-        return _initial_discount_rate_fn(zero).shape.as_list()[:-1]
+        return list(_initial_discount_rate_fn(zero).shape[:-1])
 
       self._batch_shape = _infer_batch_shape()
       self._batch_rank = len(self._batch_shape)
@@ -220,7 +220,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
         try:
           self._sqrt_rho = tf.linalg.cholesky(self._rho)
         except:
-          raise ValueError('The input correlation matrix is not '
+          raise tf.errors.InvalidArgumentError('The input correlation matrix is not '
                            'positive semidefinite.')
       else:
         self._sqrt_rho = _get_valid_sqrt_matrix(self._rho)
@@ -230,7 +230,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       """Volatility function of qG-HJM."""
       # Get parameter values at time `t`
       x = state[..., :self._factors]
-      batch_shape_x = x.shape.as_list()[:-1]
+      batch_shape_x = list(x.shape)[:-1]
       r_t = self._instant_forward_rate_fn(t) + tf.reduce_sum(
           x, axis=-1, keepdims=True)
       volatility = self._volatility(t, r_t)
@@ -239,11 +239,14 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       diffusion_x = tf.broadcast_to(
           tf.expand_dims(self._sqrt_rho, axis=self._batch_rank) * volatility,
           batch_shape_x + [self._factors, self._factors])
-      paddings = tf.constant(
-          [[0, 0]]*len(batch_shape_x) + [[0, self._factors**2],
-                                         [0, self._factors**2]],
-          dtype=tf.int32)
-      diffusion = tf.pad(diffusion_x, paddings)
+      # Pad last 2 dims to full state dimension f + f^2.
+      # Avoids tf.pad (requires static pad_width, breaks inside scan).
+      f = self._factors
+      f2 = f * f
+      pad1 = tf.zeros(batch_shape_x + [f, f2], dtype=diffusion_x.dtype)
+      diff = tf.concat([diffusion_x, pad1], axis=-1)  # [..., f, f+f2]
+      pad2 = tf.zeros(batch_shape_x + [f2, f + f2], dtype=diffusion_x.dtype)
+      diffusion = tf.concat([diff, pad2], axis=-2)   # [..., f+f2, f+f2]
 
       return diffusion
 
@@ -253,7 +256,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
       x = state[..., :self._factors]
       y = state[..., self._factors:]
 
-      batch_shape_x = x.shape.as_list()[:-1]
+      batch_shape_x = list(x.shape)[:-1]
       y = tf.reshape(y, batch_shape_x + [self._factors, self._factors])
       r_t = (self._instant_forward_rate_fn(t) +
              tf.reduce_sum(x, axis=-1, keepdims=True))
@@ -357,7 +360,7 @@ class QuasiGaussianHJM(generic_ito_process.GenericItoProcess):
     with tf.name_scope(name):
       times = tf.convert_to_tensor(times, self._dtype)
       if len(times.shape) != 1:
-        raise ValueError('`times` should be a rank 1 Tensor. '
+        raise tf.errors.InvalidArgumentError('`times` should be a rank 1 Tensor. '
                          'Rank is {} instead.'.format(len(times.shape)))
       return self._sample_paths(
           times, time_step, num_time_steps, num_samples, random_type, skip,

@@ -17,10 +17,10 @@ from os import path
 
 from absl.testing import parameterized
 import numpy as np
-import tensorflow as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.experimental import io
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 
 class IoTest(parameterized.TestCase, tf.test.TestCase):
@@ -68,8 +68,9 @@ class IoTest(parameterized.TestCase, tf.test.TestCase):
         "barrier": np.array([1.4, 2.5, 2.5], dtype=np.float64),
         "is_knockout": np.array([True, True, False])
     }
-    temp_dir = self.create_tempdir()
-    temp_file = path.join(temp_dir.full_path, "datafile.bin")
+    import tempfile
+    temp_dir = tempfile.mkdtemp()
+    temp_file = path.join(temp_dir, "datafile.bin")
     with io.ArrayDictWriter(temp_file) as writer:
       writer.write(options_data)
       writer.write(barriers_data)

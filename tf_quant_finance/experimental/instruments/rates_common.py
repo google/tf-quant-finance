@@ -16,7 +16,7 @@
 
 import enum
 from typing import Optional
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 from tf_quant_finance import datetime as dates
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
@@ -181,7 +181,7 @@ def get_daycount_fraction(date_start, date_end, convention, dtype):
     return dates.daycount_thirty_360_isda(
         start_date=date_start, end_date=date_end, dtype=dtype)
   else:
-    raise ValueError('Daycount convention not implemented.')
+    raise tf.errors.InvalidArgumentError('Daycount convention not implemented.')
 
 
 def get_rate_index(market,
@@ -196,7 +196,7 @@ def get_rate_index(market,
   elif rate_type == RateIndexType.SWAP:
     rate = market.swap_rate or tf.zeros(valuation_date.shape, dtype=dtype)
   else:
-    raise ValueError('Unrecognized rate type.')
+    raise tf.errors.InvalidArgumentError('Unrecognized rate type.')
   return rate
 
 

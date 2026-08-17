@@ -14,7 +14,7 @@
 """Array difference ops."""
 
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 
 # TODO(b/136354274): Move this function to a math library and provide a more
@@ -74,15 +74,15 @@ def diff(x, order=1, exclusive=False, axis=-1, dtype=None, name=None):
   with tf.name_scope(name or 'diff'):
     x = tf.convert_to_tensor(x, dtype=dtype)
 
-    slices = x.shape.rank * [slice(None)]
+    slices = len(x.shape) * [slice(None)]
     slices[axis] = slice(None, -order)
-    x0 = x[slices]
+    x0 = x[tuple(slices)]
     slices[axis] = slice(order, None)
-    x1 = x[slices]
+    x1 = x[tuple(slices)]
     exclusive_diff = x1 - x0
 
     if exclusive:
       return exclusive_diff
 
     slices[axis] = slice(None, order)
-    return tf.concat([x[slices], exclusive_diff], axis=axis)
+    return tf.concat([x[tuple(slices)], exclusive_diff], axis=axis)

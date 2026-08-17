@@ -16,7 +16,7 @@
 from typing import Any, Optional, List, Dict, Union, Tuple
 
 import dataclasses
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import datetime as dateslib
 from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types as curve_types_lib
@@ -175,7 +175,7 @@ class AmericanOption(instrument.Instrument):
       self._equity = cashflow_streams.to_list(equity)
       if len(self._currency) != len(self._equity):
         if len(self._currency) > 1 and len(self._equity) > 1:
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               "Number of currencies and equities should be the same "
               "but it is {0} and {1}".format(len(self._currency),
                                              len(self._equity)))
@@ -294,7 +294,7 @@ class AmericanOption(instrument.Instrument):
           self._expiry_date.expand_dims(axis=-1))
       daycount_convention = discount_curve.daycount_convention
       day_count_fn = market_data_utils.get_daycount_fn(daycount_convention)
-      if spots.shape.rank > 0:
+      if len(spots.shape) > 0:
         spots = tf.gather(spots, self._equity_mask)
       if self._model == "BS-LSM":
         # TODO(b/168798725): volatility should be time-dependent
@@ -317,7 +317,7 @@ class AmericanOption(instrument.Instrument):
             seed=self._seed)
         return self._short_position * self._contract_amount * prices
       else:
-        raise ValueError("Only BS-LSM model is supported. "
+        raise tf.errors.InvalidArgumentError("Only BS-LSM model is supported. "
                          "Supplied {}".format(self._model))
 
   @property

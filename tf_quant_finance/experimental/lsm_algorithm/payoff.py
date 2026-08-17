@@ -14,7 +14,7 @@
 """Payoff functions."""
 
 import functools
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 
 def make_basket_put_payoff(strike_price, dtype=None, name=None):
@@ -76,17 +76,16 @@ def _put_valuer(sample_paths, time_index, strike_price, dtype=None, name=None):
                                         name="strike_price")
     sample_paths = tf.convert_to_tensor(sample_paths, dtype=dtype,
                                         name="sample_paths")
-    if sample_paths.shape.rank == 3:
+    if len(sample_paths.shape) == 3:
       # Expand shape to [num_samples, 1, num_times, dim]
       sample_paths = tf.expand_dims(sample_paths, axis=1)
     else:
       # Transpose to [num_samples, batch_size, num_times, dim]
       sample_paths = tf.transpose(sample_paths, [1, 0, 2, 3])
-    num_samples, batch_size, _, dim = sample_paths.shape.as_list()
+    num_samples, batch_size, _, dim = list(sample_paths.shape)
 
-    slice_sample_paths = tf.slice(sample_paths, [0, 0, time_index, 0],
-                                  [num_samples, batch_size, 1, dim])
-    slice_sample_paths = tf.squeeze(slice_sample_paths, 2)
+    # Use tf.take (dynamic axis indexing) instead of Python [] (requires static).
+    slice_sample_paths = tf.take(sample_paths, time_index, axis=2)
     average = tf.math.reduce_mean(slice_sample_paths, axis=-1)
     return tf.nn.relu(strike_price - average)
 

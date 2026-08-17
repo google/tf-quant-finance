@@ -34,7 +34,7 @@ def dataclass(cls: Type[Any]) -> Type[Any]:
   #### Examples
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   @tff.utils.dataclass
@@ -86,4 +86,19 @@ def dataclass(cls: Type[Any]) -> Type[Any]:
 
   cls.__len__ = __len__
   cls.__iter__ = __iter__
+
+  # Register as a JAX pytree so these classes work as lax.while_loop/scan carries.
+  import jax
+  _names = tuple(a.name for a in cls.__attrs_attrs__)
+
+  def _tree_flatten(self):
+    return tuple(getattr(self, n) for n in _names), None
+
+  @classmethod
+  def _tree_unflatten(_cls, _aux, children):
+    return _cls(**dict(zip(_names, children)))
+
+  cls._tree_flatten = _tree_flatten
+  cls._tree_unflatten = _tree_unflatten
+  jax.tree_util.register_pytree_node(cls, _tree_flatten, cls._tree_unflatten)
   return cls

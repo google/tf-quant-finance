@@ -13,7 +13,7 @@
 # limitations under the License.
 """Collection of functions to compute properties of cashflows."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 
 def present_value(cashflows,
@@ -161,7 +161,8 @@ def pv_from_yields(cashflows,
       cashflow_yields = tf.gather(yields, groups)
     discounted = cashflows * tf.math.exp(-times * cashflow_yields)
     if groups is not None:
-      return tf.math.segment_sum(discounted, groups)
+      num_seg = yields.shape[0]
+      return tf.math.segment_sum(discounted, groups, num_segments=num_seg)
     return tf.math.reduce_sum(discounted, keepdims=True)
 
 
@@ -274,8 +275,10 @@ def yields_from_pv(cashflows,
     def pv_and_duration(yields):
       cashflow_yields = tf.gather(yields, groups)
       discounted = cashflows * tf.math.exp(-times * cashflow_yields)
-      durations = tf.math.segment_sum(discounted * times, groups)
-      pvs = tf.math.segment_sum(discounted, groups)
+      num_seg = present_values.shape[0]
+      durations = tf.math.segment_sum(discounted * times, groups,
+                                      num_segments=num_seg)
+      pvs = tf.math.segment_sum(discounted, groups, num_segments=num_seg)
       return pvs, durations
 
     yields0 = tf.zeros_like(present_values)

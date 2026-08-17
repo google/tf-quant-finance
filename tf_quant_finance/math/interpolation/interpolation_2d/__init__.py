@@ -15,11 +15,9 @@
 
 
 from tf_quant_finance.math.interpolation.interpolation_2d import interpolation_2d
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 Interpolation2D = interpolation_2d.Interpolation2D
 _allowed_symbols = [
     'Interpolation2D',
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

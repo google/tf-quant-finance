@@ -13,7 +13,7 @@
 # limitations under the License.
 """Stepper for parabolic PDEs solving."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import utils
 
@@ -625,7 +625,7 @@ def _discretize_boundary_conditions(dx0, dx1, alpha, beta, gamma):
   if beta is None:
     # Dirichlet condition.
     if alpha is None:
-      raise ValueError(
+      raise tf.errors.InvalidArgumentError(
           "Invalid boundary conditions: alpha and beta can't both be None.")
     zeros = tf.zeros_like(gamma)
     return zeros, zeros, gamma / alpha

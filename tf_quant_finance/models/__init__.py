@@ -32,7 +32,6 @@ from tf_quant_finance.models.realized_volatility import realized_volatility
 from tf_quant_finance.models.realized_volatility import ReturnsType
 from tf_quant_finance.models.sabr import SabrModel
 from tf_quant_finance.models.valuation_method import ValuationMethod
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     'euler_sampling',
@@ -56,4 +55,3 @@ _allowed_symbols = [
     'cir',
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

@@ -14,7 +14,7 @@
 """Cubic Spline interpolation framework."""
 
 import enum
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
@@ -89,7 +89,7 @@ def build(x_data: types.RealTensor,
   Typical Usage Example:
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
   import numpy as np
 
@@ -155,7 +155,7 @@ def build(x_data: types.RealTensor,
 
     if boundary_condition_type == BoundaryConditionType.FIXED_FIRST_DERIVATIVE:
       if left_boundary_value is None or right_boundary_value is None:
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             'Expected non-empty left_boundary_value/right_boundary_value when '
             'boundary_condition_type is FIXED_FIRST_DERIVATIVE, actual '
             'left_boundary_value {0}, actual right_boundary_value {1}'.format(
@@ -251,7 +251,7 @@ def interpolate(x: types.RealTensor,
         return tf.math.reduce_sum(
             tf.expand_dims(x, axis=-2) * encoding, axis=-1)
       else:
-        return tf.gather(x, encoding, axis=-1, batch_dims=x.shape.rank - 1)
+        return tf.gather(x, encoding, axis=-1, batch_dims=len(x.shape) - 1)
 
     x0 = get_slice(x_data, lower_encoding)
     x1 = get_slice(x_data, upper_encoding)

@@ -15,7 +15,7 @@
 """Quasi Monte Carlo support: Halton sequence."""
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils
@@ -31,14 +31,18 @@ __all__ = [
 _MAX_DIMENSION = 1000
 
 # The maximum sequence index we support, depending on data type.
-_MAX_INDEX_BY_DTYPE = {tf.float32: 2**24 - 1, np.float32: 2**24 - 1,
-                       tf.float64: 2**53 - 1, np.float64: 2**53 - 1}
+# Keyed by both type-class and dtype-object for robustness under JAX where
+# jnp.float64 resolves to np.dtype('float64').
+def _dtype_key(dtype):
+  """Normalize a dtype (type, str, or dtype object) to a hashable string."""
+  return str(np.dtype(dtype))
+
+_MAX_INDEX_BY_DTYPE = {_dtype_key(np.float32): 2**24 - 1, _dtype_key(np.float64): 2**53 - 1}
 
 # The number of coefficients we use to represent each Halton number when
 # expressed in the (prime) base for an event dimension. In theory this should be
 # infinite, but in practice it is useful to cap this based on data type.
-_NUM_COEFFS_BY_DTYPE = {tf.float32: 24, np.float32: 24,
-                        tf.float64: 54, np.float64: 54}
+_NUM_COEFFS_BY_DTYPE = {_dtype_key(np.float32): 24, _dtype_key(np.float64): 54}
 
 
 # Parameters that can be reused with subsequent calls to halton.sample().
@@ -47,7 +51,7 @@ class HaltonParams:
   """Halton randomization parameters."""
   # Uniform iid sample from the space of permutations as
   # returned by _get_permutations() below. A tensor of shape
-  # [_MAX_SIZES_BY_AXES[dtype], sum(_PRIMES)] and dtype
+  # [_MAX_SIZES_BY_AXES[_dtype_key(dtype)], sum(_PRIMES)] and dtype
   # tf.float32 or tf.float64.
   perms: types.IntTensor
   # A scaled uniform random tensor of shape [dim] and  dtype tf.float32 or
@@ -102,8 +106,8 @@ def sample(dim: int,
   #### Examples
 
   ```python
-  import tensorflow.compat.v2 as tf
-  import tensorflow_probability as tfp
+  from tf_quant_finance import _tf as tf
+  from tf_quant_finance._tf import tfp
 
   # Produce the first 1000 members of the Halton sequence in 3 dimensions.
   num_results = 1000
@@ -208,7 +212,7 @@ def sample(dim: int,
        arXiv:1706.02808_, 2017. https://arxiv.org/abs/1706.02808
   """
   if (num_results is None) == (sequence_indices is None):
-    raise ValueError('Either `num_results` or `sequence_indices` must be'
+    raise tf.errors.InvalidArgumentError('Either `num_results` or `sequence_indices` must be'
                      ' specified but not both.')
   dtype = dtype or tf.float32
 
@@ -234,10 +238,10 @@ def sample(dim: int,
       runtime_assertions.append(
           tf.compat.v1.assert_less_equal(
               tf.reduce_max(indices),
-              tf.constant(_MAX_INDEX_BY_DTYPE[dtype], dtype=dtype),
+              tf.constant(_MAX_INDEX_BY_DTYPE[_dtype_key(dtype)], dtype=dtype),
               message=(
                   'Maximum sequence index exceeded. Maximum index for dtype %s '
-                  'is %d.' % (dtype, _MAX_INDEX_BY_DTYPE[dtype]))))
+                  'is %d.' % (dtype, _MAX_INDEX_BY_DTYPE[_dtype_key(dtype)]))))
       runtime_assertions.append(
           tf.compat.v1.assert_greater_equal(
               dim, 1, message='`dim` should be greater than 1'))
@@ -251,7 +255,7 @@ def sample(dim: int,
       radixes = tf.reshape(radixes[0:dim], shape=[dim, 1])
 
       max_sizes_by_axes = tf.convert_to_tensor(
-          _MAX_SIZES_BY_AXES[dtype],
+          _MAX_SIZES_BY_AXES[_dtype_key(dtype)],
           dtype=dtype,
           name='max_sizes_by_axes')[:dim]
       max_size = tf.reduce_max(max_sizes_by_axes)
@@ -266,7 +270,7 @@ def sample(dim: int,
       # dimensions, then the 10th prime (29) we will end up computing 29^10 even
       # though we don't need it. We avoid this by setting the exponents for each
       # axes to 0 beyond the maximum value needed for that dimension.
-      exponents_by_axes = tf.tile([tf.range(max_size, dtype=dtype)], [dim, 1])
+      exponents_by_axes = tf.tile(tf.expand_dims(tf.range(max_size, dtype=dtype), 0), [dim, 1])
 
       # The mask is true for those coefficients that are irrelevant.
       weight_mask = exponents_by_axes >= max_sizes_by_axes
@@ -324,7 +328,7 @@ def _randomize(coeffs, radixes, seed, perms=None):
   """Applies the Owen (2017) randomization to the coefficients."""
   given_dtype = coeffs.dtype
   coeffs = tf.cast(coeffs, dtype=tf.int32)
-  num_coeffs = _NUM_COEFFS_BY_DTYPE[given_dtype]
+  num_coeffs = _NUM_COEFFS_BY_DTYPE[_dtype_key(given_dtype)]
   radixes = tf.reshape(tf.cast(radixes, dtype=tf.int32), shape=[-1])
   if perms is None:
     perms = _get_permutations(num_coeffs, radixes, seed)
@@ -528,7 +532,7 @@ _PRIMES = np.array([
 # For each supported data type, we store the maximum number of digits we might
 # need for each dimension. See _base_expansion_size() for more details.
 _MAX_SIZES_BY_AXES = {
-    dtype: _base_expansion_size(_MAX_INDEX_BY_DTYPE[dtype],
+    dtype: _base_expansion_size(_MAX_INDEX_BY_DTYPE[_dtype_key(dtype)],
                                 np.expand_dims(_PRIMES, 1))
     for dtype in _MAX_INDEX_BY_DTYPE
 }

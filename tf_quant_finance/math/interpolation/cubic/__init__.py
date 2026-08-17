@@ -17,7 +17,6 @@ from tf_quant_finance.math.interpolation.cubic.cubic_interpolation import Bounda
 from tf_quant_finance.math.interpolation.cubic.cubic_interpolation import build as build_spline
 from tf_quant_finance.math.interpolation.cubic.cubic_interpolation import interpolate
 from tf_quant_finance.math.interpolation.cubic.cubic_interpolation import SplineParameters
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     'build_spline',
@@ -26,4 +25,3 @@ _allowed_symbols = [
     'BoundaryConditionType',
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

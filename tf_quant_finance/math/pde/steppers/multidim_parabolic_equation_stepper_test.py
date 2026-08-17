@@ -16,11 +16,11 @@
 from absl.testing import parameterized
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
 
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 fd_solvers = tff.math.pde.fd_solvers
 dirichlet = tff.math.pde.boundary_conditions.dirichlet
@@ -1252,7 +1252,7 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase,
                 * tf.reshape(tf.math.sin(xs), [1, 1, -1])
                 + tf.zeros_like(result[0]))
     with self.subTest(name='CorrectShape'):
-      self.assertAllEqual(result[0].shape.as_list(),
+      self.assertAllEqual(list(result[0].shape),
                           [1, 51, 61, 71])
     with self.subTest(name='CorrectSolution'):
       self.assertAllClose(expected, result[0], atol=0.01, rtol=0.01)
@@ -1409,7 +1409,7 @@ class MultidimParabolicEquationStepperTest(tf.test.TestCase,
                 * (tf.math.sin(xs)[..., tf.newaxis, tf.newaxis, :])
                 + tf.zeros_like(result[0]))
     with self.subTest(name='CorrectShape'):
-      self.assertAllEqual(result[0].shape.as_list(),
+      self.assertAllEqual(list(result[0].shape),
                           [2, 51, 61, 71])
     with self.subTest(name='CorrectSolution'):
       self.assertAllClose(expected, result[0], atol=0.01, rtol=0.01)

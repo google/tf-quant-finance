@@ -16,7 +16,7 @@ import dataclasses
 
 from typing import Any, Dict, List, Optional, Union
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import datetime as dateslib
 from tf_quant_finance.experimental.pricing_platform.framework.core import instrument
@@ -230,7 +230,7 @@ class Swaption(instrument.Instrument):
         option_value = self._price_hull_white_1_factor(
             valuation_date, market, strike, expiry_time)
       else:
-        raise ValueError("Unsupported model.")
+        raise tf.errors.InvalidArgumentError("Unsupported model.")
 
       return option_value
 

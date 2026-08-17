@@ -13,7 +13,7 @@
 # limitations under the License.
 """Weighted implicit-explicit time marching scheme for parabolic PDEs."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.math.pde.steppers.parabolic_equation_stepper import parabolic_equation_step
 
@@ -140,7 +140,7 @@ def weighted_implicit_explicit_scheme(theta):
     `value_grid` and represents an approximate solution `u(t2)`.
   """
   if theta < 0 or theta > 1:
-    raise ValueError(
+    raise tf.errors.InvalidArgumentError(
         '`theta` should be in [0, 1]. Supplied: {}'.format(theta))
 
   def _marching_scheme(value_grid, t1, t2, equation_params_fn):

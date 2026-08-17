@@ -16,7 +16,7 @@
 from typing import Callable, Union
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance.math import pde
@@ -83,7 +83,7 @@ def swaption_price(
 
   ````python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64
@@ -125,15 +125,15 @@ def swaption_price(
       (and shape) of swaptions to be priced and the shape of the output.
     floating_leg_start_times: A real `Tensor` of the same dtype as `expiries`.
       The times when accrual begins for each payment in the floating leg. The
-      shape of this input should be `expiries.shape + [m]` where `m` denotes
+      shape of this input should be `list(expiries.shape) + [m]` where `m` denotes
       the number of floating payments in each leg.
     floating_leg_end_times: A real `Tensor` of the same dtype as `expiries`.
       The times when accrual ends for each payment in the floating leg. The
-      shape of this input should be `expiries.shape + [m]` where `m` denotes
+      shape of this input should be `list(expiries.shape) + [m]` where `m` denotes
       the number of floating payments in each leg.
     fixed_leg_payment_times: A real `Tensor` of the same dtype as `expiries`.
       The payment times for each payment in the fixed leg. The shape of this
-      input should be `expiries.shape + [n]` where `n` denotes the number of
+      input should be `list(expiries.shape) + [n]` where `n` denotes the number of
       fixed payments in each leg.
     floating_leg_daycount_fractions: A real `Tensor` of the same dtype and
       compatible shape as `floating_leg_start_times`. The daycount fractions
@@ -232,11 +232,11 @@ def swaption_price(
     notional = tf.convert_to_tensor(notional, dtype=dtype, name='notional')
     is_payer_swaption = tf.convert_to_tensor(
         is_payer_swaption, dtype=tf.bool, name='is_payer_swaption')
-    if expiries.shape.rank < fixed_leg_payment_times.shape.rank - 1:
-      raise ValueError('Swaption expiries not specified for all swaptions '
+    if len(expiries.shape) < len(fixed_leg_payment_times.shape) - 1:
+      raise tf.errors.InvalidArgumentError('Swaption expiries not specified for all swaptions '
                        'in the batch. Expected rank {} but received {}.'.format(
-                           fixed_leg_payment_times.shape.rank - 1,
-                           expiries.shape.rank))
+                           len(fixed_leg_payment_times.shape) - 1,
+                           len(expiries.shape)))
     # Add a dimension corresponding to multiple cashflows in a swap
     # Shape batch_shape + [1]
     expiries = tf.expand_dims(expiries, axis=-1)
@@ -245,7 +245,7 @@ def swaption_price(
     # batch_shape + [m] bond options with different strikes along the last
     # dimension.
     expiries = tf.repeat(
-        expiries, tf.shape(fixed_leg_payment_times)[-1], axis=-1)
+        expiries, fixed_leg_payment_times.shape[-1], axis=-1)
 
     if use_analytic_pricing:
       return _analytic_valuation(expiries, float_leg_start_times,
@@ -257,7 +257,7 @@ def swaption_price(
                                  name + '_analytic_valuation')
 
     if time_step is None:
-      raise ValueError('`time_step` must be provided for simulation '
+      raise tf.errors.InvalidArgumentError('`time_step` must be provided for simulation '
                        'based bond option valuation.')
 
     # Monte-Carlo pricing
@@ -358,7 +358,7 @@ def bermudan_swaption_price(
 
   ````python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64
@@ -434,16 +434,16 @@ def bermudan_swaption_price(
     floating_leg_start_times: A real `Tensor` of the same dtype as
       `exercise_times`. The times when accrual begins for each payment in the
       floating leg upon exercise of the option. The shape of this input should
-      be `exercise_times.shape + [m]` where `m` denotes the number of floating
+      be `list(exercise_times.shape) + [m]` where `m` denotes the number of floating
       payments in each leg of the underlying swap until the swap maturity.
     floating_leg_end_times: A real `Tensor` of the same dtype as
       `exercise_times`. The times when accrual ends for each payment in the
       floating leg upon exercise of the option. The shape of this input should
-      be `exercise_times.shape + [m]` where `m` denotes the number of floating
+      be `list(exercise_times.shape) + [m]` where `m` denotes the number of floating
       payments in each leg of the underlying swap until the swap maturity.
     fixed_leg_payment_times: A real `Tensor` of the same dtype as
       `exercise_times`. The payment times for each payment in the fixed leg.
-      The shape of this input should be `exercise_times.shape + [n]` where `n`
+      The shape of this input should be `list(exercise_times.shape) + [n]` where `n`
       denotes the number of fixed payments in each leg of the underlying swap
       until the swap maturity.
     floating_leg_daycount_fractions: A real `Tensor` of the same dtype and
@@ -568,18 +568,18 @@ def bermudan_swaption_price(
     else:
       basis_fn = lsm_basis
 
-    batch_shape = exercise_times.shape.as_list()[:-1]
+    batch_shape = list(exercise_times.shape)[:-1]
     unique_exercise_times, exercise_time_index = tf.unique(
         tf.reshape(exercise_times, shape=[-1]))
     exercise_time_index = tf.reshape(
         exercise_time_index, shape=exercise_times.shape)
 
-    if exercise_times.shape.rank < fixed_leg_payment_times.shape.rank - 1:
-      raise ValueError('Swaption exercise times not specified for all '
+    if len(exercise_times.shape) < len(fixed_leg_payment_times.shape) - 1:
+      raise tf.errors.InvalidArgumentError('Swaption exercise times not specified for all '
                        'swaptions in the batch. Expected rank '
                        '{} but received {}.'.format(
-                           fixed_leg_payment_times.shape.rank - 1,
-                           exercise_times.shape.rank))
+                           len(fixed_leg_payment_times.shape) - 1,
+                           len(exercise_times.shape)))
     # Add a dimension corresponding to multiple cashflows in a swap
     exercise_times = tf.expand_dims(exercise_times, axis=-1)
     exercise_times = tf.repeat(
@@ -607,7 +607,7 @@ def bermudan_swaption_price(
                                    dtype)
     # Monte-Carlo pricing
     if time_step is None:
-      raise ValueError('`time_step` must be provided for LSM valuation.')
+      raise tf.errors.InvalidArgumentError('`time_step` must be provided for LSM valuation.')
 
     sim_times = unique_exercise_times
     longest_exercise_time = sim_times[-1]
@@ -664,7 +664,7 @@ def bermudan_swaption_price(
     # TODO(b/167421126): Replace `tf.gather_nd` with `tf.gather`.
     payoff_bond_price_builder = tf.gather_nd(p_t_tau, gather_index)
     payoff_bond_price = tf.reshape(
-        payoff_bond_price_builder, [num_samples] + maturities_shape + [1])
+        payoff_bond_price_builder, [num_samples] + list(maturities_shape) + [1])
 
     # Add an axis corresponding to `dim`
     fixed_leg_pv = tf.expand_dims(
@@ -689,8 +689,8 @@ def bermudan_swaption_price(
 
     # Transpose so that `time_index` is the leading dimension
     # (for XLA compatibility)
-    perm = [is_exercise_time.shape.rank - 1] + list(
-        range(is_exercise_time.shape.rank - 1))
+    perm = [len(is_exercise_time.shape) - 1] + list(
+        range(len(is_exercise_time.shape) - 1))
     is_exercise_time = tf.transpose(is_exercise_time, perm=perm)
     payoff_swap = tf.transpose(payoff_swap, perm=perm)
 
@@ -785,7 +785,7 @@ def _jamshidian_decomposition(hw_model,
       `jamshidian_decomposition`.
 
   Returns:
-    A real `Tensor` of shape `expiries.shape + [1]` containing the forward bond
+    A real `Tensor` of shape `list(expiries.shape) + [1]` containing the forward bond
     prices computed at the breakeven short rate using the Jamshidian
     decomposition.
   """
@@ -799,11 +799,11 @@ def _jamshidian_decomposition(hw_model,
       p_t0_t = hw_model.discount_bond_price(x, expiries, maturities)
       # return_value.shape = batch_shape + [1, 1]
       return_value = tf.reduce_sum(
-          coefficients * p_t0_t, axis=-2, keepdims=True) + [1.0]
+          coefficients * p_t0_t, axis=-2, keepdims=True) + 1.0
       return return_value
 
     # batch_shape + [1, 1]
-    swap_shape = expiries.shape.as_list()[:-1] + [1] + [1]
+    swap_shape = list(expiries.shape)[:-1] + [1] + [1]
     lower_bound = -1 * tf.ones(swap_shape, dtype=dtype)
     upper_bound = 1 * tf.ones(swap_shape, dtype=dtype)
     # Solve Eq.(1)
@@ -903,8 +903,8 @@ def _map_payoff_to_sim_times(indices, payoff, num_samples):
   indices = tf.expand_dims(indices, axis=0)
   indices = tf.repeat(indices, num_samples, axis=0)
   index_list = list()
-  tensor_shape = np.array(indices.shape.as_list())
-  output_shape = indices.shape.as_list()[:-1] + [
+  tensor_shape = np.array(list(indices.shape))
+  output_shape = list(indices.shape)[:-1] + [
       tf.math.reduce_max(indices) + 1
   ]
   num_elements = np.prod(tensor_shape)
@@ -1023,22 +1023,22 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
     num_exercise_times = tf.shape(pde_time_grid)[-1]
     num_maturities = tf.shape(unique_maturities)[-1]
 
-    short_rates = tf.reshape(grid[0], grid[0].shape + [1, 1])
+    short_rates = tf.reshape(grid[0], list(grid[0].shape) + [1, 1])
     broadcasted_exercise_times = tf.reshape(
-        pde_time_grid, [1] + pde_time_grid.shape + [1])
+        pde_time_grid, [1] + list(pde_time_grid.shape) + [1])
     broadcasted_maturities = tf.reshape(
-        unique_maturities, [1, 1] + unique_maturities.shape)
+        unique_maturities, [1, 1] + list(unique_maturities.shape))
 
     # Reshape `short_rate`, `exercise_times` and `maturities` to
     # (num_grid_points, num_exercise_times, num_maturities)
     short_rates = tf.broadcast_to(
-        short_rates, grid[0].shape + [num_exercise_times, num_maturities])
+        short_rates, list(grid[0].shape) + [num_exercise_times, num_maturities])
     broadcasted_exercise_times = tf.broadcast_to(
         broadcasted_exercise_times,
-        grid[0].shape + [num_exercise_times, num_maturities])
+        list(grid[0].shape) + [num_exercise_times, num_maturities])
     broadcasted_maturities = tf.broadcast_to(
         broadcasted_maturities,
-        grid[0].shape + [num_exercise_times, num_maturities])
+        list(grid[0].shape) + [num_exercise_times, num_maturities])
 
     # Zero-coupon bond curve
     zcb_curve = model.discount_bond_price(
@@ -1056,7 +1056,7 @@ def _bermudan_swaption_fd(batch_shape, model, exercise_times,
         maturities_index)
     zcb_curve = tf.gather_nd(zcb_curve, gather_index)
     # zcb_curve.shape = [num_grid_points_fd] + [maturities_shape]
-    zcb_curve = tf.reshape(zcb_curve, [num_grid_points_fd] + maturities_shape)
+    zcb_curve = tf.reshape(zcb_curve, [num_grid_points_fd] + list(maturities_shape))
     # Shape after reduce_sum=(num_grid_points, batch_shape, num_exercise_times)
     fixed_leg = tf.math.reduce_sum(
         fixed_leg_coupon * fixed_leg_daycount_fractions * zcb_curve, axis=-1)

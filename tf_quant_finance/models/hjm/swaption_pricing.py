@@ -13,9 +13,10 @@
 # limitations under the License.
 """Pricing of the Interest rate Swaption using the HJM model."""
 
+import numpy as np
 from typing import Callable, Union
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance.math import pde
@@ -80,7 +81,7 @@ def price(
 
   ````python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64
@@ -130,7 +131,7 @@ def price(
       broadcastable to `model_batch_shape`.
     fixed_leg_payment_times: A real `Tensor` of the same dtype as `expiries`.
       The payment times for each payment in the fixed leg. The shape of this
-      input should be `expiries.shape + [n]` where `n` denotes the number of
+      input should be `list(expiries.shape) + [n]` where `n` denotes the number of
       fixed payments in each leg. The `fixed_leg_payment_times` should be
       greater-than or equal-to the corresponding expiries.
     fixed_leg_daycount_fractions: A real `Tensor` of the same dtype and
@@ -273,11 +274,11 @@ def price(
     is_payer_swaption = tf.convert_to_tensor(
         is_payer_swaption, dtype=tf.bool, name='is_payer_swaption')
 
-    if expiries.shape.rank < fixed_leg_payment_times.shape.rank - 1:
-      raise ValueError('Swaption expiries not specified for all swaptions '
+    if len(expiries.shape) < len(fixed_leg_payment_times.shape) - 1:
+      raise tf.errors.InvalidArgumentError('Swaption expiries not specified for all swaptions '
                        'in the batch. Expected rank {} but received {}.'.format(
-                           fixed_leg_payment_times.shape.rank - 1,
-                           expiries.shape.rank))
+                           len(fixed_leg_payment_times.shape) - 1,
+                           len(expiries.shape)))
     # Add a dimension corresponding to multiple cashflows in a swap
     expiries = tf.expand_dims(expiries, axis=-1)
     # Expected shape: batch_shape + [m], where m is the number of fixed leg
@@ -287,8 +288,13 @@ def price(
     # We need to explicitly use tf.repeat because we need to price
     # batch_shape + [m] bond options with different strikes along the last
     # dimension.
+    # Use static repeat count when available (JAX requires static repeats)
+    num_payments = (fixed_leg_payment_times.shape[-1]
+                    if fixed_leg_payment_times.shape is not None
+                    and None not in fixed_leg_payment_times.shape
+                    else int(np.asarray(tf.shape(fixed_leg_payment_times)[-1])))
     expiries = tf.repeat(
-        expiries, tf.shape(fixed_leg_payment_times)[-1], axis=-1)
+        expiries, num_payments, axis=-1)
 
     if valuation_method == vm.ValuationMethod.FINITE_DIFFERENCE:
       model = gaussian_hjm.GaussianHJM(
@@ -300,10 +306,10 @@ def price(
           dtype=dtype)
 
       # TODO(b/192294347): Enable pricing using batch of HJM models.
-      if reference_rate_fn(tf.constant([0.0], dtype=dtype)).shape.rank > 1:
-        raise ValueError('Pricing swaptions using a batch of HJM models with '
+      if len(reference_rate_fn(tf.constant([0.0], dtype=dtype)).shape) > 1:
+        raise tf.errors.InvalidArgumentError('Pricing swaptions using a batch of HJM models with '
                          'finite differences is not currently supported.')
-      instrument_batch_shape = expiries.shape.as_list()[:-1] or [1]
+      instrument_batch_shape = list(expiries.shape)[:-1] or [1]
       return _european_swaption_fd(
           instrument_batch_shape,
           model,
@@ -335,7 +341,7 @@ def price(
           is_payer_swaption, times, time_step, num_time_steps, curve_times,
           num_samples, random_type, skip, seed, dtype, name + '_mc')
     else:
-      raise ValueError('Swaption Valuation using {} is not supported'.format(
+      raise tf.errors.InvalidArgumentError('Swaption Valuation using {} is not supported'.format(
           str(valuation_method)))
 
 
@@ -347,7 +353,7 @@ def _european_swaption_mc(model, expiries,
   """Price European swaptions using Monte-Carlo."""
   with tf.name_scope(name):
     if (times is None) and (time_step is None) and (num_time_steps is None):
-      raise ValueError(
+      raise tf.errors.InvalidArgumentError(
           'One of `times`, `time_step` or `num_time_steps` must be '
           'provided for simulation based swaption valuation.')
 
@@ -419,13 +425,22 @@ def _european_swaption_fd(batch_shape, model, exercise_times,
     maturities, unique_maturities, maturities_shape = (
         _create_term_structure_maturities(fixed_leg_payment_times))
 
-    num_maturities = tf.shape(unique_maturities)[-1]
+    # num_maturities as static Python int when possible (avoids traced shape)
+    if unique_maturities.shape is not None and None not in unique_maturities.shape:
+      num_maturities = int(unique_maturities.shape[-1])
+    else:
+      num_maturities = tf.shape(unique_maturities)[-1]
     x_meshgrid = _coord_grid_to_mesh_grid(grid)
-    meshgrid_shape = tf.shape(x_meshgrid)
+    # Use static shape when available (avoids traced shapes in while_loop)
+    if x_meshgrid.shape is not None and None not in x_meshgrid.shape:
+      meshgrid_shape = list(x_meshgrid.shape)
+    else:
+      meshgrid_shape = tf.shape(x_meshgrid)
     broadcasted_maturities = tf.expand_dims(unique_maturities, axis=0)
 
-    num_grid_points = tf.math.reduce_prod(meshgrid_shape[1:])
-    shape_to_broadcast = tf.concat([meshgrid_shape, [num_maturities]], axis=0)
+    # num_grid_points as static Python int (meshgrid_shape is static list)
+    num_grid_points = int(np.prod(meshgrid_shape[1:]))
+    shape_to_broadcast = list(meshgrid_shape) + [num_maturities]
 
     # Reshape `state_x`, `maturities` to (num_grid_points, num_maturities)
     state_x = tf.expand_dims(x_meshgrid, axis=-1)
@@ -451,7 +466,7 @@ def _european_swaption_fd(batch_shape, model, exercise_times,
       zcb_curve = tf.gather(zcb_curve, maturities_index, axis=-1)
       # zcb_curve.shape = [num_grid_points] + [maturities_shape]
       zcb_curve = tf.reshape(
-          zcb_curve, tf.concat([[num_grid_points], maturities_shape], axis=0))
+          zcb_curve, [num_grid_points] + list(maturities_shape))
 
       # Shape after reduce_sum =
       # (num_grid_points, batch_shape)
@@ -462,7 +477,7 @@ def _european_swaption_fd(batch_shape, model, exercise_times,
       payoff_swap = tf.where(is_payer_swaption, payoff_swap, -payoff_swap)
       return tf.reshape(
           tf.transpose(payoff_swap),
-          tf.concat([batch_shape, meshgrid_shape[1:]], axis=0))
+          list(batch_shape) + list(meshgrid_shape[1:]))
 
     def _get_index(t, tensor_to_search):
       t = tf.expand_dims(t, axis=-1)
@@ -489,7 +504,7 @@ def _european_swaption_fd(batch_shape, model, exercise_times,
       payoff_swap = tf.nn.relu(_get_swap_payoff(t))
       is_ex_time = _is_exercise_time(t)
       return tf.where(
-          tf.reshape(is_ex_time, tf.concat([batch_shape, [1] * dim], axis=0)),
+          tf.reshape(is_ex_time, list(batch_shape) + [1] * dim),
           payoff_swap, 0.0)
 
     def _values_transform_fn(t, grid, value_grid):
@@ -499,7 +514,7 @@ def _european_swaption_fd(batch_shape, model, exercise_times,
       def _at_least_one_swaption_pays():
         payoff_swap = tf.nn.relu(_get_swap_payoff(t))
         return tf.where(
-            tf.reshape(is_ex_time, tf.concat([batch_shape, [1] * dim], axis=0)),
+            tf.reshape(is_ex_time, list(batch_shape) + [1] * dim),
             payoff_swap, zero)
 
       v_star = tf.cond(
@@ -533,7 +548,7 @@ def _european_swaption_fd(batch_shape, model, exercise_times,
     idx = tf.squeeze(idx) if dim > 1 else tf.reshape(idx, shape=[1])
     slices = [slice(None)] + [slice(i, i + 1) for i in tf.unstack(idx)]
     # shape = batch_shape + [1] * dim
-    option_value = res[0][slices]
+    option_value = res[0][tuple(slices)]
     # shape = batch_shape
     option_value = tf.squeeze(option_value, axis=list(range(-dim, 0)))
 
@@ -578,7 +593,11 @@ def _create_term_structure_maturities(fixed_leg_payment_times):
 
   with tf.name_scope('create_termstructure_maturities'):
     maturities = fixed_leg_payment_times
-    maturities_shape = tf.shape(maturities)
+    # Use static shape when available (avoids traced shape in while_loop)
+    if maturities.shape is not None and None not in maturities.shape:
+      maturities_shape = list(maturities.shape)
+    else:
+      maturities_shape = tf.shape(maturities)
 
     # We should eventually remove tf.unique, but keeping it for now because
     # PDE solvers are not xla compatible in TFF currently.

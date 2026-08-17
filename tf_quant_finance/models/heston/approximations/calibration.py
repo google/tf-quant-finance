@@ -15,7 +15,7 @@
 
 from typing import Callable, Tuple
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 import tf_quant_finance as tff
 
 from tf_quant_finance import types
@@ -109,7 +109,7 @@ def calibration(
 
   ```python
   import tf_quant_finance as tff
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
 
   dtype = np.float64
 
@@ -276,9 +276,9 @@ def calibration(
   """
 
   if (spots is None) == (forwards is None):
-    raise ValueError('Either spots or forwards must be supplied but not both.')
+    raise tf.errors.InvalidArgumentError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
-    raise ValueError('At most one of discount_rates and discount_factors may '
+    raise tf.errors.InvalidArgumentError('At most one of discount_rates and discount_factors may '
                      'be supplied')
 
   name = name or 'heston_calibration'
@@ -287,7 +287,7 @@ def calibration(
     dtype = dtype or prices.dtype
 
     # Extract batch shape
-    batch_shape = prices.shape.as_list()[:-1]
+    batch_shape = list(prices.shape)[:-1]
     if None in batch_shape:
       batch_shape = tff.utils.get_shape(prices)[:-1]
 

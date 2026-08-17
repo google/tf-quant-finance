@@ -27,7 +27,6 @@ from tf_quant_finance.experimental.pricing_platform.instrument_protos import per
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import rate_indices_pb2 as rate_indices
 from tf_quant_finance.experimental.pricing_platform.instrument_protos import swaption_pb2 as swaption
 
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 
 Instrument = instruments.Instrument
@@ -49,4 +48,3 @@ _allowed_symbols = [
 
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

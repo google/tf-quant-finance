@@ -16,7 +16,7 @@
 from typing import Any, Optional, List, Dict, Union
 
 import dataclasses
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import datetime as dateslib
 from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types as curve_types_lib
@@ -237,7 +237,7 @@ class ForwardRateAgreement(instrument.Instrument):
       if rate_index_curves is None:
         rate_index_curves = []
         if len(self._currency) != len(self._rate_index):
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               "When rate_index_curves` is not supplied, number of currencies "
               "and rate indices should be the same `but it is {0} and "
               "{1}".format(len(self._currency), len(self._rate_index)))
@@ -273,7 +273,7 @@ class ForwardRateAgreement(instrument.Instrument):
       ] = cashflow_streams.process_curve_types(curve_list, discount_curve_mask)
 
       # Get batch shape
-      self._batch_shape = self._daycount_fractions.shape.as_list()[:-1]
+      self._batch_shape = list(self._daycount_fractions.shape)[:-1]
 
   @classmethod
   def create_constructor_args(

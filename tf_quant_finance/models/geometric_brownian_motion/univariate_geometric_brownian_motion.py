@@ -14,7 +14,9 @@
 
 """Geometric Brownian Motion model."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
+import jax
+import jax.numpy as jnp
 
 from tf_quant_finance import utils as tff_utils
 from tf_quant_finance.math import piecewise as pw
@@ -43,7 +45,7 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
   ## Example
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
   process = tff.models.GeometricBrownianMotion(0.05, 1.0, dtype=tf.float64)
   times = [0.1, 0.2, 1.0]
@@ -281,7 +283,7 @@ class GeometricBrownianMotion(ito_process.ItoProcess):
       num_samples = tf.shape(normal_draws)[1]
       draws_dim = normal_draws.shape[2]
       if draws_dim != 1:
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             '`dim` should be equal to `1` but is {0}'.format(draws_dim))
     # Create a set of zeros that is the right shape to add a '0' as the first
     # element for each series of times.
@@ -679,7 +681,7 @@ def _backward_pde_coeffs(drift_fn, volatility_fn, discounting):
 
     # We currently have [dim, dim] as innermost dimensions, but the returned
     # tensor must have [dim, dim] as outermost dimensions.
-    rank = len(volatility.shape.as_list())
+    rank = len(list(volatility.shape))
     perm = [rank - 2, rank - 1] + list(range(rank - 2))
     volatility_times_volatility_t = tf.transpose(
         volatility_times_volatility_t, perm)
@@ -690,7 +692,7 @@ def _backward_pde_coeffs(drift_fn, volatility_fn, discounting):
 
     # We currently have [dim] as innermost dimension, but the returned
     # tensor must have [dim] as outermost dimension.
-    rank = len(mean.shape.as_list())
+    rank = len(list(mean.shape))
     perm = [rank - 1] + list(range(rank - 1))
     mean = tf.transpose(mean, perm)
     return mean
@@ -709,10 +711,16 @@ def _coord_grid_to_mesh_grid(coord_grid):
   return tf.stack(values=tf.meshgrid(*coord_grid, indexing='ij'), axis=-1)
 
 
-@tf.custom_gradient
+@jax.custom_jvp
 def _sqrt_no_nan(x):
   """Returns square root with a gradient at 0 being 0."""
-  root = tf.math.sqrt(x)
-  def grad(upstream):
-    return tf.math.divide_no_nan(upstream, root) / 2
-  return root, grad
+  return jnp.sqrt(x)
+
+
+@_sqrt_no_nan.defjvp
+def _sqrt_no_nan_jvp(primals, tangents):
+  (x,), (tx,) = primals, tangents
+  root = jnp.sqrt(x)
+  # Gradient is 0.5 * upstream / root, but 0 where root == 0 (avoid inf/NaN).
+  safe_root = jnp.where(root > 0, root, 1.0); grad_tangent = jnp.where(root > 0, 0.5 * tx / safe_root, 0.0)
+  return root, grad_tangent

@@ -140,7 +140,7 @@ def implied_vol(*,
   """
   if method == ImpliedVolMethod.FAST_APPROX:
     if underlying_distribution is utils.UnderlyingDistribution.NORMAL:
-      raise ValueError('Only LOG_NORMAL underlying distribution is supported '
+      raise tf.errors.InvalidArgumentError('Only LOG_NORMAL underlying distribution is supported '
                        'for FAST_APPROX method.')
     return approx.implied_vol(
         prices=prices,
@@ -168,4 +168,4 @@ def implied_vol(*,
         dtype=dtype,
         name=name,
         **kwargs)[0]
-  raise ValueError('Unknown implied vol method {}'.format(method))
+  raise tf.errors.InvalidArgumentError('Unknown implied vol method {}'.format(method))

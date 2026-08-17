@@ -14,7 +14,7 @@
 """Calculation of the Black-Scholes implied volatility via Newton's method."""
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.black_scholes import implied_vol_approximation as approx
 from tf_quant_finance.black_scholes import implied_vol_utils as utils
@@ -136,7 +136,7 @@ def implied_vol(*,
       supplied.
   """
   if (spots is None) == (forwards is None):
-    raise ValueError('Either spots or forwards must be supplied but not both.')
+    raise tf.errors.InvalidArgumentError('Either spots or forwards must be supplied but not both.')
 
   with tf.compat.v1.name_scope(
       name,
@@ -356,7 +356,7 @@ def _make_black_lognormal_objective_and_vega_func(
     if is_call_options is not None:
       put_prices = implied_prices - norm_forwards + norm_strikes
       implied_prices = tf.where(
-          tf.broadcast_to(is_call_options, tf.shape(put_prices)),
+          tf.broadcast_to(is_call_options, put_prices.shape),
           implied_prices, put_prices)
     vega = norm_forwards * _pdf(d1) * sqrt_t / discount_factors
     return implied_prices - normalized_prices, vega

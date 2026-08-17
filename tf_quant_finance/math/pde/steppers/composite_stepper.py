@@ -13,7 +13,7 @@
 # limitations under the License.
 """Composition of two time marching schemes."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.math.pde.steppers.parabolic_equation_stepper import parabolic_equation_step
 

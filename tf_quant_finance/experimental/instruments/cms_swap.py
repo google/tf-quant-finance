@@ -14,8 +14,10 @@
 """Constant maturity swaps."""
 
 import itertools
-import tensorflow.compat.v2 as tf
-import tensorflow_probability as tfp
+import jax
+import jax.numpy as jnp
+import jax.scipy.stats as _jss
+from tf_quant_finance import _tf as tf
 from tf_quant_finance import black_scholes
 from tf_quant_finance import datetime as dates
 from tf_quant_finance.experimental.instruments import cashflow_stream as cs
@@ -30,7 +32,7 @@ class CMSCashflowStream(cs.CashflowStream):
   #### Example:
   ```python
   import numpy as np
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
   dates = tff.datetime
   instruments = tff.experimental.instruments
@@ -202,10 +204,8 @@ class CMSCashflowStream(cs.CashflowStream):
           start_date=valuation_date,
           end_date=self._coupon_start_dates,
           dtype=self._dtype)
-      with tf.GradientTape() as g:
-        g.watch(cms_rates)
-        fx = self._fs(cms_rates)
-      dfx = tf.squeeze(g.gradient(fx, cms_rates))
+      import jax
+      dfx = jax.grad(lambda x: jnp.sum(self._fs(x)))(cms_rates)
       swap_vol = tf.convert_to_tensor(pricing_context, dtype=self._dtype)
       if model == rc.InterestRateModelType.LOGNORMAL_RATE:
         cms_rates = cms_rates + dfx * level * (cms_rates**2) * (
@@ -303,23 +303,23 @@ class CMSCashflowStream(cs.CashflowStream):
     notional = tf.repeat(
         tf.convert_to_tensor([x.notional for x in coupon_spec],
                              dtype=self._dtype),
-        payment_dates.shape.as_list()[-1])
+        list(payment_dates.shape)[-1])
 
     coupon_basis = tf.repeat(tf.convert_to_tensor(
         [x.coupon_basis for x in coupon_spec], dtype=self._dtype),
-                             payment_dates.shape.as_list()[-1])
+                             list(payment_dates.shape)[-1])
 
     coupon_multiplier = tf.repeat(tf.convert_to_tensor(
         [x.coupon_multiplier for x in coupon_spec], dtype=self._dtype),
-                                  payment_dates.shape.as_list()[-1])
+                                  list(payment_dates.shape)[-1])
 
     contract_index = tf.repeat(
         tf.range(0, len(coupon_spec)),
-        payment_dates.shape.as_list()[-1])
+        list(payment_dates.shape)[-1])
 
     cms_fixed_leg = [x.fixed_leg for x in coupon_spec]
     cms_float_leg = [x.float_leg for x in coupon_spec]
-    self._num_cashflows = daycount_fractions.shape.as_list()[-1]
+    self._num_cashflows = list(daycount_fractions.shape)[-1]
     self._swap = irs.InterestRateSwap(
         cms_start_dates.reshape([-1]),
         cms_end_dates.reshape([-1]),
@@ -367,21 +367,18 @@ class CMSCashflowStream(cs.CashflowStream):
 
   def _f_atm_first_derivative(self, s, cms_rates):
     """Computes first order derivative of _f_atm."""
-    with tf.GradientTape() as g:
-      g.watch(s)
-      fx = self._f_atm(s, cms_rates)
-    dfx = tf.squeeze(g.gradient(fx, s))
+    import jax
+    dfx = jax.grad(lambda x: jnp.sum(self._f_atm(x, cms_rates)))(s)
     return dfx
 
   def _f_atm_second_derivative(self, s, cms_rates):
-    """Computes second order derivative of _f_atm."""
-    with tf.GradientTape() as g:
-      g.watch(s)
-      with tf.GradientTape() as gg:
-        gg.watch(s)
-        fx = self._f_atm(s, cms_rates)
-      dfx = tf.squeeze(gg.gradient(fx, s))
-    d2fx = tf.squeeze(g.gradient(dfx, s))
+    """Computes second order derivative of _f_atm using finite differences."""
+    eps = 1e-5
+    f_plus = self._f_atm(s + eps, cms_rates)
+    f_zero = self._f_atm(s, cms_rates)
+    f_minus = self._f_atm(s - eps, cms_rates)
+    d2fx = (f_plus - 2 * f_zero + f_minus) / (eps**2)
+    return d2fx
     return d2fx
 
 
@@ -414,7 +411,7 @@ class CMSSwap(irs.InterestRateSwap):
 
   ```python
   import numpy as np
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
   dates = tff.datetime
   instruments = tff.experimental.instruments
@@ -631,9 +628,9 @@ def _option_prices(*,
   value = tf.where(
       is_normal_model,
       tf.where(is_call_options, (forwards - strikes) * _ncdf(d) +
-               sqrt_var * tfp.distributions.Normal(mu, loc).prob(d),
+               sqrt_var * _jss.norm.pdf(d, mu, loc),
                (strikes - forwards) * _ncdf(-d) +
-               sqrt_var * tfp.distributions.Normal(mu, loc).prob(d)),
+               sqrt_var * _jss.norm.pdf(d, mu, loc)),
       black_scholes.option_price(
           volatilities=volatilities,
           strikes=strikes,

@@ -40,7 +40,8 @@ default to Euler sampling.
 
 from typing import Optional
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
+import numpy as np
 
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
@@ -396,7 +397,7 @@ class SabrModel(generic_ito_process.GenericItoProcess):
       num_time_steps = tf.cast(
           tf.math.ceil(tf.math.divide(times[-1], time_step)),
           dtype=tf.int32) + times.shape[0]
-      # We need a [3] + initial_forward.shape tensor of random draws.
+      # We need a [3] + list(initial_forward.shape) tensor of random draws.
       # This will be accessed by normal_draws_index.
       num_normal_draws = 3 * tf.size(initial_forward)
       normal_draws = utils.generate_mc_normal_draws(
@@ -457,10 +458,10 @@ class SabrModel(generic_ito_process.GenericItoProcess):
       """Simulate Sabr process for one time step."""
       if normal_draws is not None:
         random_numbers = normal_draws[normal_draws_index]
-        random_numbers = tf.reshape(random_numbers, [3] + forward.shape)
+        random_numbers = tf.reshape(random_numbers, [3] + list(forward.shape))
       else:
         random_numbers = random.mv_normal_sample(
-            [3] + forward.shape,
+            [3] + list(forward.shape),
             mean=tf.constant([0.0], dtype=self._dtype),
             random_type=random_type,
             seed=seed)

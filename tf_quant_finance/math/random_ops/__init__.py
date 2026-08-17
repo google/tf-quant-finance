@@ -20,7 +20,6 @@ from tf_quant_finance.math.random_ops.multivariate_normal import multivariate_no
 from tf_quant_finance.math.random_ops.multivariate_normal import RandomType
 from tf_quant_finance.math.random_ops.stateless import stateless_random_shuffle
 from tf_quant_finance.math.random_ops.uniform import uniform
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     'halton',
@@ -31,4 +30,3 @@ _allowed_symbols = [
     'uniform',
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

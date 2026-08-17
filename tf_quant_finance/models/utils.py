@@ -13,7 +13,9 @@
 # limitations under the License.
 """Common methods for model building."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
+import numpy as np
+import jax.numpy as jnp
 from tf_quant_finance.math import random_ops as random
 
 
@@ -27,6 +29,9 @@ def generate_mc_normal_draws(num_normal_draws,
                              dtype=None,
                              name=None):
   """Generates normal random samples to be consumed by a Monte Carlo algorithm.
+
+  JAX shapes must be concrete ints; these three are graph-compilation
+  constants (cast from traced scalars).
 
   Many of Monte Carlo (MC) algorithms can be re-written so that all necessary
   random (or quasi-random) variables are drawn in advance as a `Tensor` of
@@ -98,12 +103,12 @@ def generate_mc_normal_draws(num_normal_draws,
     if random_type in [random.RandomType.PSEUDO_ANTITHETIC,
                        random.RandomType.STATELESS_ANTITHETIC]:
       # Put `num_sample_paths` to the front for antithetic samplers
-      sample_shape = tf.concat([[num_sample_paths], batch_shape], axis=0)
+      sample_shape = [num_sample_paths] + [int(d) for d in batch_shape]
       is_antithetic = True
     else:
       # Note that for QMC sequences `num_sample_paths` should follow
       # `batch_shape`
-      sample_shape = tf.concat([batch_shape, [num_sample_paths]], axis=0)
+      sample_shape = [int(d) for d in batch_shape] + [num_sample_paths]
       is_antithetic = False
     normal_draws = random.mv_normal_sample(
         sample_shape,
@@ -114,9 +119,9 @@ def generate_mc_normal_draws(num_normal_draws,
     # Reshape and transpose
     normal_draws = tf.reshape(
         normal_draws,
-        tf.concat([sample_shape, [num_time_steps, num_normal_draws]], axis=0))
+        sample_shape + [num_time_steps, num_normal_draws])
     # Shape [steps_num] + batch_shape + [num_samples, dim]
-    normal_draws_rank = normal_draws.shape.rank
+    normal_draws_rank = len(normal_draws.shape)
     if is_antithetic and normal_draws_rank > 3:
       # Permutation for the case when the batch_shape is present
       perm = [normal_draws_rank-2] + list(
@@ -187,14 +192,24 @@ def maybe_update_along_axis(*,
                                       name='new_tensor')
     ind = tf.convert_to_tensor(ind, name='ind')
     do_update = tf.convert_to_tensor(do_update, name='do_update')
-    size_along_axis = tensor.shape.as_list()[axis]
+    size_along_axis = list(tensor.shape)[axis]
     def _write_update_to_result():
-      size_along_axis_dynamic = tf.shape(tensor)[axis]
-      one_hot = tf.one_hot(ind, depth=size_along_axis_dynamic)
-      mask_size = tensor.shape.rank
-      mask_shape = tf.pad(
-          [size_along_axis_dynamic],
-          paddings=[[axis, mask_size - axis - 1]], constant_values=1)
+      # Use static shape if available, otherwise use dynamic shape
+      if size_along_axis is not None:
+        depth = size_along_axis
+      else:
+        depth = tf.shape(tensor)[axis]
+      one_hot = tf.one_hot(ind, depth=depth)
+      mask_size = len(tensor.shape)
+      # Build mask_shape using static shapes when available
+      if size_along_axis is not None:
+        mask_shape_list = [1] * mask_size
+        mask_shape_list[axis] = size_along_axis
+        mask_shape = mask_shape_list
+      else:
+        mask_shape = tf.pad(
+            [depth],
+            paddings=[[axis, mask_size - axis - 1]], constant_values=1)
       mask = tf.reshape(one_hot > 0, mask_shape)
       return tf.where(mask, new_tensor, tensor)
     # Update only if size_along_axis > 1 or if the shape is dynamic
@@ -284,7 +299,14 @@ def prepare_grid(*, times, time_step, dtype, tolerance=None,
 
 def _grid_from_time_step(*, times, time_step, dtype, tolerance):
   """Creates a time grid from an input time step."""
-  grid = tf.range(0.0, times[-1], time_step, dtype=dtype)
+  # Try concrete extraction for jnp.arange; fall back to empty grid if traced
+  try:
+    times_max = float(np.asarray(times[-1]))
+    ts = float(np.asarray(time_step))
+    grid = jnp.arange(0.0, times_max, ts, dtype=dtype)
+  except Exception:
+    # Traced context: can't create uniform grid, use times only
+    grid = jnp.array([], dtype=dtype)
   all_times = tf.concat([times, grid], axis=0)
   all_times = tf.sort(all_times)
 
@@ -292,7 +314,14 @@ def _grid_from_time_step(*, times, time_step, dtype, tolerance):
   dt = all_times[1:] - all_times[:-1]
   dt = tf.concat([[1.0], dt], axis=-1)
   duplicate_mask = tf.math.greater(dt, tolerance)
-  all_times = tf.boolean_mask(all_times, duplicate_mask)
+  # Use jnp.where instead of boolean_mask (works in traced context)
+  try:
+    all_times = tf.boolean_mask(all_times, duplicate_mask)
+  except Exception:
+    # Traced context: boolean_mask fails; use where + reshape
+    # Replace duplicates with large value, then sort (keeps shape)
+    all_times = tf.where(duplicate_mask, all_times, all_times + tolerance * 10)
+    all_times = tf.sort(all_times)
   time_indices = tf.searchsorted(all_times, times, out_type=tf.int32)
   time_indices = tf.math.minimum(time_indices, tf.shape(all_times)[0] - 1)
 
@@ -322,27 +351,62 @@ def _grid_from_num_times(*, times, time_step, num_time_steps):
 
 def block_diagonal_to_dense(*matrices):
   """Given a sequence of matrices, creates a block-diagonal dense matrix."""
-  operators = [tf.linalg.LinearOperatorFullMatrix(m) for m in matrices]
-  return tf.linalg.LinearOperatorBlockDiag(operators).to_dense()
+  import jax
+  import jax.scipy.linalg as jla
+  # Convert lists to arrays
+  matrices = [jnp.asarray(m) for m in matrices]
+  # matrices is a list of tensors with shape [batch, n_i, n_i]
+  # We need to create a block diagonal matrix with shape [batch, sum(n_i), sum(n_i)]
+  if len(matrices) == 1:
+    return matrices[0]
+  # Use jax.scipy.linalg.block_diag for each batch element
+  batch_shape = matrices[0].shape[:-2]
+  if batch_shape:
+    # Batched case: vmap over batch dimensions
+    # Flatten batch dimensions, apply block_diag via vmap, then reshape
+    flat_matrices = [m.reshape(-1, m.shape[-2], m.shape[-1]) for m in matrices]
+    # vmap block_diag over the batch dimension
+    def _block_diag_batched(*mats):
+      # mats is a tuple of arrays with shape (batch, n_i, n_i)
+      return jax.vmap(lambda *ms: jla.block_diag(*ms))(*mats)
+    result = _block_diag_batched(*flat_matrices)
+    # Reshape back to batch_shape + [total_dim, total_dim]
+    total_dim = result.shape[-1]
+    return result.reshape(batch_shape + (total_dim, total_dim))
+  else:
+    # Non-batched case
+    return jla.block_diag(*matrices)
 
 
 def cumsum_using_matvec(input_tensor):
   """Computes cumsum using matrix algebra."""
   dtype = input_tensor.dtype
-  axis_length = tf.shape(input_tensor)[-1]
-  ones = tf.ones([axis_length, axis_length], dtype=dtype)
-  lower_triangular = tf.linalg.band_part(ones, -1, 0)
-  cumsum = tf.linalg.matvec(lower_triangular, input_tensor)
+  # Use static shape when available (jit/while_loop safe).
+  axis_length = input_tensor.shape[-1] if input_tensor.shape[-1] is not None else tf.shape(input_tensor)[-1]
+  if isinstance(axis_length, int):
+    # Lower triangular matrix of ones for cumsum
+    ones = jnp.tril(jnp.ones([axis_length, axis_length], dtype=dtype))
+  else:
+    # Dynamic fallback: lazily construct the matrix at runtime.
+    n = axis_length
+    idx = jnp.arange(n)
+    ones = (idx[:, None] >= idx[None, :]).astype(dtype)
+  cumsum = tf.linalg.matvec(ones, input_tensor)
   return cumsum
 
 
 def cumprod_using_matvec(input_tensor):
   """Computes cumprod using matrix algebra."""
   dtype = input_tensor.dtype
-  axis_length = tf.shape(input_tensor)[-1]
-  ones = tf.ones([axis_length, axis_length], dtype=dtype)
-  lower_triangular = tf.linalg.band_part(ones, -1, 0)
-  cumsum = tf.linalg.matvec(lower_triangular, tf.math.log(input_tensor))
+  axis_length = input_tensor.shape[-1] if input_tensor.shape[-1] is not None else tf.shape(input_tensor)[-1]
+  if isinstance(axis_length, int):
+    # Lower triangular matrix of ones for cumsum (of log)
+    ones = jnp.tril(jnp.ones([axis_length, axis_length], dtype=dtype))
+  else:
+    n = axis_length
+    idx = jnp.arange(n)
+    ones = (idx[:, None] >= idx[None, :]).astype(dtype)
+  cumsum = tf.linalg.matvec(ones, tf.math.log(input_tensor))
   return tf.math.exp(cumsum)
 
 

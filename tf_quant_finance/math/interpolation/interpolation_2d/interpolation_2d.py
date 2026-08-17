@@ -14,7 +14,7 @@
 
 """Interpolation functions in a 2-dimensional space."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance.math.interpolation import cubic
@@ -144,7 +144,7 @@ class Interpolation2D:
           y, self._spline_yz, name="interpolation_in_y_direction")
       # Interpolate the value of the function along x-direction
       # Prepare xy for linear interpolation. Put the batch dims in front
-      xy_rank = xy.shape.rank
+      xy_rank = len(xy.shape)
       perm = [xy_rank - 1] + list(range(xy_rank - 1))
       # Shape [num_points] + batch_shape + [num_x_data_points]
       yx = tf.transpose(xy, perm=perm)

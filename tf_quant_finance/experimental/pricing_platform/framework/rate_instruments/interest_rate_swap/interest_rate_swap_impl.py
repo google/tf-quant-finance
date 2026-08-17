@@ -17,7 +17,7 @@ import copy
 from typing import List, Dict, Optional, Union, Any
 
 import dataclasses
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import datetime as dateslib
 from tf_quant_finance import math as tff_math
@@ -214,7 +214,7 @@ class InterestRateSwap(instrument.Instrument):
         currencies = cashflow_streams.to_list(pay_leg.currency)
         self._discount_curve_type = []
         if pay_leg.currency != receive_leg.currency:
-          raise ValueError("Pay and receive legs should have the same currency")
+          raise tf.errors.InvalidArgumentError("Pay and receive legs should have the same currency")
         for currency in currencies:
           if currency in self._config.discounting_curve:
             discount_curve = self._config.discounting_curve[currency]
@@ -497,9 +497,9 @@ class InterestRateSwap(instrument.Instrument):
       fixed_leg = self._receive_leg
       num_fixed_legs += 1
     if num_fixed_legs == 0:
-      raise ValueError("Swap does not have a fixed leg.")
+      raise tf.errors.InvalidArgumentError("Swap does not have a fixed leg.")
     if num_fixed_legs == 2:
-      raise ValueError("Swap should not have both fixed leg.")
+      raise tf.errors.InvalidArgumentError("Swap should not have both fixed leg.")
     discount_curve = market.yield_curve(self._discount_curve_type)
     discount_factors = discount_curve.discount_factor(
         fixed_leg.cashflow_dates)
@@ -563,7 +563,7 @@ def _setup_leg(
           past_fixing=past_fixing,
           dtype=tf.float64)
   else:
-    raise ValueError(f"Unknown leg type {type(leg)}")
+    raise tf.errors.InvalidArgumentError(f"Unknown leg type {type(leg)}")
 
 
 def _process_config(
@@ -580,7 +580,7 @@ def _process_config(
     return InterestRateSwapConfig(discounting_curve=discounting_curve,
                                   past_fixing=past_fixing)
   else:
-    raise ValueError("Unknown type for InterestRateSwap `config`.")
+    raise tf.errors.InvalidArgumentError("Unknown type for InterestRateSwap `config`.")
 
 
 __all__ = ["InterestRateSwapConfig", "InterestRateSwap"]

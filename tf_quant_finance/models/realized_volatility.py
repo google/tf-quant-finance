@@ -15,7 +15,7 @@
 
 import enum
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.math import diff_ops
 
@@ -83,7 +83,7 @@ def realized_volatility(sample_paths,
   Calculation of realized logarithmic volatility as in [1]:
 
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
   dtype=tf.float64
   num_samples = 1000
@@ -185,10 +185,10 @@ def realized_volatility(sample_paths,
       times = tf.convert_to_tensor(times, dtype=dtype, name='times')
       denominators = diff_ops.diff(times, order=1, exclusive=True, axis=axis)
     if returns_type == ReturnsType.ABS:
-      slices = transformed_paths.shape.rank * [slice(None)]
+      slices = len(transformed_paths.shape) * [slice(None)]
       slices[axis] = slice(None, -1)
       denominators = denominators * component_transform(
-          transformed_paths[slices])
+          transformed_paths[tuple(slices)])
     path_statistics = result_transform(
         tf.math.reduce_sum(diffs / denominators, axis=axis))
     if scaling_factors is not None:

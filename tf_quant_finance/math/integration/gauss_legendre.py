@@ -1,6 +1,6 @@
 """Gauss-Legendre quadrature algorithm for numeric integration."""
 from typing import Callable, Optional
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance.math.integration import gauss_constants
@@ -37,7 +37,7 @@ def gauss_legendre(func: Callable[[types.FloatTensor], types.FloatTensor],
     func: Represents a function to be integrated. It must be a callable of a
       single `Tensor` parameter and return a `Tensor` of the same shape and
       dtype as its input. It will be called with a `Tensor` of shape
-      `lower.shape + [n]` (where n is integer number of points) and of the same
+      `list(lower.shape) + [n]` (where n is integer number of points) and of the same
       `dtype` as `lower`.
     lower: Represents the lower limits of integration. `func` will be integrated
       between each pair of points defined by `lower` and `upper`.
@@ -63,7 +63,7 @@ def gauss_legendre(func: Callable[[types.FloatTensor], types.FloatTensor],
     upper = tf.convert_to_tensor(upper, dtype=dtype, name='upper')
     roots = gauss_constants.legendre_roots.get(num_points, None)
     if roots is None:
-      raise ValueError(f'Unsupported value for `num_points`: {num_points}')
+      raise tf.errors.InvalidArgumentError(f'Unsupported value for `num_points`: {num_points}')
     coefficients = gauss_constants.legendre_weights
     lower = tf.expand_dims(lower, -1)
     upper = tf.expand_dims(upper, -1)

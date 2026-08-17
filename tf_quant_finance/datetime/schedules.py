@@ -13,7 +13,7 @@
 # limitations under the License.
 """Functions for creating schedules."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.datetime import constants
 from tf_quant_finance.datetime import date_tensor
@@ -150,7 +150,7 @@ class PeriodicSchedule:
     """
     if end_of_month and tenor.period_type() not in [constants.PeriodType.MONTH,
                                                     constants.PeriodType.YEAR]:
-      raise ValueError(
+      raise tf.errors.InvalidArgumentError(
           "end_of_month may only be used with tenors of PeriodType.MONTH or "
           "PeriodType.YEAR"
       )

@@ -16,7 +16,6 @@
 from tf_quant_finance.models.heston import approximations
 from tf_quant_finance.models.heston.approximations.calibration import calibration
 from tf_quant_finance.models.heston.heston_model import HestonModel
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 _allowed_symbols = [
     'approximations',
@@ -24,4 +23,3 @@ _allowed_symbols = [
     'HestonModel',
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

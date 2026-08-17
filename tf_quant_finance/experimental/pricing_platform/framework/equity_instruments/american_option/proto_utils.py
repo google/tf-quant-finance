@@ -14,7 +14,7 @@
 """Utilities for proto processing."""
 from typing import Any, List, Dict, Tuple, Optional
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.experimental.pricing_platform.framework import utils
 from tf_quant_finance.experimental.pricing_platform.framework.core import business_days

@@ -30,7 +30,7 @@ For more details, see Ref [1].
     Applications. Springer. 2010.
 """
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.math.random_ops import multivariate_normal as mvn
 from tf_quant_finance.models.legacy import brownian_motion_utils as bmu
@@ -176,12 +176,12 @@ class BrownianMotion(ito_process.ItoProcess):
     super(BrownianMotion, self).__init__()
 
     if dim < 1:
-      raise ValueError('Dimension must be 1 or greater.')
+      raise tf.errors.InvalidArgumentError('Dimension must be 1 or greater.')
     if drift is None and total_drift_fn is not None:
-      raise ValueError('total_drift_fn must not be supplied if drift'
+      raise tf.errors.InvalidArgumentError('total_drift_fn must not be supplied if drift'
                        ' is not supplied.')
     if volatility is None and total_covariance_fn is not None:
-      raise ValueError('total_covariance_fn must not be supplied if drift'
+      raise tf.errors.InvalidArgumentError('total_covariance_fn must not be supplied if drift'
                        ' is not supplied.')
     self._dim = dim
     self._dtype = dtype
@@ -423,6 +423,6 @@ def _prefer_static_shape(tensor):
 def _prefer_static_rank(tensor):
   """Returns the static rank if fully specified else the dynamic rank."""
   tensor = tf.convert_to_tensor(tensor)
-  if tensor.shape.rank is None:
+  if len(tensor.shape) is None:
     return tf.rank(tensor)
-  return tensor.shape.rank
+  return len(tensor.shape)

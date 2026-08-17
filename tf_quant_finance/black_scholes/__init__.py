@@ -27,7 +27,6 @@ from tf_quant_finance.black_scholes.implied_vol_lib import ImpliedVolMethod
 from tf_quant_finance.black_scholes.implied_vol_newton_root import implied_vol as implied_vol_newton
 from tf_quant_finance.black_scholes.implied_vol_utils import UnderlyingDistribution as ImpliedVolUnderlyingDistribution
 
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 asset_or_nothing_price = vanilla_prices.asset_or_nothing_price
 binary_price = vanilla_prices.binary_price
@@ -61,4 +60,3 @@ _allowed_symbols = [
     'AveragingFrequency'
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

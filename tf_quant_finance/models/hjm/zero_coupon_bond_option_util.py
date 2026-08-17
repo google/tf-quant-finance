@@ -15,7 +15,7 @@
 
 from typing import Callable, Tuple
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
@@ -78,7 +78,7 @@ def options_price_from_samples(
       `options_price_from_samples`.
 
   Returns:
-    A `Tensor` of real dtype and shape `strikes.shape + [dim]` containing the
+    A `Tensor` of real dtype and shape `list(strikes.shape) + [dim]` containing the
     computed option prices.
   """
   name = name or 'options_price_from_samples'
@@ -117,7 +117,7 @@ def options_price_from_samples(
     # an extra dimenstion (corresponding to `curve_times`).
     discount_factors_builder = tf.expand_dims(discount_factors_builder, axis=1)
     discount_factors_simulated = tf.repeat(
-        discount_factors_builder, p_t_tau.shape.as_list()[1], axis=1)
+        discount_factors_builder, list(p_t_tau.shape)[1], axis=1)
 
     # `sim_times` and `curve_times` are sorted for simulation. We need to
     # select the indices corresponding to our input.
@@ -133,18 +133,18 @@ def options_price_from_samples(
     # The shape after `gather_nd` would be (num_samples*num_strikes*dim,)
     payoff_discount_factors_builder = tf.gather_nd(discount_factors_simulated,
                                                    gather_index)
-    # Reshape to `[num_samples] + strikes.shape + [dim]`
+    # Reshape to `[num_samples] + list(strikes.shape) + [dim]`
     payoff_discount_factors = tf.reshape(payoff_discount_factors_builder,
-                                         [num_samples] + strikes.shape + [dim])
+                                         [num_samples] + list(strikes.shape) + [dim])
     payoff_bond_price_builder = tf.gather_nd(p_t_tau, gather_index)
     payoff_bond_price = tf.reshape(payoff_bond_price_builder,
-                                   [num_samples] + strikes.shape + [dim])
+                                   [num_samples] + list(strikes.shape) + [dim])
 
     is_call_options = tf.reshape(
         tf.broadcast_to(is_call_options, strikes.shape),
-        [1] + strikes.shape + [1])
+        [1] + list(strikes.shape) + [1])
 
-    strikes = tf.reshape(strikes, [1] + strikes.shape + [1])
+    strikes = tf.reshape(strikes, [1] + list(strikes.shape) + [1])
     payoff = tf.where(is_call_options,
                       tf.math.maximum(payoff_bond_price - strikes, 0.0),
                       tf.math.maximum(strikes - payoff_bond_price, 0.0))
@@ -155,9 +155,9 @@ def options_price_from_samples(
 
 def _prepare_indices(idx0, idx1, idx2, idx3):
   """Prepare indices to get relevant slice from discount curve simulations."""
-  len0 = idx0.shape.as_list()[0]
-  len1 = idx1.shape.as_list()[0]
-  len3 = idx3.shape.as_list()[0]
+  len0 = list(idx0.shape)[0]
+  len1 = list(idx1.shape)[0]
+  len3 = list(idx3.shape)[0]
   idx0 = tf.repeat(idx0, len1 * len3)
   idx1 = tf.tile(tf.repeat(idx1, len3), [len0])
   idx2 = tf.tile(tf.repeat(idx2, len3), [len0])

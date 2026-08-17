@@ -1,9 +1,9 @@
 from absl.testing import parameterized
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 
 option_price_binomial = tff.black_scholes.option_price_binomial
@@ -123,10 +123,13 @@ class ExerciseBoundaryTest(parameterized.TestCase, tf.test.TestCase):
                                 test_tolerance=1e-3,
                                 dtype=tf.float64):
     tau_binomial = tf.constant(tau, dtype=dtype)
-    r_binomial = r
-    if f is not None:
+    if r is not None:
+      r_binomial = tf.convert_to_tensor(r, dtype=dtype)
+    elif f is not None:
       f = tf.constant(f, dtype=dtype)
       r_binomial = tf.math.divide_no_nan(-tf.math.log(f), tau_binomial)
+    else:
+      r_binomial = tf.constant([0.0], dtype=dtype)
     if q is not None:
       q_binomial = tf.constant(q, dtype=tf.float64)
     else:

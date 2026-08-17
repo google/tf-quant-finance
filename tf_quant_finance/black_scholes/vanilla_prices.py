@@ -14,8 +14,24 @@
 """Black Scholes prices of a batch of European options."""
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+import jax
+import jax.numpy as jnp
+from tf_quant_finance import _tf as tf
 from tf_quant_finance import types
+
+
+@jax.custom_jvp
+def _safe_sqrt(x):
+  """sqrt with gradient 0 at 0 (avoids 0*inf=nan in differentiable pricing)."""
+  return jnp.sqrt(x)
+
+
+@_safe_sqrt.defjvp
+def _safe_sqrt_jvp(primals, tangents):
+  (x,), (tx,) = primals, tangents
+  root = jnp.sqrt(x)
+  safe_root = jnp.where(root > 0, root, 1.0)  # avoid 0/0=nan in the tangent
+  return root, jnp.where(root > 0, 0.5 * tx / safe_root, 0.0)
 __all__ = [
     'option_price',
     'barrier_price',
@@ -122,9 +138,9 @@ def option_price(*,
     ValueError: If both `discount_rates` and `discount_factors` is supplied.
   """
   if (spots is None) == (forwards is None):
-    raise ValueError('Either spots or forwards must be supplied but not both.')
+    raise tf.errors.InvalidArgumentError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
-    raise ValueError('At most one of discount_rates and discount_factors may '
+    raise tf.errors.InvalidArgumentError('At most one of discount_rates and discount_factors may '
                      'be supplied')
 
   with tf.name_scope(name or 'option_price'):
@@ -151,6 +167,9 @@ def option_price(*,
     if dividend_rates is None:
       dividend_rates = tf.convert_to_tensor(
           0.0, dtype=dtype, name='dividend_rates')
+    else:
+      dividend_rates = tf.convert_to_tensor(
+          dividend_rates, dtype=dtype, name='dividend_rates')
 
     if forwards is not None:
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
@@ -158,7 +177,7 @@ def option_price(*,
       spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
       forwards = spots * tf.exp((discount_rates - dividend_rates) * expiries)
 
-    sqrt_var = volatilities * tf.math.sqrt(expiries)
+    sqrt_var = volatilities * _safe_sqrt(expiries)
     if not is_normal_volatility:  # lognormal model
       d1 = tf.math.divide_no_nan(tf.math.log(forwards / strikes),
                                  sqrt_var) + sqrt_var / 2
@@ -170,14 +189,14 @@ def option_price(*,
       d1 = tf.math.divide_no_nan((forwards - strikes), sqrt_var)
       undiscounted_calls = tf.where(
           sqrt_var > 0.0, (forwards - strikes) * _ncdf(d1) +
-          sqrt_var * tf.math.exp(-0.5 * d1**2) / np.sqrt(2 * np.pi),
+          sqrt_var * tf.math.exp(-0.5 * d1**2) / jnp.asarray(np.sqrt(2 * np.pi), dtype=sqrt_var.dtype),
           tf.math.maximum(forwards - strikes, 0.0))
 
     if is_call_options is None:
       return discount_factors * undiscounted_calls
     undiscounted_forward = forwards - strikes
     undiscounted_puts = undiscounted_calls - undiscounted_forward
-    predicate = tf.broadcast_to(is_call_options, tf.shape(undiscounted_calls))
+    predicate = tf.broadcast_to(is_call_options, undiscounted_calls.shape)
     return discount_factors * tf.where(predicate, undiscounted_calls,
                                        undiscounted_puts)
 
@@ -387,7 +406,7 @@ def barrier_price(*,
                              dtype=dtype)
 
     # Calculate params for integrals
-    sqrt_var = volatilities * tf.math.sqrt(expiries)
+    sqrt_var = volatilities * _safe_sqrt(expiries)
     mu = (discount_rates - dividend_rates) - ((volatilities**2) / 2)
     lamda = 1 + (mu / (volatilities**2))
     x = (tf.math.log(spots / strikes) / (sqrt_var)) + (lamda * sqrt_var)
@@ -407,7 +426,7 @@ def barrier_price(*,
     strikes_term = call_or_put * strikes * discount_factors
 
     # rank is used to stack elements and reduce_sum
-    strike_rank = strikes.shape.rank
+    strike_rank = len(strikes.shape)
 
     # Constructing Matrix with first and second algebraic terms for each
     # integral [strike.shape, 12]
@@ -547,9 +566,9 @@ def binary_price(*,
     ValueError: If both `discount_rates` and `discount_factors` is supplied.
   """
   if (spots is None) == (forwards is None):
-    raise ValueError('Either spots or forwards must be supplied but not both.')
+    raise tf.errors.InvalidArgumentError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
-    raise ValueError('At most one of discount_rates and discount_factors may '
+    raise tf.errors.InvalidArgumentError('At most one of discount_rates and discount_factors may '
                      'be supplied')
 
   with tf.name_scope(name or 'binary_price'):
@@ -576,6 +595,9 @@ def binary_price(*,
     if dividend_rates is None:
       dividend_rates = tf.convert_to_tensor(
           0.0, dtype=dtype, name='dividend_rates')
+    else:
+      dividend_rates = tf.convert_to_tensor(
+          dividend_rates, dtype=dtype, name='dividend_rates')
 
     if forwards is not None:
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
@@ -583,7 +605,7 @@ def binary_price(*,
       spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
       forwards = spots / discount_factors
 
-    sqrt_var = volatilities * tf.math.sqrt(expiries)
+    sqrt_var = volatilities * _safe_sqrt(expiries)
 
     if is_normal_volatility:  # normal model
       d2 = (forwards - strikes) / sqrt_var
@@ -600,7 +622,7 @@ def binary_price(*,
       return discount_factors * undiscounted_calls
 
     undiscounted_puts = 1 - undiscounted_calls
-    predicate = tf.broadcast_to(is_call_options, tf.shape(undiscounted_calls))
+    predicate = tf.broadcast_to(is_call_options, undiscounted_calls.shape)
     return discount_factors * tf.where(predicate, undiscounted_calls,
                                        undiscounted_puts)
 
@@ -705,9 +727,9 @@ def asset_or_nothing_price(*,
     ValueError: If both `discount_rates` and `discount_factors` is supplied.
   """
   if (spots is None) == (forwards is None):
-    raise ValueError('Either spots or forwards must be supplied but not both.')
+    raise tf.errors.InvalidArgumentError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
-    raise ValueError('At most one of discount_rates and discount_factors may '
+    raise tf.errors.InvalidArgumentError('At most one of discount_rates and discount_factors may '
                      'be supplied')
 
   with tf.name_scope(name or 'asset_or_nothing_price'):
@@ -734,6 +756,9 @@ def asset_or_nothing_price(*,
     if dividend_rates is None:
       dividend_rates = tf.convert_to_tensor(
           0.0, dtype=dtype, name='dividend_rates')
+    else:
+      dividend_rates = tf.convert_to_tensor(
+          dividend_rates, dtype=dtype, name='dividend_rates')
 
     if forwards is not None:
       forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
@@ -741,7 +766,7 @@ def asset_or_nothing_price(*,
       spots = tf.convert_to_tensor(spots, dtype=dtype, name='spots')
       forwards = spots * tf.exp((discount_rates - dividend_rates) * expiries)
 
-    sqrt_var = volatilities * tf.math.sqrt(expiries)
+    sqrt_var = volatilities * _safe_sqrt(expiries)
 
     if not is_normal_volatility:  # lognormal model
       d1 = tf.math.divide_no_nan(tf.math.log(forwards / strikes),
@@ -753,13 +778,13 @@ def asset_or_nothing_price(*,
       undiscounted_calls = tf.where(
           sqrt_var > 0.0,
           forwards * _ncdf(d1) +
-          sqrt_var * tf.math.exp(-0.5 * d1**2) / np.sqrt(2 * np.pi),
+          sqrt_var * tf.math.exp(-0.5 * d1**2) / jnp.asarray(np.sqrt(2 * np.pi), dtype=sqrt_var.dtype),
           tf.where(forwards > strikes, forwards, 0.))
 
     if is_call_options is None:
       return discount_factors * undiscounted_calls
     undiscounted_puts = forwards - undiscounted_calls
-    predicate = tf.broadcast_to(is_call_options, tf.shape(undiscounted_calls))
+    predicate = tf.broadcast_to(is_call_options, undiscounted_calls.shape)
     return discount_factors * tf.where(predicate, undiscounted_calls,
                                        undiscounted_puts)
 
@@ -797,7 +822,7 @@ def swaption_price(*,
 
   ````python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64
@@ -848,7 +873,7 @@ def swaption_price(*,
       time to expiration of the swaptions.
     floating_leg_start_times: A real `Tensor` of the same dtype as
       `volatilities`. The times when accrual begins for each payment in the
-      floating leg. The shape of this input should be `expiries.shape + [m]` or
+      floating leg. The shape of this input should be `list(expiries.shape) + [m]` or
       `batch_shape + [m]` where `m` denotes the number of floating payments in
       each leg.
     floating_leg_end_times: A real `Tensor` of the same dtype as `volatilities`.
@@ -949,7 +974,9 @@ def swaption_price(*,
 
 
 def _ncdf(x):
-  return (tf.math.erf(x / _SQRT_2) + 1) / 2
+  # dtype-aware sqrt(2) to avoid promoting float32 inputs to float64.
+  sqrt2 = jnp.asarray(np.sqrt(2.0), dtype=x.dtype)
+  return (tf.math.erf(x / sqrt2) + 1) / 2
 
 
 _SQRT_2 = np.sqrt(2.0, dtype=np.float64)

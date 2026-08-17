@@ -16,10 +16,10 @@
 from absl.testing import parameterized
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -56,7 +56,7 @@ class ShapeUtilsTest(parameterized.TestCase, tf.test.TestCase):
       return tff.utils.get_shape(x)
     shape = self.evaluate(fn(x))
 
-    self.assertAllEqual(shape, x.shape.as_list())
+    self.assertAllEqual(shape, list(x.shape))
 
   def test_broadcast_tensors_shapes(self):
     args = [tf.ones([1, 2], dtype=tf.float64),

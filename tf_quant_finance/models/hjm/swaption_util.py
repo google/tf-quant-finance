@@ -15,7 +15,8 @@
 
 from typing import Callable, Tuple
 
-import tensorflow.compat.v2 as tf
+import numpy as np
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance.models import utils
@@ -109,7 +110,7 @@ def discount_factors_and_bond_prices_from_samples(
 
   dim = tf.shape(p_t_tau)[-1]
   model_batch_shape = tf.shape(p_t_tau)[:-4]
-  model_batch_rank = p_t_tau.shape[:-4].rank
+  model_batch_rank = len(p_t_tau.shape[:-4])
   instr_batch_shape = tf.shape(expiries)[model_batch_rank:]
   try:
     swaptionlet_shape = tf.concat(
@@ -117,10 +118,10 @@ def discount_factors_and_bond_prices_from_samples(
     expiries = tf.broadcast_to(expiries, swaptionlet_shape)
     tau = tf.broadcast_to(tau, swaptionlet_shape)
   except:
-    raise ValueError('The leading dimensions of `expiries` of shape {} are not '
+    raise tf.errors.InvalidArgumentError('The leading dimensions of `expiries` of shape {} are not '
                      'compatible with the batch shape {} of the model.'.format(
-                         expiries.shape.as_list(),
-                         p_t_tau.shape.as_list()[:-4]))
+                         list(expiries.shape),
+                         list(p_t_tau.shape)[:-4]))
 
   if discount_factors is None:
     dt = tf.concat(axis=0, values=[[0.0], sim_times[1:] - sim_times[:-1]])
@@ -140,8 +141,12 @@ def discount_factors_and_bond_prices_from_samples(
   discount_factors = tf.expand_dims(discount_factors, axis=model_batch_rank + 1)
 
   # tf.repeat is needed because we will use gather_nd later on this tensor.
+  # Use static shape for repeat count (JAX requires static repeats)
+  repeat_count = p_t_tau.shape[model_batch_rank + 1]
+  if repeat_count is None:
+    repeat_count = int(np.asarray(tf.shape(p_t_tau)[model_batch_rank + 1]))
   discount_factors_simulated = tf.repeat(
-      discount_factors, tf.shape(p_t_tau)[model_batch_rank + 1],
+      discount_factors, repeat_count,
       axis=model_batch_rank + 1)
 
   # `sim_times` and `curve_times` are sorted for simulation. We need to
@@ -196,7 +201,7 @@ def _gather_tensor_at_swaption_payoff(param, indices):
     A `Tensor` of same dtype as `param` and shape
     `[num_samples, batch_shape, num_indices, dim]`.
   """
-  batch_rank = param.shape[:-4].rank
+  batch_rank = len(param.shape[:-4])
   # Transpose to shape `[batch_shape, curve_times, sim_times, dim, num_samples]`
   perm = (list(range(batch_rank)) +
           [batch_rank + 1, batch_rank + 2, batch_rank + 3, batch_rank])

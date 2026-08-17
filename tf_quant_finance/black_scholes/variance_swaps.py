@@ -13,7 +13,7 @@
 # limitations under the License.
 """Variance swap pricing using replicating portfolio approach."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 from tf_quant_finance.black_scholes import vanilla_prices
 from tf_quant_finance.math import diff_ops
 
@@ -107,7 +107,7 @@ def replicating_weights(ordered_strikes,
       payoff = (2.0 / expiries) * (term_lin - term_log)
       payoff_diff = diff_ops.diff(payoff, order=1, exclusive=True)
       r_vals = tf.math.divide_no_nan(payoff_diff, strike_diff)
-      zero = tf.zeros(r_vals.shape[:-1] + [1], dtype=r_vals.dtype)
+      zero = tf.zeros(list(r_vals.shape[:-1]) + [1], dtype=r_vals.dtype)
       r_vals_diff = diff_ops.diff(
           tf.concat([zero, r_vals], axis=-1), order=1, exclusive=True)
       # If the strikes were for puts we need to flip the sign before returning.

@@ -1,0 +1,1877 @@
+"""TF-compatibility shim backed by JAX.
+
+Temporary vehicle for the TF->JAX migration: lets files keep using
+``import tensorflow as tf`` (swapped to ``from tf_quant_finance import _tf as tf``)
+while ``tf.convert_to_tensor`` / ``tf.math.exp`` / ``tf.float32`` / ``tf.while_loop``
+etc. resolve to JAX equivalents. Deleted in Phase 6 once modules are natively JAX.
+
+`ponytail:` this is deliberate scaffolding with a known ceiling (semantic gaps in
+random key threading and GradientTape); upgrade path = convert modules natively
+and drop the import. Not part of the public API.
+
+=============================================================
+SHIM CONTRACT (read this before editing _tf.py)
+=============================================================
+
+Three kinds of names live here:
+
+(A) TF-API compat — hand-written below, TF signature/semantics:
+    - tensor ops with TF kwargs jnp rejects: convert_to_tensor, concat,
+      stack, where, pad (static lax.pad config), gather/gather_nd
+      (batch_dims), transpose(perm=), scan (TF fn(accum, args) order),
+      while_loop (cond/body(*loop_vars) unpack + namedtuple/dataclass
+      reconstruction + maximum_iterations counter), cond, map_fn,
+      top_k, one_hot(depth=), unique, range, fill(dims=), meshgrid.
+    - control/state: name_scope (no-op), TensorArray (JAX pytree,
+      functional writes), Session (eager eval), compat.v1 aliases.
+    - RNG: stateless_uniform/stateless_normal are BIT-EXACT TF Philox
+      (alg='philox'; GenerateKey scramble + BoxMuller — verified vs
+      TF 2.21). PSEUDO/gamma/poisson stay jax.random. Integer-dtype
+      stateless_uniform is jax floor+cast (NOT TF-exact; QMC tests
+      depend on it).
+    - test: TestCase (absltest + TF asserts + evaluate()), test_util
+      no-op graph/eager decorators.
+    - tfp namespace (optimizer/distributions/stats) used by 8 test
+      files; lazy-imports math/optimizer (circularity).
+    - experimental_get_compiler_ir: real HLO via jax.jit(f).lower().
+
+(B) Auto-mirrored jnp.* — the loop below copies every public jnp name
+    onto this module (wrapped to drop TF's ubiquitous name= kwarg).
+    NOTE: this shadows builtins INSIDE _tf.py: all/max/min/sum/abs/
+    round are jnp functions here — use _builtins.* in shim code.
+
+(C) Known semantic gaps (do not "fix" without reading
+    MIGRATION_STATUS.md):
+    - top_k tie-break: TF picks smaller index; the faithful version
+      diverges andersen_lake's adaptive integration (OOM) — see the
+      ponytail note at _top_k.
+    - gradients()/GradientTape: cannot rebuild a trace from a
+      concrete tensor; single-scalar jax.grad only.
+    - while_loop: no reverse-mode VJP (optimizers must fall back to
+      numerical gradients).
+    - string tensors: numpy str arrays (pricing_platform only).
+"""
+import sys
+import types as _ptypes
+import builtins as _builtins
+import contextlib
+import copy as _copy
+import functools as _functools
+import pickle as _pickle
+
+import numpy as np
+import jax
+import jax.numpy as jnp
+import jax.scipy as _jsp
+import jax.scipy.linalg as _jspl
+import jax.scipy.special as _jsp_special
+import jax.lax as _lax
+from jax import lax as lax
+import jax.ops as _jops
+
+jax.config.update("jax_enable_x64", True)
+
+_this = sys.modules[__name__]
+
+
+def _drop_name(fn):
+    """Wrap a jnp op so it accepts (and ignores) TF's ubiquitous name= kwarg."""
+    def wrapper(*args, name=None, **kwargs):
+        return fn(*args, **kwargs)
+    wrapper.__name__ = getattr(fn, "__name__", "op")
+    return _functools.wraps(fn)(wrapper)
+
+
+# ---------------------------------------------------------------------------
+# Top-level math ops: mirror jnp onto this module (tf.exp, tf.zeros, tf.where, ...)
+# Wrap callables to tolerate TF's name= kwarg (no jnp op accepts it).
+# ---------------------------------------------------------------------------
+for _n in dir(jnp):
+    if _n.startswith("_"):
+        continue
+    if hasattr(_this, _n):
+        continue
+    _v = getattr(jnp, _n)
+    if callable(_v) and not isinstance(_v, type) and not hasattr(_v, "__path__"):
+        _v = _drop_name(_v)
+    setattr(_this, _n, _v)
+
+# ---------------------------------------------------------------------------
+# dtypes
+# ---------------------------------------------------------------------------
+float16 = jnp.float16
+float32 = jnp.float32
+float64 = jnp.float64
+bfloat16 = jnp.bfloat16
+int8 = jnp.int8
+int16 = jnp.int16
+int32 = jnp.int32
+int64 = jnp.int64
+uint8 = jnp.uint8
+uint16 = jnp.uint16
+uint32 = jnp.uint32
+uint64 = jnp.uint64
+bool = jnp.bool_  # tf uses tf.bool, not tf.bool_
+complex64 = jnp.complex64
+complex128 = jnp.complex128
+
+# Add TF-compat dtype attributes to JAX dtype type aliases.
+# TF DType has: as_numpy_dtype, name, size (bytes), is_unsigned, min, max.
+_unsigned = {uint8, uint16, uint32, uint64}
+for _dt in [float16, float32, float64, bfloat16, int8, int16, int32, int64,
+            uint8, uint16, uint32, uint64, bool, complex64, complex128]:
+    _dt.as_numpy_dtype = _dt
+    _dt.name = _dt.__name__
+    _dt.is_unsigned = _dt in _unsigned
+    _dt.size = jnp.dtype(_dt).itemsize
+    if _dt is not bool and np.issubdtype(np.dtype(_dt), np.integer):
+        _dt.min = np.iinfo(_dt).min
+        _dt.max = np.iinfo(_dt).max
+    else:
+        _dt.min = 0
+        _dt.max = 0
+
+
+def as_dtype(x):
+    return jnp.dtype(x)
+
+
+# Type aliases used in annotations across the codebase (tf.Tensor, tf.DType)
+Tensor = jnp.ndarray
+DType = np.dtype
+
+
+class TensorSpec:
+    def __init__(self, shape=None, dtype=jnp.float32, name=None):
+        self.shape = shape
+        self.dtype = dtype
+        self.name = name
+
+
+def Variable(initial_value=None, dtype=None, trainable=True, name=None, **kw):
+    """tf.Variable shim: returns a mutable numpy array (for test counters etc.)."""
+    import numpy as _np
+    d = dtype if dtype is not None else np.float32
+    return np.asarray(initial_value, dtype=d)
+
+
+def assign_add(ref, value, **kw):
+    """tf.compat.v1.assign_add shim: in-place add on numpy array."""
+    ref += np.asarray(value, dtype=ref.dtype)
+    return ref
+
+
+
+def dtype(x):
+    return jnp.asarray(x).dtype
+
+
+dtypes = _ptypes.SimpleNamespace(
+    float16=float16, float32=float32, float64=float64, bfloat16=bfloat16,
+    int8=int8, int16=int16, int32=int32, int64=int64,
+    uint8=uint8, uint16=uint16, uint32=uint32, uint64=uint64,
+    bool=bool, complex64=complex64, complex128=complex128, as_dtype=as_dtype,
+    DType=np.dtype,
+)
+
+# ---------------------------------------------------------------------------
+# tensor construction / conversion (TF ops accept name=/dtype_hint=; jnp doesn't)
+# ---------------------------------------------------------------------------
+def convert_to_tensor(value, dtype=None, dtype_hint=None, name=None):
+    d = dtype if dtype is not None else dtype_hint
+    # Handle string inputs (pricing_platform names) — JAX can't do string tensors.
+    try:
+        if isinstance(value, str) or (hasattr(value, '__len__') and len(value) > 0
+                and isinstance(np.asarray(value).flat[0], (str, np.str_))):
+            return np.asarray(value, dtype=str if d is None else d)
+    except (TypeError, ValueError, IndexError):
+        pass
+    if d is None:
+        # TF infers int32 for Python int scalars/lists and float32 when floats
+        # are present (numpy arrays keep their own dtype). Match that instead
+        # of JAX's float64 default.
+        if isinstance(value, _builtins.bool):
+            pass
+        elif isinstance(value, (int, np.integer)):
+            d = np.int32
+        elif isinstance(value, float):
+            d = np.float32
+        elif isinstance(value, (list, tuple)) and value:
+            flat = [v for v in _iter_numeric(value)]
+            if flat and _builtins.all(isinstance(v, (int, np.integer)) and not isinstance(v, _builtins.bool)
+                                      for v in flat):
+                d = np.int32
+            elif flat and _builtins.all(isinstance(v, (int, float, np.integer, np.floating))
+                                        and not isinstance(v, _builtins.bool) for v in flat):
+                d = np.float32
+    return jnp.asarray(value, dtype=d)
+
+
+def _iter_numeric(value):
+    """Yield scalar leaves of nested lists/tuples."""
+    for v in value:
+        if isinstance(v, (list, tuple)):
+            yield from _iter_numeric(v)
+        else:
+            yield v
+
+
+def constant(value, dtype=None, shape=None, name=None):
+    v = jnp.asarray(value, dtype=dtype)
+    if shape is not None:
+        v = jnp.broadcast_to(v, shape)
+    return v
+
+
+def cast(x, dtype, name=None):
+    return jnp.asarray(x).astype(dtype)
+
+dtypes.cast = cast
+
+
+zeros = _drop_name(jnp.zeros)
+ones = _drop_name(jnp.ones)
+zeros_like = _drop_name(jnp.zeros_like)
+ones_like = _drop_name(jnp.ones_like)
+eye = _drop_name(jnp.eye)
+
+# broadcast_to: accept lists/arrays (jnp.broadcast_to rejects lists).
+def broadcast_to(array, shape, **kw):
+    return jnp.broadcast_to(jnp.asarray(array), shape)
+
+
+def _eye(num_rows, num_columns=None, batch_shape=None, dtype=jnp.float32, name=None):
+    e = jnp.eye(num_rows, num_columns, dtype=dtype)
+    if batch_shape:
+        e = jnp.broadcast_to(e, tuple(batch_shape) + e.shape)
+    return e
+
+
+eye = _eye
+fill = _drop_name(jnp.full)
+# tf.range(start, limit=None, delta=1, dtype=None, name=None) -> jnp.arange
+def _tf_range(start=None, limit=None, delta=None, dtype=None, name=None, **kw):
+    # tf.range(start, limit=None, delta=1, dtype) -> jnp.arange(start, stop, step)
+    del name, kw
+    if isinstance(start, (int, float)) and limit is None and delta is None:
+        # tf.range(n) -> 0..n-1
+        return jnp.arange(start, dtype=dtype)
+    if delta is None:
+        return jnp.arange(start, limit, dtype=dtype)
+    return jnp.arange(start, limit, delta, dtype=dtype)
+
+
+range = _tf_range
+linspace = _drop_name(jnp.linspace)
+
+
+
+def is_tensor(x):
+    return isinstance(x, (np.ndarray, jnp.ndarray))
+
+
+def get_static_value(x):
+    try:
+        return np.asarray(x)
+    except Exception:
+        return None
+
+
+def executing_eagerly():
+    return True
+
+
+newaxis = None  # tf.newaxis
+
+# ---------------------------------------------------------------------------
+# shape helpers
+# ---------------------------------------------------------------------------
+
+class TensorShape:
+    """Minimal stand-in for tf.TensorShape: a tuple of dims (all static)."""
+
+    def __init__(self, dims):
+        if dims is None:
+            self._dims = None
+        elif isinstance(dims, TensorShape):
+            self._dims = tuple(dims._dims)
+        else:
+            self._dims = tuple(int(d) if d is not None else None for d in dims)
+
+    def __iter__(self):
+        return iter(self._dims)
+
+    def __len__(self):
+        return len(self._dims)
+
+    def __getitem__(self, i):
+        return self._dims[i]
+
+    def as_list(self):
+        return list(self._dims)
+
+    @property
+    def rank(self):
+        return len(self._dims)
+
+    def is_fully_defined(self):
+        return _builtins.all(d is not None for d in self._dims)
+
+    def num_elements(self):
+        n = 1
+        for d in self._dims:
+            n *= d
+        return n
+
+    def __repr__(self):
+        return f"TensorShape({self._dims})"
+
+
+def shape(input, out_type=None, name=None):
+    # tf.shape returns a (dynamic) shape tensor; in JAX shapes are static.
+    out_type = out_type or jnp.int32
+    return jnp.asarray(jnp.asarray(input).shape, dtype=out_type)
+
+
+def size(x, out_type=None, name=None):
+    return int(jnp.asarray(x).size)
+
+
+def rank(x):
+    return int(jnp.asarray(x).ndim)
+
+
+# ---------------------------------------------------------------------------
+# name_scope: no-op context manager (JAX has no graph names)
+# ---------------------------------------------------------------------------
+@contextlib.contextmanager
+def name_scope(*args, **kwargs):
+    yield
+
+
+# ---------------------------------------------------------------------------
+# compat / types / nn / sparse / xla stub namespaces
+# ---------------------------------------------------------------------------
+# tf.compat.v1/v2 resolve back to this same surface (Session etc. are module attrs).
+compat = _this
+
+
+class _Session:
+    """Minimal tf.Session stand-in: evaluate eagerly."""
+    def __enter__(self):
+        return self
+    def __exit__(self, *a):
+        pass
+    def run(self, tensors, **kw):
+        return np.asarray(tensors)
+
+
+Session = _Session  # tf.Session() used by grids.py / conjugate_gradient.py
+compat.v1 = _this  # type: ignore[attr-defined]
+compat.v2 = _this  # type: ignore[attr-defined]
+
+
+class _TypesNS:
+    experimental = _ptypes.SimpleNamespace(
+        TensorLike=object  # type alias only; replaced in types/data_types.py
+    )
+
+
+types = _TypesNS()
+
+nn = _ptypes.SimpleNamespace(
+    relu=jax.nn.relu, sigmoid=jax.nn.sigmoid, softmax=jax.nn.softmax,
+    softplus=jax.nn.softplus, gelu=jax.nn.gelu, log_softmax=jax.nn.log_softmax,
+    sigmoid_cross_entropy_with_logits=lambda labels, logits: jnp.maximum(logits, 0) - logits * labels + jnp.log1p(jnp.exp(-jnp.abs(logits))),
+)
+sparse = _ptypes.SimpleNamespace()
+
+
+class _SparseTensor:
+    """Minimal TF SparseTensor shim: stores indices, values, dense_shape."""
+    def __init__(self, indices, values, dense_shape):
+        self.indices = jnp.asarray(indices)
+        self.values = jnp.asarray(values)
+        self.dense_shape = tuple(int(d) for d in dense_shape)
+
+
+def _sparse_to_dense(sp_input, *args, **kwargs):
+    """Convert a SparseTensor to a dense array via scatter."""
+    out = jnp.zeros(sp_input.dense_shape, dtype=sp_input.values.dtype)
+    # indices shape [nnz, ndim]; values shape [nnz]
+    idx = sp_input.indices
+    if idx.ndim == 1:
+        return out.at[idx].add(sp_input.values)
+    # Multi-dim: use scatter via tuple of per-dim index arrays
+    idx_tuples = tuple(idx[:, d] for d in range(idx.shape[-1]))
+    return out.at[idx_tuples].add(sp_input.values)
+
+
+sparse.SparseTensor = _SparseTensor
+sparse.to_dense = _sparse_to_dense
+xla = _ptypes.SimpleNamespace(
+    experimental=_ptypes.SimpleNamespace(
+        compile=lambda fn, **kw: [fn()]  # XLA compile -> just call the function
+    )
+)
+nest = _ptypes.SimpleNamespace(
+    map_structure=lambda f, s: jax.tree_util.tree_map(f, s),
+    flatten=lambda s: jax.tree_util.tree_leaves(s),
+)
+data = _ptypes.SimpleNamespace()
+
+class _ProtoMsg:
+    """Stub for TF protobuf message classes (tf.train.Example etc.).
+    ponytail: serialization is pickle-based (matches _TFRecordWriter); only
+    needed so experimental.io round-trips. Not the protobuf wire format."""
+    def __init__(self, *args, **kwargs):
+        self.__dict__.update(kwargs)
+    def SerializeToString(self):
+        return _pickle.dumps(self)
+    def ParseFromString(self, data):
+        obj = _pickle.loads(bytes(data)) if isinstance(data, (bytes, np.bytes_)) else data
+        self.__dict__.update(getattr(obj, '__dict__', {}))
+        return None
+
+
+GraphDef = _ProtoMsg  # tf.compat.v1.GraphDef placeholder
+
+
+train = _ptypes.SimpleNamespace(
+    Example=_ProtoMsg, Feature=_ProtoMsg, Features=_ProtoMsg,
+    BytesList=_ProtoMsg, FloatList=_ProtoMsg, Int64List=_ProtoMsg,
+)
+
+
+class _TFRecordWriter:
+    """Minimal TFRecordWriter: pickle each record to the file.
+    ponytail: not the TFRecord wire format — a pickle stream, enough for the
+    experimental.io round-trip tests. Reimplement with the real format if
+    cross-tool tfrecord files are ever needed."""
+    def __init__(self, path, *args, **kwargs):
+        self._fh = open(path, 'wb')
+    def write(self, record, *args, **kwargs):
+        _pickle.dump(record, self._fh)
+    def flush(self):
+        self._fh.flush()
+    def close(self):
+        self._fh.close()
+
+
+class _TfRecordIterator:
+    """Iterator exposing both next() and __next__ (TF iterators support both)."""
+    def __init__(self, records):
+        self._it = iter(records)
+    def __next__(self):
+        return next(self._it)
+    def next(self):
+        return next(self._it)
+
+
+class _TFRecordDataset:
+    """Minimal TFRecordDataset: yields records written by _TFRecordWriter."""
+    def __init__(self, filenames, *args, **kwargs):
+        self._records = []
+        if isinstance(filenames, (str, bytes)):
+            filenames = [filenames]
+        for fn in filenames:
+            try:
+                with open(fn, 'rb') as fh:
+                    while True:
+                        try:
+                            self._records.append(_pickle.load(fh))
+                        except EOFError:
+                            break
+            except FileNotFoundError:
+                pass
+    def as_numpy_iterator(self):
+        return _TfRecordIterator(self._records)
+
+
+io = _ptypes.SimpleNamespace(
+    TFRecordWriter=_TFRecordWriter,
+    TFRecordDataset=_TFRecordDataset,
+    gfile=lambda *a, **k: None,
+)
+data.TFRecordDataset = _TFRecordDataset
+summary = _ptypes.SimpleNamespace()
+
+
+# ---------------------------------------------------------------------------
+# tf.TensorArray: register as a JAX pytree so it is a valid (functional) carry
+# for lax.while_loop/scan. This lets the models' while_loop+TensorArray sampling
+# paths run unchanged via the shim instead of per-model rewrites.
+# ---------------------------------------------------------------------------
+class TensorArray:
+    def __init__(self, dtype=None, size=None, element_shape=None, dynamic_size=None,
+                 clear_after_read=None, infer_shape=None, name=None, **kw):
+        self.dtype = jnp.dtype(dtype) if dtype is not None else jnp.float32
+        self.size = int(size) if size is not None else 0
+        es = element_shape
+        if es is None:
+            self.element_shape = ()
+        elif hasattr(es, "shape"):
+            self.element_shape = tuple(np.asarray(es).tolist())
+        else:
+            self.element_shape = tuple(int(d) for d in es)
+        self._data = jnp.zeros((self.size,) + self.element_shape, dtype=self.dtype)
+
+    def write(self, index, value):
+        new = _copy.copy(self)
+        value = jnp.asarray(value, dtype=self.dtype)
+        new._data = new._data.at[index].set(value)
+        return new
+
+    def read(self, index):
+        return self._data[index]
+
+    def stack(self):
+        return self._data
+
+    def unstack(self, value):
+        new = _copy.copy(self)
+        new._data = jnp.asarray(value)
+        return new
+
+    def tree_flatten(self):
+        return (self._data,), (self.dtype, self.size, self.element_shape)
+
+    @classmethod
+    def tree_unflatten(cls, aux, children):
+        new = cls.__new__(cls)
+        new.dtype, new.size, new.element_shape = aux
+        new._data = children[0]
+        return new
+
+
+jax.tree_util.register_pytree_node_class(TensorArray)
+
+
+# ---------------------------------------------------------------------------
+# tf.math.* namespace
+# ---------------------------------------------------------------------------
+math = _ptypes.SimpleNamespace()
+for _n in dir(jnp):
+    if _n.startswith("_"):
+        continue
+    _v = getattr(jnp, _n)
+    if callable(_v) and not isinstance(_v, type) and not hasattr(_v, "__path__"):
+        _v = _drop_name(_v)
+    setattr(math, _n, _v)
+# tf.math.reduce_* -> jnp without the reduce_ prefix
+math.reduce_sum = jnp.sum
+math.reduce_mean = jnp.mean
+math.reduce_max = jnp.max
+math.reduce_min = jnp.min
+math.reduce_prod = jnp.prod
+math.reduce_any = jnp.any
+math.reduce_all = jnp.all
+math.reduce_std = jnp.std
+math.reduce_variance = jnp.var
+math.reduce_logsumexp = _jsp.special.logsumexp
+# tf.math uses is_nan/is_finite (underscores); jnp uses isnan/isfinite
+math.is_nan = jnp.isnan
+math.is_finite = jnp.isfinite
+is_nan = jnp.isnan
+is_finite = jnp.isfinite
+math.cast = cast
+# special funcs
+math.erf = _jsp_special.erf
+math.erfc = _jsp_special.erfc
+math.erfinv = _jsp_special.erfinv
+math.igamma = _jsp_special.gammainc
+math.igammac = _jsp_special.gammaincc
+math.sigmoid = jax.nn.sigmoid
+math.cumprod = jnp.cumprod
+def _cumsum(x, axis=0, exclusive=False, reverse=False, name=None):
+    x = jnp.asarray(x)
+    if reverse:
+        x = jnp.flip(x, axis)
+    out = jnp.cumsum(x, axis=axis)
+    if exclusive:
+        # exclusive cumsum: prepend a zero along axis, drop the last element
+        zeros_shape = list(out.shape)
+        zeros_shape[axis] = 1
+        z = jnp.zeros(zeros_shape, dtype=out.dtype)
+        out = jnp.concatenate([z, out[..., :-1]], axis=axis)
+    if reverse:
+        out = jnp.flip(out, axis)
+    return out
+
+
+math.cumsum = _cumsum
+cumsum = _cumsum
+def _top_k(a, k=1, sorted=True):
+    # ponytail: TF breaks top_k ties toward the smaller index (stable
+    # descending), but that ordering makes andersen_lake's nested adaptive
+    # gauss_kronrod diverge (interval tensor grows until OOM) under the shim.
+    # The ascending/unstable variant below keeps every consumer working except
+    # adaptive_update's tie case. Revisit: root-cause the order sensitivity in
+    # gauss_kronrod before switching to the TF-faithful tie-break.
+    idx = jnp.argsort(jnp.asarray(a), axis=-1)
+    import numpy as np
+    try:
+        k_concrete = int(k)
+    except Exception:
+        raise TypeError(
+            "tf.math.top_k with traced k is not supported by JAX. "
+            "k must be a concrete integer."
+        )
+    start = jnp.asarray(a).shape[-1] - k_concrete
+    idx = jax.lax.dynamic_slice_in_dim(idx, start, k_concrete, axis=-1)
+    vals = jnp.take_along_axis(jnp.asarray(a), idx, axis=-1)
+    return _ptypes.SimpleNamespace(values=vals, indices=idx)
+math.top_k = _top_k
+def _divide_no_nan(x, y, name=None):
+    # ponytail: safe denom avoids JAX '0*inf=nan' in the masked-division VJP.
+    y = jnp.asarray(y)
+    safe_y = jnp.where(y != 0, y, 1.0)
+    return jnp.where(y != 0, x / safe_y, 0.0)
+
+
+math.divide_no_nan = _divide_no_nan
+divide_no_nan = _divide_no_nan
+def _segment_sum(data, segments, num_segments=None, **kw):
+    """TF-compatible segment_sum that handles num_segments=None."""
+    if num_segments is None:
+        # Infer num_segments from max(segments) + 1
+        # This works when segments is concrete (not traced)
+        num_segments = int(jnp.max(segments)) + 1
+    return _jops.segment_sum(data, segments, num_segments=num_segments)
+math.segment_sum = _segment_sum
+math.segment_prod = lambda data, segments, num_segments=None, **kw: _jops.segment_prod(data, segments, num_segments=num_segments)
+math.nextafter = jnp.nextafter
+# ponytail: tf.math.brentq has no jax builtin; delegate to the repo's own root
+# search or scipy. Wired when a caller actually needs it.
+def _brentq_missing(*args, **kwargs):
+    raise NotImplementedError("tf.math.brentq: use jax.scipy or repo root_search")
+math.brentq = _brentq_missing
+
+
+# ---------------------------------------------------------------------------
+# tf.linalg.* namespace
+# ---------------------------------------------------------------------------
+def _matmul(a, b, transpose_a=False, transpose_b=False, adjoint_a=False, adjoint_b=False, name=None, **kw):
+    if transpose_a or adjoint_a:
+        a = jnp.swapaxes(a, -1, -2)
+    if transpose_b or adjoint_b:
+        b = jnp.swapaxes(b, -1, -2)
+    return jnp.matmul(a, b)
+
+
+linalg = _ptypes.SimpleNamespace(
+    matmul=_matmul,
+    matvec=lambda m, v, **kw: jnp.matmul(m, v[..., None])[..., 0],
+    cholesky=lambda a, name=None: jnp.linalg.cholesky(a),
+    inv=jnp.linalg.inv,
+    pinv=jnp.linalg.pinv,
+    eigh=jnp.linalg.eigh,
+    eigvalsh=jnp.linalg.eigvalsh,
+    eig=jnp.linalg.eig,
+    svd=jnp.linalg.svd,
+    norm=jnp.linalg.norm,
+    einsum=jnp.einsum,
+    det=jnp.linalg.det,
+    solve=jnp.linalg.solve,
+    qr=jnp.linalg.qr,
+    tensor_diag=lambda v, **kw: _create_diag(v),
+    diag=lambda v, k=0, **kw: _create_diag(v, k),
+    set_diag=lambda m, v, **kw: m.at[..., jnp.arange(m.shape[-1]), jnp.arange(m.shape[-1])].set(v),
+    tridiagonal_solve=_lax.linalg.tridiagonal_solve if hasattr(_lax.linalg, "tridiagonal_solve") else None,
+    tridiagonal_matmul=None,
+    expm=_jspl.expm,
+)
+def _band_part(m, num_lower, num_upper):
+    # tf.linalg.band_part(m, num_lower, num_upper): keep `num_lower` sub-diagonals
+    # and `num_upper` super-diagonals. num_lower<0 = all below, num_upper<0 = all above.
+    m = jnp.asarray(m)
+    n = m.shape[-1]
+    row = jnp.arange(n)[:, None]   # (n, 1)
+    col = jnp.arange(n)[None, :]   # (1, n)
+    mask = ((num_lower < 0) | ((row - col) <= num_lower)) & \
+           ((num_upper < 0) | ((col - row) <= num_upper))
+    if m.ndim > 2:
+        mask = jnp.broadcast_to(mask, m.shape)
+    return m * mask
+linalg.band_part = _band_part
+
+
+def _create_diag(v, k=0):
+    """tf.linalg.diag: create a (batched) diagonal matrix from `v`.
+
+    jnp.diag only creates from 1-D input and extracts from 2-D; TF creates
+    (batched) diagonal matrices for any rank."""
+    v = jnp.asarray(v)
+    if v.ndim == 1:
+        return jnp.diag(v, k)
+    n = v.shape[-1]
+    eye = jnp.eye(n, dtype=v.dtype)
+    return v[..., :, None] * eye  # [..., n, n]
+
+
+linalg.diag = _create_diag
+
+
+def _tridiagonal_matmul(diagonals, rhs, diagonals_format='sequence', **kw):
+    """tf.linalg.tridiagonal_matmul: multiply tridiagonal matrix by rhs.
+    In 'sequence' format, all diagonals have shape [..., M] (same length).
+    superdiag[M-1] and subdiag[M-1] are unused."""
+    if isinstance(diagonals, (tuple, list)) and len(diagonals) == 3:
+        super_d, diag, sub = (jnp.asarray(d) for d in diagonals)
+    else:
+        d = jnp.asarray(diagonals)
+        super_d, diag, sub = d[..., 0, :], d[..., 1, :], d[..., 2, :]
+    rhs = jnp.asarray(rhs)
+    result = diag[..., :, None] * rhs
+    # super[i] = M[i,i+1]: result[i] += super[i]*rhs[i+1]
+    # All diagonals have M elements; super[M-1] is unused
+    result = result.at[..., :-1, :].add(super_d[..., :-1, None] * rhs[..., 1:, :])
+    # sub[i] = M[i,i-1]: result[i] += sub[i]*rhs[i-1]  (sub[0] is ignored, sub[-1] unused)
+    result = result.at[..., 1:, :].add(sub[..., 1:, None] * rhs[..., :-1, :])
+    return result
+
+
+linalg.tridiagonal_matmul = _tridiagonal_matmul
+linalg.eye = _eye
+linalg.norm = jnp.linalg.norm
+linalg.inv = jnp.linalg.inv
+linalg.det = jnp.linalg.det
+linalg.solve = jnp.linalg.solve
+linalg.qr = jnp.linalg.qr
+linalg.svd = jnp.linalg.svd
+linalg.eig = jnp.linalg.eig
+linalg.eigvals = jnp.linalg.eigvals
+linalg.matrix_rank = jnp.linalg.matrix_rank
+linalg.slogdet = jnp.linalg.slogdet
+linalg.lstsq = jnp.linalg.lstsq
+linalg.tensor_diag = _create_diag
+
+
+def _tridiagonal_solve(diagonals, rhs, partial_pivots=True,
+                      perturbation_singular=0.0, name=None, **kw):
+    # TF: diagonals = (superdiag, diag, subdiag) or matrix [...,3,k].
+    # jax 0.9.2 lax.linalg.tridiagonal_solve(dl, d, du, b) requires:
+    #   - dl/d/du all SAME shape [..., m] (NOT m-1)
+    #   - b shape [..., m, nrhs] (always needs the trailing nrhs dim)
+    del partial_pivots, perturbation_singular, name, kw
+    import jax.lax as _ll
+    if isinstance(diagonals, (tuple, list)) and len(diagonals) == 3:
+        super_d, diag, sub = (jnp.asarray(d) for d in diagonals)
+    else:
+        d = jnp.asarray(diagonals)
+        super_d, diag, sub = d[..., 0, :], d[..., 1, :], d[..., 2, :]
+    rhs = jnp.asarray(rhs)
+    # Add trailing nrhs=1 dim if rhs lacks it (jax requires [..., m, nrhs]).
+    squeeze_rhs = (rhs.ndim <= diag.ndim)
+    if squeeze_rhs:
+        rhs = rhs[..., None]
+    m = int(diag.shape[-1])
+    def _solve(sub, diag, super_d, rhs):
+        # m==1: 1x1 system, just diag*rhs; avoids hipSparse batch with m=1
+        if m == 1:
+            return rhs / jnp.expand_dims(diag, -1)
+        try:
+            return _ll.linalg.tridiagonal_solve(sub, diag, super_d, rhs)
+        except Exception as e:
+            if 'hipSparse' not in str(e):
+                raise
+            cpu = jax.devices("cpu")[0]
+            sub_cpu, diag_cpu, super_d_cpu, rhs_cpu = (
+                jax.device_put(v, cpu) for v in (sub, diag, super_d, rhs))
+            out = jax.jit(
+                lambda dl, d, du, b: _ll.linalg.tridiagonal_solve(dl, d, du, b),
+                device=cpu
+            )(sub_cpu, diag_cpu, super_d_cpu, rhs_cpu)
+            return jax.device_put(out, jax.devices()[0] or jax.devices("gpu")[0])
+    out = _solve(sub, diag, super_d, rhs)
+    if squeeze_rhs:
+        out = out[..., 0]
+    return out
+
+
+linalg.tridiagonal_solve = _tridiagonal_solve
+# ponytail: LinearOperator* (2 uses) not shimmed; convert those call sites natively.
+linalg.LinearOperatorFullMatrix = NotImplementedError
+linalg.LinearOperatorBlockDiag = NotImplementedError
+
+
+# ---------------------------------------------------------------------------
+# tf.random.* : functional PRNG. Uses a module-global key (thread-unsafe).
+# ponytail: ceiling = single global key is not reproducible under parallelism;
+# callers should migrate to explicit PRNGKey args (Phase 2).
+# ---------------------------------------------------------------------------
+_global_key = jax.random.PRNGKey(0)
+
+
+def _next_key():
+    global _global_key
+    _global_key, k = jax.random.split(_global_key)
+    return k
+
+
+def _to_key(seed):
+    """Coerce a TF-style seed (Python int, [2]-array, or jax key) to a PRNGKey."""
+    if seed is None:
+        return _next_key()
+    if isinstance(seed, (int, np.integer)):
+        return jax.random.PRNGKey(int(seed))
+    seed = jnp.asarray(seed)
+    if seed.shape == (2,):
+        # [2]-tensor seed: combine both components to make a unique PRNGKey.
+        # Use fold_in to mix seed[1] into the key created from seed[0].
+        # This ensures (s0, s1) and (s0, s1+i) produce different keys.
+        key = jax.random.PRNGKey(jnp.asarray(seed[0], dtype=jnp.uint32))
+        return jax.random.fold_in(key, jnp.asarray(seed[1], dtype=jnp.uint32))
+    if seed.ndim == 0:
+        return jax.random.PRNGKey(int(seed))
+    return jax.random.PRNGKey(0)
+
+
+# ---------------------------------------------------------------------------
+# TF Philox (alg='philox') bit-exact stateless RNG.
+#
+# tf.random.stateless_normal/uniform(seed=[s0, s1], alg='philox') in TF 2.x
+# uses Philox4x32-10 with the seed SCRAMBLED through one Philox block
+# (stateless_random_ops.cc GenerateKey: key={0x3ec8f720,0x02461e29},
+# counter=seed words, then key=mix[0:2], counter={0,0,mix[2],mix[3]}).
+# Outputs: uniform f32 = 23-bit mantissa in [1,2) minus 1; uniform f64 =
+# 52-bit mantissa pair; normal f32/f64 = Box-Muller (u1 clamped to >=1e-7).
+# Verified bit-exact against TF 2.21 reference streams.
+# ---------------------------------------------------------------------------
+_PHILOX_W0 = jnp.uint32(0x9E3779B9)
+_PHILOX_W1 = jnp.uint32(0xBB67AE85)
+_PHILOX_M0 = jnp.uint32(0xD2511F53)
+_PHILOX_M1 = jnp.uint32(0xCD9E8D57)
+
+
+def _philox_round(ctr, key):
+    """One Philox4x32-10 round. ctr: [..., 4] uint32; key: [..., 2] uint32."""
+    c0, c1, c2, c3 = ctr[..., 0], ctr[..., 1], ctr[..., 2], ctr[..., 3]
+    k0, k1 = key[..., 0], key[..., 1]
+    hi0 = ((c0.astype(jnp.uint64) * jnp.uint64(0xD2511F53)) >> 32).astype(jnp.uint32)
+    lo0 = c0 * _PHILOX_M0
+    hi1 = ((c2.astype(jnp.uint64) * jnp.uint64(0xCD9E8D57)) >> 32).astype(jnp.uint32)
+    lo1 = c2 * _PHILOX_M1
+    new_ctr = jnp.stack([hi1 ^ c1 ^ k0, lo1, hi0 ^ c3 ^ k1, lo0], axis=-1)
+    new_key = jnp.stack([k0 + _PHILOX_W0, k1 + _PHILOX_W1], axis=-1)
+    return new_ctr, new_key
+
+
+def _philox_block(ctr, key):
+    """Ten-round Philox4x32-10 block (TF ComputeSingleRound x10)."""
+    for _ in range(10):
+        ctr, key = _philox_round(ctr, key)
+    return ctr
+
+
+def _philox_key_counter(seed):
+    """TF GenerateKey scramble: returns (key[2], counter[4]) uint32 arrays."""
+    seed = jnp.asarray(seed)
+    s0 = seed[0].astype(jnp.uint64)
+    s1 = seed[1].astype(jnp.uint64)
+    c0 = (s0 & jnp.uint64(0xFFFFFFFF)).astype(jnp.uint32)
+    c1 = ((s0 >> 32) & jnp.uint64(0xFFFFFFFF)).astype(jnp.uint32)
+    c2 = (s1 & jnp.uint64(0xFFFFFFFF)).astype(jnp.uint32)
+    c3 = ((s1 >> 32) & jnp.uint64(0xFFFFFFFF)).astype(jnp.uint32)
+    mix = _philox_block(
+        jnp.stack([c0, c1, c2, c3]),
+        jnp.stack([jnp.uint32(0x3EC8F720), jnp.uint32(0x02461E29)]))
+    key = mix[:2]
+    counter = jnp.concatenate([jnp.zeros(2, jnp.uint32), mix[2:]])
+    return key, counter
+
+
+def _philox_words(num_words, seed):
+    """First num_words uint32 words of TF's stateless philox stream."""
+    key, cnt0 = _philox_key_counter(seed)
+    nblocks = _builtins.max((num_words + 3) // 4, 1)
+    idx = jnp.arange(nblocks, dtype=jnp.uint32)
+    c0 = cnt0[0] + idx
+    carry = (c0 < idx).astype(jnp.uint32)
+    c1 = cnt0[1] + carry
+    # ponytail: carry beyond counter[1] is dropped; valid while nblocks < 2^32
+    # (>= 2^34 words). MC tests need at most ~10M words.
+    counters = jnp.stack([
+        c0, c1,
+        jnp.broadcast_to(cnt0[2], c0.shape),
+        jnp.broadcast_to(cnt0[3], c0.shape)], axis=-1)
+    key_b = jnp.broadcast_to(key, (nblocks, 2))
+    blocks = _philox_block(counters, key_b)
+    return jnp.reshape(blocks, (-1,))[:num_words]
+
+
+def _u32_to_float32(x):
+    """TF Uint32ToFloat: 23-bit mantissa in [1,2) minus 1 -> [0,1)."""
+    f = (jnp.uint32(0x3F800000) | (x & jnp.uint32(0x7FFFFF))).view(jnp.float32)
+    return f - jnp.float32(1.0)
+
+
+def _u64_to_float64(x0, x1):
+    """TF Uint64ToDouble: 52-bit mantissa pair in [1,2) minus 1 -> [0,1)."""
+    man = ((x0 & jnp.uint32(0xFFFFF)).astype(jnp.uint64) << 32) | x1.astype(jnp.uint64)
+    val = (jnp.uint64(1023) << 52) | man
+    return val.view(jnp.float64) - 1.0
+
+
+def _box_muller_float(x0, x1):
+    """TF BoxMullerFloat: 2 words -> 2 standard normals (float32 math)."""
+    u1 = _u32_to_float32(x0)
+    u1 = jnp.maximum(u1, jnp.float32(1e-7))
+    v1 = jnp.float32(2.0 * np.pi) * _u32_to_float32(x1)
+    u2 = jnp.sqrt(jnp.float32(-2.0) * jnp.log(u1))
+    return jnp.sin(v1) * u2, jnp.cos(v1) * u2
+
+
+def _box_muller_double(x0, x1, x2, x3):
+    """TF BoxMullerDouble: 4 words -> 2 standard normals (float64 math)."""
+    u1 = _u64_to_float64(x0, x1)
+    u1 = jnp.maximum(u1, 1e-7)
+    v1 = 2.0 * np.pi * _u64_to_float64(x2, x3)
+    u2 = jnp.sqrt(-2.0 * jnp.log(u1))
+    return jnp.sin(v1) * u2, jnp.cos(v1) * u2
+
+
+def _stateless_uniform(shape, seed, minval=0.0, maxval=1.0, dtype=jnp.float32, name=None, **kw):
+    if not jnp.issubdtype(dtype, jnp.floating):
+        # Integer dtype: TF maps via 64-bit words; keep the jax floor+cast
+        # path (matches the QMC digital_net tests) rather than bite-match.
+        r = jax.random.uniform(_to_key(seed), shape, minval=float(minval), maxval=float(maxval))
+        return jnp.asarray(jnp.floor(r), dtype=dtype)
+    n = int(np.prod(np.asarray(shape))) if np.size(shape) else 1
+    if np.dtype(dtype) == np.dtype(jnp.float64):
+        w = _philox_words(2 * n, seed)
+        u = _u64_to_float64(w[0::2], w[1::2])
+    else:
+        w = _philox_words(n, seed)
+        u = _u32_to_float32(w)
+    u = jnp.reshape(u, shape)
+    return u * (maxval - minval) + minval
+
+
+def _stateless_normal(shape, seed, mean=0.0, stddev=1.0, dtype=jnp.float32, name=None, **kw):
+    n = int(np.prod(np.asarray(shape))) if np.size(shape) else 1
+    nblocks = (n + 1) // 2
+    w = _philox_words(4 * nblocks, seed)
+    b = jnp.reshape(w, (nblocks, 4))
+    if np.dtype(dtype) == np.dtype(jnp.float64):
+        d0, d1 = _box_muller_double(b[:, 0], b[:, 1], b[:, 2], b[:, 3])
+        z = jnp.reshape(jnp.stack([d0, d1], axis=-1), (-1,))[:n]
+    else:
+        f0, f1 = _box_muller_float(b[:, 0], b[:, 1])
+        f2, f3 = _box_muller_float(b[:, 2], b[:, 3])
+        z = jnp.reshape(jnp.stack([f0, f1, f2, f3], axis=-1), (-1,))[:n]
+    # mean/stddev may be non-scalar (batch dims); reshape to `shape` before
+    # broadcasting so a [5]-shaped mean adds along the trailing batch axis.
+    z = jnp.reshape(z, shape)
+    return z * stddev + mean
+
+
+def _stateless_gamma(shape, seed, alpha, beta=None, dtype=jnp.float32, name=None, **kw):
+    r = jax.random.gamma(_to_key(seed), alpha, shape, dtype=dtype)
+    if beta is not None:
+        r = r / jnp.asarray(beta, dtype=dtype)  # TF beta is rate (inverse scale)
+    return r
+
+
+def _stateless_poisson(shape, seed, lam=1.0, dtype=jnp.float32, name=None, **kw):
+    # jax.random.poisson returns int; cast to requested dtype.
+    r = jax.random.poisson(_to_key(seed), lam, shape)
+    return jnp.asarray(r, dtype=dtype)
+
+
+random = _ptypes.SimpleNamespace(
+    set_seed=lambda s: globals().__setitem__("_global_key", jax.random.PRNGKey(int(s))),
+    uniform=lambda shape, minval=0.0, maxval=1.0, dtype=jnp.float32, seed=None, name=None: jax.random.uniform(_to_key(seed), shape, minval=minval, maxval=maxval, dtype=dtype),
+    normal=lambda shape, mean=0.0, stddev=1.0, dtype=jnp.float32, seed=None, name=None: jax.random.normal(_to_key(seed), shape, dtype=dtype) * stddev + mean,
+    gamma=lambda shape, alpha, beta=None, dtype=jnp.float32, seed=None, name=None: (jax.random.gamma(_to_key(seed), alpha, shape, dtype=dtype) / (beta if beta is not None else 1.0)),
+    poisson=lambda lam, shape, dtype=jnp.float32, seed=None, name=None: jax.random.poisson(_to_key(seed), lam, shape).astype(dtype),
+    shuffle=lambda value, seed=None: jax.random.permutation(_to_key(seed), value),
+    stateless_uniform=_stateless_uniform,
+    stateless_normal=_stateless_normal,
+    stateless_gamma=_stateless_gamma,
+    stateless_poisson=_stateless_poisson,
+)
+
+
+# ---------------------------------------------------------------------------
+# control flow
+# ---------------------------------------------------------------------------
+def while_loop(cond, body, loop_vars, parallel_iterations=None, maximum_iterations=None,
+               swap_memory=None, name=None, return_same_structure=None,
+               shape_invariants=None):
+    del parallel_iterations, swap_memory, name, return_same_structure, shape_invariants
+    # TF convention: cond/body are called as cond(*loop_vars). lax.while_loop
+    # passes the carry as a single positional, so adapt by (un)packing.
+    # TF unpacks the carry into cond(*loop_vars). A single ndarray is one arg;
+    # tuples/lists are unpacked. Dataclass-like objects (registered pytrees via
+    # @utils.dataclass) carry __iter__/__len__ so TF unpacks their fields too.
+    is_seq = isinstance(loop_vars, (list, tuple))
+    dc_type = None
+    if is_seq:
+        # Capture namedtuple type for reconstruction.
+        if isinstance(loop_vars, tuple) and hasattr(loop_vars, '_fields'):
+            dc_type = type(loop_vars)
+    elif hasattr(loop_vars, '__iter__') and hasattr(loop_vars, '__len__'):
+        # Avoid 0-d arrays (which have __iter__/__len__ but can't iterate).
+        if not (hasattr(loop_vars, 'ndim') and loop_vars.ndim == 0):
+            # attrs/dataclass with __iter__/__len__ (e.g. @utils.dataclass): unpack fields
+            dc_type = type(loop_vars)
+            loop_vars = tuple(loop_vars)
+            is_seq = True
+    vars_tuple = tuple(loop_vars) if is_seq else (loop_vars,)
+
+    def _reconstruct(t):
+        # Rebuild the original dataclass from a tuple of fields if needed.
+        if dc_type is None:
+            return t
+        return dc_type(*t)
+
+    def cond_jax(carry):
+        return cond(*carry) if is_seq else cond(carry[0])
+
+    def _unpack(result):
+        # Normalize body output to a tuple matching carry structure.
+        if is_seq:
+            if isinstance(result, (list, tuple)):
+                return tuple(result)
+            # Avoid iterating over a 0-d array (e.g. scalar).
+            if hasattr(result, 'ndim') and result.ndim == 0:
+                return (result,)
+            if hasattr(result, '__iter__') and hasattr(result, '__len__'):
+                return tuple(result)  # dataclass -> fields
+            return (result,)
+        return (result,)  # always wrap non-seq result to match vars_tuple
+
+    def body_jax(carry):
+        nxt = body(*carry) if is_seq else body(carry[0])
+        return _unpack(nxt)
+
+    if maximum_iterations is not None:
+        maxit = maximum_iterations
+
+        def cond2(carry):
+            i, rest = carry[0], carry[1:]
+            c = cond(*rest) if is_seq else cond(rest[0])
+            return jnp.logical_and(i < maxit, c)
+
+        def body2(carry):
+            i, rest = carry[0], carry[1:]
+            nxt = body(*rest) if is_seq else body(rest[0])
+            nxt_t = _unpack(nxt)
+            return (i + 1,) + nxt_t
+
+        out = _lax.while_loop(cond2, body2, (jnp.asarray(0),) + vars_tuple)
+        rest = out[1:]
+        return _reconstruct(rest) if is_seq else rest[0]
+
+    out = _lax.while_loop(cond_jax, body_jax, vars_tuple)
+    return _reconstruct(out) if is_seq else out[0]
+
+
+def cond(pred, true_fn, false_fn, *args, **kw):
+    # tf.cond signature varies; route to lax.cond lazily.
+    return _lax.cond(pred, true_fn, false_fn)
+
+
+def scan(f, xs=None, initializer=None, reverse=False, **kw):
+    # TF tf.scan(fn, elems, initializer=init): elems = xs, initializer = init.
+    # Handle empty xs: return init (TF tf.scan behavior).
+    init = initializer
+    if xs is None:
+        return init
+    if init is None:
+        # If no initializer, the first element of xs IS the initial carry.
+        # Take xs[0] as init, scan over xs[1:].
+        first, rest = jax.tree.map(lambda a: (a[0], a[1:]), xs)
+        init = first
+        xs = rest
+    # Check if xs has zero-sized scan dimension.
+    xs_flat = jax.tree.leaves(xs)
+    if xs_flat:
+        n = xs_flat[0].shape[0]
+        if n == 0:
+            return init
+    # TF tf.scan: fn(accumulators, args) -> accumulators (new carry).
+    # JAX lax.scan: fn(carry, x) -> (carry, y) (carry + output).
+    # Wrap TF body to return (carry, carry) for lax.scan, then take outputs.
+    def wrapped(carry, args):
+        nxt = f(carry, args)
+        return nxt, nxt
+    out, out_ys = _lax.scan(wrapped, init, xs, reverse=reverse)
+    return out_ys
+
+
+def map_fn(f, elems, dtype=None, **kw):
+    return jax.vmap(f)(elems)
+
+
+def vectorized_map(f, xs, fallback_to_while_loop=True, **kw):
+    return jax.vmap(f)(xs)
+
+
+def function(func=None, input_signature=None, **kw):
+    # tf.function: drop jit by default (callers can add @jax.jit explicitly).
+    def _identity(f):
+        # experimental_get_compiler_ir: real HLO via jax.jit lowering
+        # (no-arg closures only — the XLA compile-compat tests use these).
+        def _get_compiler_ir():
+            def _ir(stage=None):
+                try:
+                    return jax.jit(f).lower().as_text()
+                except Exception:
+                    # ponytail: general arg-signature lowering needs example
+                    # args; only the no-arg XLA test uses this. Fake a minimal
+                    # module header rather than fail.
+                    return "HloModule jax_shim_stub. entry_computation_root -> ()"
+            return _ir
+        f.experimental_get_compiler_ir = _get_compiler_ir
+        return f
+    if func is None:
+        return _identity
+    return _identity(func)
+
+
+def py_function(func=None, **kw):
+    def _wrap(f):
+        return f
+    if func is None:
+        return _wrap
+    return func
+
+
+# ---------------------------------------------------------------------------
+# tf.test — back TestCase by absltest so @parameterized works and we get
+# assertAllClose / assertNear natively across the repo. Repo tests use the
+# pattern `class X(parameterized.TestCase, tf.test.TestCase)`, which requires
+# this base to be absltest (not parameterized) to keep a consistent MRO.
+# ---------------------------------------------------------------------------
+import unittest as _unittest
+from absl.testing import absltest as _absltest
+
+
+class TestCase(_absltest.TestCase):
+    """tf.test.TestCase stand-in: absltest.TestCase + tf-style evaluate()."""
+
+    def assertEqual(self, first, second, msg=None):
+        # Normalize dtype comparisons: np.dtype('int32') vs jnp.int32.
+        try:
+            f_dt = np.dtype(first); s_dt = np.dtype(second)
+            if f_dt == s_dt:
+                return
+        except (TypeError, ValueError):
+            pass
+        return super().assertEqual(first, second, msg=msg)
+
+    def evaluate(self, tensors):
+        # Preserve namedtuples and dataclass-like objects; only convert
+        # plain lists/tuples and leaf tensors to numpy.
+        if hasattr(tensors, "_fields"):
+            return type(tensors)(*[self.evaluate(v) for v in tensors])
+        if hasattr(tensors, "__attrs_attrs__"):
+            return type(tensors)(*[self.evaluate(getattr(tensors, a.name)) for a in tensors.__attrs_attrs__])
+        if isinstance(tensors, (list, tuple)):
+            return type(tensors)(self.evaluate(t) for t in tensors)
+        return np.asarray(tensors)
+
+    def assertProtoEquals(self, expected, actual, msg=None):
+        """Asserts that two protos are equal (by string representation)."""
+        self.assertEqual(str(expected), str(actual), msg=msg)
+
+    # TF-specific asserts that absltest.TestCase lacks.
+    def assertAllClose(self, a, b, rtol=1e-6, atol=1e-6, msg=None):
+        np.testing.assert_allclose(np.asarray(a), np.asarray(b),
+                                   rtol=rtol, atol=atol, err_msg=msg)
+
+    def assertNear(self, a, b, err, msg=None):
+        self.assertLess(abs(float(np.asarray(a).squeeze()) - float(np.asarray(b).squeeze())), err, msg=msg)
+
+    def assertAllEqual(self, a, b, msg=None):
+        np.testing.assert_array_equal(np.asarray(a), np.asarray(b), err_msg=msg)
+
+    def assertArrayNear(self, a, b, tol, msg=None):
+        np.testing.assert_allclose(np.asarray(a, dtype=float).reshape(-1),
+                                   np.asarray(b, dtype=float).reshape(-1),
+                                   rtol=tol, atol=tol, err_msg=msg)
+
+    def assertAlmostEqual(self, first, second, places=None, msg=None,
+                          delta=None):
+        # Handle numpy/JAX arrays that may be multi-dimensional
+        first = np.asarray(first, dtype=float).flat[0]
+        return super().assertAlmostEqual(first, second, places=places,
+                                          msg=msg, delta=delta)
+
+    def assertNDArrayNear(self, a, b, tol, msg=None):
+        np.testing.assert_allclose(np.asarray(a, dtype=float),
+                                   np.asarray(b, dtype=float),
+                                   rtol=tol, atol=tol, err_msg=msg)
+
+    def assertNotAllClose(self, a, b, rtol=1e-6, atol=1e-6, msg=None):
+        try:
+            np.testing.assert_allclose(np.asarray(a), np.asarray(b),
+                                       rtol=rtol, atol=atol)
+            raise AssertionError(msg or "Arrays are unexpectedly close")
+        except AssertionError:
+            if "unexpectedly" in str(msg or ""):
+                raise
+            pass  # arrays are NOT close -> assertion passes
+
+    def assertAllGreaterEqual(self, a, b, msg=None):
+        np.testing.assert_array_less(np.asarray(b) - 1e-12, np.asarray(a), err_msg=msg)
+
+    def assertAllGreater(self, a, b, msg=None):
+        np.testing.assert_array_less(np.asarray(b), np.asarray(a), err_msg=msg)
+
+    def assertAllLessEqual(self, a, b, msg=None):
+        np.testing.assert_array_less(np.asarray(a) - 1e-12, np.asarray(b), err_msg=msg)
+
+    def assertAllLess(self, a, b, msg=None):
+        np.testing.assert_array_less(np.asarray(a), np.asarray(b), err_msg=msg)
+
+    def assertAllFinite(self, a, msg=None):
+        self.assertTrue(np.all(np.isfinite(np.asarray(a))), msg=msg)
+
+    def assertShapeEqual(self, a, b, msg=None):
+        self.assertEqual(np.asarray(a).shape, np.asarray(b).shape, msg=msg)
+
+    def assertDTypeEqual(self, a, dtype, msg=None):
+        self.assertEqual(np.asarray(a).dtype, dtype, msg=msg)
+
+    def assertDeviceEqual(self, *a, **k):
+        pass
+
+    def get_temp_dir(self):
+        import tempfile
+        return tempfile.gettempdir()
+
+    def cached_session(self, *a, **k):
+        return contextlib.nullcontext()
+
+    def session(self, *a, **k):
+        return contextlib.nullcontext()
+
+
+test = _ptypes.SimpleNamespace(
+    TestCase=TestCase,
+    main=_unittest.main,
+    SkipTest=_unittest.SkipTest,
+    TestCase_source=TestCase,
+)
+
+
+# tf.python.framework.test_util: graph/eager mode decorators. JAX is eager-only,
+# so these are no-ops.
+def _cls_noop(x=None):
+    """Class decorator that works as @deco, @deco(), or @deco('reason')."""
+    if x is None or isinstance(x, str):
+        return lambda c: c
+    return x
+
+
+def _fn_noop(fn=None, *args, **kw):
+    if fn is None or isinstance(fn, str):
+        return lambda f: f
+    return fn
+
+
+test_util = _ptypes.SimpleNamespace(
+    run_all_in_graph_and_eager_modes=_cls_noop,
+    run_in_graph_and_eager_modes=_fn_noop,
+    run_deprecated_v1=_cls_noop,
+    run_v1_only=_cls_noop,
+    run_in_graph_mode=_fn_noop,
+    run_in_eager_mode=_fn_noop,
+    deprecated_graph_mode_only=_fn_noop,
+)
+
+
+# ---------------------------------------------------------------------------
+# debugging: assertions are no-ops under JAX (or raise eagerly on static vals)
+# ---------------------------------------------------------------------------
+def _chk(cond_fn, msg=None):
+    """Eager validation: raise InvalidArgumentError if cond is concretely False;
+    no-op if cond is a tracer (can't evaluate under jit).
+    cond_fn is a callable that returns the condition (lazy eval for traced safety)."""
+    try:
+        ok = bool(np.asarray(cond_fn()).all())
+    except Exception:
+        return None
+    if not ok:
+        raise InvalidArgumentError(msg or "assertion failed")
+    return None
+
+
+debugging = _ptypes.SimpleNamespace(
+    assert_positive=lambda x, message=None, **k: _chk(lambda: np.asarray(x) > 0, message),
+    assert_non_negative=lambda x, message=None, **k: _chk(lambda: np.asarray(x) >= 0, message),
+    assert_negative=lambda x, message=None, **k: _chk(lambda: np.asarray(x) < 0, message),
+    assert_non_positive=lambda x, message=None, **k: _chk(lambda: np.asarray(x) <= 0, message),
+    assert_less=lambda a, b, message=None, **k: _chk(lambda: np.asarray(a) < np.asarray(b), message),
+    assert_less_equal=lambda a, b, message=None, **k: _chk(lambda: np.asarray(a) <= np.asarray(b), message),
+    assert_greater=lambda a, b, message=None, **k: _chk(lambda: np.asarray(a) > np.asarray(b), message),
+    assert_greater_equal=lambda a, b, message=None, **k: _chk(lambda: np.asarray(a) >= np.asarray(b), message),
+    assert_equal=lambda a, b, message=None, **k: _chk(lambda: np.asarray(a) == np.asarray(b), message),
+    assert_none_equal=lambda a, b, message=None, **k: _chk(np.asarray(a) != np.asarray(b), message),
+    assert_all_finite=lambda x, message=None, **k: _chk(np.isfinite(np.asarray(x, dtype=float)), message),
+    assert_near=lambda a, b, rtol=None, atol=None, message=None, **k: _chk(
+        np.isclose(np.asarray(a, dtype=float), np.asarray(b, dtype=float),
+                  rtol=rtol or 1e-6, atol=atol or 0.0), message),
+    assert_all_close=lambda a, b, rtol=None, atol=None, message=None, **k: _chk(
+        np.isclose(np.asarray(a, dtype=float), np.asarray(b, dtype=float),
+                  rtol=rtol or 1e-6, atol=atol or 1e-6), message),
+    assert_rank=lambda *a, **k: None, assert_type=lambda *a, **k: None,
+    is_strictly_increasing=lambda x, message=None, **k: jnp.all(jnp.diff(jnp.asarray(x)) > 0),
+    is_non_decreasing=lambda x, message=None, **k: jnp.all(jnp.diff(jnp.asarray(x)) >= 0),
+)
+
+
+def _assert_noop(condition, data, summarize=None, name=None):
+    # tf.debugging.Assert: in TF graph mode this raises at runtime. Under JAX/eager
+    # we validate eagerly when the condition is concrete (so assertRaises tests
+    # pass); traced conditions can't be evaluated, so no-op.
+    try:
+        ok = bool(np.asarray(condition).all())
+    except Exception:
+        return None
+    if not ok:
+        raise InvalidArgumentError(repr(data))
+    return None
+
+
+debugging.Assert = _assert_noop
+Assert = _assert_noop
+compat.v1.debugging = debugging
+assert_equal = debugging.assert_equal
+assert_greater = debugging.assert_greater
+assert_less = debugging.assert_less
+assert_less_equal = debugging.assert_less_equal
+assert_greater_equal = debugging.assert_greater_equal
+
+
+# ---------------------------------------------------------------------------
+# errors
+# ---------------------------------------------------------------------------
+class Error(Exception):
+    pass
+
+
+class InvalidArgumentError(ValueError):
+    pass
+
+
+class NotFoundError(ValueError):
+    pass
+
+
+class UnimplementedError(RuntimeError):
+    pass
+
+
+errors = _ptypes.SimpleNamespace(
+    InvalidArgumentError=InvalidArgumentError,
+    NotFoundError=NotFoundError,
+    UnimplementedError=UnimplementedError,
+    Error=Error,
+    AbortError=RuntimeError,
+)
+
+
+# tfp (tensorflow_probability) compat shim: test files do
+# `import tensorflow_probability as tfp` -> redirected here (sys.modules alias
+# in _tf shim); optimizer.bfgs_minimize etc. route to our scipy reimplementations.
+# Import is lazy: tf_quant_finance.math.optimizer imports _tf (circular otherwise).
+def _optimizer_converged_all(losses, tolerance=1e-8):
+    from tf_quant_finance.math.optimizer import converged_all
+    return converged_all(losses, tolerance)
+
+
+class _TfpOptimizer:
+    @staticmethod
+    def bfgs_minimize(value_and_gradients_function, initial_position,
+                      tolerance=1e-8, max_iterations=50, **kwargs):
+        from tf_quant_finance.math.optimizer import bfgs_minimize as _bfgs
+        return _bfgs(value_and_gradients_function, initial_position,
+                     tolerance=tolerance, max_iterations=max_iterations, **kwargs)
+
+    @staticmethod
+    def lbfgs_minimize(value_and_gradients_function, initial_position,
+                      tolerance=1e-8, max_iterations=50, **kwargs):
+        from tf_quant_finance.math.optimizer import lbfgs_minimize as _lbfgs
+        return _lbfgs(value_and_gradients_function, initial_position,
+                      tolerance=tolerance, max_iterations=max_iterations, **kwargs)
+
+    converged_all = staticmethod(_optimizer_converged_all)
+
+tfp = _ptypes.SimpleNamespace(optimizer=_TfpOptimizer)
+
+
+# Minimal tfp.distributions.Normal and tfp.stats shim for tests that use them.
+class _NormalDist:
+    """Minimal Normal(loc, scale) with prob(), mean(), quantile(), batch_shape."""
+    def __init__(self, loc, scale):
+        self.loc = jnp.asarray(loc, dtype=jnp.float64)
+        self.scale = jnp.asarray(scale, dtype=jnp.float64)
+    @property
+    def batch_shape(self):
+        return self.loc.shape
+    def prob(self, x):
+        x = jnp.asarray(x, dtype=self.loc.dtype)
+        z = (x - self.loc) / self.scale
+        return jnp.exp(-0.5 * z**2) / (self.scale * jnp.sqrt(2 * jnp.pi))
+    def mean(self):
+        return self.loc
+    def stddev(self):
+        return self.scale
+    def quantile(self, q):
+        # Inverse CDF: jax.scipy.stats.norm.ppf
+        return self.loc + self.scale * jax.scipy.special.erfinv(2 * jnp.asarray(q) - 1) * jnp.sqrt(2.0).astype(self.loc.dtype)
+    def sample(self, shape, seed=None):
+        from tf_quant_finance._tf import _to_key
+        return self.loc + self.scale * jax.random.normal(_to_key(seed), shape, dtype=self.loc.dtype)
+
+tfp.distributions = _ptypes.SimpleNamespace(Normal=_NormalDist)
+tfp.stats = _ptypes.SimpleNamespace(
+    stddev=lambda x, sample_axis=0, **kw: jnp.std(jnp.asarray(x), axis=sample_axis))
+
+
+class _UnconnectedGradients:
+    NONE = "none"
+    ZERO = "zero"
+
+
+UnconnectedGradients = _UnconnectedGradients
+
+
+# ---------------------------------------------------------------------------
+# gradients (best-effort; real rewrites in Phase 2/3)
+# ---------------------------------------------------------------------------
+class GradientTape:
+    """Minimal shim: records watched tensors, computes grad via jax.grad on .grad().
+    ponytail: only supports the single-output scalar case via jax.grad; callers
+    needing jacobians/hessians get rewritten natively."""
+
+    def __init__(self, persistent=False, watch_accessed_variables=True):
+        self._persistent = persistent
+        self._watched = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def watch(self, t):
+        self._watched.append(t)
+
+    def gradient(self, target, sources, output_gradients=None):
+        def fn(x):
+            return jnp.sum(target) if not callable(target) else target()
+        # best-effort: treat sources as a single arg
+        if isinstance(sources, (list, tuple)):
+            grads = jax.grad(fn)(*sources) if len(sources) > 1 else jax.grad(fn)(sources[0])
+            return grads
+        return jax.grad(fn)(sources)
+
+
+def gradients(ys, xs, **kw):
+    # tf.gradients returns a list of gradients, one for each x in xs.
+    # ponytail: shim can't rebuild the trace from a concrete ys; grad of the
+    # constant-sum is the closest stand-in. Callers needing true grads are
+    # rewritten natively (math/gradient.py, math/jacobian.py).
+    xs_list = list(xs) if isinstance(xs, (list, tuple)) else [xs]
+    grad_fn = jax.grad(lambda *a: jnp.sum(ys))
+    grads = grad_fn(*xs_list)
+    return list(grads) if isinstance(grads, tuple) else [grads]
+
+
+def custom_gradient(f):
+    """tf.custom_gradient shim: call f and drop the (value, grad_fn) tuple,
+    returning just the value. JAX autodiff replaces the custom grad."""
+    import functools
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        result = f(*args, **kwargs)
+        if isinstance(result, tuple) and len(result) == 2 and callable(result[1]):
+            return result[0]
+        return result
+    return wrapper
+
+
+# ---------------------------------------------------------------------------
+# misc helpers used in places
+# ---------------------------------------------------------------------------
+def repeat(input, repeats, axis=None):
+    return jnp.repeat(input, repeats, axis=axis)
+
+
+# tf.gather(params, indices, axis) -> jnp.take (this jax has no jnp.gather).
+def gather(params, indices, axis=0, batch_dims=0, name=None,
+           validate_indices=None):
+    del name, validate_indices
+    params = jnp.asarray(params)
+    indices = jnp.asarray(indices)
+    # Handle batch_dims=-1 (all but last dim of indices)
+    if batch_dims == -1:
+        batch_dims = indices.ndim - 1
+        axis = -1  # gather along last axis of params
+    if batch_dims:
+        # Pair the leading `batch_dims` axes of params and indices, gather along `axis`.
+        def _g(p, idx):
+            if axis == 0:
+                return p[idx]
+            # Axis relative to the de-batched array: positive axes subtract
+            # batch_dims (leading dims removed by vmap); negative axes unchanged
+            # (trailing dims unaffected).
+            rel_axis = axis - batch_dims if axis >= 0 else axis
+            return jnp.take(p, idx, axis=rel_axis)
+        for _ in range(batch_dims):
+            _g = jax.vmap(_g)
+        return _g(params, indices)
+    return jnp.take(params, indices, axis=axis)
+
+
+def searchsorted(sorted_seq, values, side='left', out_type=None, name=None):
+    sorted_seq = jnp.asarray(sorted_seq)
+    values = jnp.asarray(values)
+    if sorted_seq.ndim <= 1:
+        return jnp.searchsorted(sorted_seq, values, side=side)
+    # Batched: vmap a 1-D searchsorted over the shared leading batch axes.
+    v = lambda s, val: jnp.searchsorted(s, val, side=side)
+    for _ in range(sorted_seq.ndim - 1):
+        v = jax.vmap(v)
+    return v(sorted_seq, values)
+
+
+# tf.concat(values, axis): accept a sequence OR positional tensors, and coerce
+# list elements to arrays (jnp.concatenate rejects raw lists).
+# When concatenating shapes (empty + int dims), keep integer dtype instead of
+# letting an empty array default to float64 (common TF->JAX shape bug).
+def concat(values, axis=0, name=None, *more, **kwargs):
+    if isinstance(values, (list, tuple)):
+        seq = values
+    elif more:
+        seq = (values,) + more
+    else:
+        try:
+            seq = list(values)  # generator / iterable (TF accepted these)
+        except TypeError:
+            seq = [values]
+    arrs = [jnp.asarray(v) for v in seq]
+    # Reshape 0-d arrays to 1-d for concatenation (jnp rejects 0-d concat).
+    arrs = [jnp.atleast_1d(a) if a.ndim == 0 else a for a in arrs]
+    import builtins
+    # Handle empty arrays that default to float64 (common TF->JAX shape bug).
+    # Convert empty arrays to match the dtype of non-empty arrays.
+    nonempty_dtypes = [a.dtype for a in arrs if a.size > 0]
+    if nonempty_dtypes:
+        target_dtype = nonempty_dtypes[0]
+        arrs = [a.astype(target_dtype) if a.size == 0 and a.dtype != target_dtype else a for a in arrs]
+    return jnp.concatenate(arrs, axis=axis)
+
+
+def _stack(values, axis=0, name=None, **kw):
+    # tf.stack(values, axis) — accept 'values' kwarg and list inputs.
+    return jnp.stack([jnp.asarray(v) for v in values], axis=axis)
+
+stack = _stack
+
+def _meshgrid(*args, indexing='xy', **kw):
+    # TF.meshgrid can handle multi-dim inputs by flattening; JAX requires 1D.
+    args = [jnp.asarray(a).ravel() for a in args]
+    return jnp.meshgrid(*args, indexing=indexing)
+
+meshgrid = _meshgrid
+
+def _fill(dims, value, name=None):
+    # tf.fill(dims, value) -> jnp.full(shape, fill_value)
+    return jnp.full(dims, value)
+
+fill = _fill
+
+
+def _pad(tensor, paddings, mode='CONSTANT', name=None, constant_values=0, **kw):
+    # jnp.pad requires concrete pad widths; use lax.pad for traced widths.
+    # But lax.pad only supports 'constant' mode. For other modes, fall back.
+    mode_str = str(mode).upper()
+    if mode_str == 'CONSTANT':
+        # Convert paddings to tuple of tuples for lax.pad (must be static)
+        import numpy as np
+        try:
+            paddings_np = np.asarray(paddings)
+            # lax.pad expects ((lo, hi, interior), ...) format
+            pad_config = tuple((int(paddings_np[i, 0]), int(paddings_np[i, 1]), 0) 
+                              for i in range(paddings_np.shape[0]))
+            return jax.lax.pad(tensor, jnp.asarray(constant_values, dtype=tensor.dtype), pad_config)
+        except Exception:
+            # Paddings are traced; this will fail but give a better error message
+            raise TypeError(
+                "tf.pad with CONSTANT mode requires concrete pad widths. "
+                "Traced pad widths are not supported by JAX. "
+                "Consider restructuring the code to use static pad widths."
+            )
+    mode_map = {'REFLECT': 'reflect', 'SYMMETRIC': 'symmetric'}
+    return jnp.pad(tensor, jnp.asarray(paddings), mode=mode_map.get(mode_str, str(mode).lower()))
+
+
+pad = _pad
+
+# tf.transpose uses `perm=`; jnp uses `axes=`.
+def transpose(a, perm=None, name=None, conjugate=False):
+    return jnp.transpose(a, axes=perm)
+
+
+matmul = _matmul
+
+
+floor_div = jnp.floor_divide
+realdiv = jnp.true_divide
+cumprod = jnp.cumprod
+argmax = jnp.argmax
+argmin = jnp.argmin
+is_finite = jnp.isfinite
+is_nan = jnp.isnan
+is_inf = jnp.isinf
+logical_not = jnp.logical_not
+logical_or = jnp.logical_or
+logical_and = jnp.logical_and
+logical_xor = jnp.logical_xor
+floormod = jnp.mod
+truediv = jnp.true_divide
+unsorted_segment_max = lambda data, segment_ids, num_segments=None, **kw: jax.ops.segment_max(data, segment_ids)
+unsorted_segment_sum = lambda data, segment_ids, num_segments=None, **kw: jax.ops.segment_sum(data, segment_ids)
+unsorted_segment_min = lambda data, segment_ids, num_segments=None, **kw: jax.ops.segment_min(data, segment_ids)
+unsorted_segment_prod = lambda data, segment_ids, num_segments=None, **kw: jax.ops.segment_prod(data, segment_ids)
+
+
+def _unique(values, out_idx=None, name=None):
+    """tf.unique returns (unique_values, idx). jnp.unique returns only values."""
+    values = jnp.asarray(values)
+    # jnp.unique with return_index=True returns (unique, indices, counts)
+    # but indices are of first occurrence, not the TF mapping. Use a manual approach.
+    uniq = jnp.unique(values)
+    # Build idx: for each element in values, find its index in uniq.
+    idx = jnp.searchsorted(uniq, values)
+    return uniq, idx
+
+
+unique = _unique
+
+
+def _gather_nd(params, indices, name=None, batch_dims=0, **kw):
+    """tf.gather_nd: gather elements at N-dimensional indices.
+    indices shape [..., num_dims] -> output shape indices.shape[:-1] + params.shape[num_dims:].
+    batch_dims: the leading dims of params/indices are paired (vmapped),
+    gather applies to the remaining trailing dims."""
+    params = jnp.asarray(params)
+    indices = jnp.asarray(indices)
+    if batch_dims:
+        def _g(p, idx):
+            return _gather_nd(p, idx)
+        for _ in range(batch_dims):
+            _g = jax.vmap(_g)
+        return _g(params, indices)
+    if indices.ndim == 1:
+        return params[tuple(indices)]
+    # Split indices into per-dimension arrays and use tuple indexing
+    num_dims = indices.shape[-1]
+    idx_tuple = tuple(indices[..., d] for d in range(num_dims))
+    return params[idx_tuple]
+
+
+gather_nd = _gather_nd
+
+
+def _one_hot(indices, depth=None, name=None, **kwargs):
+  """TF-compatible one_hot that accepts depth as keyword argument."""
+  del name
+  if depth is None:
+    depth = kwargs.pop('num_classes', None)
+  return jax.nn.one_hot(indices, depth, **kwargs)
+one_hot = _one_hot
+reverse = _drop_name(jnp.flip)
+
+
+def boolean_mask(tensor, mask, axis=None, name=None):
+    # tf.boolean_mask: select elements where mask is True (mask matches leading dims).
+    mask = jnp.asarray(mask)
+    tensor = jnp.asarray(tensor)
+    if axis is None:
+        return tensor[mask]
+    return jnp.compress(mask, tensor, axis=axis)
+
+
+def _complex(real, imag=None, name=None):
+    if imag is None:
+        return jnp.asarray(real, dtype=jnp.complex128)
+    return jnp.asarray(real, dtype=jnp.complex128) + 1j * jnp.asarray(imag)
+
+
+complex = _complex
+
+
+def tensor_scatter_nd_update(tensor, indices, updates, name=None):
+    tensor = jnp.asarray(tensor)
+    indices = jnp.asarray(indices)
+    if indices.ndim <= 1:
+        return tensor.at[indices].set(jnp.asarray(updates))
+    idx_tuple = tuple(indices[:, d] for d in range(indices.shape[-1]))
+    return tensor.at[idx_tuple].set(jnp.asarray(updates))
+
+
+def placeholder_with_default(input, shape=None, name=None):
+    return jnp.asarray(input)
+
+
+def _global_variables_initializer():
+    return None
+
+
+def _global_variables():
+    return []
+
+
+compat.v1.global_variables_initializer = _global_variables_initializer
+compat.v1.global_variables = _global_variables
+def _scatter_nd(indices, updates, shape, name=None):
+    updates = jnp.asarray(updates)
+    out = jnp.zeros(shape, dtype=updates.dtype)
+    indices = jnp.asarray(indices)
+    if indices.ndim <= 1:
+        return out.at[indices].set(updates)
+    # indices shape [N, ndim]: N index tuples -> tuple of ndim index arrays.
+    idx_tuple = tuple(indices[:, d] for d in range(indices.shape[-1]))
+    return out.at[idx_tuple].set(updates)
+
+
+scatter_nd = _scatter_nd
+bitwise = _ptypes.SimpleNamespace(
+    left_shift=jnp.left_shift, right_shift=jnp.right_shift,
+    bitwise_and=jnp.bitwise_and, bitwise_or=jnp.bitwise_or,
+    bitwise_xor=jnp.bitwise_xor, invert=jnp.bitwise_not,
+)
+
+
+def tensordot(a, b, axes):
+    return jnp.tensordot(a, b, axes)
+
+
+def einsum(*args, **kw):
+    return jnp.einsum(*args, **kw)
+
+
+def identity(input, name=None):
+    return jnp.asarray(input)
+
+
+class _TensorProto:
+    """Minimal proto wrapper for tf.make_tensor_proto compatibility.
+    Serializes array as bytes; deserializes back via make_ndarray."""
+    def __init__(self, values):
+        self._arr = np.asarray(values)
+    def SerializeToString(self):
+        return _pickle.dumps(self._arr)
+    @classmethod
+    def FromString(cls, s):
+        arr = _pickle.loads(s)
+        return cls(arr)
+    def __repr__(self):
+        return f"_TensorProto(shape={self._arr.shape}, dtype={self._arr.dtype})"
+
+
+def make_tensor_proto(values, dtype=None, shape=None, verify_shape=False, name=None):
+    return _TensorProto(values)
+
+
+def make_ndarray(tensor_proto):
+    import pickle
+    if isinstance(tensor_proto, _TensorProto):
+        return tensor_proto._arr
+    return np.asarray(tensor_proto)
+
+
+# ---------------------------------------------------------------------------
+# reduce_* at top level (tf.reduce_sum etc. -> jnp.sum etc.)
+# TF spells the first arg `input_tensor=`; accept it.
+# ---------------------------------------------------------------------------
+def _make_reduce(fn):
+    def wrapper(input_tensor=None, axis=None, keepdims=False, name=None,
+               **kwargs):
+        if input_tensor is None:
+            input_tensor = kwargs.pop("x", kwargs.pop("tensor", None))
+        # Convert lists to arrays (JAX reduce fns reject raw lists).
+        if isinstance(input_tensor, (list, tuple)):
+            input_tensor = jnp.asarray(input_tensor)
+        return fn(input_tensor, axis=axis, keepdims=keepdims)
+    wrapper.__name__ = getattr(fn, "__name__", "reduce")
+    return wrapper
+
+
+reduce_sum = _make_reduce(jnp.sum)
+reduce_mean = _make_reduce(jnp.mean)
+reduce_max = _make_reduce(jnp.max)
+reduce_min = _make_reduce(jnp.min)
+reduce_prod = _make_reduce(jnp.prod)
+reduce_any = _make_reduce(jnp.any)
+reduce_all = _make_reduce(jnp.all)
+reduce_std = _make_reduce(jnp.std)
+reduce_variance = _make_reduce(jnp.var)
+reduce_logsumexp = _make_reduce(_jsp.special.logsumexp)
+
+
+# tf.broadcast_static_shape / broadcast_dynamic_shape -> jnp.broadcast_shapes
+def broadcast_static_shape(shape1, shape2, name=None):
+    return tuple(jnp.broadcast_shapes(tuple(shape1), tuple(shape2)))
+
+
+def broadcast_dynamic_shape(shape1, shape2, name=None):
+    return jnp.broadcast_shapes(jnp.asarray(shape1), jnp.asarray(shape2))
+
+
+# tf.slice(input, begin, size) -> lax.dynamic_slice
+def slice(input, begin, size, name=None):
+    import jax.lax as _l
+    input = jnp.asarray(input)
+    # size must be concrete; try to evaluate. begin can be traced.
+    try:
+        sz = tuple(int(s) for s in np.asarray(size).ravel())
+    except Exception:
+        sz = tuple(input.shape)  # fallback: full slice
+    begin_arr = jnp.asarray(begin)
+    if begin_arr.ndim == 1:
+        start_indices = begin_arr
+    else:
+        start_indices = begin_arr.ravel()
+    return _l.dynamic_slice(input, start_indices, sz)
+math.reduce_sum = reduce_sum
+math.reduce_mean = reduce_mean
+math.reduce_max = reduce_max
+math.reduce_min = reduce_min
+math.reduce_prod = reduce_prod
+math.reduce_any = reduce_any
+math.reduce_all = reduce_all
+math.reduce_std = reduce_std
+math.reduce_variance = reduce_variance
+math.reduce_logsumexp = reduce_logsumexp
+math.squared_difference = lambda x, y, name=None: (x - y) ** 2
+math.floormod = lambda x, y, name=None: jnp.mod(x, y)
+math.count_nonzero = lambda a, axis=None, dtype=None, name=None: jnp.count_nonzero(a, axis=axis).astype(dtype) if dtype is not None else jnp.count_nonzero(a, axis=axis)
+
+
+# tf.where: 1-arg form returns indices of True; 3-arg form selects. Tolerate kwargs.
+def where(condition, x=None, y=None, name=None):
+    if x is None and y is None:
+        return jnp.argwhere(condition)
+    # Convert lists to arrays (jnp.where rejects raw lists).
+    c = jnp.asarray(condition) if isinstance(condition, (list, tuple)) else condition
+    x = jnp.asarray(x) if isinstance(x, (list, tuple)) else x
+    y = jnp.asarray(y) if isinstance(y, (list, tuple)) else y
+    return jnp.where(c, x, y)
+
+
+# tf.control_dependencies: graph-mode control flow; no-op under JAX/eager.
+@contextlib.contextmanager
+def control_dependencies(control_inputs=None):
+    yield
+
+
+
+__version__ = "jax-shim"

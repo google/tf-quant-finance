@@ -15,10 +15,10 @@
 
 from absl.testing import parameterized
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 from tf_quant_finance.math import random_ops as random
 
 
@@ -471,7 +471,7 @@ class CirTest(parameterized.TestCase, tf.test.TestCase):
     with self.subTest("GreaterEqualThanZero"):
       self.assertAllGreaterEqual(samples, 0.0)
     with self.subTest("Shape"):
-      self.assertEqual(batch_shape + [num_samples, times.shape[0], dim],
+      self.assertShapeEqual(batch_shape + [num_samples, times.shape[0], dim],
                        samples.shape)
 
   def get_mean_and_var(self, samples, axis):

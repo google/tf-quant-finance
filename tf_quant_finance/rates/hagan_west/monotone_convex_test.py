@@ -17,8 +17,8 @@
 from absl.testing import parameterized
 
 import numpy as np
-import tensorflow.compat.v2 as tf
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance import _tf as tf
+from tf_quant_finance._tf import test_util
 from tf_quant_finance.rates.hagan_west import monotone_convex
 
 
@@ -75,10 +75,28 @@ class MonotoneConvexTest(tf.test.TestCase, parameterized.TestCase):
     test_time = tf.constant([1.1, 2.7], dtype=dtype)
     interpolated, _ = monotone_convex.interpolate(test_time, interval_values,
                                                   interval_times)
-    gradient_1y = self.evaluate(tf.convert_to_tensor(
-        tf.gradients(interpolated[0], knot_1y)[0]))
-    gradient_zero = self.evaluate(tf.convert_to_tensor(
-        tf.gradients(interpolated[1], knot_1y)[0]))
+    # Use jax.grad directly for differentiable interpolation
+    import jax
+    interval_times_const = interval_times
+    test_time_const = test_time
+    def interp_fn(knot):
+        iv = tf.concat([
+            tf.constant([0.05, 0.051], dtype=dtype), knot,
+            tf.constant([0.053, 0.055], dtype=dtype)
+        ], axis=0)
+        result, _ = monotone_convex.interpolate(test_time_const, iv, interval_times_const)
+        return result[0]
+    gradient_1y = self.evaluate(jax.grad(interp_fn)(knot_1y))
+    gradient_zero = self.evaluate(jax.grad(lambda k: interp_fn(k).astype(dtype))(knot_1y))
+    # gradient_zero should be for interpolated[1], use separate fn
+    def interp_fn_1(knot):
+        iv = tf.concat([
+            tf.constant([0.05, 0.051], dtype=dtype), knot,
+            tf.constant([0.053, 0.055], dtype=dtype)
+        ], axis=0)
+        result, _ = monotone_convex.interpolate(test_time_const, iv, interval_times_const)
+        return result[1]
+    gradient_zero = self.evaluate(jax.grad(interp_fn_1)(knot_1y))
 
     self.assertAlmostEqual(gradient_1y[0], 0.42)
     self.assertAlmostEqual(gradient_zero[0], 0.0)

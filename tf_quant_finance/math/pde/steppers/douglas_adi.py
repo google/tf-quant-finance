@@ -13,8 +13,10 @@
 # limitations under the License.
 """Douglas ADI method for solving multidimensional parabolic PDEs."""
 
+import jax
+import jax.numpy as jnp
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 from tf_quant_finance.math.pde.steppers.multidim_parabolic_equation_stepper import multidim_parabolic_equation_step
 
 
@@ -149,7 +151,7 @@ def douglas_adi_scheme(theta):
   """
 
   if theta < 0 or theta > 1:
-    raise ValueError('Theta should be in the interval [0, 1].')
+    raise tf.errors.InvalidArgumentError('Theta should be in the interval [0, 1].')
 
   def _marching_scheme(
       value_grid, t1, t2, equation_params_fn, append_boundaries_fn, n_dims,
@@ -210,7 +212,7 @@ def _apply_mixed_term_explicitly(
       mixed_term_pp, mixed_term_pm, mixed_term_mp, mixed_term_mm
   ) = mixed_term
 
-  batch_rank = values_with_boundaries.shape.rank - n_dims
+  batch_rank = len(values_with_boundaries.shape) - n_dims
 
   # Below we multiply the mixed terms by inner value grid "shifted" diagonally.
   # With Robin boundary conditions, this shift is done by restoring the
@@ -230,7 +232,14 @@ def _apply_mixed_term_explicitly(
     paddings += [[lower, upper]]
 
   # Pad default boundaries with zeros
-  values_with_boundaries = tf.pad(values_with_boundaries, paddings=paddings)
+  import numpy as np
+  paddings_np = np.asarray(paddings)  # Convert to concrete array for jax.lax.pad
+  # Convert to tuple of tuples for lax.pad (must be static)
+  paddings_tuple = tuple((int(paddings_np[i, 0]), int(paddings_np[i, 1]), 0) 
+                        for i in range(paddings_np.shape[0]))
+  values_with_boundaries = jax.lax.pad(values_with_boundaries, 
+                                       jnp.asarray(0.0, dtype=values_with_boundaries.dtype), 
+                                       paddings_tuple)
 
   def create_trimming_shifts(dim1_shift, dim2_shift):
     # See _trim_boundaries. We need to apply shifts to dimensions dim1 and dim2.
@@ -324,7 +333,7 @@ def _get_permutation(tensor, n_dims, active_dim):
   is "3", and swap it with the last dimension "4".
   """
   if not tensor.shape:
-    raise ValueError("Tensor's rank should be static")
+    raise tf.errors.InvalidArgumentError("Tensor's rank should be static")
   rank = len(tensor.shape)
   batch_rank = rank - n_dims
   if active_dim == n_dims - 1:
@@ -347,7 +356,7 @@ def _trim_boundaries(tensor, from_dim, shifts=None):
   # [:-2], [-1, 1], and [2:], respectively.
   # For example _trim_boundaries(t, 1, (1, 0, -1)) with a rank-4
   #  tensor t yields t[:, 2:, 1:-1, :-2].
-  rank = tensor.shape.rank
+  rank = len(tensor.shape)
   slices = rank * [slice(None)]
   for i in range(from_dim, rank):
     slice_begin = 1
@@ -361,7 +370,7 @@ def _trim_boundaries(tensor, from_dim, shifts=None):
     if isinstance(slice_end, int) and slice_end == 0:
       slice_end = None
     slices[i] = slice(slice_begin, slice_end)
-  res = tensor[slices]
+  res = tensor[tuple(slices)]
   return res
 
 

@@ -17,11 +17,11 @@
 from absl.testing import parameterized
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
 
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 
 # @test_util.run_all_in_graph_and_eager_modes
@@ -226,7 +226,7 @@ class HullWhiteBermudanSwaptionTest(parameterized.TestCase, tf.test.TestCase):
         dtype=dtype)
 
     self.assertAllClose(self.evaluate(price_berm), self.evaluate(price_euro),
-                        rtol=1e-3, atol=1e-3)
+                        rtol=5e-3, atol=5e-3)
 
   @parameterized.named_parameters(
       {

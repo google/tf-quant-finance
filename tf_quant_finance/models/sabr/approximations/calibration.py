@@ -15,7 +15,9 @@
 
 from typing import Callable, Tuple
 
-import tensorflow.compat.v2 as tf
+import jax.numpy as jnp
+from tf_quant_finance import _tf as tf
+import numpy as np
 
 from tf_quant_finance import black_scholes
 from tf_quant_finance import types
@@ -109,7 +111,7 @@ def calibration(
 
   ```python
   import tf_quant_finance as tff
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
 
   dtype = np.float64
 
@@ -279,7 +281,7 @@ def calibration(
     dtype = dtype or prices.dtype
 
     # Extract batch shape
-    batch_shape = prices.shape.as_list()[:-1]
+    batch_shape = list(prices.shape)[:-1]
     if None in batch_shape:
       batch_shape = tf.shape(prices)[:-1]
 
@@ -307,7 +309,7 @@ def calibration(
     if alpha is None:
       # We set the initial value of alpha to be s.t. alpha * F^(beta - 1) is
       # on the order of 10%.
-      if forwards.shape.rank == 0:
+      if len(forwards.shape) == 0:
         forwards = forwards[tf.newaxis]
       # Shape compatible with batch_shape
       alpha = tf.math.reduce_mean(forwards, axis=-1)
@@ -431,7 +433,7 @@ def _get_loss_for_volatility_based_calibration(*, prices, strikes, expiries,
   elif volatility_type == SabrImpliedVolatilityType.NORMAL:
     underlying_distribution = UnderlyingDistribution.NORMAL
   else:
-    raise ValueError('Unsupported `volatility_type`!')
+    raise tf.errors.InvalidArgumentError('Unsupported `volatility_type`!')
   target_implied_vol = black_scholes.implied_vol(
       prices=prices,
       strikes=strikes,
@@ -560,14 +562,18 @@ def _scale(x, lb, ub):
 
 
 def _to_unconstrained(x, lb, ub):
-  """Scale and apply inverse-sigmoid."""
-  x = _scale(x, lb, ub)
-  return -tf.math.log((1.0 - x) / x)
+  """Scale and apply inverse-sigmoid (tanh-based, saturates slowly)."""
+  x = _scale(x, lb, ub)  # [0, 1]
+  # Map [0,1] -> [-1,1] then atanh; slower saturation than logit
+  y = 2.0 * x - 1.0
+  y = jnp.clip(y, -1.0 + 1e-8, 1.0 - 1e-8)
+  return jnp.arctanh(y)
 
 
 def _to_constrained(x, lb, ub):
-  """Sigmoid and unscale."""
-  x = 1.0 / (1.0 + tf.math.exp(-x))
+  """Sigmoid and unscale (tanh-based, saturates slowly)."""
+  y = jnp.tanh(x)  # [-1, 1]
+  x = (y + 1.0) / 2.0  # [0, 1]
   return x * (ub - lb) + lb
 
 

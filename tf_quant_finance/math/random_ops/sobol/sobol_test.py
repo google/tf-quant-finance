@@ -16,9 +16,9 @@
 
 
 import numpy as np
-import tensorflow.compat.v2 as tf
-import tensorflow_probability as tfp
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance import _tf as tf
+from tf_quant_finance._tf import tfp
+from tf_quant_finance._tf import test_util
 from tf_quant_finance.math import random
 
 
@@ -35,7 +35,7 @@ class SampleSobolSequenceTest(tf.test.TestCase):
                            [0.125, 0.625], [0.625, 0.125]],
                           dtype=dtype)
       self.assertAllClose(expected, self.evaluate(sample), rtol=1e-6)
-      self.assertEqual(sample.dtype.as_numpy_dtype, dtype)
+      self.assertEqual(sample.dtype, dtype)
 
   def test_more_known_values(self):
     # The first 31 elements of the non-randomized Sobol sequence

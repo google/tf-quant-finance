@@ -13,7 +13,7 @@
 # limitations under the License.
 """Helper functions for padding multiple tensors."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 from tf_quant_finance.datetime import date_tensor
 
 
@@ -60,7 +60,7 @@ def pad_tensors(tensors, pad_values=None, dtype=None, name=None):
     ValueError: If input is not an instance of a list or a tuple.
   """
   if not isinstance(tensors, (tuple, list)):
-    raise ValueError(
+    raise tf.errors.InvalidArgumentError(
         f"`tensors` should be a list or a tuple but have type {type(tensors)}")
   if not tensors:
     return []
@@ -74,7 +74,7 @@ def pad_tensors(tensors, pad_values=None, dtype=None, name=None):
     pad_values = _prepare_pad_values(pad_values, tensors, dtype)
     for pad_value, t in zip(pad_values, tensors):
       paddings = (
-          (t.shape.rank - 1) * [[0, 0]] + [[0, max_size - tf.shape(t)[-1]]])
+          (len(t.shape) - 1) * [[0, 0]] + [[0, max_size - tf.shape(t)[-1]]])
       # Padded value has to be a constant
       constant_values = tf.reduce_min(t) - 1
       pad_t = tf.pad(t, paddings, mode="CONSTANT",

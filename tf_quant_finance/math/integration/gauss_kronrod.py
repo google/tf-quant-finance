@@ -1,6 +1,6 @@
 """Adaptive Gauss-Kronrod quadrature algorithm for numeric integration."""
 from typing import Callable, Optional
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils
@@ -42,7 +42,7 @@ def _non_adaptive_gauss_kronrod(
     func: Represents a function to be integrated. It must be a callable of a
       single `Tensor` parameter and return a `Tensor` of the same shape and
       dtype as its input. It will be called with a `Tensor` of shape
-      `lower.shape + [n]` (where n is integer number of points) and of the same
+      `list(lower.shape) + [n]` (where n is integer number of points) and of the same
       `dtype` as `lower`.
     lower: Represents the lower limits of integration. `func` will be integrated
       between each pair of points defined by `lower` and `upper`.
@@ -75,9 +75,9 @@ def _non_adaptive_gauss_kronrod(
     # Shape [num_points - legendre_num_points]
     stieltjes_roots = gauss_constants.stieltjes_roots.get(num_points, None)
     if legendre_roots is None:
-      raise ValueError(f'Unsupported value for `num_points`: {num_points}')
+      raise tf.errors.InvalidArgumentError(f'Unsupported value for `num_points`: {num_points}')
     if stieltjes_roots is None:
-      raise ValueError(f'Unsupported value for `num_points`: {num_points}')
+      raise tf.errors.InvalidArgumentError(f'Unsupported value for `num_points`: {num_points}')
     # Shape batch_shape + [1]
     lower = tf.expand_dims(lower, -1)
     upper = tf.expand_dims(upper, -1)
@@ -88,7 +88,8 @@ def _non_adaptive_gauss_kronrod(
     grid = ((upper - lower) * roots + upper + lower) / 2
     func_results = func(grid)
     # Shape [num_points]
-    weights = gauss_constants.kronrod_weights.get(num_points, None)
+    w = gauss_constants.kronrod_weights.get(num_points, None)
+    weights = tf.constant(w, dtype=lower.dtype) if isinstance(w, (list, tuple)) else w
     # Shape batch_shape
     result = tf.reduce_sum(
         func_results * (upper - lower) * weights / 2, axis=-1)
@@ -135,7 +136,7 @@ def gauss_kronrod(func: Callable[[types.FloatTensor], types.FloatTensor],
     func: Represents a function to be integrated. It must be a callable of a
       single `Tensor` parameter and return a `Tensor` of the same shape and
       dtype as its input. It will be called with a `Tensor` of shape
-      `lower.shape + [n,  num_points]` (where `n` is defined by the algorithm
+      `list(lower.shape) + [n,  num_points]` (where `n` is defined by the algorithm
       and represents the number of subintervals) and of the same `dtype` as
       `lower`.
     lower: Represents the lower limits of integration. `func` will be integrated
@@ -199,16 +200,33 @@ def gauss_kronrod(func: Callable[[types.FloatTensor], types.FloatTensor],
     # Shape [batch_dim, n]
     lower = tf.expand_dims(lower, -1)
     upper = tf.expand_dims(upper, -1)
-    loop_vars = (lower, upper, sum_estimates)
     # Ensure that the lower and upper have the same batch shape
     lower, upper = utils.broadcast_tensors(lower, upper)
-    # Extract the batch shape
-    batch_shape = lower.shape[:-1]
-    _, _, estimate_result = tf.while_loop(
-        cond=cond, body=body, loop_vars=loop_vars,
-        maximum_iterations=max_depth,
-        shape_invariants=(tf.TensorShape(batch_shape + [None]),
-                          tf.TensorShape(batch_shape + [None]),
-                          tf.TensorShape(batch_shape)))
+    # Use Python for loop instead of tf.while_loop with dynamic shapes
+    # JAX requires concrete shapes; Python loop gives us that.
+    estimate_result = sum_estimates
+    for _ in range(max_depth):
+      cur_lower = lower
+      cur_upper = upper
+      # Check if there are any intervals left
+      n_intervals = cur_lower.shape[-1] if cur_lower.ndim > 0 else 1
+      if n_intervals == 0:
+        break
+      kronrod_result, func_results = _non_adaptive_gauss_kronrod(
+          func, cur_lower, cur_upper, num_points, dtype, name)
+      legendre_func_results = func_results[..., :legendre_num_points]
+      legendre_weights = tf.constant(
+          gauss_constants.legendre_weights[legendre_num_points], dtype=dtype)
+      lower_exp = tf.expand_dims(cur_lower, -1)
+      upper_exp = tf.expand_dims(cur_upper, -1)
+      legendre_result = tf.reduce_sum(
+          legendre_func_results * (upper_exp - lower_exp) *
+          legendre_weights / 2, axis=-1)
+      error = tf.abs(kronrod_result - legendre_result)
+      new_lower, new_upper, sum_good_estimates = adaptive_update.update(
+          cur_lower, cur_upper, kronrod_result, error, tolerance, dtype)
+      estimate_result = estimate_result + sum_good_estimates
+      lower = new_lower
+      upper = new_upper
     # Shape [batch_dim]
     return estimate_result

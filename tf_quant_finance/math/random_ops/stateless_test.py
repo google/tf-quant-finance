@@ -15,10 +15,10 @@
 
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 tff_rnd = tff.math.random
 
@@ -36,7 +36,7 @@ class StatelessRandomOpsTest(tf.test.TestCase):
           identity_permutation, seed=tf.constant((2, 42), tf.int64))
       # Check that the shuffles are of the correct dtype
       for shuffle in (random_shuffle_seed_1, random_shuffle_seed_2):
-        np.testing.assert_equal(shuffle.dtype, dtype.as_numpy_dtype)
+        np.testing.assert_equal(shuffle.dtype, dtype)
       random_shuffle_seed_1 = self.evaluate(random_shuffle_seed_1)
       random_shuffle_seed_2 = self.evaluate(random_shuffle_seed_2)
       identity_permutation = self.evaluate(identity_permutation)
@@ -116,7 +116,7 @@ class StatelessRandomOpsTest(tf.test.TestCase):
       input_permutation = self.evaluate(input_permutation)
       # Check that the dtype is correct
       np.testing.assert_equal(random_permutation_first_call.dtype,
-                              dtype.as_numpy_dtype)
+                              dtype)
       # Check that the shuffles are the same
       np.testing.assert_array_equal(random_permutation_first_call,
                                     random_permutation_next_call)

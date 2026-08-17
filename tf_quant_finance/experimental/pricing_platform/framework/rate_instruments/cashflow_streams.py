@@ -16,7 +16,7 @@
 from typing import Optional, Tuple, Callable, Any, List, Union
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import datetime as dateslib
 from tf_quant_finance.experimental.pricing_platform.framework.core import curve_types as curve_types_lib
@@ -114,7 +114,7 @@ class FixedCashflowStream:
 
       if schedule is None:
         if (start_date is None) or (end_date is None):
-          raise ValueError("If `schedule` is not supplied both "
+          raise tf.errors.InvalidArgumentError("If `schedule` is not supplied both "
                            "`start_date` and `end_date` should be supplied")
         if isinstance(start_date, tf.Tensor):
           self._start_date = dateslib.dates_from_tensor(
@@ -419,7 +419,7 @@ class FloatingCashflowStream:
       self._penultimate_coupon_date = None
       if schedule is None:
         if (start_date is None) or (end_date is None):
-          raise ValueError("If `schedule` is not supplied both "
+          raise tf.errors.InvalidArgumentError("If `schedule` is not supplied both "
                            "`start_date` and `end_date` should be supplied")
 
       if schedule is None:
@@ -788,7 +788,7 @@ def _generate_schedule(
     days for the rest of the swaps are padded with their final coupon day.
   """
   if first_coupon_date is not None and penultimate_coupon_date is not None:
-    raise ValueError("Only first or last coupon dates can be specified "
+    raise tf.errors.InvalidArgumentError("Only first or last coupon dates can be specified "
                      " for an irregular coupon.")
   start_date = first_coupon_date or start_date
   # Adjust with settlement days
@@ -958,7 +958,7 @@ def process_curve_types(
               + "_" + "_".join(curve.index.source)
               + "_" + "_".join(curve.index.name))
     else:
-      raise ValueError(f"{type(curve)} is not supported.")
+      raise tf.errors.InvalidArgumentError(f"{type(curve)} is not supported.")
   curve_list = to_list(curve_types)
   if mask is not None:
     return curve_list, mask

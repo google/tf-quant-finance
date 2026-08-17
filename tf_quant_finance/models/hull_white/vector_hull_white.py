@@ -16,7 +16,7 @@
 
 from typing import Callable, Union, Tuple, Optional
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
@@ -80,15 +80,15 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
 
   ```python
   import numpy as np
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64
   # Mean-reversion is constant for the two processes. `mean_reversion(t)`
-  # has shape `[dim] + t.shape`.
+  # has shape `[dim] + list(t.shape)`.
   mean_reversion = [0.03, 0.02]
   # Volatility is a piecewise constant function with jumps at the same locations
-  # for both Hull-White processes. `volatility(t)` has shape `[dim] + t.shape`.
+  # for both Hull-White processes. `volatility(t)` has shape `[dim] + list(t.shape)`.
   volatility = tff.math.piecewise.PiecewiseConstantFunc(
       jump_locations=[[0.1, 2.], [0.1, 2.]],
       values=[[0.01, 0.02, 0.01], [0.01, 0.015, 0.01]],
@@ -180,7 +180,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
           `is_piecewise_constant` set to `True`. In this case the object
           should have a method `jump_locations(self)` that returns a
           `Tensor` of shape `[num_jumps]`. `corr_matrix(t)` should return a
-          `Tensor` of shape `t.shape + [dim, dim]`, where `t` is a rank 1
+          `Tensor` of shape `list(t.shape) + [dim, dim]`, where `t` is a rank 1
           `Tensor` of the same `dtype` as the output.
          (b) A callable that accepts scalars (stands for time `t`) and returns a
          `Tensor` of shape `[dim, dim]`.
@@ -214,9 +214,9 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
           # If initial_discount_rate_fn returns a Tensor of the same input,
           # expand the output dimension to `input_shape + [1]`. Otherwise,
           # it is expected that `r` is of shape `input_shape + [dim]`.
-          if r.shape.rank == x.shape.rank:
+          if len(r.shape) == len(x.shape):
             r = tf.expand_dims(r, axis=-1)
-          # Shape `x.shape + [dim]`
+          # Shape `list(x.shape) + [dim]`
           return -r * tf.expand_dims(x, axis=-1)
 
         rate = -gradient.fwd_gradient(
@@ -230,7 +230,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         # If initial_discount_rate_fn returns a Tensor of the same input,
         # expand the output dimension to `input_shape + [1]`. Otherwise,
         # it is expected that `r` is of shape `input_shape + [dim]`.
-        if r.shape.rank == t.shape.rank:
+        if len(r.shape) == len(t.shape):
           r = tf.expand_dims(r, axis=-1)
         return r
 
@@ -285,7 +285,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         corr_matrix = tf.eye(self._dim, dtype=volatility.dtype)
 
       return volatility * corr_matrix + tf.zeros(
-          x.shape.as_list()[:-1] + [self._dim, self._dim],
+          list(x.shape)[:-1] + [self._dim, self._dim],
           dtype=volatility.dtype)
 
     # Drift function
@@ -410,11 +410,11 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         times_grid = tf.convert_to_tensor(times_grid, self._dtype,
                                           name='times_grid')
       if len(times.shape) != 1:
-        raise ValueError('`times` should be a rank 1 Tensor. '
+        raise tf.errors.InvalidArgumentError('`times` should be a rank 1 Tensor. '
                          'Rank is {} instead.'.format(len(times.shape)))
       if self._sample_with_generic:
         if time_step is None and times_grid is None:
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               'Either `time_step` or `times_grid` has to be specified when '
               'at least one of the parameters is a generic callable.')
         initial_state = self._instant_forward_rate_fn(0.0)
@@ -439,7 +439,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         num_samples = tf.shape(normal_draws)[1]
         draws_dim = normal_draws.shape[2]
         if self._dim != draws_dim:
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               '`dim` should be equal to `normal_draws.shape[2]` but are '
               '{0} and {1} respectively'.format(self._dim, draws_dim))
       return self._sample_paths(
@@ -542,7 +542,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
     """
     # Parameters must be piecewise constants for now
     if not self._is_piecewise_constant:
-      raise ValueError('All paramaters `mean_reversion`, `volatility`, and '
+      raise tf.errors.InvalidArgumentError('All paramaters `mean_reversion`, `volatility`, and '
                        '`corr_matrix`must be piecewise constant functions.')
     name = name or self._name + '_sample_discount_curve_paths'
     with tf.name_scope(name):
@@ -620,7 +620,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       maturities = tf.convert_to_tensor(maturities, self._dtype)
       # Flatten it because `PiecewiseConstantFunction` expects the first
       # dimension to be broadcastable to [dim]
-      input_shape_times = times.shape.as_list()
+      input_shape_times = list(times.shape)
       times_flat = tf.reshape(times, shape=[-1])
       # The shape of `mean_reversion` will be (dim,n) where `n` is the number
       # of elements in `times`.
@@ -657,13 +657,13 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         times, times_grid, *params)
     # Add zeros as a starting location
     dt = times[1:] - times[:-1]
-    if dt.shape.is_fully_defined():
-      steps_num = dt.shape.as_list()[-1]
+    if (True):
+      steps_num = list(dt.shape)[-1]
     else:
       steps_num = tf.shape(dt)[-1]
       # TODO(b/148133811): Re-enable Sobol test when TF 2.2 is released.
       if random_type == random.RandomType.SOBOL:
-        raise ValueError('Sobol sequence for Euler sampling is temporarily '
+        raise tf.errors.InvalidArgumentError('Sobol sequence for Euler sampling is temporarily '
                          'unsupported when `time_step` or `times` have a '
                          'non-constant value')
     if normal_draws is None:
@@ -675,7 +675,8 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                          random.RandomType.HALTON,
                          random.RandomType.HALTON_RANDOMIZED,
                          random.RandomType.STATELESS,
-                         random.RandomType.STATELESS_ANTITHETIC):
+                         random.RandomType.STATELESS_ANTITHETIC,
+                         random.RandomType.PSEUDO_ANTITHETIC):
         normal_draws = utils.generate_mc_normal_draws(
             num_normal_draws=self._dim, num_time_steps=steps_num,
             num_sample_paths=num_samples, random_type=random_type,
@@ -767,18 +768,75 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
       return (i + 1, written_count, next_x, rate_paths)
 
     # TODO(b/157232803): Use tf.cumsum instead?
-    # Sample paths
-    _, _, _, rate_paths = tf.while_loop(
-        cond_fn, body_fn, (0, written_count, initial_x, rate_paths))
+    # Sample paths using scan (differentiable)
+    import jax
+    import jax.numpy as jnp
+    
+    steps_num = len(dt)
+    
+    def _draw(i):
+      if normal_draws is not None:
+        return normal_draws[i]
+      return random.mv_normal_sample(
+          (num_samples,),
+          mean=tf.zeros((self._dim,), dtype=mean_reversion.dtype),
+          random_type=random_type, seed=seed)
+    
+    def _step(i, current_x):
+      normals = _draw(i)
+      if corr_matrix_root is not None:
+        normals = tf.linalg.matvec(corr_matrix_root[i], normals)
+      vol_x_t = tf.math.sqrt(tf.nn.relu(tf.transpose(var_x_t)[i]))
+      vol_x_t = tf.where(vol_x_t > 0.0, vol_x_t, 0.0)
+      next_x = (tf.math.exp(-tf.transpose(mean_reversion)[i + 1] * dt[i])
+                * current_x
+                + tf.transpose(exp_x_t)[i]
+                + vol_x_t * normals)
+      return next_x
+    
     if not record_samples:
+      # Just compute final state
+      def scan_body(carry, i):
+        return _step(i, carry), None
+      final_x, _ = jax.lax.scan(scan_body, initial_x, xs=jnp.arange(steps_num))
+      f_0_t = self._instant_forward_rate_fn(times[-1])
+      rate_paths = final_x + f_0_t
       # shape [num_samples, 1, dim]
       return tf.expand_dims(rate_paths, axis=-2)
-    # Shape [num_time_points] + [num_samples, dim]
-    rate_paths = rate_paths.stack()
-    # transpose to shape [num_samples, num_time_points, dim]
-    n = rate_paths.shape.rank
-    perm = list(range(1, n-1)) + [0, n - 1]
-    return tf.transpose(rate_paths, perm)
+    
+    # Record samples: scan steps_num, carrying (state, result[num_requested, ...], wc)
+    result = tf.zeros([num_requested_times] + list(initial_x.shape), dtype=self._dtype)
+    wc = jnp.asarray(0, dtype=jnp.int32)
+    # Record the initial state at slot 0 if requested (keep_mask[0]).
+    f_0_t_init = self._instant_forward_rate_fn(times[0])
+    rec0 = jnp.asarray(keep_mask[0], dtype=jnp.int32)
+    result = jnp.where(rec0 == 1, result.at[0].set(initial_x + f_0_t_init), result)
+    wc = wc + rec0
+    
+    def body_rec(carry, i):
+      state, result, wc = carry
+      next_state = _step(i, state)
+      f_0_t = self._instant_forward_rate_fn(times[i + 1])
+      next_path = next_state + f_0_t
+      rec = jnp.asarray(keep_mask[i + 1], dtype=jnp.int32)
+      # Use dynamic_update_slice for traced index wc
+      update = jnp.expand_dims(next_path, 0)
+      # Ensure update has the same dtype as result
+      update = update.astype(result.dtype)
+      wc_int = wc.astype(jnp.int64)
+      slice_indices = (wc_int,) + (jnp.int64(0),) * (result.ndim - 1)
+      new_result = jax.lax.dynamic_update_slice(result, update, slice_indices)
+      result = jnp.where(rec == 1, new_result, result)
+      wc = wc + rec
+      # Ensure state dtype matches for scan carry consistency
+      return (next_state.astype(state.dtype), result, wc), None
+    
+    (_, result, _), _ = jax.lax.scan(
+        body_rec, (initial_x, result, wc), xs=jnp.arange(steps_num))
+    # result.shape = [num_requested_times, num_samples, dim]
+    # transpose to [num_samples, num_requested_times, dim]
+    rate_paths = tf.transpose(result, [1, 0, 2])
+    return rate_paths
 
   def _bond_reconstitution(self,
                            times,
@@ -788,21 +846,21 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
                            y_t):
     """Compute discount bond prices using Eq. 10.18 in Ref [2]."""
 
-    # Shape `times.shape + [dim]`
+    # Shape `list(times.shape) + [dim]`
     f_0_t = self._instant_forward_rate_fn(times)
     # Shape `short_rate.shape`
     x_t = short_rate - f_0_t
     discount_rates_times = self._initial_discount_rate_fn(times)
     times_expand = tf.expand_dims(times, axis=-1)
-    # Shape `times.shape + [dim]`
+    # Shape `list(times.shape) + [dim]`
     p_0_t = tf.math.exp(-discount_rates_times * times_expand)
-    # Shape `times.shape + [dim]`
+    # Shape `list(times.shape) + [dim]`
     discount_rates_maturities = self._initial_discount_rate_fn(maturities)
     maturities_expand = tf.expand_dims(maturities, axis=-1)
-    # Shape `times.shape + [dim]`
+    # Shape `list(times.shape) + [dim]`
     p_0_t_tau = tf.math.exp(
         -discount_rates_maturities * maturities_expand) / p_0_t
-    # Shape `times.shape + [dim]`
+    # Shape `list(times.shape) + [dim]`
     g_t_tau = (1. - tf.math.exp(
         -mean_reversion * (maturities_expand - times_expand))) / mean_reversion
     # Shape `x_t.shape`
@@ -857,7 +915,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   def _compute_yt(self, t, mr_t, sigma_t):
     """Computes y(t) as described in [1], section 10.1.6.1."""
     # Shape [dim, num_times]
-    t = tf.broadcast_to(t, tf.concat([[self._dim], tf.shape(t)], axis=-1))
+    t = tf.broadcast_to(t, [self._dim] + list(t.shape))
     time_index = tf.searchsorted(self._jump_locations, t)
     y_between_vol_knots = self._y_integral(
         self._padded_knots, self._jump_locations, self._jump_values_vol,
@@ -876,7 +934,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   def _conditional_mean_x(self, t, mr_t, sigma_t):
     """Computes the drift term in [1], Eq. 10.39."""
     # Shape [dim, num_times]
-    t = tf.broadcast_to(t, tf.concat([[self._dim], tf.shape(t)], axis=-1))
+    t = tf.broadcast_to(t, [self._dim] + list(t.shape))
     time_index = tf.searchsorted(self._jump_locations, t)
     vn = tf.concat([self._zero_padding, self._jump_locations], axis=1)
     y_between_vol_knots = self._y_integral(self._padded_knots,
@@ -903,7 +961,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
         tf.gather(vn, time_index, batch_dims=1), t, sigma_t, mr_t, c)
     exp_x_t = exp_x_t + tf.gather(ex_at_vol_knots, time_index, batch_dims=1)
     exp_x_t = (exp_x_t[:, 1:] - exp_x_t[:, :-1]) * tf.math.exp(
-        -tf.broadcast_to(mr_t, tf.shape(t))[:, 1:] * t[:, 1:])
+        -tf.broadcast_to(mr_t, t.shape)[:, 1:] * t[:, 1:])
     return exp_x_t
 
   def _y_integral(self, t0, t, vol, k):
@@ -925,7 +983,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
   def _conditional_variance_x(self, t, mr_t, sigma_t):
     """Computes the variance of x(t), see [1], Eq. 10.41."""
     # Shape [dim, num_times]
-    t = tf.broadcast_to(t, tf.concat([[self._dim], tf.shape(t)], axis=-1))
+    t = tf.broadcast_to(t, [self._dim] + list(t.shape))
     var_x_between_vol_knots = self._variance_int(self._padded_knots,
                                                  self._jump_locations,
                                                  self._jump_values_vol,
@@ -945,7 +1003,7 @@ class VectorHullWhiteModel(generic_ito_process.GenericItoProcess):
     var_x_t = var_x_t + tf.gather(varx_at_vol_knots, time_index, batch_dims=1)
 
     var_x_t = (var_x_t[:, 1:] - var_x_t[:, :-1]) * tf.math.exp(
-        -2 * tf.broadcast_to(mr_t, tf.shape(t))[:, 1:] * t[:, 1:])
+        -2 * tf.broadcast_to(mr_t, t.shape)[:, 1:] * t[:, 1:])
     return var_x_t
 
   def _variance_int(self, t0, t, vol, k):
@@ -960,7 +1018,7 @@ def _get_parameters(times, *params):
   for param in params:
     if hasattr(param, 'is_piecewise_constant') and param.is_piecewise_constant:
       jump_locations = param.jump_locations()
-      if jump_locations.shape.rank > 1:
+      if len(jump_locations.shape) > 1:
         # Shape [num_times, dim]
         res.append(tf.transpose(param(times)))
       else:
@@ -972,7 +1030,7 @@ def _get_parameters(times, *params):
       # Used only in drift and volatility computation.
       # Here `times` is of shape [1]
       t = tf.squeeze(times)
-      # The result has to have shape [1] + param.shape
+      # The result has to have shape [1] + list(param.shape)
       res.append(tf.expand_dims(param(t), 0))
     else:
       res.append(param + tf.zeros(times.shape + param.shape, dtype=times.dtype))
@@ -1040,13 +1098,13 @@ def _input_type(param, dim, dtype, name):
     if param.is_piecewise_constant:
       jump_locations = param.jump_locations()
       jumps_shape = jump_locations.shape
-      if jumps_shape.rank > 2:
-        raise ValueError(
+      if len(jumps_shape) > 2:
+        raise tf.errors.InvalidArgumentError(
             'Batch rank of `jump_locations` should be `1` for all piecewise '
             'constant arguments but {} instead'.format(len(jumps_shape[:-1])))
-      if jumps_shape.rank == 2:
+      if len(jumps_shape) == 2:
         if dim != jumps_shape[0]:
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               'Batch shape of `jump_locations` should be either empty or '
               '`[{0}]` but `[{1}]` instead'.format(dim, jumps_shape[0]))
       if name == 'mean_reversion' and jumps_shape[0] > 0:
@@ -1062,13 +1120,13 @@ def _input_type(param, dim, dtype, name):
   else:
     # Otherwise, input is a `Tensor`, return a `PiecewiseConstantFunc`.
     param = tf.convert_to_tensor(param, dtype=dtype, name=name)
-    param_shape = param.shape.as_list()
-    param_rank = param.shape.rank
+    param_shape = list(param.shape)
+    param_rank = len(param.shape)
     # If `param` is not a scalar, check that it is of correct shape
     if param_shape:
       if param_shape[-1] != dim:
         # This is an error, we need as many parameters as the number of `dim`
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             'Length of {} ({}) should be the same as `dims`({}).'.format(
                 name, param_shape[0], dim))
     else:

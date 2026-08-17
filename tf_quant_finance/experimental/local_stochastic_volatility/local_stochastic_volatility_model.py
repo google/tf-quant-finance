@@ -17,7 +17,7 @@
 import functools
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import datetime as dates
 from tf_quant_finance import math
@@ -140,7 +140,7 @@ class LocalStochasticVolatilityModel(generic_ito_process.GenericItoProcess):
 
       def _vol_fn(t, state):
         """Volatility function of LSV model."""
-        num_samples = state.shape.as_list()[0]
+        num_samples = list(state.shape)[0]
         broadcasted_t = tf.broadcast_to(t, [1, num_samples])
         spot_prices = state[:, 0]
         variance = state[:, 1:]
@@ -460,7 +460,7 @@ def _create_corr_matrix(rho, dtype):
 
 def _machine_eps(dtype):
   """Returns the machine epsilon for the supplied dtype."""
-  dtype = tf.as_dtype(dtype).as_numpy_dtype
+  dtype = tf.as_dtype(dtype)
   eps = 1e-6 if dtype == np.float32 else 1e-10
   return eps
 
@@ -597,7 +597,7 @@ def _leverage_function_using_pde(*, risk_free_rate, dividend_yield, lv_model,
 
   """
   if variance_model.dim() > 1:
-    raise ValueError("The default model of Leverage function doesn\'t support "
+    raise tf.errors.InvalidArgumentError("The default model of Leverage function doesn\'t support "
                      "the variance process with more than 1 factor.")
 
   pde_grid_tol = _machine_eps(dtype)

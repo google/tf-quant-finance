@@ -23,7 +23,6 @@ from tf_quant_finance.datetime.periods.period_tensors import weeks
 from tf_quant_finance.datetime.periods.period_tensors import year
 from tf_quant_finance.datetime.periods.period_tensors import years
 
-from tensorflow.python.util.all_util import remove_undocumented  # pylint: disable=g-direct-tensorflow-import
 
 
 _allowed_symbols = [
@@ -38,4 +37,3 @@ _allowed_symbols = [
     'PeriodTensor',
 ]
 
-remove_undocumented(__name__, _allowed_symbols)

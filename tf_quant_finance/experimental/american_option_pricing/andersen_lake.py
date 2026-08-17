@@ -1,6 +1,6 @@
 """Calculating American option prices with Andersen-Lake approximation."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils
@@ -157,9 +157,9 @@ def andersen_lake(
       (a) If both `forwards` and `spots` are supplied or if neither is supplied.
   """
   if (spots is None) == (forwards is None):
-    raise ValueError('Either spots or forwards must be supplied but not both.')
+    raise tf.errors.InvalidArgumentError('Either spots or forwards must be supplied but not both.')
   if (discount_rates is not None) and (discount_factors is not None):
-    raise ValueError('At most one of discount_rates and discount_factors may '
+    raise tf.errors.InvalidArgumentError('At most one of discount_rates and discount_factors may '
                      'be supplied')
   with tf.name_scope(name or 'andersen_lake'):
     volatilities = tf.convert_to_tensor(
@@ -187,6 +187,7 @@ def andersen_lake(
       dividend_rates = tf.constant([0.0], dtype=dtype, name='dividend_rates')
     # Set forwards and spots
     if forwards is not None:
+      forwards = tf.convert_to_tensor(forwards, dtype=dtype, name='forwards')
       spots = tf.convert_to_tensor(
           forwards * tf.exp(-(discount_rates - dividend_rates) * expiries),
           dtype=dtype,

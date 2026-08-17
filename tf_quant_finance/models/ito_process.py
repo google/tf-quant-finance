@@ -33,11 +33,9 @@ including the regularity conditions that must be imposed on the coefficients
 """
 
 import abc
-import six
 
 
-@six.add_metaclass(abc.ABCMeta)
-class ItoProcess(object):
+class ItoProcess(object, metaclass=abc.ABCMeta):
   """Interface for specifying Ito processes.
 
     Interface for defining stochastic process defined by the Ito SDE:

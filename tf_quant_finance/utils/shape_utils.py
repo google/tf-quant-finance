@@ -15,7 +15,7 @@
 
 from typing import Tuple, Sequence, Union, Optional
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 
@@ -27,6 +27,15 @@ __all__ = [
 ]
 
 
+class _ShapeWrapper(tf.TensorShape):
+  """TF-compatible shape: static dims + as_list() (from the shim's TensorShape),
+  plus TF-style __eq__ against raw tuples/lists."""
+  def __eq__(self, other):
+    if isinstance(other, tf.TensorShape):
+      return self._dims == other._dims
+    return self._dims == tuple(other)
+
+
 def get_shape(
     x: tf.Tensor,
     name: Optional[str] = None) -> Union[tf.TensorShape, types.IntTensor]:
@@ -34,7 +43,7 @@ def get_shape(
 
   ####Example
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   x = tf.zeros([5, 2])
@@ -54,10 +63,7 @@ def get_shape(
   name = 'get_shape' if name is None else name
   with tf.name_scope(name):
     x = tf.convert_to_tensor(x)
-    is_fully_defined = x.shape.is_fully_defined()
-    if is_fully_defined:
-      return x.shape
-    return tf.shape(x)
+    return _ShapeWrapper(x.shape)
 
 
 def common_shape(
@@ -70,7 +76,7 @@ def common_shape(
 
   #### Example
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   args = [tf.ones([1, 2], dtype=tf.float64), tf.constant([[True], [False]])]
@@ -99,18 +105,18 @@ def common_shape(
     if args:
       for arg in args:
         arg = tf.convert_to_tensor(arg)
-        is_fully_defined &= arg.shape.is_fully_defined()
+        is_fully_defined &= (True)
       if is_fully_defined:
         output_shape = args[0].shape
         for arg in args[1:]:
           try:
             output_shape = tf.broadcast_static_shape(output_shape, arg.shape)
           except ValueError:
-            raise ValueError(f'Shapes of {args} are incompatible')
+            raise tf.errors.InvalidArgumentError(f'Shapes of {args} are incompatible')
         return output_shape
       output_shape = tf.shape(args[0])
       for arg in args[1:]:
-        output_shape = tf.broadcast_dynamic_shape(output_shape, tf.shape(arg))
+        output_shape = tf.broadcast_dynamic_shape(output_shape, arg.shape)
       return output_shape
 
 
@@ -121,7 +127,7 @@ def broadcast_tensors(
 
   #### Example
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   args = [tf.ones([1, 2], dtype=tf.float64), tf.constant([[True], [False]])]
@@ -163,7 +169,7 @@ def broadcast_common_batch_shape(
 
   #### Example 1. Batch shape is all dimensions but the last one
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   # Two Tensors of shapes [2, 3] and [2]. The batch shape of the 1st Tensor is
@@ -176,7 +182,7 @@ def broadcast_common_batch_shape(
 
   #### Example 2. Specify ranks of event shapes
   ```python
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   args = [tf.ones([2, 3], dtype=tf.float64), tf.constant([True, False])]
@@ -210,12 +216,18 @@ def broadcast_common_batch_shape(
     if event_ranks is None:
       event_ranks = [1] * len(args)
     if len(event_ranks) != len(args):
-      raise ValueError(
+      raise tf.errors.InvalidArgumentError(
           '`args` and `event_dims` should be of the same length but are {0} '
           'and {1} elements, respectively'.format(len(event_ranks), len(args)))
     dummies = [tf.zeros(get_shape(arg)[:-d])
                for arg, d in zip(args, event_ranks)]
     common_batch_shape = common_shape(*dummies)
-    return tuple(tf.broadcast_to(x, tf.concat(
-        [common_batch_shape, get_shape(x)[-d:]], axis=0))
+    # Build target shape as a static list (not traced concat) so broadcast_to
+    # works inside jit/while_loop where shapes must be concrete.
+    def _target_shape(common, x, d):
+        if isinstance(common, (list, tuple)):
+            xs = list(get_shape(x)[-d:])
+            return list(common) + [int(v) for v in xs]
+        return tf.concat([common, get_shape(x)[-d:]], axis=0)
+    return tuple(tf.broadcast_to(x, _target_shape(common_batch_shape, x, d))
                  for x, d in zip(args, event_ranks))

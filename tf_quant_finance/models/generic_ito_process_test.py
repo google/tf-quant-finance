@@ -17,11 +17,11 @@ import os
 from unittest import mock  # pylint: disable=g-importing-member
 from absl.testing import parameterized
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
 
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -178,7 +178,7 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
       return mu * tf.sqrt(t) * tf.ones_like(x, dtype=t.dtype)
 
     def vol_fn(t, x):
-      return (a * t + b) * tf.ones(x.shape.as_list() + [2], dtype=t.dtype)
+      return (a * t + b) * tf.ones(list(x.shape) + [2], dtype=t.dtype)
 
     process = tff.models.GenericItoProcess(
         dim=2, drift_fn=drift_fn, volatility_fn=vol_fn, dtype=dtype)
@@ -287,7 +287,7 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
       # `x` is expected to be of shape [num_processes] + sample_shape + [dim]
       # We need to expand rank of rates to
       # `[num_processes] + extra_rank * [1] + [1]`
-      expand_rank = x.shape.rank - 2
+      expand_rank = len(x.shape) - 2
       rates_expand = tf.reshape(
           rates, [num_processes] + (expand_rank + 1) * [1])
       # Output is of shape [num_processes] + sample_shape + [dim]
@@ -298,12 +298,12 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
       # `x` is expeceted to be of shape [num_processes] + sample_shape + [dim]
       # As before, need to expand rank of volatilities to
       # `[num_processes] + extra_rank * [1] + [1]`
-      expand_rank = x.shape.rank - 2
+      expand_rank = len(x.shape) - 2
       volatilities_expand = tf.reshape(
           volatilities, [num_processes] + (expand_rank + 1) * [1])
       # Output is of shape [num_processes] + sample_shape + [dim, dim]
       return (tf.expand_dims(volatilities_expand * x, axis=-1)
-              * tf.eye(dim, batch_shape=x.shape.as_list()[:-1], dtype=x.dtype))
+              * tf.eye(dim, batch_shape=list(x.shape)[:-1], dtype=x.dtype))
 
     process = tff.models.GenericItoProcess(dim=dim,
                                            drift_fn=drift_fn,
@@ -352,7 +352,7 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
         boundary_condtions=[(None, upper_boundary_fn)])[0]
 
     with self.subTest('OutputShape'):
-      self.assertAllEqual(prices_estimated.shape.as_list(),
+      self.assertAllEqual(list(prices_estimated.shape),
                           (num_processes, num_strikes, num_grid_points))
 
     # Compute prices at some locations for all strikes and processes
@@ -399,7 +399,7 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
       del t
       # `x` is expected to be of shape [batch_size] + sample_shape + [dim]
       # We need to expand rank of rates to [batch_size] + extra_rank * [1] + [1]
-      expand_rank = x.shape.rank - 2
+      expand_rank = len(x.shape) - 2
       rates_expand = tf.reshape(
           rates, [batch_size] + (expand_rank) * [1] + [1])
       # Output is of shape [batch_size] + sample_shape + [dim]
@@ -410,12 +410,12 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
       # `x` is expected to be of shape [batch_size] + sample_shape + [dim]
       # As before, need to expand rank of volatilities to
       # `[batch_size] + extra_rank * [1] + [1]`
-      expand_rank = x.shape.rank - 2
+      expand_rank = len(x.shape) - 2
       volatilities_expand = tf.reshape(
           volatilities, [batch_size] + (expand_rank) * [1] + [dim])
       # Output is of shape [batch_size] + sample_shape + [dim, dim]
       return (tf.expand_dims(volatilities_expand * x, axis=-1)
-              * tf.eye(dim, batch_shape=x.shape.as_list()[:-1], dtype=x.dtype))
+              * tf.eye(dim, batch_shape=list(x.shape)[:-1], dtype=x.dtype))
 
     process = tff.models.GenericItoProcess(
         dim=dim, drift_fn=drift_fn, volatility_fn=vol_fn, dtype=dtype)
@@ -450,7 +450,7 @@ class GenericItoProcessTest(tf.test.TestCase, parameterized.TestCase):
         boundary_condtions=[(None, upper_boundary_fn),
                             (None, upper_boundary_fn)])[0]
     with self.subTest('PDEOutputShape'):
-      self.assertAllEqual(pde_prices.shape.as_list(),
+      self.assertAllEqual(list(pde_prices.shape),
                           [batch_size, num_grid_points, num_grid_points])
     # Get prices for some spots
     loc_1 = 95

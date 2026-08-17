@@ -17,7 +17,7 @@
 
 import enum
 from typing import Callable, Optional
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance.math.integration.gauss_legendre import gauss_legendre
@@ -57,7 +57,7 @@ def integrate(
     func: Represents a function to be integrated. It must be a callable of a
       single `Tensor` parameter and return a `Tensor` of the same shape and
       dtype as its input. It will be called with a `Tesnor` of shape
-      `lower.shape + [n]` (where n is integer number of points) and of the same
+      `list(lower.shape) + [n]` (where n is integer number of points) and of the same
       `dtype` as `lower`.
     lower: Represents the lower limits of integration. `func` will be integrated
       between each pair of points defined by `lower` and `upper`.
@@ -83,4 +83,4 @@ def integrate(
     elif method == IntegrationMethod.GAUSS_LEGENDRE:
       return gauss_legendre(func, lower, upper, dtype=dtype, **kwargs)
     else:
-      raise ValueError('Unknown method: %s.' % method)
+      raise tf.errors.InvalidArgumentError('Unknown method: %s.' % method)

@@ -17,7 +17,7 @@ Uses Euler scheme for sampling and ADI scheme for solving the associated
 Feynman-Kac equation.
 """
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.math.pde import fd_solvers
 from tf_quant_finance.models import euler_sampling
@@ -123,9 +123,9 @@ class GenericItoProcess(ito_process.ItoProcess):
         or `volatility_fn` is not supplied.
     """
     if dim < 1:
-      raise ValueError('Dimension must be 1 or greater.')
+      raise tf.errors.InvalidArgumentError('Dimension must be 1 or greater.')
     if drift_fn is None or volatility_fn is None:
-      raise ValueError('Both drift and volatility functions must be supplied.')
+      raise tf.errors.InvalidArgumentError('Both drift and volatility functions must be supplied.')
     self._dim = dim
     self._drift_fn = drift_fn
     self._volatility_fn = volatility_fn
@@ -398,7 +398,7 @@ class GenericItoProcess(ito_process.ItoProcess):
 
     #### Examples
     ```python
-    import tensorflow as tf
+    from tf_quant_finance import _tf as tf
     import numpy as np
 
     import tf_quant_finance as tff
@@ -422,7 +422,7 @@ class GenericItoProcess(ito_process.ItoProcess):
       # `x` is expected to be of shape [num_processes] + sample_shape + [dim]
       # We need to expand rank of rates to
       # `[num_processes] + extra_rank * [1] + [1]`
-      expand_rank = x.shape.rank - 2
+      expand_rank = len(x.shape) - 2
       rates_expand = tf.reshape(
           rates, [num_processes] + (expand_rank + 1) * [1])
       # Output is of shape [num_processes] + sample_shape + [dim]
@@ -433,12 +433,12 @@ class GenericItoProcess(ito_process.ItoProcess):
       # `x` is expected to be of shape [num_processes] + sample_shape + [dim]
       # As before, need to expand rank of volatilities to
       # `[num_processes] + extra_rank * [1] + [1]`
-      expand_rank = x.shape.rank - 2
+      expand_rank = len(x.shape) - 2
       volatilities_expand = tf.reshape(
           volatilities, [num_processes] + (expand_rank + 1) * [1])
       # Output is of shape [num_processes] + sample_shape + [dim, dim]
       return (tf.expand_dims(volatilities_expand * x, axis=-1)
-              * tf.eye(dim, batch_shape=x.shape.as_list()[:-1], dtype=x.dtype))
+              * tf.eye(dim, batch_shape=list(x.shape)[:-1], dtype=x.dtype))
 
     process = tff.models.GenericItoProcess(dim=dim,
                                            drift_fn=drift_fn,
@@ -852,7 +852,7 @@ def _backward_pde_coeffs(drift_fn, volatility_fn, discounting,
     sigma_times_sigma_t = tf.linalg.matmul(sigma, sigma, transpose_b=True)
     # We currently have [dim, dim] as innermost dimensions, but the returned
     # tensor must have [dim, dim] as outermost dimensions.
-    rank = len(sigma.shape.as_list())
+    rank = len(list(sigma.shape))
     perm = [rank - 2, rank - 1] + list(range(rank - 2))
     sigma_times_sigma_t = tf.transpose(sigma_times_sigma_t, perm)
     return sigma_times_sigma_t / 2
@@ -864,7 +864,7 @@ def _backward_pde_coeffs(drift_fn, volatility_fn, discounting,
 
     # We currently have [dim] as innermost dimension, but the returned
     # tensor must have [dim] as outermost dimension.
-    rank = len(mu.shape.as_list())
+    rank = len(list(mu.shape))
     perm = [rank - 1] + list(range(rank - 1))
     mu = tf.transpose(mu, perm)
     return mu
@@ -887,7 +887,7 @@ def _coord_grid_to_mesh_grid(coord_grid):
 
 # TODO(b/192220570): Move this to the utility module
 def _get_static_shape(t):
-  t_shape = t.shape.as_list()
+  t_shape = list(t.shape)
   if None in t_shape:
     t_shape = tf.shape(t)
   return t_shape

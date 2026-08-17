@@ -14,7 +14,7 @@
 """Calibration methods for the SVI volatility model."""
 
 from typing import Callable, Tuple
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance.experimental.svi import parameterizations
@@ -36,7 +36,7 @@ def calibration(
     tolerance: types.RealTensor = 1e-6,
     x_tolerance: types.RealTensor = 0,
     f_relative_tolerance: types.RealTensor = 0,
-    maximum_iterations: types.IntTensor = 100,
+    maximum_iterations: types.IntTensor = 500,
     dtype: tf.DType = None,
     name: str = None
 ) -> Tuple[types.RealTensor, types.BoolTensor, types.IntTensor]:
@@ -58,7 +58,7 @@ def calibration(
 
   ```python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   forwards = np.array([2402.])
@@ -171,7 +171,9 @@ def calibration(
     total_variance = volatilities**2 * expiries[:, None]
 
     if optimizer_fn is None:
-      optimizer_fn = optimizer.conjugate_gradient_minimize
+      # Default to L-BFGS-B (scipy, robust) — CG via while_loop traces loss
+      # and diverges on real-market SVI multimodal landscape.
+      optimizer_fn = optimizer.lbfgs_minimize
 
     if initial_position is None:
       initial_position = _estimate_initial_position(log_moneyness,
@@ -258,7 +260,7 @@ def _estimate_initial_position(log_moneyness, total_variance):
   b = (e_xy - e_x * e_y) / var_x
   a = e_y - b * e_x
 
-  initial_position = tf.transpose([a, b, rho, m, sigma])
+  initial_position = tf.transpose(tf.stack([a, b, rho, m, sigma]))
   return initial_position
 
 
@@ -288,7 +290,7 @@ def _raw_svi_to_unconstrained(parameters):
   logb = tf.math.log(b)
   r = tf.math.log1p(rho) - tf.math.log1p(-rho)
   logsigma = tf.math.log(sigma)
-  return tf.transpose([logminvar, logb, r, m, logsigma])
+  return tf.transpose(tf.stack([logminvar, logb, r, m, logsigma]))
 
 
 def _unconstrained_to_raw_svi(unconstrained_parameters):
@@ -312,4 +314,4 @@ def _unconstrained_to_raw_svi(unconstrained_parameters):
   a = tf.math.exp(
       unconstrained_parameters[..., 0]) - b * sigma * tf.math.sqrt(1 - rho**2)
   # Return shape: `[batch_size, 5]`
-  return tf.transpose([a, b, rho, m, sigma])
+  return tf.transpose(tf.stack([a, b, rho, m, sigma]))

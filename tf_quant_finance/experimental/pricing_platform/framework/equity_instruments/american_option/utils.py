@@ -15,7 +15,7 @@
 
 from typing import Tuple
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import math
 from tf_quant_finance import models

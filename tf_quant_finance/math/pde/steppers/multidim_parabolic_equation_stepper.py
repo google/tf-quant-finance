@@ -13,7 +13,9 @@
 # limitations under the License.
 """Stepper for multidimensional parabolic PDE solving."""
 
-import tensorflow.compat.v2 as tf
+import jax
+import jax.numpy as jnp
+from tf_quant_finance import _tf as tf
 from tf_quant_finance import utils
 
 
@@ -256,7 +258,7 @@ def multidim_parabolic_equation_step(
     inner_first_order_coeff_fn = (
         inner_first_order_coeff_fn or (lambda *args: [None] * n_dims))
 
-    batch_rank = len(value_grid.shape.as_list()) - len(coord_grid)
+    batch_rank = value_grid.ndim - len(coord_grid)
 
     # Get information on default boundary conditions
     # For each dimension we verify if either of the upper of lower boundaries
@@ -603,7 +605,12 @@ def _construct_contribution_of_mixed_term(outer_coeff,
 
   # Function to add zeros to the default boundary as mixed term on the default
   # boundary is assumed to be zero
-  append_zeros_fn = lambda x: tf.pad(x, paddings)
+  import numpy as np
+  paddings_np = np.asarray(paddings)  # Convert to concrete array for jax.lax.pad
+  # Convert to tuple of tuples for lax.pad (must be static)
+  paddings_tuple = tuple((int(paddings_np[i, 0]), int(paddings_np[i, 1]), 0) 
+                        for i in range(paddings_np.shape[0]))
+  append_zeros_fn = lambda x: jax.lax.pad(x, jnp.asarray(0.0, dtype=x.dtype), paddings_tuple)
 
   if outer_coeff is not None:
     outer_coeff = _trim_boundaries(outer_coeff, batch_rank,
@@ -1065,12 +1072,12 @@ def _get_grid_delta(coord_grid, dim):
   # Retrieves delta along given dimension, assuming the grid is uniform.
   delta = coord_grid[dim][..., 1] - coord_grid[dim][..., 0]
   n = len(coord_grid)
-  if delta.shape.rank == 0:
+  if len(delta.shape) == 0:
     return delta
   else:  # Grid has a batch shape
     # Delta grid should broadcase with value grid
     # Shape batch_shape + n *[1]
-    return delta[[...] +  n * [tf.newaxis]]
+    return delta[tuple([...] + n * [tf.newaxis])]
 
 
 def _prepare_pde_coeff(raw_coeff, value_grid):
@@ -1112,7 +1119,7 @@ def _discretize_boundary_conditions(dx0, dx1, alpha, beta, gamma):
   if beta is None:
     # Dirichlet condition.
     if alpha is None:
-      raise ValueError(
+      raise tf.errors.InvalidArgumentError(
           "Invalid boundary conditions: alpha and beta can't both be None.")
     zeros = tf.zeros_like(gamma)
     return zeros, zeros, gamma / alpha
@@ -1132,7 +1139,7 @@ def _reshape_boundary_conds(raw_coeff, trim_from, expand_dim_at,
   """Reshapes boundary condition coefficients."""
   # If the coefficient is None, a number or a rank-0 tensor, return as-is.
   if (not tf.is_tensor(raw_coeff)
-      or len(raw_coeff.shape.as_list()) == 0):  # pylint: disable=g-explicit-length-test
+      or raw_coeff.ndim == 0):  # pylint: disable=g-explicit-length-test
     return raw_coeff
   # See explanation why we trim boundaries and expand dims in places where this
   # function is used.
@@ -1149,12 +1156,12 @@ def _slice(tensor, dim, start, end):
   # _slice(t, 1, 3, 5) is same as t[:, 3:5].
   # For a slice unbounded to the right, set end=0: _slice(t, 1, -3, 0) is same
   # as t[:, -3:].
-  rank = tensor.shape.rank
+  rank = len(tensor.shape)
   slices = rank * [slice(None)]
   if end == 0:
     end = None
   slices[dim] = slice(start, end)
-  return tensor[slices]
+  return tensor[tuple(slices)]
 
 
 def _trim_boundaries(tensor, from_dim, shifts=None,
@@ -1175,7 +1182,7 @@ def _trim_boundaries(tensor, from_dim, shifts=None,
   # trimming indices. E.g.,
   # _trim_boundaries(t, 1, lower_trim_indices=[1, 2, 3])  with a rank-4 tensor t
   # yields t[:, 1:-1, 2:-1, 3:-1].
-  rank = tensor.shape.rank
+  rank = len(tensor.shape)
   slices = rank * [slice(None)]
   for i in range(from_dim, rank):
     if lower_trim_indices is None:
@@ -1195,7 +1202,7 @@ def _trim_boundaries(tensor, from_dim, shifts=None,
     if isinstance(slice_end, int) and slice_end == 0:
       slice_end = None
     slices[i] = slice(slice_begin, slice_end)
-  res = tensor[slices]
+  res = tensor[tuple(slices)]
   return res
 
 

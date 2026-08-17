@@ -15,7 +15,7 @@
 
 from typing import Optional
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
@@ -85,7 +85,7 @@ class CirModel(generic_ito_process.GenericItoProcess):
         """`param` must has shape `batch_shape + [1]`."""
         param_shape = tff_utils.get_shape(param)
         # Last rank is `1`
-        return param_shape[:-1]
+        return list(param_shape[:-1])
 
       # Converts params to `Tensor` with shape `batch_shape + [1]`
       self._theta = _convert_param_to_tensor(theta)
@@ -98,7 +98,7 @@ class CirModel(generic_ito_process.GenericItoProcess):
       def _drift_fn(t, x):
         del t
 
-        expand_rank = tff_utils.get_shape(x).rank - self._batch_shape_rank - 1
+        expand_rank = len(tff_utils.get_shape(x)) - self._batch_shape_rank - 1
         # `axis` is -2, because the new dimension needs to be added before `1`
         theta_expand = self._expand_param_on_rank(
             self._theta, expand_rank, axis=-2)
@@ -162,7 +162,7 @@ class CirModel(generic_ito_process.GenericItoProcess):
     ## Example
 
     ```python
-    import tensorflow as tf
+    from tf_quant_finance import _tf as tf
     import tf_quant_finance as tff
 
     # In this example `batch_shape` is 2, so parameters has shape [2, 1]
@@ -211,7 +211,7 @@ class CirModel(generic_ito_process.GenericItoProcess):
       if random_type is None:
         random_type = random.RandomType.PSEUDO
       if random_type == random.RandomType.STATELESS and seed is None:
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             "`seed` equal to None is not supported with STATELESS random type.")
 
       return self._sample_paths(
@@ -337,4 +337,4 @@ class CirModel(generic_ito_process.GenericItoProcess):
       seed_fn = lambda seed, _: seed
       return tf.random.poisson, tf.random.gamma, seed_fn, seed_fn
     else:
-      raise ValueError("Only STATELESS and PSEUDO random types are supported.")
+      raise tf.errors.InvalidArgumentError("Only STATELESS and PSEUDO random types are supported.")

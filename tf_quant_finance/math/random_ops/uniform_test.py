@@ -16,10 +16,10 @@
 
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 tff_rnd = tff.math.random
 
@@ -70,7 +70,7 @@ class UniformTest(tf.test.TestCase):
                                               skip=skip,
                                               dtype=dtype)
       self.assertAllClose(sample, expected_samples)
-      self.assertEqual(sample.dtype.as_numpy_dtype, dtype)
+      self.assertEqual(sample.dtype, dtype)
 
   def test_halton_randomization_params(self):
     """Tests samples for the randomized Halton sequence."""

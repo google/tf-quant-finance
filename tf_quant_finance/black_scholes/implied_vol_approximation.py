@@ -14,7 +14,7 @@
 """Methods to approximate the implied vol of options from market prices."""
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 
 def implied_vol(*,
@@ -110,7 +110,7 @@ def implied_vol(*,
       supplied.
   """
   if (spots is None) == (forwards is None):
-    raise ValueError('Either spots or forwards must be supplied but not both.')
+    raise tf.errors.InvalidArgumentError('Either spots or forwards must be supplied but not both.')
 
   name = name or 'implied_vol'
   with tf.name_scope(name):

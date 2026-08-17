@@ -15,7 +15,7 @@
 import collections.abc
 import datetime
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.datetime import constants
 from tf_quant_finance.datetime import date_utils
@@ -338,11 +338,11 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     if period_type == constants.PeriodType.YEAR:
       y = self._years + period_tensor.quantity()
       # Use tf.shape to handle the case of dynamically shaped `y`
-      m = tf.broadcast_to(self._months, tf.shape(y))
+      m = tf.broadcast_to(self._months, y.shape)
       d = adjust_day(y, m, self._days)
       return from_year_month_day(y, m, d, validate=False)
 
-    raise ValueError("Unrecognized period type: {}".format(period_type))
+    raise tf.errors.InvalidArgumentError("Unrecognized period type: {}".format(period_type))
 
   def __sub__(self, period_tensor):
     """Subtracts a tensor of periods.
@@ -390,7 +390,7 @@ class DateTensor(tensor_wrapper.TensorWrapper):
     output = "DateTensor: shape={}".format(self.shape)
     if tf.executing_eagerly():
       contents_np = np.stack(
-          (self._years.numpy(), self._months.numpy(), self._days.numpy()),
+          (np.asarray(self._years), np.asarray(self._months), np.asarray(self._days)),
           axis=-1)
       return output + ", contents={}".format(repr(contents_np))
     return output
@@ -469,7 +469,7 @@ def convert_to_date_tensor(date_inputs):
     as_ordinals = tf.convert_to_tensor(date_inputs, dtype=tf.int32)
     return from_ordinals(as_ordinals)
   except ValueError as e:
-    raise ValueError("Failed to convert inputs to DateTensor. "
+    raise tf.errors.InvalidArgumentError("Failed to convert inputs to DateTensor. "
                      "Unrecognized format. Error: " + e)
 
 

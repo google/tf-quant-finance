@@ -22,8 +22,7 @@ import os
 from typing import Optional, Tuple
 
 import numpy as np
-from six.moves import range
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 
@@ -84,7 +83,7 @@ def sample(dim: int,
     control_dependencies = []
     if validate_args:
       if dim < 1:
-        raise ValueError(
+        raise tf.errors.InvalidArgumentError(
             'Dimension must be greater than zero. Supplied {}'.format(dim))
       control_dependencies.append(
           tf.debugging.assert_greater(

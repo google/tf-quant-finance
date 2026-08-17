@@ -17,11 +17,11 @@
 from absl.testing import parameterized
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
 
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -35,7 +35,7 @@ class HullWhiteTest(parameterized.TestCase, tf.test.TestCase):
       return 0.01 * tf.ones_like(t)
     self.instant_forward_rate_1d_fn = instant_forward_rate_1d_fn
     def instant_forward_rate_2d_fn(t):
-      return 0.01 * tf.ones(t.shape.as_list() + [2], dtype=t.dtype)
+      return 0.01 * tf.ones(list(t.shape) + [2], dtype=t.dtype)
     self.instant_forward_rate_2d_fn = instant_forward_rate_2d_fn
     self.initial_state = [0.01, 0.01]
     # See D. Brigo, F. Mercurio. Interest Rate Models. 2007.

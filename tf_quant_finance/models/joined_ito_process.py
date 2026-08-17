@@ -13,7 +13,7 @@
 # limitations under the License.
 """Join a sequence of Ito Processes with specified correlations."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance.models import euler_sampling
 from tf_quant_finance.models import generic_ito_process
@@ -55,7 +55,7 @@ class JoinedItoProcess(generic_ito_process.GenericItoProcess):
   # Example. # Black-scholes and Heston model join.
   ```python
   import numpy as np
-  import tensorflow as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64
@@ -143,7 +143,7 @@ class JoinedItoProcess(generic_ito_process.GenericItoProcess):
       dim = 0  # Dimension of the process
       for process in processes:
         if not isinstance(process, ito_process.ItoProcess):
-          raise ValueError(
+          raise tf.errors.InvalidArgumentError(
               "All input process of JoinedItoProcess must be instances "
               "of the ItoProcess class.")
         self._processes.append(process)
@@ -152,7 +152,7 @@ class JoinedItoProcess(generic_ito_process.GenericItoProcess):
         if dtype is None:
           dtype = process.dtype()
         elif dtype != process.dtype():
-          raise ValueError("All processes should have the same `dtype`")
+          raise tf.errors.InvalidArgumentError("All processes should have the same `dtype`")
       self._corr_structure = [
           corr if callable(corr) else tf.convert_to_tensor(
               corr, dtype=dtype, name="corr")
@@ -188,7 +188,7 @@ class JoinedItoProcess(generic_ito_process.GenericItoProcess):
           vol = tf.convert_to_tensor(p.volatility_fn()(t, position),
                                      dtype=dtype,
                                      name="volatility")
-          vol = tf.broadcast_to(vol, position.shape + [dim])
+          vol = tf.broadcast_to(vol, list(position.shape) + [dim])
           vols.append(vol)
           i1 += dim
         # Convert block diagonal volatilities to a dense correlation matrix
@@ -256,7 +256,7 @@ class JoinedItoProcess(generic_ito_process.GenericItoProcess):
       ValueError: If `time_step` is not supplied.
     """
     if time_step is None:
-      raise ValueError("`time_step` has to be supplied for JoinedItoProcess "
+      raise tf.errors.InvalidArgumentError("`time_step` has to be supplied for JoinedItoProcess "
                        "`sample_paths` method.")
     name = name or self._name + "sample_paths"
     with tf.name_scope(name):
@@ -296,7 +296,7 @@ def _get_parameters(times, *params):
       # Used only in drift and volatility computation.
       # Here `times` is of shape [1]
       t = tf.squeeze(times)
-      # The result has to have shape [1] + param.shape
+      # The result has to have shape [1] + list(param.shape)
       param_value = tf.convert_to_tensor(param(t), dtype=times.dtype,
                                          name="param_value")
       res.append(tf.expand_dims(param_value, 0))

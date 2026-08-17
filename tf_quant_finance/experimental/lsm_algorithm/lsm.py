@@ -15,7 +15,9 @@
 """Implementation of the regression MC algorithm of Longstaff and Schwartz."""
 
 import collections
-import tensorflow.compat.v2 as tf
+import jax
+import jax.numpy as jnp
+from tf_quant_finance import _tf as tf
 
 
 LsmLoopVars = collections.namedtuple(
@@ -79,7 +81,7 @@ def make_polynomial_basis(degree):
       A `Tensor`s of shape `[degree * dim, num_samples]`.
     """
     samples = tf.convert_to_tensor(sample_paths)
-    dim = samples.shape.as_list()[-1]
+    dim = list(samples.shape)[-1]
     grid = tf.range(0, degree + 1, dtype=samples.dtype)
 
     samples_centered = samples - tf.math.reduce_mean(samples, axis=0)
@@ -193,7 +195,7 @@ def least_square_mc(sample_paths,
     sample_paths = tf.convert_to_tensor(sample_paths,
                                         dtype=dtype, name='sample_paths')
     exercise_times = tf.convert_to_tensor(exercise_times, name='exercise_times')
-    num_times = exercise_times.shape.as_list()[-1]
+    num_times = list(exercise_times.shape)[-1]
     if discount_factors is None:
       discount_factors = tf.ones(shape=exercise_times.shape,
                                  dtype=sample_paths.dtype,
@@ -201,7 +203,7 @@ def least_square_mc(sample_paths,
     else:
       discount_factors = tf.convert_to_tensor(
           discount_factors, dtype=dtype, name='discount_factors')
-      if discount_factors.shape.rank == 1:
+      if len(discount_factors.shape) == 1:
         discount_factors = tf.expand_dims(discount_factors, axis=0)
 
     discount_factors = tf.concat([
@@ -213,23 +215,26 @@ def least_square_mc(sample_paths,
     # Calculate the payoff of each path if exercised now. Shape
     # [num_samples, payoff_dim]
     exercise_value = payoff_fn(sample_paths, tick)
-    zeros = tf.zeros(exercise_value.shape + [num_times - 1],
+    zeros = tf.zeros(list(exercise_value.shape) + [num_times - 1],
                      dtype=exercise_value.dtype)
     exercise_value = tf.expand_dims(exercise_value, -1)
 
     # Shape [num_samples, payoff_dim, num_exercise]
     cashflow = tf.concat([zeros, exercise_value], -1)
     # Starting state for loop iteration.
-    lsm_loop_vars = LsmLoopVars(exercise_index=num_times - 1, cashflow=cashflow)
-    def loop_body(exercise_index, cashflow):
-      return _lsm_loop_body(sample_paths, exercise_times, discount_factors,
-                            payoff_fn, basis_fn,
-                            num_times, exercise_index, cashflow)
-
-    loop_value = tf.while_loop(lsm_loop_cond, loop_body, lsm_loop_vars,
-                               maximum_iterations=num_times)
+    cashflow = cashflow
+    exercise_index = num_times - 1
+    # Use Python for loop instead of while_loop for concrete exercise_index
+    # (JAX requires static slice indices)
+    for _ in range(num_times):
+      if exercise_index <= 0:
+        break
+      exercise_index, cashflow = _lsm_loop_body(
+          sample_paths, exercise_times, discount_factors,
+          payoff_fn, basis_fn,
+          num_times, exercise_index, cashflow)
     present_values = continuation_value_fn(
-        loop_value.cashflow, discount_factors, 0)
+        cashflow, discount_factors, 0)
     return tf.math.reduce_mean(present_values, axis=0)
 
 
@@ -293,7 +298,7 @@ def expected_exercise_fn(design, continuation_value, exercise_value):
   # hence we create multiple copies of the regression design (basis) matrix and
   # zero out rows for out of the money paths under each payoff.
   batch_design = tf.broadcast_to(
-      tf.expand_dims(design, -1), design.shape + [continuation_value.shape[-1]])
+      tf.expand_dims(design, -1), list(design.shape) + [continuation_value.shape[-1]])
   mask = tf.cast(exercise_value > 0, design.dtype)
   # Zero out contributions from samples we'd never exercise at this point (i.e.,
   # these extra observations do not change the regression coefficients).
@@ -328,7 +333,7 @@ def _updated_cashflow(num_times, exercise_index, exercise_value,
   new_samp_masked = tf.expand_dims(scaled_do_exercise, 2)
   # This should be one on the current time step and zero otherwise.
   # This is an array with nonzero entries showing newly exercised payoffs.
-  pad_shape = scaled_do_exercise.shape.as_list()
+  pad_shape = list(scaled_do_exercise.shape)
   zeros_before = tf.zeros(pad_shape + [exercise_index - 1],
                           dtype=scaled_do_exercise.dtype)
   zeros_after = tf.zeros(pad_shape + [num_times - exercise_index],
@@ -376,5 +381,5 @@ def _lsm_loop_body(sample_paths, exercise_times, discount_factors, payoff_fn,
   rev_cash = _updated_cashflow(num_times, exercise_index, exercise_value,
                                expected_continuation,
                                cashflow)
-  rev_cash.set_shape(cashflow.shape)
+  # TF set_shape is a static-shape assertion; JAX shapes are already static.
   return LsmLoopVars(exercise_index=exercise_index - 1, cashflow=rev_cash)

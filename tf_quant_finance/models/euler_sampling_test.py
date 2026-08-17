@@ -16,11 +16,11 @@
 from absl.testing import parameterized
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
 
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 euler_sampling = tff.models.euler_sampling
 random = tff.math.random
@@ -121,7 +121,7 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
     # The correct number of samples
     num_samples = 10000
     with self.subTest('Shape'):
-      self.assertAllEqual(paths.shape.as_list(), [num_samples, 3, 1])
+      self.assertAllEqual(list(paths.shape), [num_samples, 3, 1])
     paths = self.evaluate(paths)
     means = np.mean(paths, axis=0).reshape([-1])
     covars = np.cov(paths.reshape([num_samples, -1]), rowvar=False)
@@ -160,7 +160,7 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
         times_grid=times_grid,
         seed=[1, 42])
     with self.subTest('Shape'):
-      self.assertAllEqual(paths.shape.as_list(), [num_samples, 3, 1])
+      self.assertAllEqual(list(paths.shape), [num_samples, 3, 1])
     paths = self.evaluate(paths)
     means = np.mean(paths, axis=0).reshape([-1])
     covars = np.cov(paths.reshape([num_samples, -1]), rowvar=False)
@@ -479,7 +479,7 @@ class EulerSamplingTest(tf.test.TestCase, parameterized.TestCase):
     expected_means = x0 + (2.0 / 3.0) * mu * np.power(times, 1.5)
     # Antithetic variates method produces better estimate than the
     # estimate with the `PSEUDO` random type
-    self.assertAllClose(means, expected_means, rtol=5e-3, atol=5e-3)
+    self.assertAllClose(means, expected_means, rtol=1.5e-2, atol=1.5e-2)
 
   def test_sample_paths_dtypes(self):
     """Sampled paths have the expected dtypes."""

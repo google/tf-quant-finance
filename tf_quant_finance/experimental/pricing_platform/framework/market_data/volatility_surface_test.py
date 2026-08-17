@@ -14,10 +14,10 @@
 """Tests for rate_curve.py."""
 
 from absl.testing import parameterized
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 volatility_surface = tff.experimental.pricing_platform.framework.market_data.volatility_surface
 dateslib = tff.datetime

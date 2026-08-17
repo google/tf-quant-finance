@@ -15,7 +15,8 @@
 
 import enum
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
+import numpy as np
 
 
 @enum.unique
@@ -89,7 +90,7 @@ def implied_volatility(*,
   #### Example
   ```python
   import tf_quant_finance as tff
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
 
   equiv_vol = tff.models.sabr.approximations.implied_volatility(
       strikes=np.array([106.0, 11.0]),
@@ -213,12 +214,12 @@ def implied_volatility(*,
       return (adj_alpha * (1.0 / sqrt_adj_moneyness) * (1.0 / denom) *
               zeta_by_xhat * (1.0 + correction_1 + correction_2 + correction_3))
     else:
-      raise ValueError('Invalid value of `volatility_type`')
+      raise tf.errors.InvalidArgumentError('Invalid value of `volatility_type`')
 
 
 def _epsilon(dtype):
-  dtype = tf.as_dtype(dtype).as_numpy_dtype
-  eps = 1e-6 if dtype == tf.float32.as_numpy_dtype else 1e-10
+  dtype = tf.as_dtype(dtype)
+  eps = 1e-6 if dtype == tf.float32 else 1e-10
   return eps
 
 

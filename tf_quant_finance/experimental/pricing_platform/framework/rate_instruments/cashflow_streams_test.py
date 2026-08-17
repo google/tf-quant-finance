@@ -13,10 +13,10 @@
 # limitations under the License.
 """Tests for cashflow streams."""
 from absl.testing import parameterized
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 cashflow_streams = tff.experimental.pricing_platform.framework.rate_instruments.cashflow_streams
 coupon_specs = tff.experimental.pricing_platform.framework.rate_instruments.coupon_specs

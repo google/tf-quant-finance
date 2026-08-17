@@ -16,8 +16,7 @@
 from typing import Callable, Tuple
 
 import numpy as np
-import tensorflow.compat.v2 as tf
-import tensorflow_probability as tfp
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils
@@ -156,7 +155,7 @@ def calibration_from_swaptions(
 
   ````python
   import numpy as np
-  import tensorflow.compat.v2 as tf
+  from tf_quant_finance import _tf as tf
   import tf_quant_finance as tff
 
   dtype = tf.float64
@@ -241,15 +240,15 @@ def calibration_from_swaptions(
       expiration of the swaptions.
     floating_leg_start_times: A real `Tensor` of the same dtype as `prices`. The
       times when accrual begins for each payment in the floating leg. The shape
-      of this input should be `expiries.shape + [m]` where `m` denotes the
+      of this input should be `list(expiries.shape) + [m]` where `m` denotes the
       number of floating payments in each leg.
     floating_leg_end_times: A real `Tensor` of the same dtype as `prices`. The
       times when accrual ends for each payment in the floating leg. The shape of
-      this input should be `expiries.shape + [m]` where `m` denotes the number
+      this input should be `list(expiries.shape) + [m]` where `m` denotes the number
       of floating payments in each leg.
     fixed_leg_payment_times: A real `Tensor` of the same dtype as `prices`. The
       payment times for each payment in the fixed leg. The shape of this input
-      should be `expiries.shape + [n]` where `n` denotes the number of fixed
+      should be `list(expiries.shape) + [n]` where `n` denotes the number of fixed
       payments in each leg.
     floating_leg_daycount_fractions: A real `Tensor` of the same dtype and
       compatible shape as `floating_leg_start_times`. The daycount fractions for
@@ -449,7 +448,7 @@ def calibration_from_swaptions(
         swaption_valuation_method or vm.ValuationMethod.MONTE_CARLO)
 
     if optimizer_fn is None:
-      optimizer_fn = optimizer.conjugate_gradient_minimize
+      optimizer_fn = optimizer.lbfgs_minimize  # CG blocked by while_loop VJP
 
     def _price_to_normal_vol(x, swap_rate, annuity):
       vols = implied_vol(
@@ -470,7 +469,7 @@ def calibration_from_swaptions(
           float_leg_start_times, float_leg_end_times, fixed_leg_payment_times,
           fixed_leg_daycount_fractions, reference_rate_fn)
       # Because we require `reference_rate_fn` to return a Tensor of shape
-      # `[batch_shape] + t.shape`, we get cross product terms that we don't
+      # `[batch_shape] + list(t.shape)`, we get cross product terms that we don't
       # need. The logic below takes `swap_rate` and `annuity` from shape
       # `[batch_shape, batch_shape, num_instruments]` to
       # `[batch_shape, num_instruments]`
@@ -483,11 +482,12 @@ def calibration_from_swaptions(
                          axis=-1)
       swap_rate = tf.gather_nd(swap_rate, indices)
       annuity = tf.gather_nd(annuity, indices)
-      swap_rate = tf.reshape(swap_rate, tf.shape(prices))
-      annuity = tf.reshape(annuity, tf.shape(prices))
+      swap_rate = tf.reshape(swap_rate, prices.shape)
+      annuity = tf.reshape(annuity, prices.shape)
       target_values = _price_to_normal_vol(prices, swap_rate, annuity)
     else:
       target_values = prices
+    target_values = tf.convert_to_tensor(target_values, dtype=dtype)
 
     with tf.control_dependencies([target_values]):
       tf.debugging.assert_all_finite(
@@ -513,8 +513,9 @@ def calibration_from_swaptions(
       init_corr = tf.range(0.1, num_thetas + 0.1, dtype=dtype) / num_thetas
     else:
       init_corr = []
-      if mean_reversion.shape.rank > 1:
-        init_corr = [[]] * mean_reversion.shape.rank
+      if len(mean_reversion.shape) > 1:
+        init_corr = [[]] * len(mean_reversion.shape)
+      init_corr = tf.convert_to_tensor(init_corr, dtype=dtype)
 
     initial_guess = tf.concat([
         _to_unconstrained(mean_reversion, mr_lb, mr_ub),
@@ -532,7 +533,7 @@ def calibration_from_swaptions(
 
       if calibrate_correlation:
         thetas = x[..., 2 * num_hjm_factors:]
-        thetas = tfp.math.clip_by_value_preserve_gradient(thetas, -25.0, 25.0)
+        thetas = tf.clip(thetas, -25.0, 25.0)
         x_corr = _correlation_matrix_using_hypersphere_decomposition(
             num_hjm_factors, _to_constrained(thetas, theta_lb, theta_ub))
       else:

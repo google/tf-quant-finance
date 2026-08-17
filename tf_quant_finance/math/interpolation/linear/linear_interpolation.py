@@ -14,7 +14,7 @@
 
 """Linear interpolation method."""
 
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 from tf_quant_finance import types
 from tf_quant_finance import utils as tff_utils
@@ -101,12 +101,15 @@ def interpolate(x: types.RealTensor,
     dtype = dtype or x.dtype
     x_data = tf.convert_to_tensor(x_data, dtype=dtype, name='x_data')
     y_data = tf.convert_to_tensor(y_data, dtype=dtype, name='y_data')
+    # Check for empty knots
+    if x_data.size == 0 or y_data.size == 0:
+      raise ValueError('x_data and y_data must not be empty.')
     # Try broadcast batch_shapes
     x, x_data, y_data = tff_utils.broadcast_common_batch_shape(
         x, x_data, y_data)
 
     # Rank of the inputs is known
-    batch_rank = x.shape.rank - 1
+    batch_rank = len(x.shape) - 1
     if batch_rank == 0:
       x = tf.expand_dims(x, 0)
       x_data = tf.expand_dims(x_data, 0)
@@ -174,7 +177,7 @@ def interpolate(x: types.RealTensor,
           return tf.math.reduce_sum(tf.expand_dims(x, axis=-2) * encoding,
                                     axis=-1)
         else:
-          return tf.gather(x, encoding, axis=-1, batch_dims=x.shape.rank - 1)
+          return tf.gather(x, encoding, axis=-1, batch_dims=len(x.shape) - 1)
       x_data_lower = get_slice(x_data, lower_encoding)
       x_data_upper = get_slice(x_data, upper_encoding)
       y_data_lower = get_slice(y_data, lower_encoding)

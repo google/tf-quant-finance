@@ -16,11 +16,11 @@
 from absl.testing import parameterized
 
 import numpy as np
-import tensorflow.compat.v2 as tf
+from tf_quant_finance import _tf as tf
 
 import tf_quant_finance as tff
 
-from tensorflow.python.framework import test_util  # pylint: disable=g-direct-tensorflow-import
+from tf_quant_finance._tf import test_util
 
 HestonModel = tff.models.HestonModel
 grids = tff.math.pde.grids
@@ -241,7 +241,7 @@ class HestonModelTest(parameterized.TestCase, tf.test.TestCase):
         num_samples=1000,
         random_type=tff.math.random.RandomType.STATELESS_ANTITHETIC,
         seed=[1, 42])
-    self.assertEqual(samples.shape, [1000, 2, 2])
+    self.assertEqual(tuple(samples.shape), tuple([1000, 2, 2]))
     log_spots = samples[:, -1, 0]
     monte_carlo_price = (
         tf.constant(np.exp(-discounting * maturity_time), dtype=dtype) *
@@ -343,7 +343,7 @@ class HestonModelTest(parameterized.TestCase, tf.test.TestCase):
         num_time_steps=num_time_steps,
         normal_draws=normal_draws,
         times_grid=times_grid)
-    self.assertEqual(samples.shape, [10000, 2, 2])
+    self.assertEqual(tuple(samples.shape), tuple([10000, 2, 2]))
     log_spots = samples[:, -1, 0]
     monte_carlo_price = (
         np.exp(-discounting * maturity_time) *
