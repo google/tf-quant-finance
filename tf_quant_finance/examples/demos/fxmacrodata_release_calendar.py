@@ -32,7 +32,7 @@ except ImportError:  # pragma: no cover
     from urllib2 import Request
     from urllib2 import urlopen
 
-FXMACRODATA_BASE_URL = "https://fxmacrodata.com/api/v1"
+FXMACRODATA_BASE_URL = "https://api.fxmacrodata.com/v1"
 FXMACRODATA_API_KEY_ENV_VARS = ("FXMACRODATA_API_KEY", "FXMD_API_KEY")
 
 
