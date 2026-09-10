@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.build/
+bazel-*
+bazel-bin/
+bazel-out/
+bazel-testlogs/
+dist/
+build/
+artifacts/
+.venv/
