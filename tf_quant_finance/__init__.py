@@ -53,11 +53,8 @@ def _ensure_tf_install():  # pylint: disable=g-statement-before-imports
           "the most recent version of TensorFlow, by following instructions at "
           "https://tensorflow.org/install.\n\n")
     raise
-
-  import distutils.version
-
-  if (distutils.version.LooseVersion(tf.__version__) <
-      distutils.version.LooseVersion(_REQUIRED_TENSORFLOW_VERSION)):
+  from tf_quant_finance._version import version_tuple
+  if version_tuple(tf.__version__) < version_tuple(_REQUIRED_TENSORFLOW_VERSION):
     raise ImportError(
         "This version of TF Quant Finance library requires TensorFlow "
         "version >= {required}; Detected an installation of version {present}. "

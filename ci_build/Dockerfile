@@ -1,7 +1,7 @@
 FROM ubuntu:focal
 
 # sudo isn't really needed, but we include it for convenience
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl wget build-essential rsync sudo python3 python3-dev python3-distutils python-is-python3 git
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl wget build-essential rsync sudo python3 python3-dev python-is-python3 git
 
 # Install the latest version of pip.
 RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
@@ -21,5 +21,4 @@ RUN python3 -m pip install --upgrade protobuf==3.20.3
 WORKDIR /workspace
 
 ENTRYPOINT ["bazel"]
-
 
