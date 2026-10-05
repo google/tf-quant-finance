@@ -24,19 +24,33 @@ import os
 import tensorflow.compat.v2 as tf
 
 try:
+    from urllib.error import HTTPError
     from urllib.parse import urlencode
+    from urllib.request import HTTPRedirectHandler
     from urllib.request import Request
-    from urllib.request import urlopen
+    from urllib.request import build_opener
 except ImportError:  # pragma: no cover
     from urllib import urlencode
+    from urllib2 import HTTPError
+    from urllib2 import HTTPRedirectHandler
     from urllib2 import Request
-    from urllib2 import urlopen
+    from urllib2 import build_opener
 
 FXMACRODATA_BASE_URL = "https://api.fxmacrodata.com/v1"
 FXMACRODATA_API_KEY_ENV_VARS = ("FXMACRODATA_API_KEY", "FXMD_API_KEY")
 # List endpoints return at most 100 rows per request, newest first.
 FXMACRODATA_PAGE_SIZE = 100
 FXMACRODATA_MAX_PAGES = 1000
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    """Never follows redirects, so the API key is not sent to another host."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = build_opener(_NoRedirect)
 
 
 def _env_api_key():
@@ -51,18 +65,29 @@ def fetch_fxmacrodata(path, params=None, api_key=None, base_url=FXMACRODATA_BASE
     """Fetches a raw FXMacroData read endpoint payload."""
     query = {k: v for k, v in (params or {}).items() if v is not None}
     headers = {"User-Agent": "fxmacrodata-tfq-demo"}
-    token = api_key or _env_api_key()
+    token = (api_key or _env_api_key() or "").strip()
     if token:
+        if any(ord(char) < 33 or ord(char) == 127 for char in token):
+            raise ValueError(
+                "FXMacroData API key contains whitespace or control characters")
         headers["X-API-Key"] = token
     url = "%s/%s" % (base_url.rstrip("/"), path.lstrip("/"))
     if query:
         url = "%s?%s" % (url, urlencode(query))
     request = Request(url, headers=headers)
-    response = urlopen(request, timeout=30)  # nosec B310
     try:
-        return json.loads(response.read().decode("utf-8"))
+        response = _OPENER.open(request, timeout=30)  # nosec B310
+    except HTTPError as e:
+        raise ValueError("FXMacroData request failed with HTTP %d" % e.code)
+    try:
+        payload = json.loads(response.read().decode("utf-8"))
     finally:
         response.close()
+    if not isinstance(payload, (dict, list)) or (
+        isinstance(payload, dict) and "detail" in payload and "data" not in payload
+    ):
+        raise ValueError("FXMacroData returned an unexpected response")
+    return payload
 
 
 def fetch_fxmacrodata_rows(
@@ -91,7 +116,7 @@ def fetch_fxmacrodata_rows(
 def payload_rows(payload):
     data = payload.get("data", []) if isinstance(payload, dict) else payload
     if isinstance(data, list):
-        return data
+        return [row for row in data if isinstance(row, dict)]
     if isinstance(data, dict):
         return [
             dict({"indicator": key}, **value)
