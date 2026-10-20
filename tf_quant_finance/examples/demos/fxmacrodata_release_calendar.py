@@ -25,6 +25,7 @@ import tensorflow.compat.v2 as tf
 
 try:
     from urllib.error import HTTPError
+    from urllib.error import URLError
     from urllib.parse import urlencode
     from urllib.request import HTTPRedirectHandler
     from urllib.request import Request
@@ -32,6 +33,7 @@ try:
 except ImportError:  # pragma: no cover
     from urllib import urlencode
     from urllib2 import HTTPError
+    from urllib2 import URLError
     from urllib2 import HTTPRedirectHandler
     from urllib2 import Request
     from urllib2 import build_opener
@@ -78,13 +80,19 @@ def fetch_fxmacrodata(path, params=None, api_key=None, base_url=FXMACRODATA_BASE
     try:
         response = _OPENER.open(request, timeout=30)  # nosec B310
     except HTTPError as e:
-        raise ValueError("FXMacroData request failed with HTTP %d" % e.code)
+        e.close()
+        raise ValueError("FXMacroData request failed with HTTP %d" % e.code) from None
+    except (URLError, OSError):
+        raise ValueError("FXMacroData request failed") from None
     try:
-        payload = json.loads(response.read().decode("utf-8"))
+        try:
+            payload = json.loads(response.read().decode("utf-8"))
+        except (ValueError, OSError):
+            raise ValueError("FXMacroData returned an unreadable JSON response") from None
     finally:
         response.close()
     if not isinstance(payload, (dict, list)) or (
-        isinstance(payload, dict) and "detail" in payload and "data" not in payload
+        isinstance(payload, dict) and (payload.get("error") or payload.get("detail"))
     ):
         raise ValueError("FXMacroData returned an unexpected response")
     return payload
@@ -105,18 +113,38 @@ def fetch_fxmacrodata_rows(
         query = dict(params or {}, limit=page_size, offset=offset)
         payload = fetch_fxmacrodata(path, query, api_key=api_key, base_url=base_url)
         page = payload_rows(payload)
-        rows.extend(page)
-        pagination = payload.get("pagination") if isinstance(payload, dict) else None
-        if not page or not pagination or not pagination.get("has_more"):
+        rows.extend(page[:page_size])
+        if limit is not None and len(rows) >= int(limit):
             break
-        offset = pagination.get("next_offset") or offset + len(page)
+        pagination = payload.get("pagination") if isinstance(payload, dict) else None
+        if pagination is None:
+            break
+        if not isinstance(pagination, dict):
+            raise ValueError("FXMacroData returned invalid pagination")
+        has_more = pagination.get("has_more", False)
+        if type(has_more) is not bool:
+            raise ValueError("FXMacroData returned invalid pagination")
+        if not has_more:
+            break
+        if not page:
+            raise ValueError("FXMacroData returned an empty page with more rows pending")
+        next_offset = pagination.get("next_offset")
+        if next_offset is None:
+            next_offset = offset + len(page)
+        if type(next_offset) is not int or next_offset <= offset:
+            raise ValueError("FXMacroData pagination did not advance")
+        offset = next_offset
+    else:
+        raise ValueError("FXMacroData pagination exceeded the page limit")
     return rows
 
 
 def payload_rows(payload):
-    data = payload.get("data", []) if isinstance(payload, dict) else payload
+    data = payload.get("data") if isinstance(payload, dict) else payload
     if isinstance(data, list):
-        return [row for row in data if isinstance(row, dict)]
+        if not all(isinstance(row, dict) for row in data):
+            raise ValueError("FXMacroData returned invalid rows")
+        return data
     if isinstance(data, dict):
         return [
             dict({"indicator": key}, **value)
@@ -124,7 +152,7 @@ def payload_rows(payload):
             else {"indicator": key, "value": value}
             for key, value in data.items()
         ]
-    return []
+    raise ValueError("FXMacroData returned an unexpected row response")
 
 
 def fetch_event_time_tensor(
